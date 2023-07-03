@@ -1,0 +1,7 @@
+Run this first
+
+q)\l /<path to project>/KxSystems/cookbook/start/buildhdb.q
+q)\l start/db
+q)count trade
+619700
+q)\p 5001
