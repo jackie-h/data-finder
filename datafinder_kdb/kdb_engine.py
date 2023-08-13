@@ -1,4 +1,5 @@
-from datafinder.operation import Operation, QueryEngine
+from datafinder import Operation, QueryEngine, DataFrame
+
 import pykx as kx
 import numpy as np
 import pandas as pd
@@ -17,7 +18,7 @@ class QConnect:
         return res
 
 
-class Output:
+class KxOutput(DataFrame):
     __table: kx.Table
 
     def __init__(self, t: kx.Table):
