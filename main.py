@@ -28,18 +28,25 @@ class EqOperation(Operation):
 
 
 class StringAttribute:
+    __name:str
+
+    def __init__(self, name:str):
+        self.__name = name
 
     @staticmethod
     def eq(value: str) -> Operation:
         return EqOperation(value)
 
+    def _column_name(self) -> str:
+        return self.__name
+
 
 class QConnect:
 
     @staticmethod
-    def run(table:str, op:Operation) -> kx.Table:
+    def select(table:str, op:Operation, columns:list[str]) -> kx.Table:
         conn = kx.QConnection('localhost', 5001)
-        res = conn.qsql.select(table, ['sym','price'])
+        res = conn.qsql.select(table, columns)
         return res
 
 
@@ -61,23 +68,30 @@ class Output:
 class TradeFinder:
 
     __table = 'trade'
-    __sym = StringAttribute()
+    __symbol = StringAttribute('sym')
 
     @staticmethod
-    def sym() -> StringAttribute():
-        return TradeFinder.__sym
+    def symbol() -> StringAttribute:
+        return TradeFinder.__symbol
 
     @staticmethod
-    def find_all(date_from:datetime.date, date_to:datetime.date, as_of:str, op:Operation) -> Output:
-        kx_out = QConnect.run(TradeFinder.__table, op)
+    def find_all(date_from:datetime.date, date_to:datetime.date, as_of:str,
+                 filter_op: Operation,
+                 display_columns: list[StringAttribute]) -> Output:
+        cols = []
+        for dc in display_columns:
+            cols.append(dc._column_name())
+        kx_out = QConnect.select(TradeFinder.__table, filter_op, cols)
         return Output(kx_out)
 
 
 def find_trades():
     print(f'Finding trades')
 
-    op:Operation = TradeFinder.sym().eq("AAPL")
-    trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST", op)
+    op:Operation = TradeFinder.symbol().eq("AAPL")
+    trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
+                                  op,
+                                  [TradeFinder.symbol()])
     np_trades = trades.to_numpy()
     print(np_trades)
     pd = trades.to_pandas()
