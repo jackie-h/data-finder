@@ -74,8 +74,11 @@ def find_trades():
     print(f'Finding trades')
 
     op:Operation = TradeFinder.sym().eq("AAPL")
-    trades = TradeFinder.find_all([],[], "LATEST", op).to_numpy()
-    print(trades)
+    trades = TradeFinder.find_all([],[], "LATEST", op)
+    np_trades = trades.to_numpy()
+    print(np_trades)
+    pd = trades.to_pandas()
+    print(pd)
 
 
 # Press the green button in the gutter to run the script.
