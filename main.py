@@ -4,6 +4,7 @@ import pykx as kx
 import numpy as np
 import pandas as pd
 
+
 # Interface
 class Operation:
 
@@ -11,12 +12,12 @@ class Operation:
         """Overrides FormalParserInterface.load_data_source()"""
         pass
 
+
 class BusinessTemporalOperation(Operation):
 
     #TODO - which date format should we use
     __business_date_from_inclusive:datetime.date
     __business_date_to_inclusive:datetime.date
-
 
 
 class EqOperation(Operation):
@@ -32,6 +33,7 @@ class StringAttribute:
     def eq(value: str) -> Operation:
         return EqOperation(value)
 
+
 class QConnect:
 
     @staticmethod
@@ -39,6 +41,7 @@ class QConnect:
         conn = kx.QConnection('localhost', 5001)
         res = conn.qsql.select(table, ['sym','price'])
         return res
+
 
 class Output:
     __table:kx.Table
@@ -53,6 +56,7 @@ class Output:
     #https://code.kx.com/pykx/1.6/getting-started/quickstart.html#converting-pykx-objects-to-common-python-types
     def to_pandas(self) -> pd.DataFrame:
         return self.__table.pd()
+
 
 class TradeFinder:
 
@@ -69,8 +73,6 @@ class TradeFinder:
         return Output(kx_out)
 
 
-
-
 def find_trades():
     print(f'Finding trades')
 
@@ -82,7 +84,6 @@ def find_trades():
     print(pd)
 
 
-# Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     find_trades()
 
