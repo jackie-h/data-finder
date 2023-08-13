@@ -27,18 +27,34 @@ class EqOperation(Operation):
         self.__value = value
 
 
-class StringAttribute:
+class Attribute:
     __name:str
 
     def __init__(self, name:str):
         self.__name = name
 
+    def _column_name(self) -> str:
+        return self.__name
+
+
+class StringAttribute(Attribute):
+
+    def __init__(self, name: str):
+        super().__init__(name)
+
     @staticmethod
     def eq(value: str) -> Operation:
         return EqOperation(value)
 
-    def _column_name(self) -> str:
-        return self.__name
+
+class FloatAttribute(Attribute):
+
+    def __init__(self, name: str):
+        super().__init__(name)
+
+    @staticmethod
+    def eq(value: float) -> Operation:
+        return EqOperation(value)
 
 
 class QConnect:
@@ -69,10 +85,15 @@ class TradeFinder:
 
     __table = 'trade'
     __symbol = StringAttribute('sym')
+    __price = FloatAttribute('price')
 
     @staticmethod
     def symbol() -> StringAttribute:
         return TradeFinder.__symbol
+
+    @staticmethod
+    def price() -> FloatAttribute:
+        return TradeFinder.__price
 
     @staticmethod
     def find_all(date_from:datetime.date, date_to:datetime.date, as_of:str,
@@ -91,7 +112,7 @@ def find_trades():
     op:Operation = TradeFinder.symbol().eq("AAPL")
     trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
                                   op,
-                                  [TradeFinder.symbol()])
+                                  [TradeFinder.symbol(), TradeFinder.price()])
     np_trades = trades.to_numpy()
     print(np_trades)
     pd = trades.to_pandas()
