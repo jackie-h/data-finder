@@ -5,11 +5,26 @@ import numpy as np
 import pandas as pd
 
 
+class QueryEngine:
+
+    __where:list[str] = []
+
+    def append_where_clause(self, clause:str):
+        self.__where.append(clause)
+
+    def build_query_string(self) -> str:
+        return ','.join(self.__where)
+
+
 # Interface
 class Operation:
 
-    def load_data_source(self, path: str, file_name: str) -> str:
-        """Overrides FormalParserInterface.load_data_source()"""
+    def generate_query(self, query: QueryEngine):
+        pass
+
+
+class AndOperation(Operation):
+    def generate_query(self, query: QueryEngine):
         pass
 
 
@@ -20,41 +35,75 @@ class BusinessTemporalOperation(Operation):
     __business_date_to_inclusive:datetime.date
 
 
-class EqOperation(Operation):
-    __value = ''
-
-    def __init__(self, value):
-        self.__value = value
-
-
 class Attribute:
     __name:str
+    __column_db_type:str
 
-    def __init__(self, name:str):
+    def __init__(self, name:str, column_db_type:str):
         self.__name = name
+        self.__column_db_type = column_db_type
 
     def _column_name(self) -> str:
         return self.__name
 
+    def _column_type(self) -> str:
+        return self.__column_db_type
+
+class EqOperation(Operation):
+    __attribute:Attribute
+
+    def column_type(self) -> str:
+        return self.__attribute._column_type()
+
+    def __init__(self, attrib: Attribute):
+        self.__attribute = attrib
+
+    def generate_query(self, query: QueryEngine):
+        query.append_where_clause(self.__attribute._column_name() + ' = ' + self.prepare_value())
+
+    def prepare_value(self) -> str:
+        pass
+
+
+
+
+class PrimitiveEqOperation(EqOperation):
+    __value: []
+
+    def __init__(self, attrib: Attribute, value: str):
+        super().__init__(attrib)
+        self.__value = value
+
+class StringEqOperation(EqOperation):
+    __value:str = ''
+
+    def __init__(self, attrib: Attribute, value: str):
+        super().__init__(attrib)
+        self.__value = value
+
+    def prepare_value(self) -> str:
+        if self.column_type() == 'kx_symbol':
+            return "`" + self.__value
+        else:
+            return "\"" + self.__value + "\""
 
 class StringAttribute(Attribute):
 
-    def __init__(self, name: str):
-        super().__init__(name)
+    def __init__(self, name: str, column_db_type:str):
+        super().__init__(name, column_db_type)
 
-    @staticmethod
-    def eq(value: str) -> Operation:
-        return EqOperation(value)
+    def eq(self, value: str) -> Operation:
+        return StringEqOperation(self, value)
+
 
 
 class FloatAttribute(Attribute):
 
-    def __init__(self, name: str):
-        super().__init__(name)
+    def __init__(self, name: str, column_db_type:str):
+        super().__init__(name, column_db_type)
 
-    @staticmethod
     def eq(value: float) -> Operation:
-        return EqOperation(value)
+        return EqOperation(self, value)
 
 
 class QConnect:
@@ -62,7 +111,11 @@ class QConnect:
     @staticmethod
     def select(table:str, op:Operation, columns:list[str]) -> kx.Table:
         conn = kx.QConnection('localhost', 5001)
-        res = conn.qsql.select(table, columns)
+        qe = QueryEngine()
+        op.generate_query(qe)
+        query = qe.build_query_string()
+        print(query)
+        res = conn.qsql.select(table, columns, query)
         return res
 
 
@@ -84,8 +137,8 @@ class Output:
 class TradeFinder:
 
     __table = 'trade'
-    __symbol = StringAttribute('sym')
-    __price = FloatAttribute('price')
+    __symbol = StringAttribute('sym', 'kx_symbol')
+    __price = FloatAttribute('price', 'kx_float')
 
     @staticmethod
     def symbol() -> StringAttribute:
