@@ -25,3 +25,6 @@ class FloatAttribute(Attribute):
 
     def __eq__(self, value: float) -> Operation:
         return PrimitiveEqOperation(self, value)
+
+    def __gt__(self, value: float) -> Operation:
+        return PrimitiveGreaterThanOperation(self, value)

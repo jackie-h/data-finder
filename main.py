@@ -42,7 +42,7 @@ def find_trades():
     print(df)
 
     trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
-                                  TradeFinder.price() == 84.11,
+                                  TradeFinder.price() > 200.0,
                                   [TradeFinder.symbol(), TradeFinder.price()])
     np_trades = trades.to_numpy()
     print(np_trades)
