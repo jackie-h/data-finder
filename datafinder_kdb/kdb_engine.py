@@ -1,4 +1,4 @@
-from operation import Operation, QueryEngine
+from datafinder.operation import Operation, QueryEngine
 import pykx as kx
 import numpy as np
 import pandas as pd

@@ -1,5 +1,5 @@
-from operation import BaseOperation, Operation, QueryEngine
-from attribute import Attribute
+from .operation import BaseOperation, Operation, QueryEngine
+from .attribute import Attribute
 
 
 class EqOperation(BaseOperation):
@@ -68,4 +68,3 @@ class PrimitiveGreaterThanOperation(GreaterThanOperation):
 
     def prepare_value(self) -> str:
         return str(self.__value)
-    

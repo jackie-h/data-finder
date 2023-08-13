@@ -1,8 +1,8 @@
 
-from typed_attributes import *
+from datafinder.typed_attributes import *
 import numpy as np
 import pandas as pd
-from kdb_engine import *
+from datafinder_kdb.kdb_engine import *
 
 
 class TradeFinder:
