@@ -20,7 +20,6 @@ class QueryEngine:
     def start_and(self):
         pass
 
-
     def end_and(self):
         pass
 
