@@ -42,7 +42,7 @@ def find_trades():
     print(df)
 
     trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
-                                  TradeFinder.price().eq(84.11),
+                                  TradeFinder.price() == 84.11,
                                   [TradeFinder.symbol(), TradeFinder.price()])
     np_trades = trades.to_numpy()
     print(np_trades)
@@ -50,7 +50,7 @@ def find_trades():
     print(df)
     
     trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
-                                  TradeFinder.symbol().eq("AAPL").and_op(TradeFinder.price().eq(84.11)),
+                                  (TradeFinder.symbol() == "AAPL").and_op(TradeFinder.price() == 84.11),
                                   [TradeFinder.symbol(), TradeFinder.price()])
     np_trades = trades.to_numpy()
     print(np_trades)

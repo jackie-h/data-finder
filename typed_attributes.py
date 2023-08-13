@@ -11,6 +11,9 @@ class StringAttribute(Attribute):
     def eq(self, value: str) -> Operation:
         return StringEqOperation(self, value)
 
+    def __eq__(self, value: str) -> Operation:
+        return StringEqOperation(self, value)
+
 
 class FloatAttribute(Attribute):
 
@@ -18,4 +21,7 @@ class FloatAttribute(Attribute):
         super().__init__(name, column_db_type)
 
     def eq(self, value: float) -> Operation:
+        return PrimitiveEqOperation(self, value)
+
+    def __eq__(self, value: float) -> Operation:
         return PrimitiveEqOperation(self, value)
