@@ -48,6 +48,14 @@ def find_trades():
     print(np_trades)
     df = trades.to_pandas()
     print(df)
+    
+    trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
+                                  TradeFinder.symbol().eq("AAPL").and_op(TradeFinder.price().eq(84.11)),
+                                  [TradeFinder.symbol(), TradeFinder.price()])
+    np_trades = trades.to_numpy()
+    print(np_trades)
+    df = trades.to_pandas()
+    print(df)
 
 
 if __name__ == '__main__':

@@ -1,8 +1,8 @@
-from operation import Operation, QueryEngine
+from operation import BaseOperation, Operation, QueryEngine
 from attribute import Attribute
 
 
-class EqOperation(Operation):
+class EqOperation(BaseOperation):
     __attribute: Attribute
 
     def column_type(self) -> str:

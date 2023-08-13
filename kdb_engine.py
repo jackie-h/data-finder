@@ -13,7 +13,7 @@ class QConnect:
         op.generate_query(qe)
         query = qe.build_query_string()
         print(query)
-        res = conn.qsql.select(table, columns, query)
+        res = conn.qsql.select(table, columns, qe.where_clauses())
         return res
 
 
