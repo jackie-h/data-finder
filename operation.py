@@ -1,5 +1,6 @@
 import datetime
 
+
 class QueryEngine:
 
     _where: list[str]
@@ -12,6 +13,7 @@ class QueryEngine:
 
     def build_query_string(self) -> str:
         return ','.join(self._where)
+
 
 # Interface
 class Operation:

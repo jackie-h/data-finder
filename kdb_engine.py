@@ -2,6 +2,8 @@ from operation import Operation, QueryEngine
 import pykx as kx
 import numpy as np
 import pandas as pd
+
+
 class QConnect:
 
     @staticmethod

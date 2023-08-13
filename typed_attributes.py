@@ -2,6 +2,7 @@ from attribute import *
 from operation import *
 from typed_operations import *
 
+
 class StringAttribute(Attribute):
 
     def __init__(self, name: str, column_db_type: str):

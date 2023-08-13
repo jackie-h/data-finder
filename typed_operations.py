@@ -1,8 +1,9 @@
 from operation import Operation, QueryEngine
 from attribute import Attribute
 
+
 class EqOperation(Operation):
-    __attribute:Attribute
+    __attribute: Attribute
 
     def column_type(self) -> str:
         return self.__attribute._column_type()
@@ -15,6 +16,7 @@ class EqOperation(Operation):
 
     def prepare_value(self) -> str:
         pass
+
 
 class PrimitiveEqOperation(EqOperation):
     __value: []
