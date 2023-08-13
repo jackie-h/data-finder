@@ -35,9 +35,9 @@ class StringAttribute:
 class QConnect:
 
     @staticmethod
-    def run(op:Operation) -> kx.Table:
+    def run(table:str, op:Operation) -> kx.Table:
         conn = kx.QConnection('localhost', 5001)
-        res = conn.qsql.select('trade', ['sym','price'])
+        res = conn.qsql.select(table, ['sym','price'])
         return res
 
 class Output:
@@ -56,6 +56,7 @@ class Output:
 
 class TradeFinder:
 
+    __table = 'trade'
     __sym = StringAttribute()
 
     @staticmethod
@@ -64,7 +65,7 @@ class TradeFinder:
 
     @staticmethod
     def find_all(date_from:datetime.date, date_to:datetime.date, as_of:str, op:Operation) -> Output:
-        kx_out = QConnect.run(op)
+        kx_out = QConnect.run(TradeFinder.__table, op)
         return Output(kx_out)
 
 
@@ -74,7 +75,7 @@ def find_trades():
     print(f'Finding trades')
 
     op:Operation = TradeFinder.sym().eq("AAPL")
-    trades = TradeFinder.find_all([],[], "LATEST", op)
+    trades = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST", op)
     np_trades = trades.to_numpy()
     print(np_trades)
     pd = trades.to_pandas()
