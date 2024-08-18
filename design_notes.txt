@@ -1,0 +1,31 @@
+
+
+Choosing a Python to SQL query abstraction
+
+Requirements:
+Able to provide DB connect and SQL querying.
+Should not require full ORM object inflation. Too expensive and we want a dataframe/numpy object anyway
+Support for lots of DB dialects and a good abstraction on top of those, Oracle, MySQL and Postgres and Cloud DB's
+Support for column based querying - ADBC from Apache Arrow
+Support for streaming - ideal
+Ideally a Rust backend for Python, not Java or C
+
+
+Candidates:
+SQLAlchemy
+Django
+PonyORM
+PyPika
+PeeWee
+
+Comparison link https://haseeb987.medium.com/best-python-orms-sqlalchemy-sqlalchemy-peewee-ponyorm-cd81b5b2d28c
+
+IBIS - https://ibis-project.org/
+SQLGlot - SQL translator used by IBIS - https://sqlglot.com/sqlglot.html
+
+A faster SQL parser - written in rust, bindings in Python
+https://github.com/wseaton/sqloxide
+
+Language Neutral emerging SPEC:
+Subtrait - https://substrait.io/tutorial/sql_to_substrait/
+
