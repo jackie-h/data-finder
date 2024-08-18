@@ -1,3 +1,12 @@
+Design
+
+Time series baked in
+Model driven - able to swap out backends without changing business logic
+Type-safe
+Not limited to SQL - ability to express more complex logic
+Should not leave your IDE to understand what data is available
+Unify querying of live and historical -  streaming
+
 
 
 Choosing a Python to SQL query abstraction
