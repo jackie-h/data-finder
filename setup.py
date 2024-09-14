@@ -8,6 +8,6 @@ setup(
    version='0.1',
    description='Generated typed finders',
    author='Jackie Haynes',
-   packages=['datafinder','datafinder_duckdb','example_kdb','example_duckdb'],  #same as name
+   packages=['datafinder','datafinder_duckdb','example','example_kdb','example_duckdb'],  #same as name
    install_requires=requirements, #external packages as dependencies
 )
