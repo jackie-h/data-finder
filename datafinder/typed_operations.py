@@ -1,4 +1,4 @@
-from .operation import BaseOperation, Operation, QueryEngine
+from .operation import BaseOperation, QueryEngine
 from .attribute import Attribute
 
 
@@ -8,11 +8,11 @@ class EqOperation(BaseOperation):
     def column_type(self) -> str:
         return self.__attribute._column_type()
 
+    def column_name(self) -> str:
+        return self.__attribute._column_name()
+
     def __init__(self, attrib: Attribute):
         self.__attribute = attrib
-
-    def generate_query(self, query: QueryEngine):
-        query.append_where_clause(self.__attribute._column_name() + ' = ' + self.prepare_value())
 
     def prepare_value(self) -> str:
         pass
@@ -25,6 +25,9 @@ class PrimitiveEqOperation(EqOperation):
         super().__init__(attrib)
         self.__value = value
 
+    def generate_query(self, query: QueryEngine):
+        query.append_where_clause(self.column_name() + ' = ' + self.prepare_value())
+
     def prepare_value(self) -> str:
         return str(self.__value)
 
@@ -36,11 +39,15 @@ class StringEqOperation(EqOperation):
         super().__init__(attrib)
         self.__value = value
 
+    def generate_query(self, query: QueryEngine):
+        query.append_where_clause(self.column_name() + ' LIKE ' + self.prepare_value())
+
     def prepare_value(self) -> str:
+        #TODO - String escaper
         if self.column_type() == 'kx_symbol':
             return "`" + self.__value
         else:
-            return "\"" + self.__value + "\""
+            return "'" + self.__value + "'"
 
 
 class GreaterThanOperation(BaseOperation):

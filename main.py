@@ -1,9 +1,16 @@
 
-from datafinder.typed_attributes import *
 import numpy as np
 import pandas as pd
-from datafinder_kdb.kdb_engine import *
-from example_kdb.kdb_trade_finder import *
+#from example_kdb.kdb_trade_finder import *
+from example_duckdb.duckdb_trade_finder import *
+
+
+def setup_duckdb():
+    con = duckdb.connect('test.db')
+    con.execute("DROP TABLE IF EXISTS trade;")
+    con.execute("CREATE TABLE trade(id INT, account_id INT, sym VARCHAR, price DOUBLE); COPY trade FROM 'data/trades.csv'")
+    con.sql("SELECT * from trade").show()
+    con.sql("SELECT * from trade where sym LIKE 'AAPL'").show()
 
 def find_trades():
     print(f'Finding trades')
@@ -34,4 +41,5 @@ def find_trades():
 
 
 if __name__ == '__main__':
+    setup_duckdb()
     find_trades()

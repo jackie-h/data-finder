@@ -12,7 +12,7 @@ class QueryEngine:
         self._where.append(clause)
 
     def build_query_string(self) -> str:
-        return ','.join(self._where)
+        return ''.join(self._where)
     
     def where_clauses(self):
         return self._where
@@ -42,7 +42,7 @@ class AndOperation(Operation):
     def generate_query(self, query: QueryEngine):
         query.start_and()
         self.__left.generate_query(query)
-        #query.append_where_clause(" and ")
+        query.append_where_clause(" and ")
         self.__right.generate_query(query)
         query.end_and()
 
