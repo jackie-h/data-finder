@@ -30,7 +30,17 @@ PeeWee
 Comparison link https://haseeb987.medium.com/best-python-orms-sqlalchemy-sqlalchemy-peewee-ponyorm-cd81b5b2d28c
 
 IBIS - https://ibis-project.org/
+uniform python dataframe API with backends for many databases and polars
+basic user/password authentication
+perhaps too flexible - allows loading and other kinds of API's
+hoping to get closer to a direct dataframe, no SQL with
+
 SQLGlot - SQL translator used by IBIS - https://sqlglot.com/sqlglot.html
+Has a fast rust SQL parser
+Able to translate various database SQL dialects between each other and provides an optimizer
+Written in python
+
+
 
 A faster SQL parser - written in rust, bindings in Python
 https://github.com/wseaton/sqloxide
