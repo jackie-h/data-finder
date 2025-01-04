@@ -5,6 +5,7 @@ from typing import Type
 {% if not is_primitive(rpm.property) %}from {{rpm.property.name.lower()}}_finder import {{rpm.property.type.name}}Finder{% endif %}
 {% endfor %}
 
+
 class {{rcm.clazz.name}}Finder:
     __table = '{{rcm.property_mappings[0].target.table.name}}'
 
@@ -13,6 +14,7 @@ class {{rcm.clazz.name}}Finder:
     __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}')
 {% endif %}
 {% endfor %}
+
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
     @staticmethod
