@@ -1,10 +1,7 @@
 import duckdb
 import datetime
 
-from account_finder import AccountFinder
 from ibis_gen import generate
-#from ibis_trade_finder import *
-from trade_finder import TradeFinder
 from example import queries
 
 def duckdb_sample():
@@ -26,7 +23,10 @@ def duckdb_sample():
 if __name__ == '__main__':
     generate()
     duckdb_sample()
+    # Import after generation, so we get the latest version
+    from trade_finder import TradeFinder
     queries.find_trades(TradeFinder)
+    from account_finder import AccountFinder
     np_accts = AccountFinder\
         .find_all(datetime.date.today(), datetime.date.today(), "LATEST",AccountFinder.id().eq(211978),
                   [AccountFinder.id(), AccountFinder.name()])\
