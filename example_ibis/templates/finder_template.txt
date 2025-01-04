@@ -1,15 +1,30 @@
 from datafinder.typed_attributes import *
 from datafinder_ibis.ibis_engine import *
-
+from typing import Type
+{% for rpm in rcm.property_mappings %}
+{% if not is_primitive(rpm.property) %}from {{rpm.property.name.lower()}}_finder import {{rpm.property.type.name}}Finder{% endif %}
+{% endfor %}
 
 class {{rcm.clazz.name}}Finder:
     __table = '{{rcm.property_mappings[0].target.table.name}}'
+
 {% for rpm in rcm.property_mappings %}
-    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}'){% endfor %}
+{% if is_primitive(rpm.property) %}
+    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}')
+{% endif %}
+{% endfor %}
 {% for rpm in rcm.property_mappings %}
+{% if is_primitive(rpm.property) %}
     @staticmethod
     def {{rpm.property.name}}() -> {{rpm.property.type.name}}Attribute:
         return {{rcm.clazz.name}}Finder.__{{rpm.property.name}}
+
+{% else %}
+    @staticmethod
+    def {{rpm.property.name}}() -> Type[{{rpm.property.type.name}}Finder]:
+        return {{rpm.property.type.name}}Finder
+
+{% endif %}
 {% endfor %}
     @staticmethod
     def find_all(date_from: datetime.date, date_to: datetime.date, as_of: str,

@@ -1,15 +1,6 @@
 from m3 import Class, Property, String, Float, Package, Integer
 from relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping
 
-
-def create_trade_class() -> Class:
-    p1 = Property('symbol', String)
-    p2 = Property('price', Float)
-
-    trade_c = Class('Trade', [p1, p2], Package('finance'))
-    return trade_c
-
-
 def create_account_class() -> Class:
     p1 = Property('id', Integer)
     p2 = Property('name', String)
@@ -18,8 +9,18 @@ def create_account_class() -> Class:
     return account_c
 
 
+def create_trade_class(account:Class) -> Class:
+    p1 = Property('symbol', String)
+    p2 = Property('price', Float)
+    p3 = Property('account', account)
+
+    trade_c = Class('Trade', [p1, p2, p3], Package('finance'))
+    return trade_c
+
+
 def create_mappings() -> list[RelationalClassMapping]:
-    trade_c = create_trade_class()
+    account_c = create_account_class()
+    trade_c = create_trade_class(account_c)
 
     c1 = Column('id', 'INT')
     c2 = Column('account_id', 'INT')
@@ -30,9 +31,9 @@ def create_mappings() -> list[RelationalClassMapping]:
 
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3)
     pm2 = RelationalPropertyMapping(trade_c.property('price'), c4)
-    rm_t = RelationalClassMapping(trade_c, [pm1, pm2])
+    pm3 = RelationalPropertyMapping(trade_c.property('account'),c2)
+    rm_t = RelationalClassMapping(trade_c, [pm1, pm2, pm3])
 
-    account_c = create_account_class()
     ac1 = Column('id', 'INT')
     ac2 = Column('name', 'VARCHAR')
     account_t = Table('account', [ac1, ac2])
