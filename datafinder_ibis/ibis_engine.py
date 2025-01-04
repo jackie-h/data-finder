@@ -1,4 +1,4 @@
-from datafinder import Operation, QueryEngine, DataFrame
+from datafinder import Operation, QueryEngine, DataFrame, Attribute, SelectOperation
 
 import ibis
 import numpy as np
@@ -8,11 +8,12 @@ import pandas as pd
 class IbisConnect:
 
     @staticmethod
-    def select(table: str, op: Operation, columns: list[str]) -> ibis.Table:
+    def select(columns: list[Attribute], table: str, op: Operation) -> ibis.Table:
         conn = ibis.connect('duckdb://test.db')
         qe = QueryEngine()
-        op.generate_query(qe)
-        query = "select * from " + table + " where " + qe.build_query_string()
+        select = SelectOperation(columns, table, op)
+        select.generate_query(qe)
+        query = qe.build_query_string()
         print(query)
         t = conn.table(table)
         #todo - can also do this with the dataframe API

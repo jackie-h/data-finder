@@ -18,9 +18,7 @@ class TradeFinder:
     @staticmethod
     def find_all(date_from: datetime.date, date_to: datetime.date, as_of: str,
                  filter_op: Operation,
-                 display_columns: list[StringAttribute]) -> DataFrame:
-        cols = []
-        for dc in display_columns:
-            cols.append(dc.column_name())
-        out = DuckDbConnect.select(TradeFinder.__table, filter_op, cols)
+                 display_columns: list[Attribute]) -> DataFrame:
+
+        out = DuckDbConnect.select(display_columns, TradeFinder.__table, filter_op)
         return DuckDbOutput(out)

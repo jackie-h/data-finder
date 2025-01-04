@@ -1,4 +1,3 @@
-from .attribute import *
 from .operation import *
 from .typed_operations import *
 
