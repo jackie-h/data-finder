@@ -1,6 +1,8 @@
 import duckdb
 
-from ibis_trade_finder import *
+from ibis_gen import generate
+#from ibis_trade_finder import *
+from trade_finder import TradeFinder
 from example import queries
 
 def duckdb_sample():
@@ -16,5 +18,6 @@ def duckdb_sample():
 
 
 if __name__ == '__main__':
+    generate()
     duckdb_sample()
     queries.find_trades(TradeFinder)
