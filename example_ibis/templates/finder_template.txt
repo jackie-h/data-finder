@@ -1,0 +1,22 @@
+from datafinder.typed_attributes import *
+from datafinder_ibis.ibis_engine import *
+
+
+class {{rcm.clazz.name}}Finder:
+    __table = 'trade'
+{% for rpm in rcm.property_mappings %}
+    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}'){% endfor %}
+{% for rpm in rcm.property_mappings %}
+    @staticmethod
+    def {{rpm.property.name}}() -> {{rpm.property.type.name}}Attribute:
+        return {{rcm.clazz.name}}Finder.__{{rpm.property.name}}
+{% endfor %}
+    @staticmethod
+    def find_all(date_from: datetime.date, date_to: datetime.date, as_of: str,
+                 filter_op: Operation,
+                 display_columns: list[StringAttribute]) -> DataFrame:
+        cols = []
+        for dc in display_columns:
+            cols.append(dc._column_name())
+        out = IbisConnect.select({{rcm.clazz.name}}Finder.__table, filter_op, cols)
+        return IbisOutput(out)

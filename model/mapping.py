@@ -4,10 +4,11 @@ from model.m3 import Class, Property
 
 
 class PropertyMapping:
-    def __init__(self, source: Property, target: Any):
-        self.source = target
+    def __init__(self, property: Property, target: Any):
+        self.property = property
+        self.target = target
 
 class ClassMapping:
-    def __init__(self, clazz: Class, propertyMappings: list[PropertyMapping]):
+    def __init__(self, clazz: Class, property_mappings: list[PropertyMapping]):
         self.clazz = clazz
-        self.propertyMappings = propertyMappings
+        self.property_mappings = property_mappings

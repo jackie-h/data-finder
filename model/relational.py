@@ -15,8 +15,8 @@ class Table:
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, source: Property, target: Column):
-        super().__init__(source, target)
+    def __init__(self, property: Property, target: Column):
+        super().__init__(property, target)
 
 
 class RelationalClassMapping(ClassMapping):

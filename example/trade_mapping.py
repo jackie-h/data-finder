@@ -2,7 +2,7 @@ from m3 import Class, Property, String, Float, Package
 from relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping
 
 
-def create():
+def create_mapping() -> RelationalClassMapping:
 
     p1 = Property('symbol', String)
     p2 = Property('price', Float)
@@ -20,4 +20,4 @@ def create():
     pm2 = RelationalPropertyMapping(p2, c4)
     rm = RelationalClassMapping(trade_c, [pm1,pm2])
 
-    #CREATE TABLE trade(id INT, account_id INT, sym VARCHAR, price DOUBLE);
+    return rm
