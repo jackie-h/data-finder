@@ -28,3 +28,17 @@ class FloatAttribute(Attribute):
 
     def __gt__(self, value: float) -> Operation:
         return PrimitiveGreaterThanOperation(self, value)
+
+class IntegerAttribute(Attribute):
+
+    def __init__(self, name: str, column_db_type: str):
+        super().__init__(name, column_db_type)
+
+    def eq(self, value: float) -> Operation:
+        return PrimitiveEqOperation(self, value)
+
+    def __eq__(self, value: float) -> Operation:
+        return PrimitiveEqOperation(self, value)
+
+    def __gt__(self, value: float) -> Operation:
+        return PrimitiveGreaterThanOperation(self, value)

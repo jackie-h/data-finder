@@ -32,8 +32,13 @@ class Property:
 class Class(PackagableElement, Type):
     def __init__(self, name: str, properties: list[Property], package: Package):
         super().__init__(package)
+        self.properties = {}
         self.name = name
-        self.properties = properties
+        for prop in properties:
+            self.properties[prop.name] = prop
+
+    def property(self, name:str) -> Property:
+        return self.properties[name]
 
 
 class Association(PackagableElement):

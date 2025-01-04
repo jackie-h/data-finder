@@ -3,7 +3,7 @@ from datafinder_ibis.ibis_engine import *
 
 
 class {{rcm.clazz.name}}Finder:
-    __table = 'trade'
+    __table = '{{rcm.property_mappings[0].target.table.name}}'
 {% for rpm in rcm.property_mappings %}
     __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}'){% endfor %}
 {% for rpm in rcm.property_mappings %}

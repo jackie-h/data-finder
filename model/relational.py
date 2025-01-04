@@ -6,12 +6,15 @@ class Column:
     def __init__(self, name: str, type: str):
         self.name = name
         self.type = type
+        self.table = None
 
 
 class Table:
     def __init__(self, name: str, columns: list[Column]):
         self.name = name
         self.columns = columns
+        for col in columns:
+            col.table = self
 
 
 class RelationalPropertyMapping(PropertyMapping):
