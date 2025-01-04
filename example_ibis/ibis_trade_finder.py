@@ -21,6 +21,6 @@ class TradeFinder:
                  display_columns: list[StringAttribute]) -> DataFrame:
         cols = []
         for dc in display_columns:
-            cols.append(dc._column_name())
+            cols.append(dc.column_name())
         out = IbisConnect.select(TradeFinder.__table, filter_op, cols)
         return IbisOutput(out)

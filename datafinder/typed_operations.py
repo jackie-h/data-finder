@@ -6,10 +6,10 @@ class EqOperation(BaseOperation):
     __attribute: Attribute
 
     def column_type(self) -> str:
-        return self.__attribute._column_type()
+        return self.__attribute.column_type()
 
     def column_name(self) -> str:
-        return self.__attribute._column_name()
+        return self.__attribute.column_name()
 
     def __init__(self, attrib: Attribute):
         self.__attribute = attrib
@@ -60,7 +60,7 @@ class GreaterThanOperation(BaseOperation):
         self.__attribute = attrib
 
     def generate_query(self, query: QueryEngine):
-        query.append_where_clause(self.__attribute._column_name() + ' > ' + self.prepare_value())
+        query.append_where_clause(self.__attribute.column_name() + ' > ' + self.prepare_value())
 
     def prepare_value(self) -> str:
         pass

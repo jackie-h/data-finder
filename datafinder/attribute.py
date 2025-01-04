@@ -7,8 +7,8 @@ class Attribute:
         self.__name = name
         self.__column_db_type = column_db_type
 
-    def _column_name(self) -> str:
+    def column_name(self) -> str:
         return self.__name
 
-    def _column_type(self) -> str:
+    def column_type(self) -> str:
         return self.__column_db_type
