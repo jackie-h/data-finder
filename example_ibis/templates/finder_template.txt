@@ -30,7 +30,7 @@ class {{rcm.clazz.name}}Finder:
 
 {% else %}
     @staticmethod
-    def {{rpm.property.name}}() -> Type[{{rpm.property.type.name}}RelatedFinder]:
+    def {{rpm.property.name}}() -> {{rpm.property.type.name}}RelatedFinder:
         return {{rcm.clazz.name}}Finder.__{{rpm.property.name}}
 
 {% endif %}
