@@ -36,8 +36,6 @@ class QueryEngine:
         self.__table_aliases_by_table = {}
 
     def select(self, cols: list[Attribute]):
-
-
         for col in cols:
             table = col.owner()
             ta = self.__table_alias_for_table(table)
@@ -63,8 +61,12 @@ class QueryEngine:
             self.__table_aliases_by_table[table] = ta
         return ta
 
-    def append_where_clause(self, clause: str):
-        self._where.append(clause)
+    def append_where_binary_clause(self, op:str):
+        self._where.append(op)
+
+    def append_where_clause(self, attr:Attribute, op: str, value: str):
+        ta = self.__table_alias_for_table(attr.owner())
+        self._where.append(ta.alias + '.' + attr.column_name() + ' ' + op + ' ' + value)
 
     def build_query_string(self) -> str:
         joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
@@ -113,7 +115,7 @@ class AndOperation(Operation):
     def generate_query(self, query: QueryEngine):
         query.start_and()
         self.__left.generate_query(query)
-        query.append_where_clause(" and ")
+        query.append_where_binary_clause(" and ")
         self.__right.generate_query(query)
         query.end_and()
 

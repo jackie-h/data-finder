@@ -5,14 +5,17 @@ from .attribute import Attribute
 class EqOperation(BaseOperation):
     __attribute: Attribute
 
+    def __init__(self, attrib: Attribute):
+        self.__attribute = attrib
+
+    def attribute(self) -> Attribute:
+        return self.__attribute
+
     def column_type(self) -> str:
         return self.__attribute.column_type()
 
     def column_name(self) -> str:
         return self.__attribute.column_name()
-
-    def __init__(self, attrib: Attribute):
-        self.__attribute = attrib
 
     def prepare_value(self) -> str:
         pass
@@ -26,7 +29,7 @@ class PrimitiveEqOperation(EqOperation):
         self.__value = value
 
     def generate_query(self, query: QueryEngine):
-        query.append_where_clause(self.column_name() + ' = ' + self.prepare_value())
+        query.append_where_clause(self.attribute(), '=', self.prepare_value())
 
     def prepare_value(self) -> str:
         return str(self.__value)
@@ -40,7 +43,7 @@ class StringEqOperation(EqOperation):
         self.__value = value
 
     def generate_query(self, query: QueryEngine):
-        query.append_where_clause(self.column_name() + ' LIKE ' + self.prepare_value())
+        query.append_where_clause(self.attribute(), 'LIKE', self.prepare_value())
 
     def prepare_value(self) -> str:
         #TODO - String escaper
@@ -54,13 +57,13 @@ class GreaterThanOperation(BaseOperation):
     __attribute: Attribute
 
     def column_type(self) -> str:
-        return self.__attribute._column_type()
+        return self.__attribute.column_type()
 
     def __init__(self, attrib: Attribute):
         self.__attribute = attrib
 
     def generate_query(self, query: QueryEngine):
-        query.append_where_clause(self.__attribute.column_name() + ' > ' + self.prepare_value())
+        query.append_where_clause(self.__attribute, '>', self.prepare_value())
 
     def prepare_value(self) -> str:
         pass
