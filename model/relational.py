@@ -2,7 +2,12 @@ from model.m3 import Property, Class
 from model.mapping import ClassMapping, PropertyMapping
 
 
-class Column:
+class RelationalElement:
+    def __init(self):
+        pass
+
+
+class Column(RelationalElement):
     def __init__(self, name: str, type: str):
         self.name = name
         self.type = type
@@ -17,8 +22,14 @@ class Table:
             col.table = self
 
 
+class Join(RelationalElement):
+    def __init__(self, lhs: Column, rhs: Column):
+        self.lhs = lhs
+        self.rhs = rhs
+
+
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: Column):
+    def __init__(self, property: Property, target: RelationalElement):
         super().__init__(property, target)
 
 

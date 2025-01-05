@@ -1,5 +1,6 @@
 from m3 import Class, Property, String, Float, Package, Integer
-from relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping
+from relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
+
 
 def create_account_class() -> Class:
     p1 = Property('id', Integer)
@@ -20,6 +21,11 @@ def create_trade_class(account:Class) -> Class:
 
 def create_mappings() -> list[RelationalClassMapping]:
     account_c = create_account_class()
+
+    ac1 = Column('id', 'INT')
+    ac2 = Column('name', 'VARCHAR')
+    account_t = Table('account', [ac1, ac2])
+
     trade_c = create_trade_class(account_c)
 
     c1 = Column('id', 'INT')
@@ -31,12 +37,8 @@ def create_mappings() -> list[RelationalClassMapping]:
 
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3)
     pm2 = RelationalPropertyMapping(trade_c.property('price'), c4)
-    pm3 = RelationalPropertyMapping(trade_c.property('account'),c2)
+    pm3 = RelationalPropertyMapping(trade_c.property('account'),Join(c2,ac1))
     rm_t = RelationalClassMapping(trade_c, [pm1, pm2, pm3])
-
-    ac1 = Column('id', 'INT')
-    ac2 = Column('name', 'VARCHAR')
-    account_t = Table('account', [ac1, ac2])
 
     a_pm1 = RelationalPropertyMapping(account_c.property('id'), ac1)
     a_pm2 = RelationalPropertyMapping(account_c.property('name'), ac2)

@@ -80,3 +80,11 @@ class BaseOperation(Operation):
     
     def and_op(self, rhs:Operation):
         return AndOperation(self, rhs)
+
+class JoinOperation(Operation):
+    __left: Attribute
+    __right: Attribute
+
+    def __init__(self, lhs: Attribute, rhs: Attribute):
+        self.__left = lhs
+        self.__right = rhs

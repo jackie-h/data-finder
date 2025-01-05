@@ -32,3 +32,9 @@ if __name__ == '__main__':
                   [AccountFinder.id(), AccountFinder.name()])\
         .to_numpy()
     print(np_accts)
+
+    trades_with_account = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
+                                   TradeFinder.symbol().eq("AAPL"),
+                                   [TradeFinder.account().name(), TradeFinder.symbol(), TradeFinder.price()])
+    np_trades = trades_with_account.to_numpy()
+    print(np_trades)
