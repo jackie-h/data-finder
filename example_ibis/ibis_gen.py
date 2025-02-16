@@ -6,11 +6,13 @@ from jinja2 import Environment, FileSystemLoader
 def is_primitive(prop: Property) -> bool:
     return isinstance(prop.type, PrimitiveType)
 
-
 def generate():
+    generate_with_path("templates/")
+
+def generate_with_path(path):
     rcms = create_mappings()
 
-    environment = Environment(loader=FileSystemLoader("templates/"),trim_blocks=True,lstrip_blocks=True)
+    environment = Environment(loader=FileSystemLoader(path),trim_blocks=True,lstrip_blocks=True)
     template = environment.get_template("finder_template.txt")
 
     for rcm in rcms:

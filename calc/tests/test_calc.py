@@ -7,11 +7,13 @@ from calc_protocol import CalcEngineRegistry
 from contractualposition_finder import ContractualPositionFinder
 from numpy.testing import assert_array_almost_equal
 
+from ibis_gen import generate_with_path
+
 
 class TestCalc:
 
     def setup(self):
-
+        generate_with_path("example_ibis/templates")
         con = duckdb.connect('test.db')
         con.execute("DROP TABLE IF EXISTS contractualposition;")
         con.execute(
