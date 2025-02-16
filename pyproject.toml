@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[metadata]
+name = "datafinder"
+version = "0.0.1"
+
+[tool.setuptools.packages]
+find = {}  # Scan the project directory with the default parameters
+
+[project]
+name = "datafinder"
+version = "0.0.1"
+authors = [
+  { name="Jackie Haynes" },
+]
+description = "Generated data finders"
+readme = "README.md"
+requires-python = ">=3.9"
