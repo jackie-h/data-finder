@@ -21,6 +21,8 @@ class PrimitiveType(Type):
 Integer = PrimitiveType("Integer")
 String = PrimitiveType("String")
 Float = PrimitiveType("Float")
+DateTime = PrimitiveType("DateTime")
+Date = PrimitiveType("Date")
 
 
 class Property:

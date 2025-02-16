@@ -75,7 +75,13 @@ class QueryEngine:
         return 'SELECT ' + ','.join(map(lambda ca: ca.table_alias.alias + '.' + ca.column_name, self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias,self._from))\
             + ''.join(joins)\
-            + ' WHERE ' + ''.join(self._where)
+            + self.__build_where()
+
+    def __build_where(self) -> str:
+        if len(self._where) > 0:
+            return ' WHERE ' + ''.join(self._where)
+        else:
+            return ''
 
     def where_clauses(self):
         return self._where
@@ -101,7 +107,8 @@ class SelectOperation(Operation):
 
     def generate_query(self, qe: QueryEngine):
         qe.select(self.__display)
-        self.__filter.generate_query(qe)
+        if self.__filter is not None:
+            self.__filter.generate_query(qe)
 
 
 class AndOperation(Operation):
