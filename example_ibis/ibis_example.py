@@ -28,13 +28,14 @@ if __name__ == '__main__':
     queries.find_trades(TradeFinder)
     from account_finder import AccountFinder
     np_accts = AccountFinder\
-        .find_all(datetime.date.today(), datetime.date.today(), "LATEST",AccountFinder.id().eq(211978),
-                  [AccountFinder.id(), AccountFinder.name()])\
+        .find_all(datetime.date.today(), datetime.date.today(), "LATEST",
+                  [AccountFinder.id(), AccountFinder.name()],
+                  AccountFinder.id().eq(211978))\
         .to_numpy()
     print(np_accts)
 
     trades_with_account = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
-                                   TradeFinder.symbol().eq("AAPL"),
-                                   [TradeFinder.account().name(), TradeFinder.symbol(), TradeFinder.price()])
+                                   [TradeFinder.account().name(), TradeFinder.symbol(), TradeFinder.price()],
+                                   TradeFinder.symbol().eq("AAPL"))
     np_trades = trades_with_account.to_numpy()
     print(np_trades)

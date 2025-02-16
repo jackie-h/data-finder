@@ -36,8 +36,8 @@ class {{rcm.clazz.name}}Finder:
 {% endfor %}
     @staticmethod
     def find_all(date_from: datetime.date, date_to: datetime.date, as_of: str,
-                 filter_op: Operation,
-                 display_columns: list[Attribute]) -> DataFrame:
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation) -> DataFrame:
         out = IbisConnect.select(display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
         return IbisOutput(out)
 

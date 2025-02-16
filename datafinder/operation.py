@@ -4,28 +4,29 @@ from attribute import Attribute
 
 
 class TableAlias:
-    def __init__(self, table:str, alias:str):
+    def __init__(self, table: str, alias: str):
         self.table = table
         self.alias = alias
 
 
 class ColumnAlias:
-    def __init__(self, column_name:str, table_alias:TableAlias):
+    def __init__(self, column_name: str, table_alias: TableAlias):
         self.column_name = column_name
         self.table_alias = table_alias
 
+
 class Join:
-    def __init__(self, source:ColumnAlias, target:ColumnAlias):
+    def __init__(self, source: ColumnAlias, target: ColumnAlias):
         self.source = source
         self.target = target
 
-class QueryEngine:
 
+class QueryEngine:
     _select: list[ColumnAlias]
     _from: set[TableAlias]
     _where: list[str]
     _join: list[Join]
-    __table_alias_incr:int
+    __table_alias_incr: int
 
     def __init__(self):
         self._where = []
@@ -39,19 +40,19 @@ class QueryEngine:
         for col in cols:
             table = col.owner()
             ta = self.__table_alias_for_table(table)
-            parent:JoinOperation = col.parent()
+            parent: JoinOperation = col.parent()
             if parent is not None:
                 left = parent.left
-                sc = ColumnAlias(left.column_name(),self.__table_alias_for_table(left.owner()))
+                sc = ColumnAlias(left.column_name(), self.__table_alias_for_table(left.owner()))
                 right = parent.right
-                tc = ColumnAlias(right.column_name(),self.__table_alias_for_table(right.owner()))
-                self._join.append(Join(sc,tc))
+                tc = ColumnAlias(right.column_name(), self.__table_alias_for_table(right.owner()))
+                self._join.append(Join(sc, tc))
             else:
                 self._from.add(ta)
             ca = ColumnAlias(col.column_name(), ta)
             self._select.append(ca)
 
-    def __table_alias_for_table(self, table:str) -> TableAlias:
+    def __table_alias_for_table(self, table: str) -> TableAlias:
         ta = None
         if table in self.__table_aliases_by_table:
             ta = self.__table_aliases_by_table[table]
@@ -61,20 +62,20 @@ class QueryEngine:
             self.__table_aliases_by_table[table] = ta
         return ta
 
-    def append_where_binary_clause(self, op:str):
+    def append_where_binary_clause(self, op: str):
         self._where.append(op)
 
-    def append_where_clause(self, attr:Attribute, op: str, value: str):
+    def append_where_clause(self, attr: Attribute, op: str, value: str):
         ta = self.__table_alias_for_table(attr.owner())
         self._where.append(ta.alias + '.' + attr.column_name() + ' ' + op + ' ' + value)
 
     def build_query_string(self) -> str:
         joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
                               ' ON ' + j.source.table_alias.alias + '.' + j.source.column_name + ' = ' +
-                                    j.target.table_alias.alias + '.' + j.target.column_name, self._join)
+                              j.target.table_alias.alias + '.' + j.target.column_name, self._join)
         return 'SELECT ' + ','.join(map(lambda ca: ca.table_alias.alias + '.' + ca.column_name, self._select)) \
-            + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias,self._from))\
-            + ''.join(joins)\
+            + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
+            + ''.join(joins) \
             + self.__build_where()
 
     def __build_where(self) -> str:
@@ -92,6 +93,7 @@ class QueryEngine:
     def end_and(self):
         pass
 
+
 # Interface
 class Operation:
 
@@ -99,16 +101,19 @@ class Operation:
         pass
 
 
+class NoOperation(Operation):
+    pass
+
+
 class SelectOperation(Operation):
-    def __init__(self, display:list[Attribute], table:str, filter:Operation):
+    def __init__(self, display: list[Attribute], table: str, filter: Operation):
         self.__display = display
         self.__table = table
         self.__filter = filter
 
     def generate_query(self, qe: QueryEngine):
         qe.select(self.__display)
-        if self.__filter is not None:
-            self.__filter.generate_query(qe)
+        self.__filter.generate_query(self, qe)
 
 
 class AndOperation(Operation):
@@ -126,17 +131,18 @@ class AndOperation(Operation):
         self.__right.generate_query(query)
         query.end_and()
 
-class BusinessTemporalOperation(Operation):
 
+class BusinessTemporalOperation(Operation):
     # TODO - which date format should we use
     __business_date_from_inclusive: datetime.date
     __business_date_to_inclusive: datetime.date
 
 
 class BaseOperation(Operation):
-    
-    def and_op(self, rhs:Operation):
+
+    def and_op(self, rhs: Operation):
         return AndOperation(self, rhs)
+
 
 class JoinOperation(Operation):
     left: Attribute
