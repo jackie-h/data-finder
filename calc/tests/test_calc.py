@@ -4,7 +4,6 @@ import duckdb
 import numpy
 
 from calc_protocol import CalcEngineRegistry
-from contractualposition_finder import ContractualPositionFinder
 from numpy.testing import assert_array_almost_equal
 
 from ibis_gen import generate_with_path
@@ -35,6 +34,7 @@ class TestCalc:
         inputs = calc.inputs_spec()
 
         #Calc run
+        from contractualposition_finder import ContractualPositionFinder
         input_data = ContractualPositionFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
                                            inputs).to_numpy()
 
