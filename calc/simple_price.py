@@ -4,7 +4,7 @@ from datafinder import Attribute
 from numpy import array
 
 
-def npv(quantity:array, price:array):
+def npv(quantity: array, price: array):
     return quantity * price
 
 
