@@ -6,8 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "datafinder"
 version = "0.0.1"
 
-[tool.setuptools.packages]
-find = {}  # Scan the project directory with the default parameters
+[tool.setuptools]
+    packages = ['datafinder','datafinder_duckdb','example','example_kdb','example_duckdb','model','calc']
+    package-dir = { "calc" = "calc/src", "datafinder" = "datafinder" }
 
 [project]
 name = "datafinder"
@@ -18,3 +19,8 @@ authors = [
 description = "Generated data finders"
 readme = "README.md"
 requires-python = ">=3.9"
+
+[tool.pytest.ini_options]
+pythonpath = [
+  ".", "src", "calc/src", "datafinder", "example_ibis"
+]
