@@ -1,3 +1,4 @@
+from datafinder_generator.generator import generate
 from m3 import Class, Property, String, Float, Package, Integer, Date
 from relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
 
@@ -88,3 +89,12 @@ def create_mappings() -> list[RelationalClassMapping]:
     rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4])
 
     return [rm_t,rm_a,rm_i,rm_cp]
+
+
+def generate_mappings():
+    rcms = create_mappings()
+    generate(rcms)
+
+
+if __name__ == '__main__':
+    generate_mappings()

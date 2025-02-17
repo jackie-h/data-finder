@@ -3,9 +3,11 @@ import datetime
 
 import numpy as np
 
-from ibis_gen import generate_mappings
 from example import queries
 from numpy.testing import assert_array_equal
+
+from trade_mapping import generate_mappings
+
 
 class TestDataFinderIbisDuckDb:
 

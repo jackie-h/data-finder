@@ -6,7 +6,7 @@ import numpy
 from calc.calc_protocol import CalcEngineRegistry
 from numpy.testing import assert_array_almost_equal
 
-from ibis_gen import generate_mappings
+from trade_mapping import generate_mappings
 
 
 class TestCalc:

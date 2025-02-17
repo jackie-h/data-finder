@@ -22,5 +22,5 @@ requires-python = ">=3.9"
 
 [tool.pytest.ini_options]
 pythonpath = [
-  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "example_ibis", "model", "example", "datafinder_ibis/src"
+  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "model", "example", "datafinder_ibis/src"
 ]
