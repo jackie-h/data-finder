@@ -8,7 +8,7 @@ version = "0.0.1"
 
 [tool.setuptools]
     packages = ['datafinder','datafinder_generator','datafinder_duckdb','example','example_kdb','example_duckdb','model','calc']
-    package-dir = { "calc" = "calc/src", "datafinder" = "datafinder/src", "datafinder_generator" = "datafinder_generator/src" }
+    package-dir = { "calc" = "calc/src", "model" = "model/src", "datafinder" = "datafinder/src", "datafinder_generator" = "datafinder_generator/src" }
 
 [project]
 name = "datafinder"
@@ -22,5 +22,5 @@ requires-python = ">=3.9"
 
 [tool.pytest.ini_options]
 pythonpath = [
-  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "model", "example", "datafinder_ibis/src"
+  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "model/src", "example", "datafinder_ibis/src"
 ]

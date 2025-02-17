@@ -1,9 +1,9 @@
 import os
 
-from m3 import PrimitiveType, Property
+from model.m3 import PrimitiveType, Property
 from jinja2 import Environment, PackageLoader
 
-from relational import RelationalClassMapping
+from model.relational import RelationalClassMapping
 
 
 def is_primitive(prop: Property) -> bool:

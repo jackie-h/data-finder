@@ -1,9 +1,8 @@
-import importlib
 import os
 
 from datafinder_generator.generator import generate
-from m3 import Class, Property, String, Float, Package, Integer, Date
-from relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
+from model.m3 import Class, Property, String, Float, Package, Integer, Date
+from model.relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
 
 
 def create_account_class() -> Class:
