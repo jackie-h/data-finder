@@ -1,7 +1,7 @@
 import duckdb
 import datetime
 
-from ibis_gen import generate
+from ibis_gen import generate_mappings
 from example import queries
 
 def duckdb_sample():
@@ -21,7 +21,7 @@ def duckdb_sample():
 
 
 if __name__ == '__main__':
-    generate()
+    generate_mappings()
     duckdb_sample()
     # Import after generation, so we get the latest version
     from trade_finder import TradeFinder
