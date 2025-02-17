@@ -1,3 +1,6 @@
+import importlib
+import os
+
 from datafinder_generator.generator import generate
 from m3 import Class, Property, String, Float, Package, Integer, Date
 from relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
@@ -93,7 +96,10 @@ def create_mappings() -> list[RelationalClassMapping]:
 
 def generate_mappings():
     rcms = create_mappings()
-    generate(rcms)
+    import sys
+    mn = sys.modules[__name__]
+    directory = os.path.dirname(mn.__file__)
+    generate(rcms, directory)
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ import numpy as np
 from example import queries
 from numpy.testing import assert_array_equal
 
-from trade_mapping import generate_mappings
+from mappings import generate_mappings
 
 
 class TestDataFinderIbisDuckDb:
