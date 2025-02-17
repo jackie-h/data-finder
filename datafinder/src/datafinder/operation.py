@@ -1,6 +1,6 @@
 import datetime
 
-from attribute import Attribute
+from datafinder.attribute import Attribute
 
 
 class TableAlias:

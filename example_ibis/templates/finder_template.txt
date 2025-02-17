@@ -1,6 +1,5 @@
 from datafinder.typed_attributes import *
 from datafinder_ibis.ibis_engine import *
-from finder import RelatedFinder
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}from {{rpm.property.name.lower()}}_finder import {{rpm.property.type.name}}RelatedFinder
 {% endif %}
