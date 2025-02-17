@@ -152,3 +152,11 @@ class JoinOperation(Operation):
     def __init__(self, lhs: Attribute, rhs: Attribute):
         self.left = lhs
         self.right = rhs
+
+
+def select_sql_to_string(columns: list[Attribute], table: str, op: Operation) -> str:
+    qe = QueryEngine()
+    select = SelectOperation(columns, table, op)
+    select.generate_query(qe)
+    return qe.build_query_string()
+

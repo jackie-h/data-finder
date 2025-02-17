@@ -1,4 +1,4 @@
-from datafinder import Operation, QueryEngine, DataFrame, Attribute, SelectOperation
+from datafinder import Operation, DataFrame, Attribute, select_sql_to_string
 
 import ibis
 import numpy as np
@@ -10,10 +10,7 @@ class IbisConnect:
     @staticmethod
     def select(columns: list[Attribute], table: str, op: Operation) -> ibis.Table:
         conn = ibis.connect('duckdb://test.db')
-        qe = QueryEngine()
-        select = SelectOperation(columns, table, op)
-        select.generate_query(qe)
-        query = qe.build_query_string()
+        query = select_sql_to_string(columns, table, op)
         print(query)
         t = conn.table(table)
         #todo - can also do this with the dataframe API

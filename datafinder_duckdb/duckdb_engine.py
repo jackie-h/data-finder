@@ -1,4 +1,4 @@
-from datafinder import Operation, QueryEngine, DataFrame, Attribute, SelectOperation
+from datafinder import Operation, DataFrame, Attribute, select_sql_to_string
 
 import duckdb
 import numpy as np
@@ -10,10 +10,7 @@ class DuckDbConnect:
     @staticmethod
     def select(columns: list[Attribute], table: str, op: Operation) -> list:
         conn = duckdb.connect('test.db')
-        qe = QueryEngine()
-        select = SelectOperation(columns, table, op)
-        select.generate_query(qe)
-        query = qe.build_query_string()
+        query = select_sql_to_string(columns, table, op)
         print(query)
         # TODO this is inefficient, could convert straight to desired output - such as numpy, instead of list
         return conn.sql(query).fetchall()
