@@ -3,7 +3,7 @@ import datetime
 import duckdb
 import numpy
 
-from calc_protocol import CalcEngineRegistry
+from calc.calc_protocol import CalcEngineRegistry
 from numpy.testing import assert_array_almost_equal
 
 from ibis_gen import generate_with_path
@@ -27,7 +27,7 @@ class TestCalc:
         self.setup()
         # TODO - we have to import this first for it to register due to Python's dynamic nature
         # need to do imports to force the load = https://stackoverflow.com/questions/73829483/register-classes-in-different-files-to-a-class-factory
-        from simple_price import PositionNPVCalc
+        from calc.simple_price import PositionNPVCalc
         calc = PositionNPVCalc()
         assert len(CalcEngineRegistry.calcs) == 1
 

@@ -1,4 +1,4 @@
-from calc_protocol import DomainAwareCalc
+from calc.calc_protocol import DomainAwareCalc
 from contractualposition_finder import ContractualPositionFinder
 from datafinder import Attribute
 from numpy import array
