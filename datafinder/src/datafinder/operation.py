@@ -102,7 +102,8 @@ class Operation:
 
 
 class NoOperation(Operation):
-    pass
+    def __init__(self):
+        pass
 
 
 class SelectOperation(Operation):
@@ -113,7 +114,7 @@ class SelectOperation(Operation):
 
     def generate_query(self, qe: QueryEngine):
         qe.select(self.__display)
-        self.__filter.generate_query(self, qe)
+        self.__filter.generate_query(qe)
 
 
 class AndOperation(Operation):
