@@ -36,3 +36,6 @@ class RelationalPropertyMapping(PropertyMapping):
 class RelationalClassMapping(ClassMapping):
     def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping]):
         super().__init__(clazz, property_mappings)
+
+
+

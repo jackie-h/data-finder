@@ -2,6 +2,7 @@ import os
 
 from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date
+from model.mapping import Mapping
 from model.relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
 
 
@@ -41,7 +42,7 @@ def create_contractual_position_class(instrument:Class) -> Class:
     return pos_c
 
 
-def create_mappings() -> list[RelationalClassMapping]:
+def create_mappings_normalized() -> Mapping:
     account_c = create_account_class()
 
     ac1 = Column('id', 'INT')
@@ -90,11 +91,11 @@ def create_mappings() -> list[RelationalClassMapping]:
     cpm4 = RelationalPropertyMapping(c_position_c.property('npv'), p5)
     rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4])
 
-    return [rm_t,rm_a,rm_i,rm_cp]
+    return Mapping('Test Mapping 1', [rm_t,rm_a,rm_i,rm_cp])
 
 
 def generate_mappings():
-    rcms = create_mappings()
+    rcms = create_mappings_normalized()
     import sys
     mn = sys.modules[__name__]
     directory = os.path.dirname(mn.__file__)
