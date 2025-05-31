@@ -3,11 +3,9 @@ greenlet==3.0.3
 ibis-framework==9.0.0
 numpy==1.26.4
 pandas==2.2.2
-pykx==2.2.2
 python-dateutil==2.9.0.post0
 pytz==2024.1
 six==1.16.0
-SQLAlchemy==2.0.32
 toml==0.10.2
 typing_extensions==4.12.2
 tzdata==2024.1
