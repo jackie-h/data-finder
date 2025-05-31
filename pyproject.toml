@@ -7,7 +7,7 @@ name = "datafinder"
 version = "0.0.1"
 
 [tool.setuptools]
-    packages = ['datafinder','datafinder_generator','datafinder_duckdb','example','example_kdb','example_duckdb','model','calc']
+    packages = ['datafinder','datafinder_generator','datafinder_duckdb','example','example_duckdb','model','calc']
     package-dir = { "calc" = "calc/src", "model" = "model/src", "datafinder" = "datafinder/src", "datafinder_generator" = "datafinder_generator/src" }
 
 [project]
