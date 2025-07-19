@@ -47,7 +47,7 @@ def create_mappings_normalized() -> Mapping:
 
     ac1 = Column('id', 'INT')
     ac2 = Column('name', 'VARCHAR')
-    account_t = Table('account', [ac1, ac2])
+    account_t = Table('account_master', [ac1, ac2])
 
     instrument_c = create_instrument_class()
     ic1 = Column('SYM', 'VARCHAR')
@@ -69,7 +69,7 @@ def create_mappings_normalized() -> Mapping:
     c3 = Column('sym', 'VARCHAR')
     c4 = Column('price', 'DOUBLE')
 
-    trade_t = Table('trade', [c1, c2, c3, c4])
+    trade_t = Table('trades', [c1, c2, c3, c4])
 
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3)
     pm2 = RelationalPropertyMapping(trade_c.property('price'), c4)

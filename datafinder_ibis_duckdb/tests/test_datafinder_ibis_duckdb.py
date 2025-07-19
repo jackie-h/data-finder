@@ -19,15 +19,15 @@ class TestDataFinderIbisDuckDb:
         generate_mappings()
         con = duckdb.connect('test.db')
         con.sql("SELECT 42 AS x").show()
-        con.execute("DROP TABLE IF EXISTS trade;")
+        con.execute("DROP TABLE IF EXISTS trades;")
         con.execute(
-            "CREATE TABLE trade(id INT, account_id INT, sym VARCHAR, price DOUBLE); COPY trade FROM 'data/trades.csv'")
-        con.sql("SELECT * from trade").show()
-        con.sql("SELECT * from trade where sym LIKE 'AAPL'").show()
+            "CREATE TABLE trades(id INT, account_id INT, sym VARCHAR, price DOUBLE); COPY trades FROM 'data/trades.csv'")
+        con.sql("SELECT * from trades").show()
+        con.sql("SELECT * from trades where sym LIKE 'AAPL'").show()
 
-        con.execute("DROP TABLE IF EXISTS account;")
+        con.execute("DROP TABLE IF EXISTS account_master;")
         con.execute(
-            "CREATE TABLE account(id INT, name VARCHAR); COPY account FROM 'data/accounts.csv'")
+            "CREATE TABLE account_master(id INT, name VARCHAR); COPY account_master FROM 'data/accounts.csv'")
 
     def test_queries(self):
         self.setup()

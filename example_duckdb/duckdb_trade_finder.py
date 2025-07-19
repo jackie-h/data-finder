@@ -3,7 +3,7 @@ from datafinder_duckdb.duckdb_engine import *
 
 
 class TradeFinder:
-    __table = 'trade'
+    __table = 'trades'
     __symbol = StringAttribute('sym', 'char')
     __price = FloatAttribute('price', 'double precision')
 
