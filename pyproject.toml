@@ -49,5 +49,5 @@ data-finder = "."
 
 [tool.pytest.ini_options]
 pythonpath = [
-  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "model/src", "example", "datafinder_ibis/src"
+  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "model/src", "example", "datafinder_ibis/src", "datafinder_duckdb/src"
 ]

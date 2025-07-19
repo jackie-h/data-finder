@@ -1,6 +1,7 @@
 from datafinder import Attribute, Operation, DataFrame
 
 
+#TODO revisit this, don't want this to be static per class as need to be able to switch them
 class RegistryBase(type):
     REGISTRY = {}
 
@@ -14,6 +15,14 @@ class RegistryBase(type):
     @classmethod
     def get_registry(cls):
         return dict(cls.REGISTRY)
+
+    @classmethod
+    def register(cls, clazz):
+        cls.REGISTRY[clazz.__name__] = clazz
+
+    @classmethod
+    def clear(cls):
+        RegistryBase.REGISTRY = {}
 
 
 class QueryRunnerBase(metaclass=RegistryBase):

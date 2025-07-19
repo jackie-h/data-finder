@@ -4,20 +4,20 @@ import datetime
 import numpy as np
 
 from datafinder import QueryRunnerBase
-from datafinder_ibis.ibis_engine import IbisConnect
+from datafinder_duckdb.duckdb_engine import DuckDbConnect
 from example import queries
 from numpy.testing import assert_array_equal
 
 from mappings import generate_mappings
 
 
-class TestDataFinderIbisDuckDb:
+class TestDataFinderDuckDb:
 
     def setup(self):
-        #Register the Ibis engine
+        #Register the duckdb engine
         QueryRunnerBase.clear()
-        QueryRunnerBase.register(IbisConnect)
-        assert QueryRunnerBase.get_runner() == IbisConnect
+        QueryRunnerBase.register(DuckDbConnect)
+        assert QueryRunnerBase.get_runner() == DuckDbConnect
         generate_mappings()
         con = duckdb.connect('test.db')
         con.sql("SELECT 42 AS x").show()

@@ -7,6 +7,7 @@ from calc.calc_protocol import CalcEngineRegistry
 from numpy.testing import assert_array_almost_equal
 
 from datafinder import QueryRunnerBase
+from datafinder_ibis.ibis_engine import IbisConnect
 from mappings import generate_mappings
 
 
@@ -14,7 +15,8 @@ class TestCalc:
 
     def setup(self):
         #Register the Ibis engine
-        from datafinder_ibis.ibis_engine import IbisConnect
+        QueryRunnerBase.clear()
+        QueryRunnerBase.register(IbisConnect)
         assert QueryRunnerBase.get_runner() == IbisConnect
 
         generate_mappings()
