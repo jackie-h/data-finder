@@ -3,8 +3,7 @@ name = "data-finder"
 version = "0.1.1"
 description = "Model driven data finders"
 readme = "README.md"
-license = { text = "Apache-2.0" }
-license-files = ["LICENSE.txt"]
+license = "Apache-2.0"
 requires-python = ">=3.9"
 dependencies = [
     "jinja2>=3.1.6",
