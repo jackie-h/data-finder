@@ -1,6 +1,6 @@
 [project]
 name = "data-finder"
-version = "0.1.1"
+version = "0.1.2"
 description = "Model driven data finders"
 readme = "README.md"
 license = "Apache-2.0"
