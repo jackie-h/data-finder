@@ -1,6 +1,6 @@
 [project]
 name = "data-finder"
-version = "0.1.4"
+version = "0.1.5"
 description = "Model driven data finders"
 readme = "README.md"
 license = { text = "Apache Software License" }
@@ -26,16 +26,10 @@ duckdb = [
 ]
 
 
-[tool.setuptools.package-dir]
-data-finder = "."
-#"data-finder.datafinder" = "datafinder"
-#"data-finder.datafinder_generator" = "datafinder_generator"
+[tool.setuptools.packages.find]
+where = ["datafinder/src", "datafinder_generator/src", "model/src", "datafinder_duckdb/src", "datafinder_ibis/src"]
+exclude = ["tests*"]
 
-
-#[tool.setuptools]
-#packages = ["datafinder", "datafinder_generator", "model", "datafinder_ibis"]
-#package-dir = {"" = "datafinder/src"}
-#packages.find.where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = [
