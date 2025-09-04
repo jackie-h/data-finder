@@ -75,3 +75,30 @@ class PrimitiveGreaterThanOperation(GreaterThanOperation):
 
     def prepare_value(self) -> str:
         return str(self.__value)
+
+
+class LessThanOperation(BaseOperation):
+    __attribute: Attribute
+
+    def column_type(self) -> str:
+        return self.__attribute.column_type()
+
+    def __init__(self, attrib: Attribute):
+        self.__attribute = attrib
+
+    def generate_query(self, query: QueryEngine):
+        query.append_where_clause(self.__attribute, '<', self.prepare_value())
+
+    def prepare_value(self) -> str:
+        pass
+
+
+class PrimitiveLessThanOperation(LessThanOperation):
+    __value: []
+
+    def __init__(self, attrib: Attribute, value):
+        super().__init__(attrib)
+        self.__value = value
+
+    def prepare_value(self) -> str:
+        return str(self.__value)

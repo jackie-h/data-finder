@@ -28,6 +28,10 @@ class FloatAttribute(Attribute):
     def __gt__(self, value: float) -> Operation:
         return PrimitiveGreaterThanOperation(self, value)
 
+    def __lt__(self, value: float):
+        return PrimitiveLessThanOperation(self, value)
+
+
 class IntegerAttribute(Attribute):
 
     def __init__(self, name: str, column_db_type: str, owner:str, parent=None):
@@ -41,6 +45,9 @@ class IntegerAttribute(Attribute):
 
     def __gt__(self, value: int) -> Operation:
         return PrimitiveGreaterThanOperation(self, value)
+
+    def __lt__(self, value: int):
+        return PrimitiveLessThanOperation(self, value)
 
 
 class DateAttribute(Attribute):
@@ -60,6 +67,9 @@ class DateAttribute(Attribute):
     def __gt__(self, value: datetime.date) -> Operation:
         return PrimitiveGreaterThanOperation(self, value)
 
+    def __lt__(self, value: datetime.date):
+        return PrimitiveLessThanOperation(self, value)
+
 
 class DateTimeAttribute(Attribute):
 
@@ -74,3 +84,6 @@ class DateTimeAttribute(Attribute):
 
     def __gt__(self, value: datetime.datetime) -> Operation:
         return PrimitiveGreaterThanOperation(self, value)
+
+    def __lt__(self, value: datetime.datetime):
+        return PrimitiveLessThanOperation(self, value)
