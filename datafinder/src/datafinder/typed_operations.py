@@ -47,10 +47,7 @@ class StringEqOperation(EqOperation):
 
     def prepare_value(self) -> str:
         #TODO - String escaper
-        if self.column_type() == 'kx_symbol':
-            return "`" + self.__value
-        else:
-            return "'" + self.__value + "'"
+        return "'" + self.__value + "'"
 
 
 class GreaterThanOperation(BaseOperation):
