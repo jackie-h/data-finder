@@ -40,8 +40,9 @@ DateTime = PrimitiveType("DateTime")
 Date = PrimitiveType("Date")
 
 
-class Property:
-    def __init__(self, name: str, type: Type):
+class Property(AnnotatedElement):
+    def __init__(self, name: str, type: Type, tagged_values: list[TaggedValue] = None):
+        super().__init__(tagged_values)
         self.name = name
         self.type = type
 

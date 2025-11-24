@@ -27,9 +27,9 @@ def create_instrument_class() -> Class:
 
 
 def create_trade_class(account:Class) -> Class:
-    p1 = Property('symbol', String)
-    p2 = Property('price', Float)
-    p3 = Property('account', account)
+    p1 = Property('symbol', String, [create_description('The symbol of the instrument traded')])
+    p2 = Property('price', Float, [create_description('The current price of the trade')])
+    p3 = Property('account', account, [create_description('The trading account')])
 
     trade_c = Class('Trade', [p1, p2, p3], Package('finance'))
     return trade_c

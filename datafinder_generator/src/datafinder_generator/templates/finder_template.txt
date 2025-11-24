@@ -28,11 +28,17 @@ class {{rcm.clazz.name}}Finder:
 {% if is_primitive(rpm.property) %}
     @staticmethod
     def {{rpm.property.name}}() -> {{rpm.property.type.name}}Attribute:
+{% if rpm.property.tagged_values['doc'] %}
+        """{{rpm.property.tagged_values['doc'].value}}"""
+{% endif %}
         return {{rcm.clazz.name}}Finder.__{{rpm.property.name}}
 
 {% else %}
     @staticmethod
     def {{rpm.property.name}}() -> {{rpm.property.type.name}}RelatedFinder:
+{% if rpm.property.tagged_values['doc'] %}
+        """{{rpm.property.tagged_values['doc'].value}}"""
+{% endif %}
         return {{rcm.clazz.name}}Finder.__{{rpm.property.name}}
 
 {% endif %}
