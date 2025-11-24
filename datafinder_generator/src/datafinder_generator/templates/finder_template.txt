@@ -67,10 +67,16 @@ class {{rcm.clazz.name}}RelatedFinder:
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
     def {{rpm.property.name}}(self) -> {{rpm.property.type.name}}Attribute:
+{% if rpm.property.tagged_values['doc'] %}
+        """{{rpm.property.tagged_values['doc'].value}}"""
+{% endif %}
         return self.__{{rpm.property.name}}
 
 {% else %}
     def {{rpm.property.name}}(self) -> {{rpm.property.type.name}}RelatedFinder:
+{% if rpm.property.tagged_values['doc'] %}
+        """{{rpm.property.tagged_values['doc'].value}}"""
+{% endif %}
         return self.__{{rpm.property.name}}
 
 {% endif %}
