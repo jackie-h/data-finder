@@ -7,6 +7,10 @@ from datafinder import QueryRunnerBase, DataFrame
 
 
 class {{rcm.clazz.name}}Finder:
+{% if rcm.clazz.tagged_values['doc'] %}
+    """{{rcm.clazz.tagged_values['doc'].value}}
+    """
+{% endif %}
     __table = '{{rcm.property_mappings[0].target.table.name}}'
 
 {% for rpm in rcm.property_mappings %}

@@ -2,19 +2,34 @@ class Package:
     def __init__(self, name: str):
         self.name = name
 
+class TaggedValue:
+    DOC = 'doc'
+    def __init__(self, name: str, value):
+        self.name = name
+        self.value = value
 
-class PackagableElement:
-    def __init__(self, package: Package):
+class AnnotatedElement:
+    def __init__(self, tagged_values: list[TaggedValue]):
+        self.tagged_values = {}
+        if tagged_values is None:
+            tagged_values = []
+        for tv in tagged_values:
+            self.tagged_values[tv.name] = tv
+
+class PackagableElement(AnnotatedElement):
+    def __init__(self, package: Package, tagged_values: list[TaggedValue]):
+        super().__init__(tagged_values)
         self.package = package
 
 
 class Type:
-    def __init(self):
+    def __init__(self):
         pass
 
 
 class PrimitiveType(Type):
     def __init__(self, name: str):
+        super().__init__()
         self.name = name
 
 
@@ -32,8 +47,8 @@ class Property:
 
 
 class Class(PackagableElement, Type):
-    def __init__(self, name: str, properties: list[Property], package: Package):
-        super().__init__(package)
+    def __init__(self, name: str, properties: list[Property], package: Package, tagged_values: list[TaggedValue] = None):
+        super().__init__(package,tagged_values)
         self.properties = {}
         self.name = name
         for prop in properties:

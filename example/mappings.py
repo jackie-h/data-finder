@@ -1,16 +1,19 @@
 import os
 
 from datafinder_generator.generator import generate
-from model.m3 import Class, Property, String, Float, Package, Integer, Date
+from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue
 from model.mapping import Mapping
 from model.relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
 
+def create_description(text: str) -> TaggedValue:
+    t = TaggedValue(TaggedValue.DOC, text)
+    return t
 
 def create_account_class() -> Class:
     p1 = Property('id', Integer)
     p2 = Property('name', String)
 
-    account_c = Class('Account', [p1, p2], Package('finance'))
+    account_c = Class('Account', [p1, p2], Package('finance'), [create_description('Trading Account used to buy and sell securities')])
     return account_c
 
 
