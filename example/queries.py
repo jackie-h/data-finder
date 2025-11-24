@@ -1,9 +1,6 @@
 import datetime
 
-from trade_finder import TradeFinder
-
-
-def find_trades(trade_finder: TradeFinder):
+def find_trades(trade_finder):
     print(f'Finding trades')
 
     trades = trade_finder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
