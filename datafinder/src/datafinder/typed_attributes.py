@@ -71,22 +71,22 @@ class DateAttribute(Attribute):
         super().__init__(name, column_db_type, owner, parent)
 
     def eq(self, value: datetime.date) -> Operation:
-        return PrimitiveEqOperation(self, value)
+        return DateEqOperation(self, value)
 
     def __eq__(self, value: datetime.date) -> Operation:
-        return PrimitiveEqOperation(self, value)
+        return DateEqOperation(self, value)
 
     def __gt__(self, value: datetime.date) -> Operation:
-        return PrimitiveGreaterThanOperation(self, value)
+        return DateGreaterThanOperation(self, value)
 
     def __lt__(self, value: datetime.date):
-        return PrimitiveLessThanOperation(self, value)
+        return DateLessThanOperation(self, value)
 
     def __ge__(self, value: datetime.datetime) -> Operation:
-        return PrimitiveGreaterThanOrEqualToOperation(self, value)
+        return DateGreaterThanOrEqualToOperation(self, value)
 
     def __le__(self, value: datetime.datetime):
-        return PrimitiveLessThanOrEqualToOperation(self, value)
+        return DateLessThanOrEqualToOperation(self, value)
 
 
 class DateTimeAttribute(Attribute):

@@ -38,7 +38,7 @@ def create_trade_class(account:Class) -> Class:
 
 
 def create_contractual_position_class(instrument:Class) -> Class:
-    p1 = Property('date', Date)
+    p1 = Property('business_date', Date)
     p2 = Property('quantity', Float)
     p3 = Property('counterparty', Integer)
     p4 = Property('instrument', instrument)
@@ -94,12 +94,12 @@ def create_mappings_normalized() -> Mapping:
     i_pm2 = RelationalPropertyMapping(instrument_c.property('price'), ic2)
     rm_i = RelationalClassMapping(instrument_c, [i_pm1, i_pm2])
 
-
-    cpm1 = RelationalPropertyMapping(c_position_c.property('quantity'), p4)
-    cpm2 = RelationalPropertyMapping(c_position_c.property('counterparty'), p3)
-    cpm3 = RelationalPropertyMapping(c_position_c.property('instrument'), Join(p2,ic1))
-    cpm4 = RelationalPropertyMapping(c_position_c.property('npv'), p5)
-    rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4])
+    cpm1 = RelationalPropertyMapping(c_position_c.property('business_date'), p1)
+    cpm2 = RelationalPropertyMapping(c_position_c.property('quantity'), p4)
+    cpm3 = RelationalPropertyMapping(c_position_c.property('counterparty'), p3)
+    cpm4 = RelationalPropertyMapping(c_position_c.property('instrument'), Join(p2,ic1))
+    cpm5 = RelationalPropertyMapping(c_position_c.property('npv'), p5)
+    rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4, cpm5])
 
     return Mapping('Test Mapping 1', [rm_t,rm_a,rm_i,rm_cp])
 

@@ -31,6 +31,12 @@ class TestDataFinderIbisDuckDb:
         con.execute(
             "CREATE TABLE account_master(id INT, name VARCHAR); COPY account_master FROM 'data/accounts.csv'")
 
+        con.execute("DROP TABLE IF EXISTS contractualposition;")
+        con.execute(
+            "CREATE TABLE contractualposition(DATE DATE, INSTRUMENT VARCHAR, CPTY_ID INT, QUANTITY DOUBLE); COPY contractualposition FROM 'data/contractualpositions.csv'")
+        con.sql("SELECT * from contractualposition").show()
+
+
     def test_queries(self):
         self.setup()
         # Import after generation, so we get the latest version
@@ -72,3 +78,17 @@ class TestDataFinderIbisDuckDb:
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 'IBM', 3000.5]], dtype=object))
+
+    def test_date_operations(self):
+        from contractualposition_finder import ContractualPositionFinder
+        positions = ContractualPositionFinder.find_all([ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()],
+                                           ContractualPositionFinder.business_date() > datetime.date(2024,1,10))
+        np_pos = positions.to_numpy()
+        print(np_pos)
+        assert_array_equal(np_pos, np.array([['GS', 1000.0]], dtype=object))
+
+        positions = ContractualPositionFinder.find_all([ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()],
+                                           ContractualPositionFinder.business_date() == datetime.date(2024,1,10))
+        np_pos = positions.to_numpy()
+        print(np_pos)
+        assert_array_equal(np_pos, np.array([['IBM', 200.0]], dtype=object))

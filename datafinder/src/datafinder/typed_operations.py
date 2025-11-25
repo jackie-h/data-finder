@@ -54,12 +54,24 @@ class StringEqOperation(EqOperation):
 def sql_format_datetime(value:datetime.datetime):
     return value.strftime("'%Y-%m-%d %H:%M:%S'")
 
-class DateTimeEqOperation(PrimitiveEqOperation):
-    __value: []
+def sql_format_date(value:datetime.date):
+    return value.strftime("'%Y-%m-%d'")
+
+
+class DateEqOperation(PrimitiveEqOperation):
 
     def __init__(self, attrib: Attribute, value):
-        super().__init__(attrib)
+        super().__init__(attrib, value)
         self.__value = value
+
+    def prepare_value(self) -> str:
+        return sql_format_date(self.__value)
+
+
+class DateTimeEqOperation(PrimitiveEqOperation):
+
+    def __init__(self, attrib: Attribute, value):
+        super().__init__(attrib, value)
 
     def prepare_value(self) -> str:
         return sql_format_datetime(self.__value)
@@ -90,6 +102,17 @@ class PrimitiveGreaterThanOperation(GreaterThanOperation):
 
     def prepare_value(self) -> str:
         return str(self.__value)
+
+class DateGreaterThanOperation(GreaterThanOperation):
+    __value: []
+
+    def __init__(self, attrib: Attribute, value):
+        super().__init__(attrib)
+        self.__value = value
+
+    def prepare_value(self) -> str:
+        return sql_format_date(self.__value)
+
 
 class DateTimeGreaterThanOperation(GreaterThanOperation):
     __value: []
@@ -127,6 +150,17 @@ class PrimitiveGreaterThanOrEqualToOperation(GreaterThanOrEqualToOperation):
 
     def prepare_value(self) -> str:
         return str(self.__value)
+
+
+class DateGreaterThanOrEqualToOperation(GreaterThanOrEqualToOperation):
+    __value: []
+
+    def __init__(self, attrib: Attribute, value):
+        super().__init__(attrib)
+        self.__value = value
+
+    def prepare_value(self) -> str:
+        return sql_format_date(self.__value)
 
 
 class DateTimeGreaterThanOrEqualToOperation(GreaterThanOrEqualToOperation):
@@ -167,6 +201,17 @@ class PrimitiveLessThanOperation(LessThanOperation):
         return str(self.__value)
 
 
+class DateLessThanOperation(LessThanOperation):
+    __value: []
+
+    def __init__(self, attrib: Attribute, value):
+        super().__init__(attrib)
+        self.__value = value
+
+    def prepare_value(self) -> str:
+        return sql_format_date(self.__value)
+
+
 class DateTimeLessThanOperation(LessThanOperation):
     __value: []
 
@@ -203,6 +248,17 @@ class PrimitiveLessThanOrEqualToOperation(LessThanOrEqualToOperation):
 
     def prepare_value(self) -> str:
         return str(self.__value)
+
+
+class DateLessThanOrEqualToOperation(LessThanOrEqualToOperation):
+    __value: []
+
+    def __init__(self, attrib: Attribute, value:datetime.datetime):
+        super().__init__(attrib)
+        self.__value = value
+
+    def prepare_value(self) -> str:
+        return sql_format_date(self.__value)
 
 
 class DateTimeLessThanOrEqualToOperation(LessThanOrEqualToOperation):
