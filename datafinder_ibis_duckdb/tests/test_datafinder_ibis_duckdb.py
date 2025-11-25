@@ -23,7 +23,7 @@ class TestDataFinderIbisDuckDb:
         con.sql("SELECT 42 AS x").show()
         con.execute("DROP TABLE IF EXISTS trades;")
         con.execute(
-            "CREATE TABLE trades(id INT, account_id INT, sym VARCHAR, price DOUBLE); COPY trades FROM 'data/trades.csv'")
+            "CREATE TABLE trades(id INT, account_id INT, sym VARCHAR, price DOUBLE, start_at TIMESTAMP, end_at TIMESTAMP); COPY trades FROM 'data/trades.csv'")
         con.sql("SELECT * from trades").show()
         con.sql("SELECT * from trades where sym LIKE 'AAPL'").show()
 
@@ -38,18 +38,37 @@ class TestDataFinderIbisDuckDb:
         queries.find_trades(TradeFinder)
         from account_finder import AccountFinder
         np_accts = AccountFinder \
-            .find_all(datetime.date.today(), datetime.date.today(), "LATEST",
-                      [AccountFinder.id(), AccountFinder.name()],
+            .find_all([AccountFinder.id(), AccountFinder.name()],
                       AccountFinder.id().eq(211978)) \
             .to_numpy()
         print(np_accts)
         assert_array_equal(np_accts, np.array([[211978, 'Trading Account 1']],dtype=object))
 
 
-        trades_with_account = TradeFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
+        trades_with_account = TradeFinder.find_all(datetime.datetime.now(),
                                                    [TradeFinder.account().name(), TradeFinder.symbol(),
                                                     TradeFinder.price()],
                                                    TradeFinder.symbol().eq("AAPL"))
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 'AAPL', 84.11]], dtype=object))
+
+
+    def test_milestoning_queries(self):
+        from trade_finder import TradeFinder
+        trades_with_account = TradeFinder.find_all(datetime.datetime.strptime('2020-01-01 09:00:00', '%Y-%m-%d %H:%M:%S'),
+                                                   [TradeFinder.account().name(), TradeFinder.symbol(),
+                                                    TradeFinder.price()],
+                                                   TradeFinder.symbol().eq("IBM"))
+        np_trades = trades_with_account.to_numpy()
+        print(np_trades)
+        assert_array_equal(np_trades, np.array([['Trading Account 1', 'IBM', 1203.5]], dtype=object))
+
+        trades_with_account = TradeFinder.find_all(
+            datetime.datetime.strptime('2022-01-01 10:00:00', '%Y-%m-%d %H:%M:%S'),
+            [TradeFinder.account().name(), TradeFinder.symbol(),
+             TradeFinder.price()],
+            TradeFinder.symbol().eq("IBM"))
+        np_trades = trades_with_account.to_numpy()
+        print(np_trades)
+        assert_array_equal(np_trades, np.array([['Trading Account 1', 'IBM', 3000.5]], dtype=object))

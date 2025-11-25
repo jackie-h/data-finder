@@ -8,10 +8,20 @@ class PropertyMapping:
         self.property = property
         self.target = target
 
+class MilestonePropertyMapping:
+    def __init(self):
+        pass
+
+class ProcessingDateMilestonesPropertyMapping(MilestonePropertyMapping):
+    def __init__(self, _in: PropertyMapping, _out: PropertyMapping):
+        self._in = _in
+        self._out = _out
+
 class ClassMapping:
-    def __init__(self, clazz: Class, property_mappings: list[PropertyMapping]):
+    def __init__(self, clazz: Class, property_mappings: list[PropertyMapping], milestone_mapping: MilestonePropertyMapping = None):
         self.clazz = clazz
         self.property_mappings = property_mappings
+        self.milestone_mapping = milestone_mapping
 
 class Mapping:
     def __init__(self, name: str, mappings: list[ClassMapping]):

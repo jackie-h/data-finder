@@ -42,8 +42,7 @@ class TestCalc:
 
         #Calc run
         from contractualposition_finder import ContractualPositionFinder
-        input_data = ContractualPositionFinder.find_all(datetime.date.today(), datetime.date.today(), "LATEST",
-                                           inputs).to_numpy()
+        input_data = ContractualPositionFinder.find_all(inputs).to_numpy()
 
         output = calc.calculate(input_data)
 

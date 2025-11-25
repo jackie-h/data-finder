@@ -24,6 +24,11 @@ class {{rcm.clazz.name}}Finder:
 {% endif %}
 {% endfor %}
 
+{% if rcm.milestone_mapping %}
+    __processing_start_at = DateTimeAttribute('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}', '{{rcm.milestone_mapping._in.target.table.name}}')
+    __processing_end_at = DateTimeAttribute('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}', '{{rcm.milestone_mapping._out.target.table.name}}')
+{% endif %}
+
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
     @staticmethod
@@ -44,11 +49,19 @@ class {{rcm.clazz.name}}Finder:
 {% endif %}
 {% endfor %}
     @staticmethod
-    def find_all(date_from: datetime.date, date_to: datetime.date, as_of: str,
+{% if rcm.milestone_mapping %}
+    def find_all(processing_valid_at: datetime.datetime,
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> DataFrame:
+        processing_time_op = AndOperation({{rcm.clazz.name}}Finder.__processing_start_at <= processing_valid_at,
+                                     ({{rcm.clazz.name}}Finder.__processing_end_at > processing_valid_at))
+        op = AndOperation(filter_op, processing_time_op)
+        return QueryRunnerBase.get_runner().select(display_columns, {{rcm.clazz.name}}Finder.__table, op)
+{% else %}
+    def find_all(display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> DataFrame:
         return QueryRunnerBase.get_runner().select(display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
-
+{% endif %}
 
 class {{rcm.clazz.name}}RelatedFinder:
     def __init__(self, source: Attribute, target: Attribute):
