@@ -63,7 +63,8 @@ class TestDataFinderIbisDuckDb:
     def test_milestoning_queries(self):
         from trade_finder import TradeFinder
         trades_with_account = TradeFinder.find_all(datetime.datetime.strptime('2020-01-01 09:00:00', '%Y-%m-%d %H:%M:%S'),
-                                                   [TradeFinder.account().name(), TradeFinder.symbol(),
+                                                   [TradeFinder.account().name(),
+                                                    TradeFinder.instrument().symbol(),
                                                     TradeFinder.price()],
                                                    TradeFinder.symbol().eq("IBM"))
         np_trades = trades_with_account.to_numpy()
