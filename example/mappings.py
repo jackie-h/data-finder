@@ -27,14 +27,15 @@ def create_instrument_class() -> Class:
     return instrument_c
 
 
-def create_trade_class(account:Class) -> Class:
+def create_trade_class(account:Class, instrument:Class) -> Class:
     p1 = Property('symbol', String, [create_description('The symbol of the instrument traded')])
     p2 = Property('price', Float, [create_description('The current price of the trade')])
     p3 = Property('account', account, [create_description('The trading account')])
-    p4 = Property('in', DateTime)
-    p5 = Property('out', DateTime)
+    p4 = Property('valid_from', DateTime)
+    p5 = Property('valid_to', DateTime)
+    p6 = Property('instrument', instrument)
 
-    trade_c = Class('Trade', [p1, p2, p3, p4, p5], Package('finance'))
+    trade_c = Class('Trade', [p1, p2, p3, p4, p5, p6], Package('finance'))
     return trade_c
 
 
@@ -68,7 +69,7 @@ def create_mappings_normalized() -> Mapping:
     p5 = Column('NPV', 'DOUBLE')
     pos_t = Table('contractualposition', [p1, p2, p3, p4, p5])
 
-    trade_c = create_trade_class(account_c)
+    trade_c = create_trade_class(account_c, instrument_c)
 
     c1 = Column('id', 'INT')
     c2 = Column('account_id', 'INT')
@@ -82,10 +83,11 @@ def create_mappings_normalized() -> Mapping:
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3)
     pm2 = RelationalPropertyMapping(trade_c.property('price'), c4)
     pm3 = RelationalPropertyMapping(trade_c.property('account'),Join(c2,ac1))
-    pm4 = RelationalPropertyMapping(trade_c.property('in'), c5)
-    pm5 = RelationalPropertyMapping(trade_c.property('out'), c6)
+    pm4 = RelationalPropertyMapping(trade_c.property('valid_from'), c5)
+    pm5 = RelationalPropertyMapping(trade_c.property('valid_to'), c6)
+    pm6 = RelationalPropertyMapping(trade_c.property('instrument'), Join(c3,ic1))
     mpm = ProcessingDateMilestonesPropertyMapping(pm4, pm5)
-    rm_t = RelationalClassMapping(trade_c, [pm1, pm2, pm3], mpm)
+    rm_t = RelationalClassMapping(trade_c, [pm1, pm2, pm3, pm4, pm5, pm6], mpm)
 
     a_pm1 = RelationalPropertyMapping(account_c.property('id'), ac1)
     a_pm2 = RelationalPropertyMapping(account_c.property('name'), ac2)
