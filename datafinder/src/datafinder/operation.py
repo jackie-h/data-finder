@@ -37,20 +37,25 @@ class QueryEngine:
         self.__table_aliases_by_table = {}
 
     def select(self, cols: list[Attribute]):
+        required_joins = set()
+
         for col in cols:
             table = col.owner()
             ta = self.__table_alias_for_table(table)
             parent: JoinOperation = col.parent()
             if parent is not None:
-                left = parent.left
-                sc = ColumnAlias(left.column_name(), self.__table_alias_for_table(left.owner()))
-                right = parent.right
-                tc = ColumnAlias(right.column_name(), self.__table_alias_for_table(right.owner()))
-                self._join.append(Join(sc, tc))
+                required_joins.add(parent)
             else:
                 self._from.add(ta)
             ca = ColumnAlias(col.column_name(), ta)
             self._select.append(ca)
+
+        for parent in required_joins:
+            left = parent.left
+            sc = ColumnAlias(left.column_name(), self.__table_alias_for_table(left.owner()))
+            right = parent.right
+            tc = ColumnAlias(right.column_name(), self.__table_alias_for_table(right.owner()))
+            self._join.append(Join(sc, tc))
 
     def __table_alias_for_table(self, table: str) -> TableAlias:
         ta = None

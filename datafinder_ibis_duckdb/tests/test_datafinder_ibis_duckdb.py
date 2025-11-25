@@ -52,12 +52,14 @@ class TestDataFinderIbisDuckDb:
 
 
         trades_with_account = TradeFinder.find_all(datetime.datetime.now(),
-                                                   [TradeFinder.account().name(), TradeFinder.symbol(),
+                                                   [TradeFinder.account().name(),
+                                                    TradeFinder.account().id(),
+                                                    TradeFinder.symbol(),
                                                     TradeFinder.price()],
                                                    TradeFinder.symbol().eq("AAPL"))
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
-        assert_array_equal(np_trades, np.array([['Trading Account 1', 'AAPL', 84.11]], dtype=object))
+        assert_array_equal(np_trades, np.array([['Trading Account 1', 211978, 'AAPL', 84.11]], dtype=object))
 
 
     def test_milestoning_queries(self):
