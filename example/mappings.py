@@ -2,7 +2,8 @@ import os
 
 from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime
-from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping
+from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
+    SingleBusinessDateMilestonePropertyMapping
 from model.relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
 
 def create_description(text: str) -> TaggedValue:
@@ -99,7 +100,8 @@ def create_mappings_normalized() -> Mapping:
     cpm3 = RelationalPropertyMapping(c_position_c.property('counterparty'), p3)
     cpm4 = RelationalPropertyMapping(c_position_c.property('instrument'), Join(p2,ic1))
     cpm5 = RelationalPropertyMapping(c_position_c.property('npv'), p5)
-    rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4, cpm5])
+    cpm_t = SingleBusinessDateMilestonePropertyMapping(cpm1)
+    rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4, cpm5], cpm_t)
 
     return Mapping('Test Mapping 1', [rm_t,rm_a,rm_i,rm_cp])
 

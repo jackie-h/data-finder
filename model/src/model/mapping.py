@@ -17,6 +17,10 @@ class ProcessingDateMilestonesPropertyMapping(MilestonePropertyMapping):
         self._in = _in
         self._out = _out
 
+class SingleBusinessDateMilestonePropertyMapping(MilestonePropertyMapping):
+    def __init__(self, _date: PropertyMapping):
+        self._date = _date
+
 class ClassMapping:
     def __init__(self, clazz: Class, property_mappings: list[PropertyMapping], milestone_mapping: MilestonePropertyMapping = None):
         self.clazz = clazz

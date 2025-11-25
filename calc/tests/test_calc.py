@@ -42,11 +42,11 @@ class TestCalc:
 
         #Calc run
         from contractualposition_finder import ContractualPositionFinder
-        input_data = ContractualPositionFinder.find_all(inputs).to_numpy()
+        input_data = ContractualPositionFinder.find_all(datetime.date(2024,1,10),inputs).to_numpy()
 
         output = calc.calculate(input_data)
 
-        assert_array_almost_equal(output, numpy.array([200000.0, 54999.95]), decimal=2)
+        assert_array_almost_equal(output, numpy.array([240700.0]), decimal=2)
 
 
 

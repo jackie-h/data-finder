@@ -79,16 +79,16 @@ class TestDataFinderIbisDuckDb:
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 'IBM', 3000.5]], dtype=object))
 
-    def test_date_operations(self):
+    def test_milestoning_single_business_date_operations(self):
         from contractualposition_finder import ContractualPositionFinder
-        positions = ContractualPositionFinder.find_all([ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()],
-                                           ContractualPositionFinder.business_date() > datetime.date(2024,1,10))
+        positions = ContractualPositionFinder.find_all(datetime.date(2024,1,11),
+                                                       [ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()])
         np_pos = positions.to_numpy()
         print(np_pos)
         assert_array_equal(np_pos, np.array([['GS', 1000.0]], dtype=object))
 
-        positions = ContractualPositionFinder.find_all([ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()],
-                                           ContractualPositionFinder.business_date() == datetime.date(2024,1,10))
+        positions = ContractualPositionFinder.find_all(datetime.date(2024,1,10),
+                                                       [ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()])
         np_pos = positions.to_numpy()
         print(np_pos)
         assert_array_equal(np_pos, np.array([['IBM', 200.0]], dtype=object))

@@ -1,5 +1,5 @@
 from datafinder.typed_attributes import *
-from datafinder import QueryRunnerBase, DataFrame
+from datafinder import QueryRunnerBase, DataFrame, NoOperation
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}from {{rpm.property.name.lower()}}_finder import {{rpm.property.type.name}}RelatedFinder
 {% endif %}
@@ -25,8 +25,12 @@ class {{rcm.clazz.name}}Finder:
 {% endfor %}
 
 {% if rcm.milestone_mapping %}
-    __processing_start_at = DateTimeAttribute('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}', '{{rcm.milestone_mapping._in.target.table.name}}')
-    __processing_end_at = DateTimeAttribute('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}', '{{rcm.milestone_mapping._out.target.table.name}}')
+{% if has_processing_temporal(rcm.milestone_mapping) %}
+    __zz_processing_start_at = DateTimeAttribute('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}', '{{rcm.milestone_mapping._in.target.table.name}}')
+    __zz_processing_end_at = DateTimeAttribute('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}', '{{rcm.milestone_mapping._out.target.table.name}}')
+{% elif has_uni_business_temporal(rcm.milestone_mapping) %}
+    __zz_business_date = DateAttribute('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}', '{{rcm.milestone_mapping._date.target.table.name}}')
+{% endif %}
 {% endif %}
 
 {% for rpm in rcm.property_mappings %}
@@ -50,12 +54,20 @@ class {{rcm.clazz.name}}Finder:
 {% endfor %}
     @staticmethod
 {% if rcm.milestone_mapping %}
+{% if has_processing_temporal(rcm.milestone_mapping) %}
     def find_all(processing_valid_at: datetime.datetime,
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> DataFrame:
-        processing_time_op = AndOperation({{rcm.clazz.name}}Finder.__processing_start_at <= processing_valid_at,
-                                     ({{rcm.clazz.name}}Finder.__processing_end_at > processing_valid_at))
-        op = AndOperation(filter_op, processing_time_op)
+        processing_time_op = AndOperation({{rcm.clazz.name}}Finder.__zz_processing_start_at <= processing_valid_at,
+                                     ({{rcm.clazz.name}}Finder.__zz_processing_end_at > processing_valid_at))
+        op = processing_time_op if isinstance(filter_op, NoOperation) else AndOperation(filter_op, processing_time_op)
+{% elif has_uni_business_temporal(rcm.milestone_mapping) %}
+    def find_all(business_date: datetime.date,
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> DataFrame:
+        date_op = {{rcm.clazz.name}}Finder.__zz_business_date == business_date
+        op = date_op if isinstance(filter_op, NoOperation) else AndOperation(filter_op, date_op)
+{% endif %}
         return QueryRunnerBase.get_runner().select(display_columns, {{rcm.clazz.name}}Finder.__table, op)
 {% else %}
     def find_all(display_columns: list[Attribute],

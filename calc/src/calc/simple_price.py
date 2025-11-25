@@ -18,7 +18,7 @@ class PositionNPVCalc(DomainAwareCalc):
                 ContractualPositionFinder.instrument().price()]
 
     def calculate(self, inputs):
-        return npv(inputs[0], inputs[1])
+        return npv(inputs[0][0], inputs[0][1])
 
     def output_spec(self) -> Attribute:
         return ContractualPositionFinder.npv()
