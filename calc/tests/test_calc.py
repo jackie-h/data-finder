@@ -9,6 +9,7 @@ from numpy.testing import assert_array_almost_equal
 from datafinder import QueryRunnerBase
 from datafinder_ibis.ibis_engine import IbisConnect
 from mappings import generate_mappings
+from setup_test_data import setup_duckdb
 
 
 class TestCalc:
@@ -20,15 +21,7 @@ class TestCalc:
         assert QueryRunnerBase.get_runner() == IbisConnect
 
         generate_mappings()
-        con = duckdb.connect('test.db')
-        con.execute("DROP TABLE IF EXISTS contractualposition;")
-        con.execute(
-            "CREATE TABLE contractualposition(DATE DATE, INSTRUMENT VARCHAR, CPTY_ID INT, QUANTITY DOUBLE); COPY contractualposition FROM 'data/contractualpositions.csv'")
-        con.sql("SELECT * from contractualposition").show()
-
-        con.execute("DROP TABLE IF EXISTS price;")
-        con.execute(
-            "CREATE TABLE price(DATE_TIME DATETIME, SYM VARCHAR, PRICE DOUBLE); COPY price FROM 'data/prices.csv'")
+        setup_duckdb()
 
     def test_price(self):
         self.setup()
