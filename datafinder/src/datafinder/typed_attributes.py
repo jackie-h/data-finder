@@ -31,6 +31,12 @@ class FloatAttribute(Attribute):
     def __lt__(self, value: float):
         return PrimitiveLessThanOperation(self, value)
 
+    def __ge__(self, value: datetime.datetime) -> Operation:
+        return PrimitiveGreaterThanOrEqualToOperation(self, value)
+
+    def __le__(self, value: datetime.datetime):
+        return PrimitiveLessThanOrEqualToOperation(self, value)
+
 
 class IntegerAttribute(Attribute):
 
@@ -48,6 +54,12 @@ class IntegerAttribute(Attribute):
 
     def __lt__(self, value: int):
         return PrimitiveLessThanOperation(self, value)
+
+    def __ge__(self, value: datetime.datetime) -> Operation:
+        return PrimitiveGreaterThanOrEqualToOperation(self, value)
+
+    def __le__(self, value: datetime.datetime):
+        return PrimitiveLessThanOrEqualToOperation(self, value)
 
 
 class DateAttribute(Attribute):
@@ -69,6 +81,12 @@ class DateAttribute(Attribute):
 
     def __lt__(self, value: datetime.date):
         return PrimitiveLessThanOperation(self, value)
+
+    def __ge__(self, value: datetime.datetime) -> Operation:
+        return PrimitiveGreaterThanOrEqualToOperation(self, value)
+
+    def __le__(self, value: datetime.datetime):
+        return PrimitiveLessThanOrEqualToOperation(self, value)
 
 
 class DateTimeAttribute(Attribute):

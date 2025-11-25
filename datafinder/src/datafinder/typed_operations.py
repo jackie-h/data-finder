@@ -51,6 +51,8 @@ class StringEqOperation(EqOperation):
         #TODO - String escaper
         return "'" + self.__value + "'"
 
+def sql_format_datetime(value:datetime.datetime):
+    return value.strftime("'%Y-%m-%d %H:%M:%S'")
 
 class DateTimeEqOperation(PrimitiveEqOperation):
     __value: []
@@ -60,8 +62,7 @@ class DateTimeEqOperation(PrimitiveEqOperation):
         self.__value = value
 
     def prepare_value(self) -> str:
-        time_format = "'%Y-%m-%d %H:%M:%S'"
-        return self.__value.strftime(time_format)
+        return sql_format_datetime(self.__value)
 
 
 class GreaterThanOperation(BaseOperation):
@@ -98,8 +99,7 @@ class DateTimeGreaterThanOperation(GreaterThanOperation):
         self.__value = value
 
     def prepare_value(self) -> str:
-        time_format = "'%Y-%m-%d %H:%M:%S'"
-        return self.__value.strftime(time_format)
+        return sql_format_datetime(self.__value)
 
 
 class GreaterThanOrEqualToOperation(BaseOperation):
@@ -137,8 +137,7 @@ class DateTimeGreaterThanOrEqualToOperation(GreaterThanOrEqualToOperation):
         self.__value = value
 
     def prepare_value(self) -> str:
-        time_format = "'%Y-%m-%d %H:%M:%S'"
-        return self.__value.strftime(time_format)
+        return sql_format_datetime(self.__value)
 
 
 class LessThanOperation(BaseOperation):
@@ -176,8 +175,7 @@ class DateTimeLessThanOperation(LessThanOperation):
         self.__value = value
 
     def prepare_value(self) -> str:
-        time_format = "'%Y-%m-%d %H:%M:%S'"
-        return self.__value.strftime(time_format)
+        return sql_format_datetime(self.__value)
 
 
 class LessThanOrEqualToOperation(BaseOperation):
@@ -215,5 +213,4 @@ class DateTimeLessThanOrEqualToOperation(LessThanOrEqualToOperation):
         self.__value = value
 
     def prepare_value(self) -> str:
-        time_format = "'%Y-%m-%d %H:%M:%S'"
-        return self.__value.strftime(time_format)
+        return sql_format_datetime(self.__value)
