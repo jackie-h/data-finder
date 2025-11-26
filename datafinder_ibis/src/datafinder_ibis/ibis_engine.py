@@ -1,20 +1,25 @@
-from datafinder import Operation, DataFrame, Attribute, select_sql_to_string
+import datetime
+
+from datafinder import Operation, DataFrame, Attribute, select_sql_to_string, build_query_operation
 
 import ibis
 import numpy as np
 import pandas as pd
 
 from datafinder import QueryRunnerBase
+from model.relational import Table
 
 
 class IbisConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(columns: list[Attribute], table: str, op: Operation) -> DataFrame:
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
+               table: Table, op: Operation) -> DataFrame:
         conn = ibis.connect('duckdb://test.db')
-        query = select_sql_to_string(columns, table, op)
+        select_op = build_query_operation(business_date, processing_datetime, columns, table, op)
+        query = select_sql_to_string(select_op)
         print(query)
-        t = conn.table(table)
+        t = conn.table(table.name)
         #todo - can also do this with the dataframe API
         return IbisOutput(t.sql(query))
 

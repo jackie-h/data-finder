@@ -1,16 +1,22 @@
-from datafinder import Operation, DataFrame, Attribute, select_sql_to_string, QueryRunnerBase
+import datetime
+
+from datafinder import Operation, DataFrame, Attribute, select_sql_to_string, QueryRunnerBase, build_query_operation
 
 import duckdb
 import numpy as np
 import pandas as pd
 
+from model.relational import Table
+
 
 class DuckDbConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(columns: list[Attribute], table: str, op: Operation) -> DataFrame:
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
+               table: Table, op: Operation) -> DataFrame:
         conn = duckdb.connect('test.db')
-        query = select_sql_to_string(columns, table, op)
+        select_op = build_query_operation(business_date, processing_datetime, columns, table, op)
+        query = select_sql_to_string(select_op)
         print(query)
         # TODO this is inefficient, could convert straight to desired output - such as numpy, instead of list
         return DuckDbOutput(conn.sql(query).fetchall())

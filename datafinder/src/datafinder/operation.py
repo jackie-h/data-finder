@@ -59,6 +59,9 @@ class QueryEngine:
 
     def __table_alias_for_table(self, table: str) -> TableAlias:
         ta = None
+        if table is None:
+            raise TypeError
+
         if table in self.__table_aliases_by_table:
             ta = self.__table_aliases_by_table[table]
         else:
@@ -159,9 +162,8 @@ class JoinOperation(Operation):
         self.right = rhs
 
 
-def select_sql_to_string(columns: list[Attribute], table: str, op: Operation) -> str:
+def select_sql_to_string(select_operation: SelectOperation) -> str:
     qe = QueryEngine()
-    select = SelectOperation(columns, table, op)
-    select.generate_query(qe)
+    select_operation.generate_query(qe)
     return qe.build_query_string()
 

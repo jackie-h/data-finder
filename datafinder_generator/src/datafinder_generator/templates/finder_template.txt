@@ -1,5 +1,7 @@
 from datafinder.typed_attributes import *
 from datafinder import QueryRunnerBase, DataFrame, NoOperation
+from model.relational import ProcessingTemporalColumns, SingleBusinessDateColumn, Column, Table, MilestonedTable
+
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}from {{rpm.property.name.lower()}}_finder import {{rpm.property.type.name}}RelatedFinder
 {% endif %}
@@ -11,7 +13,18 @@ class {{rcm.clazz.name}}Finder:
     """{{rcm.clazz.tagged_values['doc'].value}}
     """
 {% endif %}
-    __table = '{{rcm.property_mappings[0].target.table.name}}'
+
+{% if rcm.milestone_mapping %}
+{% if has_processing_temporal(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = ProcessingTemporalColumns(Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
+                                                         Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+{% elif has_uni_business_temporal(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
+{% endif %}
+    __table = MilestonedTable('{{rcm.property_mappings[0].target.table.name}}', [], __zz_milestoning_columns)
+{% else %}
+    __table = Table('{{rcm.property_mappings[0].target.table.name}}', [])
+{% endif %}
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
@@ -23,15 +36,6 @@ class {{rcm.clazz.name}}Finder:
     __{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder(Attribute('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Attribute('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
 {% endif %}
 {% endfor %}
-
-{% if rcm.milestone_mapping %}
-{% if has_processing_temporal(rcm.milestone_mapping) %}
-    __zz_processing_start_at = DateTimeAttribute('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}', '{{rcm.milestone_mapping._in.target.table.name}}')
-    __zz_processing_end_at = DateTimeAttribute('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}', '{{rcm.milestone_mapping._out.target.table.name}}')
-{% elif has_uni_business_temporal(rcm.milestone_mapping) %}
-    __zz_business_date = DateAttribute('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}', '{{rcm.milestone_mapping._date.target.table.name}}')
-{% endif %}
-{% endif %}
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
@@ -58,21 +62,17 @@ class {{rcm.clazz.name}}Finder:
     def find_all(processing_valid_at: datetime.datetime,
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> DataFrame:
-        processing_time_op = AndOperation({{rcm.clazz.name}}Finder.__zz_processing_start_at <= processing_valid_at,
-                                     ({{rcm.clazz.name}}Finder.__zz_processing_end_at > processing_valid_at))
-        op = processing_time_op if isinstance(filter_op, NoOperation) else AndOperation(filter_op, processing_time_op)
+        return QueryRunnerBase.get_runner().select(None, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     def find_all(business_date: datetime.date,
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> DataFrame:
-        date_op = {{rcm.clazz.name}}Finder.__zz_business_date == business_date
-        op = date_op if isinstance(filter_op, NoOperation) else AndOperation(filter_op, date_op)
+        return QueryRunnerBase.get_runner().select(business_date, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}
-        return QueryRunnerBase.get_runner().select(display_columns, {{rcm.clazz.name}}Finder.__table, op)
 {% else %}
     def find_all(display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> DataFrame:
-        return QueryRunnerBase.get_runner().select(display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return QueryRunnerBase.get_runner().select(None, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}
 
 class {{rcm.clazz.name}}RelatedFinder:
