@@ -1,6 +1,7 @@
 import datetime
 
 from datafinder.attribute import Attribute
+from model.relational import Table
 
 
 class TableAlias:
@@ -153,11 +154,10 @@ class BaseOperation(Operation):
         return AndOperation(self, rhs)
 
 
-class JoinOperation(Operation):
-    left: Attribute
-    right: Attribute
-
-    def __init__(self, lhs: Attribute, rhs: Attribute):
+class JoinOperation:
+    def __init__(self, name: str, target:Table, lhs:Attribute, rhs:Attribute):
+        self.name = name
+        self.target = target
         self.left = lhs
         self.right = rhs
 

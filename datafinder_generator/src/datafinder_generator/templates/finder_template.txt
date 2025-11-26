@@ -33,7 +33,7 @@ class {{rcm.clazz.name}}Finder:
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}
-    __{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder(Attribute('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Attribute('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
+    __{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Attribute('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Attribute('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
 {% endif %}
 {% endfor %}
 
@@ -76,8 +76,21 @@ class {{rcm.clazz.name}}Finder:
 {% endif %}
 
 class {{rcm.clazz.name}}RelatedFinder:
-    def __init__(self, source: Attribute, target: Attribute):
-        join = JoinOperation(source,target)
+
+{% if rcm.milestone_mapping %}
+{% if has_processing_temporal(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = ProcessingTemporalColumns(Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
+                                                         Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+{% elif has_uni_business_temporal(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
+{% endif %}
+    __table = MilestonedTable('{{rcm.property_mappings[0].target.table.name}}', [], __zz_milestoning_columns)
+{% else %}
+    __table = Table('{{rcm.property_mappings[0].target.table.name}}', [])
+{% endif %}
+
+    def __init__(self, relation_name:str, source: Attribute, target: Attribute):
+        join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
         self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}', join)
