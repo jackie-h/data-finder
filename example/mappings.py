@@ -2,9 +2,10 @@ import os
 
 from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime
-from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
-    SingleBusinessDateMilestonePropertyMapping
-from model.relational import Column, Table, RelationalClassMapping, RelationalPropertyMapping, Join
+from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
+from model.relational import Column, Table, Join
+from model.relational_mapping import RelationalPropertyMapping, RelationalClassMapping
+
 
 def create_description(text: str) -> TaggedValue:
     t = TaggedValue(TaggedValue.DOC, text)
