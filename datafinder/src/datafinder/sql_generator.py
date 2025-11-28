@@ -138,11 +138,6 @@ class SQLQueryGenerator:
             self.__table_aliases_by_table[table] = ta
         return ta
 
-
-    def append_where_clause(self, attr: Attribute, op: str, value: str):
-        ta = self.__table_alias_for_table(attr.owner())
-        self._where.append(ta.alias + '.' + attr.column().name + ' ' + op + ' ' + value)
-
     def build_query_string(self) -> str:
         joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
                               ' ON ' + j.source.table_alias.alias + '.' + j.source.column_name + ' = ' +
