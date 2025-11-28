@@ -23,15 +23,13 @@ class Join:
         self.source = source
         self.target = target
 
+
 class SelectOperation:
     def __init__(self, display: list[Attribute], table: str, filter: Operation):
         self.display = display
         self.table = table
         self.filter = filter
 
-    # def generate_query(self, qe: QueryEngine):
-    #     qe.select(self.__display)
-    #     self.__filter.generate_query(qe)
 
 def sql_format_datetime(value:datetime.datetime) -> str:
     return value.strftime("'%Y-%m-%d %H:%M:%S'")
