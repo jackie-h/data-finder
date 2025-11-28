@@ -39,31 +39,25 @@ def sql_format_datetime(value:datetime.datetime) -> str:
 def sql_format_date(value:datetime.date) -> str:
     return value.strftime("'%Y-%m-%d'")
 
+LOGICAL_OPERATOR_STR = {
+    LogicalOperator.AND: ' AND ',
+    LogicalOperator.OR: ' OR '
+}
+
+COMPARISON_OPERATOR_STR = {
+    ComparisonOperator.EQUAL: ' == ',
+    ComparisonOperator.LESS_THAN: ' < ',
+    ComparisonOperator.GREATER_THAN: ' > ',
+    ComparisonOperator.LESS_THAN_OR_EQUAL_TO: ' <= ',
+    ComparisonOperator.GREATER_THAN_OR_EQUAL_TO: ' >= ',
+    ComparisonOperator.NOT_EQUAL: ' <> '
+}
+
 def logical_operator_string(op:LogicalOperator) -> str:
-    match op:
-        case LogicalOperator.AND:
-            return ' AND '
-        case LogicalOperator.OR:
-            return ' OR '
-        case _:
-            raise ValueError
+    return LOGICAL_OPERATOR_STR.get(op)
 
 def comparison_operator_string(op:ComparisonOperator) -> str:
-    match op:
-        case ComparisonOperator.EQUAL:
-            return ' == '
-        case ComparisonOperator.LESS_THAN:
-            return ' < '
-        case ComparisonOperator.GREATER_THAN:
-            return ' > '
-        case ComparisonOperator.LESS_THAN_OR_EQUAL_TO:
-            return ' <= '
-        case ComparisonOperator.GREATER_THAN_OR_EQUAL_TO:
-            return ' >= '
-        case ComparisonOperator.NOT_EQUAL:
-            return ' <> '
-        case _:
-            raise ValueError
+    return COMPARISON_OPERATOR_STR.get(op)
 
 def constant_value_string(op:ConstantOperation) -> str:
     if isinstance(op, StringConstantOperation):
