@@ -1,6 +1,6 @@
 from datafinder.typed_attributes import *
-from datafinder import QueryRunnerBase, DataFrame, NoOperation, JoinOperation
-from model.relational import Column, Table
+from datafinder import QueryRunnerBase, DataFrame, JoinOperation
+from model.relational import Column, Table, NoOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
 
 {% for rpm in rcm.property_mappings %}
