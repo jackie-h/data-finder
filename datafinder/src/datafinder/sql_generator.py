@@ -141,9 +141,9 @@ class SQLQueryGenerator:
 
         for parent in required_joins:
             left = parent.left
-            sc = ColumnAlias(left.column().name, self.__table_alias_for_table(left.owner()))
+            sc = ColumnAlias(left.name, self.__table_alias_for_table(left.owner))
             right = parent.right
-            tc = ColumnAlias(right.column().name, self.__table_alias_for_table(right.owner()))
+            tc = ColumnAlias(right.name, self.__table_alias_for_table(right.owner))
             self._join.append(Join(sc, tc, parent.filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
@@ -188,13 +188,7 @@ class SQLQueryGenerator:
         else:
             return ''
 
-class JoinOperation:
-    def __init__(self, name: str, target:Table, lhs:Attribute, rhs:Attribute, _filter:RelationalOperationElement = None):
-        self.name = name
-        self.target = target
-        self.left = lhs
-        self.right = rhs
-        self.filter = _filter
+
 
 
 def select_sql_to_string(select_operation: SelectOperation) -> str:

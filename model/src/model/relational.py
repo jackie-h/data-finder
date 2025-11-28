@@ -125,11 +125,14 @@ class Table(Relation):
             col.table = self
 
 
-class Join(RelationalOperationElement):
-    def __init__(self, lhs: Column, rhs: Column):
-        super().__init__()
-        self.lhs = lhs
-        self.rhs = rhs
+class JoinOperation:
+    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement = None):
+        self.name = name
+        self.target = target
+        self.left = lhs
+        self.right = rhs
+        self.filter = _filter
+
 
 
 

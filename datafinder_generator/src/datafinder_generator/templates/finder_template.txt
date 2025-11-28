@@ -1,6 +1,6 @@
 from datafinder.typed_attributes import *
-from datafinder import QueryRunnerBase, DataFrame, JoinOperation
-from model.relational import Column, Table, NoOperation
+from datafinder import QueryRunnerBase, DataFrame
+from model.relational import Column, Table, NoOperation, JoinOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
 
 {% for rpm in rcm.property_mappings %}
@@ -92,7 +92,7 @@ class {{rcm.clazz.name}}RelatedFinder:
 {% endif %}
 
     def __init__(self, relation_name:str, source: Attribute, target: Attribute):
-        join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
+        join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source.column(), target.column())
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
         self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}', join)

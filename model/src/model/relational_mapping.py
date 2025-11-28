@@ -1,7 +1,13 @@
 from model.m3 import Property, Class
 from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
-from model.relational import RelationalOperationElement
+from model.relational import RelationalOperationElement, Column
 
+
+class Join(RelationalOperationElement):
+    def __init__(self, lhs: Column, rhs: Column):
+        super().__init__()
+        self.lhs = lhs
+        self.rhs = rhs
 
 class RelationalPropertyMapping(PropertyMapping):
     def __init__(self, property: Property, target: RelationalOperationElement):
