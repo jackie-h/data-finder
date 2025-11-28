@@ -1,10 +1,10 @@
 from model.m3 import Property, Class
 from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
-from model.relational import RelationalElement
+from model.relational import RelationalOperationElement
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: RelationalElement):
+    def __init__(self, property: Property, target: RelationalOperationElement):
         super().__init__(property, target)
 
 

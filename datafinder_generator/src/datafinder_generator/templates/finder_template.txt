@@ -1,6 +1,7 @@
 from datafinder.typed_attributes import *
-from datafinder import QueryRunnerBase, DataFrame, NoOperation
-from model.relational import ProcessingTemporalColumns, SingleBusinessDateColumn, Column, Table, MilestonedTable
+from datafinder import QueryRunnerBase, DataFrame, NoOperation, JoinOperation
+from model.relational import Column, Table
+from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
 
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}from {{rpm.property.name.lower()}}_finder import {{rpm.property.type.name}}RelatedFinder

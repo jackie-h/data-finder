@@ -1,57 +1,133 @@
+import datetime
+from enum import Enum
 
 
-class RelationalElement:
-    def __init(self):
+# Interface
+class RelationalOperationElement:
+    def __init__(self):
+        pass
+
+class Operation(RelationalOperationElement):
+    def __init__(self):
+        super().__init__()
+
+    def and_op(self, other) -> RelationalOperationElement:
+        return LogicalOperation(self, LogicalOperator.AND, other)
+
+class NoOperation(RelationalOperationElement):
+    def __init__(self):
+        super().__init__()
+
+class ConstantOperation(RelationalOperationElement):
+    def __init__(self):
+        super().__init__()
+
+class IntegerConstantOperation(ConstantOperation):
+    value:int
+
+    def __init__(self, value:int):
+        super().__init__()
+        self.value = value
+
+class FloatConstantOperation(ConstantOperation):
+    value:float
+
+    def __init__(self, value:float):
+        super().__init__()
+        self.value = value
+
+class StringConstantOperation(ConstantOperation):
+    value:str
+
+    def __init__(self, value:str):
+        super().__init__()
+        self.value = value
+
+class DateConstantOperation(ConstantOperation):
+    value:datetime.date
+
+    def __init__(self, value:datetime.date):
+        super().__init__()
+        self.value = value
+
+
+class DateTimeConstantOperation(ConstantOperation):
+    value:datetime.datetime
+
+    def __init__(self, value:datetime.datetime):
+        super().__init__()
+        self.value = value
+
+
+class BinaryOperation(Operation):
+    left: RelationalOperationElement
+    right: RelationalOperationElement
+
+    def __init__(self, left: RelationalOperationElement, right: RelationalOperationElement):
+        super().__init__()
+        self.left = left
+        self.right = right
+
+
+class BooleanOperation:
+    def __init__(self):
         pass
 
 
-class Column(RelationalElement):
-    def __init__(self, name: str, type: str):
+class ComparisonOperator(Enum):
+    EQUAL = 1
+    NOT_EQUAL = 2
+    LESS_THAN = 3
+    GREATER_THAN = 4
+    LESS_THAN_OR_EQUAL_TO =5
+    GREATER_THAN_OR_EQUAL_TO = 6
+
+
+class ComparisonOperation(BinaryOperation, BooleanOperation):
+    operator: ComparisonOperator
+
+    def __init__(self, left: RelationalOperationElement, op: ComparisonOperator, right: RelationalOperationElement):
+        super().__init__(left, right)
+        self.operator = op
+
+
+class LogicalOperator(Enum):
+    AND = 1
+    OR = 2
+
+
+class LogicalOperation(BinaryOperation, BooleanOperation):
+    operator: LogicalOperator
+
+    def __init__(self, left: RelationalOperationElement, op: LogicalOperator, right: RelationalOperationElement):
+        super().__init__(left, right)
+        self.operator = op
+
+class Relation:
+    def __init__(self):
+        pass
+
+class Column(RelationalOperationElement):
+    #TODO owner should be Relation
+    def __init__(self, name: str, _type: str, owner:str = None):
+        super().__init__()
         self.name = name
-        self.type = type
-        self.table = None
+        self.type = _type
+        self.owner = owner
 
 
-class Table:
+class Table(Relation):
     def __init__(self, name: str, columns: list[Column]):
+        super().__init__()
         self.name = name
         self.columns = columns
         for col in columns:
             col.table = self
 
-class MilestoningColumns:
-    def __init__(self):
-        pass
 
-    def columns(self) -> [Column]:
-        pass
-
-class ProcessingTemporalColumns(MilestoningColumns):
-    def __init__(self, start_at_column: Column, end_at_column: Column):
-        super().__init__()
-        self.start_at_column = start_at_column
-        self.end_at_column = end_at_column
-
-    def columns(self) -> [Column]:
-        return [self.start_at_column, self.end_at_column]
-
-class SingleBusinessDateColumn(MilestoningColumns):
-    def __init__(self, business_date_column: Column):
-        super().__init__()
-        self.business_date_column = business_date_column
-
-    def columns(self) -> [Column]:
-        return [self.business_date_column]
-
-class MilestonedTable(Table):
-    def __init__(self, name: str, columns: list[Column], milestoning_columns: MilestoningColumns):
-        super().__init__(name, columns)
-        self.milestoning_columns = milestoning_columns
-        for col in milestoning_columns.columns():
-            col.table = self
-
-class Join(RelationalElement):
+class Join(RelationalOperationElement):
     def __init__(self, lhs: Column, rhs: Column):
+        super().__init__()
         self.lhs = lhs
         self.rhs = rhs
 

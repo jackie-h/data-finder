@@ -1,5 +1,8 @@
-from .operation import *
-from .typed_operations import *
+import datetime
+
+from datafinder import Attribute
+from model.relational import ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
+    FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation
 
 
 class StringAttribute(Attribute):
@@ -8,10 +11,10 @@ class StringAttribute(Attribute):
         super().__init__(name, column_db_type, owner, parent)
 
     def eq(self, value: str) -> Operation:
-        return StringEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
     def __eq__(self, value: str) -> Operation:
-        return StringEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
 
 class FloatAttribute(Attribute):
@@ -20,22 +23,23 @@ class FloatAttribute(Attribute):
         super().__init__(name, column_db_type, owner, parent)
 
     def eq(self, value: float) -> Operation:
-        return PrimitiveEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
     def __eq__(self, value: float) -> Operation:
-        return PrimitiveEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
     def __gt__(self, value: float) -> Operation:
-        return PrimitiveGreaterThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, FloatConstantOperation(value))
 
     def __lt__(self, value: float):
-        return PrimitiveLessThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, FloatConstantOperation(value))
 
-    def __ge__(self, value: datetime.datetime) -> Operation:
-        return PrimitiveGreaterThanOrEqualToOperation(self, value)
+    def __ge__(self, value: float) -> Operation:
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
 
-    def __le__(self, value: datetime.datetime):
-        return PrimitiveLessThanOrEqualToOperation(self, value)
+    def __le__(self, value: float):
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
+
 
 
 class IntegerAttribute(Attribute):
@@ -44,22 +48,24 @@ class IntegerAttribute(Attribute):
         super().__init__(name, column_db_type, owner, parent)
 
     def eq(self, value: int) -> Operation:
-        return PrimitiveEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
     def __eq__(self, value: int) -> Operation:
-        return PrimitiveEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
     def __gt__(self, value: int) -> Operation:
-        return PrimitiveGreaterThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, IntegerConstantOperation(value))
 
     def __lt__(self, value: int):
-        return PrimitiveLessThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, IntegerConstantOperation(value))
 
-    def __ge__(self, value: datetime.datetime) -> Operation:
-        return PrimitiveGreaterThanOrEqualToOperation(self, value)
+    def __ge__(self, value: int) -> Operation:
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
+                                   IntegerConstantOperation(value))
 
-    def __le__(self, value: datetime.datetime):
-        return PrimitiveLessThanOrEqualToOperation(self, value)
+    def __le__(self, value: int):
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
+                                   IntegerConstantOperation(value))
 
 
 class DateAttribute(Attribute):
@@ -71,22 +77,24 @@ class DateAttribute(Attribute):
         super().__init__(name, column_db_type, owner, parent)
 
     def eq(self, value: datetime.date) -> Operation:
-        return DateEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateConstantOperation(value))
 
     def __eq__(self, value: datetime.date) -> Operation:
-        return DateEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateConstantOperation(value))
 
     def __gt__(self, value: datetime.date) -> Operation:
-        return DateGreaterThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, DateConstantOperation(value))
 
     def __lt__(self, value: datetime.date):
-        return DateLessThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, DateConstantOperation(value))
 
-    def __ge__(self, value: datetime.datetime) -> Operation:
-        return DateGreaterThanOrEqualToOperation(self, value)
+    def __ge__(self, value: datetime.date) -> Operation:
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
+                                   DateConstantOperation(value))
 
-    def __le__(self, value: datetime.datetime):
-        return DateLessThanOrEqualToOperation(self, value)
+    def __le__(self, value: datetime.date):
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
+                                   DateConstantOperation(value))
 
 
 class DateTimeAttribute(Attribute):
@@ -95,19 +103,21 @@ class DateTimeAttribute(Attribute):
         super().__init__(name, column_db_type, owner, parent)
 
     def eq(self, value: datetime.datetime) -> Operation:
-        return DateTimeEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
 
     def __eq__(self, value: datetime.datetime) -> Operation:
-        return DateTimeEqOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
 
     def __gt__(self, value: datetime.datetime) -> Operation:
-        return DateTimeGreaterThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, DateTimeConstantOperation(value))
 
     def __lt__(self, value: datetime.datetime):
-        return DateTimeLessThanOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, DateTimeConstantOperation(value))
 
     def __ge__(self, value: datetime.datetime) -> Operation:
-        return DateTimeGreaterThanOrEqualToOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
+                                   DateTimeConstantOperation(value))
 
     def __le__(self, value: datetime.datetime):
-        return DateTimeLessThanOrEqualToOperation(self, value)
+        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
+                                   DateTimeConstantOperation(value))
