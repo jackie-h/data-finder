@@ -60,7 +60,9 @@ def create_mappings_normalized() -> Mapping:
     instrument_c = create_instrument_class()
     ic1 = Column('SYM', 'VARCHAR')
     ic2 = Column('PRICE', 'DOUBLE')
-    instrument_t = Table('price', [ic1,ic2])
+    ic3 = Column('START_AT', 'DATE_TIME')
+    ic4 = Column('END_AT', 'DATE_TIME')
+    instrument_t = Table('price', [ic1,ic2,ic3,ic4])
 
     c_position_c = create_contractual_position_class(instrument_c)
     p1 = Column('DATE', 'DATE')
@@ -96,7 +98,10 @@ def create_mappings_normalized() -> Mapping:
 
     i_pm1 = RelationalPropertyMapping(instrument_c.property('symbol'), ic1)
     i_pm2 = RelationalPropertyMapping(instrument_c.property('price'), ic2)
-    rm_i = RelationalClassMapping(instrument_c, [i_pm1, i_pm2])
+    i_pm3 = RelationalPropertyMapping(trade_c.property('valid_from'), ic3)
+    i_pm4 = RelationalPropertyMapping(trade_c.property('valid_to'), ic4)
+    i_mpm = ProcessingDateMilestonesPropertyMapping(i_pm3, i_pm4)
+    rm_i = RelationalClassMapping(instrument_c, [i_pm1, i_pm2, i_pm3, i_pm4], i_mpm)
 
     cpm1 = RelationalPropertyMapping(c_position_c.property('business_date'), p1)
     cpm2 = RelationalPropertyMapping(c_position_c.property('quantity'), p4)

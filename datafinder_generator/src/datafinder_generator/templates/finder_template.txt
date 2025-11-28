@@ -66,9 +66,10 @@ class {{rcm.clazz.name}}Finder:
         return QueryRunnerBase.get_runner().select(None, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     def find_all(business_date: datetime.date,
+                 processing_valid_at: datetime.datetime,
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> DataFrame:
-        return QueryRunnerBase.get_runner().select(business_date, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return QueryRunnerBase.get_runner().select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}
 {% else %}
     def find_all(display_columns: list[Attribute],

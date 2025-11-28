@@ -20,5 +20,5 @@ def setup_duckdb():
 
     con.execute("DROP TABLE IF EXISTS price;")
     con.execute(
-        "CREATE TABLE price(DATE_TIME DATETIME, SYM VARCHAR, PRICE DOUBLE); COPY price FROM 'data/prices.csv'")
+        "CREATE TABLE price(DATE_TIME DATETIME, SYM VARCHAR, PRICE DOUBLE, START_AT DATETIME, END_AT DATETIME); COPY price FROM 'data/prices.csv'")
     con.sql("SELECT * from price").show()

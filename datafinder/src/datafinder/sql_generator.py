@@ -19,10 +19,10 @@ class ColumnAlias:
 
 
 class Join:
-    def __init__(self, source: ColumnAlias, target: ColumnAlias):
+    def __init__(self, source: ColumnAlias, target: ColumnAlias, filter_op: RelationalOperationElement = None):
         self.source = source
         self.target = target
-
+        self.filter_op = filter_op
 
 class SelectOperation:
     def __init__(self, display: list[Attribute], table: str, filter: Operation):
@@ -108,7 +108,7 @@ class SQLQueryGenerator:
             sc = ColumnAlias(left.column().name, self.__table_alias_for_table(left.owner()))
             right = parent.right
             tc = ColumnAlias(right.column().name, self.__table_alias_for_table(right.owner()))
-            self._join.append(Join(sc, tc))
+            self._join.append(Join(sc, tc, parent.filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, LogicalOperation):
@@ -139,7 +139,8 @@ class SQLQueryGenerator:
     def build_query_string(self) -> str:
         joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
                               ' ON ' + j.source.table_alias.alias + '.' + j.source.column_name + ' = ' +
-                              j.target.table_alias.alias + '.' + j.target.column_name, self._join)
+                              j.target.table_alias.alias + '.' + j.target.column_name
+                              + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else ''), self._join)
         return 'SELECT ' + ','.join(map(lambda ca: ca.table_alias.alias + '.' + ca.column_name, self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
@@ -152,11 +153,12 @@ class SQLQueryGenerator:
             return ''
 
 class JoinOperation:
-    def __init__(self, name: str, target:Table, lhs:Attribute, rhs:Attribute):
+    def __init__(self, name: str, target:Table, lhs:Attribute, rhs:Attribute, _filter:RelationalOperationElement = None):
         self.name = name
         self.target = target
         self.left = lhs
         self.right = rhs
+        self.filter = _filter
 
 
 def select_sql_to_string(select_operation: SelectOperation) -> str:

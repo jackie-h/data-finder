@@ -1,7 +1,7 @@
 import datetime
 
 from datafinder import Attribute, Operation, DataFrame, DateTimeAttribute, DateAttribute
-from datafinder.sql_generator import SelectOperation
+from datafinder.sql_generator import SelectOperation, JoinOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
 from model.relational import Table, NoOperation, LogicalOperator, LogicalOperation
 
@@ -49,12 +49,12 @@ def build_milestoning_filter_operation(business_date:datetime.date, processing_d
                                table:MilestonedTable) -> Operation:
     op = None
     #TODO this should not reference attribute
-    if isinstance(table.milestoning_columns, ProcessingTemporalColumns):
+    if isinstance(table.milestoning_columns, ProcessingTemporalColumns) and processing_datetime is not None:
         ptc:ProcessingTemporalColumns = table.milestoning_columns
         start_at = DateTimeAttribute(ptc.start_at_column.name, ptc.start_at_column.type, ptc.start_at_column.table.name)
         end_at = DateTimeAttribute(ptc.end_at_column.name, ptc.end_at_column.type, ptc.end_at_column.table.name)
         op = LogicalOperation(start_at <= processing_datetime,LogicalOperator.AND, (end_at > processing_datetime))
-    elif isinstance(table.milestoning_columns, SingleBusinessDateColumn):
+    elif isinstance(table.milestoning_columns, SingleBusinessDateColumn) and business_date is not None:
         sbdc:SingleBusinessDateColumn = table.milestoning_columns
         business_att = DateAttribute(sbdc.business_date_column.name, sbdc.business_date_column.type, sbdc.business_date_column.table.name)
         op = business_att == business_date
@@ -65,5 +65,17 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
     if isinstance(table, MilestonedTable):
         milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
         op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
+
+    required_joins = set()
+    for col in columns:
+        parent: JoinOperation = col.parent()
+        if parent is not None:
+            required_joins.add(parent)
+
+    for j in required_joins:
+        if isinstance(j.target, MilestonedTable):
+            milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, j.target)
+            j.filter = milestoned_op
+
     select = SelectOperation(columns, table.name, op)
     return select

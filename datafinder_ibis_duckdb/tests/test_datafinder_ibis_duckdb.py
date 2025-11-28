@@ -49,6 +49,7 @@ class TestDataFinderIbisDuckDb:
 
 
     def test_milestoning_queries(self):
+        self.setup()
         from trade_finder import TradeFinder
         trades_with_account = TradeFinder.find_all(datetime.datetime.strptime('2020-01-01 09:00:00', '%Y-%m-%d %H:%M:%S'),
                                                    [TradeFinder.account().name(),
@@ -61,8 +62,7 @@ class TestDataFinderIbisDuckDb:
 
         trades_with_account = TradeFinder.find_all(
             datetime.datetime.strptime('2022-01-01 10:00:00', '%Y-%m-%d %H:%M:%S'),
-            [TradeFinder.account().name(), TradeFinder.symbol(),
-             TradeFinder.price()],
+            [TradeFinder.account().name(), TradeFinder.symbol(), TradeFinder.price()],
             TradeFinder.symbol().eq("IBM"))
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
@@ -71,13 +71,20 @@ class TestDataFinderIbisDuckDb:
     def test_milestoning_single_business_date_operations(self):
         from contractualposition_finder import ContractualPositionFinder
         positions = ContractualPositionFinder.find_all(datetime.date(2024,1,11),
-                                                       [ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()])
+                                                       datetime.datetime.strptime('2022-01-01 10:00:00',
+                                                                                  '%Y-%m-%d %H:%M:%S'),
+                                                       [ContractualPositionFinder.instrument().symbol(),
+                                                        ContractualPositionFinder.instrument().price(),
+                                                        ContractualPositionFinder.quantity()])
         np_pos = positions.to_numpy()
         print(np_pos)
-        assert_array_equal(np_pos, np.array([['GS', 1000.0]], dtype=object))
+        assert_array_equal(np_pos, np.array([['GS', 45.7, 1000.0]], dtype=object))
 
         positions = ContractualPositionFinder.find_all(datetime.date(2024,1,10),
-                                                       [ContractualPositionFinder.instrument().symbol(), ContractualPositionFinder.quantity()])
+                                                       datetime.datetime.strptime('2022-01-01 10:00:00',
+                                                                                  '%Y-%m-%d %H:%M:%S'),
+                                                       [ContractualPositionFinder.instrument().symbol(),
+                                                        ContractualPositionFinder.quantity()])
         np_pos = positions.to_numpy()
         print(np_pos)
         assert_array_equal(np_pos, np.array([['IBM', 200.0]], dtype=object))
