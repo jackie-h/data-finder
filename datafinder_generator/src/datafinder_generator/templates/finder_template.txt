@@ -29,12 +29,12 @@ class {{rcm.clazz.name}}Finder:
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}')
+    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}')
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}
-    __{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Attribute('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Attribute('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
+    __{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Attribute('{{display_name(rpm.property.name)}}', '{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Attribute('{{display_name(rpm.property.name)}}', '{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
 {% endif %}
 {% endfor %}
 
@@ -95,12 +95,12 @@ class {{rcm.clazz.name}}RelatedFinder:
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source.column(), target.column())
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-        self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}', join)
+        self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}', join)
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}
-        self.__{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder(Attribute('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Attribute('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
+        self.__{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Attribute('{{rpm.property.name}}', '{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Attribute('{{rpm.property.name}}', '{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
 {% endif %}
 {% endfor %}
 

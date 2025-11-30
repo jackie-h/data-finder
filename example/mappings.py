@@ -53,8 +53,8 @@ def create_contractual_position_class(instrument:Class) -> Class:
 def create_mappings_normalized() -> Mapping:
     account_c = create_account_class()
 
-    ac1 = Column('id', 'INT')
-    ac2 = Column('name', 'VARCHAR')
+    ac1 = Column('ID', 'INT')
+    ac2 = Column('ACCT_NAME', 'VARCHAR')
     account_t = Table('account_master', [ac1, ac2])
 
     instrument_c = create_instrument_class()

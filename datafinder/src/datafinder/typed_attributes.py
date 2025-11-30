@@ -7,8 +7,8 @@ from model.relational import ComparisonOperation, StringConstantOperation, Opera
 
 class StringAttribute(Attribute):
 
-    def __init__(self, name: str, column_db_type: str, owner:str, parent=None):
-        super().__init__(name, column_db_type, owner, parent)
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
+        super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: str) -> Operation:
         return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, StringConstantOperation(value))
@@ -19,8 +19,8 @@ class StringAttribute(Attribute):
 
 class FloatAttribute(Attribute):
 
-    def __init__(self, name: str, column_db_type: str, owner:str, parent=None):
-        super().__init__(name, column_db_type, owner, parent)
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
+        super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: float) -> Operation:
         return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, FloatConstantOperation(value))
@@ -44,8 +44,8 @@ class FloatAttribute(Attribute):
 
 class IntegerAttribute(Attribute):
 
-    def __init__(self, name: str, column_db_type: str, owner:str, parent=None):
-        super().__init__(name, column_db_type, owner, parent)
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
+        super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: int) -> Operation:
         return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, IntegerConstantOperation(value))
@@ -73,8 +73,8 @@ class DateAttribute(Attribute):
     Represents a date attribute without a time YYYY-MM-DD
     """
 
-    def __init__(self, name: str, column_db_type: str, owner: str, parent=None):
-        super().__init__(name, column_db_type, owner, parent)
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
+        super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: datetime.date) -> Operation:
         return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateConstantOperation(value))
@@ -99,8 +99,8 @@ class DateAttribute(Attribute):
 
 class DateTimeAttribute(Attribute):
 
-    def __init__(self, name: str, column_db_type: str, owner: str, parent=None):
-        super().__init__(name, column_db_type, owner, parent)
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
+        super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: datetime.datetime) -> Operation:
         return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateTimeConstantOperation(value))

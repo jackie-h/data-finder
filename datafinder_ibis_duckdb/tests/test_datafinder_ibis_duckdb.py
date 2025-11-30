@@ -47,6 +47,32 @@ class TestDataFinderIbisDuckDb:
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 211978, 'AAPL', 84.11]], dtype=object))
 
+    def test_pandas(self):
+        self.setup()
+        # Import after generation, so we get the latest version
+        from trade_finder import TradeFinder
+        queries.find_trades(TradeFinder)
+        from account_finder import AccountFinder
+        df = AccountFinder \
+            .find_all([AccountFinder.id(), AccountFinder.name()],
+                      AccountFinder.id().eq(211978)) \
+            .to_pandas()
+        print(df)
+
+        assert_array_equal(df.columns, ['Id', 'Name'])
+        assert df.values[0][0] == 211978
+        assert df.values[0][1] == 'Trading Account 1'
+
+        trades_with_account = TradeFinder.find_all(datetime.datetime.now(),
+                                                   [TradeFinder.account().name(),
+                                                    TradeFinder.account().id(),
+                                                    TradeFinder.symbol(),
+                                                    TradeFinder.price()],
+                                                   TradeFinder.symbol().eq("AAPL"))
+        df2 = trades_with_account.to_pandas()
+        assert_array_equal(df2.columns, ['Account Name', 'Account Id', 'Symbol', 'Price'])
+        assert_array_equal(df2.values, np.array([['Trading Account 1', 211978, 'AAPL', 84.11]], dtype=object))
+
 
     def test_milestoning_queries(self):
         self.setup()

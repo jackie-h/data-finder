@@ -11,7 +11,7 @@ def setup_duckdb():
 
     con.execute("DROP TABLE IF EXISTS account_master;")
     con.execute(
-        "CREATE TABLE account_master(id INT, name VARCHAR); COPY account_master FROM 'data/accounts.csv'")
+        "CREATE TABLE account_master(ID INT, ACCT_NAME VARCHAR); COPY account_master FROM 'data/accounts.csv'")
 
     con.execute("DROP TABLE IF EXISTS contractualposition;")
     con.execute(

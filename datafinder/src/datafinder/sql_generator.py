@@ -5,7 +5,7 @@ from datafinder.attribute import Attribute
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
-    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, Column, NoOperation
+    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, Column, NoOperation, JoinOperation
 
 
 class TableAlias:
@@ -14,14 +14,15 @@ class TableAlias:
         self.alias = alias
 
 
-class ColumnAlias:
-    def __init__(self, column_name: str, table_alias: TableAlias):
-        self.column_name = column_name
+class TableAliasColumn:
+    def __init__(self, column: Column, table_alias: TableAlias, column_alias: str = None):
+        self.column = column
         self.table_alias = table_alias
+        self.column_alias = column_alias
 
 
 class Join:
-    def __init__(self, source: ColumnAlias, target: ColumnAlias, filter_op: RelationalOperationElement = None):
+    def __init__(self, source: TableAliasColumn, target: TableAliasColumn, filter_op: RelationalOperationElement = None):
         self.source = source
         self.target = target
         self.filter_op = filter_op
@@ -38,12 +39,12 @@ def build_milestoning_filter_operation(business_date:datetime.date, processing_d
     #TODO this should not reference attribute
     if isinstance(table.milestoning_columns, ProcessingTemporalColumns) and processing_datetime is not None:
         ptc:ProcessingTemporalColumns = table.milestoning_columns
-        start_at = DateTimeAttribute(ptc.start_at_column.name, ptc.start_at_column.type, ptc.start_at_column.table.name)
-        end_at = DateTimeAttribute(ptc.end_at_column.name, ptc.end_at_column.type, ptc.end_at_column.table.name)
+        start_at = DateTimeAttribute('start_at', ptc.start_at_column.name, ptc.start_at_column.type, ptc.start_at_column.table.name)
+        end_at = DateTimeAttribute('end_at', ptc.end_at_column.name, ptc.end_at_column.type, ptc.end_at_column.table.name)
         op = LogicalOperation(start_at <= processing_datetime,LogicalOperator.AND, (end_at > processing_datetime))
     elif isinstance(table.milestoning_columns, SingleBusinessDateColumn) and business_date is not None:
         sbdc:SingleBusinessDateColumn = table.milestoning_columns
-        business_att = DateAttribute(sbdc.business_date_column.name, sbdc.business_date_column.type, sbdc.business_date_column.table.name)
+        business_att = DateAttribute('business_date', sbdc.business_date_column.name, sbdc.business_date_column.type, sbdc.business_date_column.table.name)
         op = business_att == business_date
     return op
 
@@ -107,8 +108,12 @@ def constant_value_string(op:ConstantOperation) -> str:
     else:
         raise ValueError
 
+def table_alias_column_string(tac: TableAliasColumn) -> str:
+    col_str = tac.table_alias.alias + '.' + tac.column.name
+    return col_str if tac.column_alias is None else col_str + ' AS \'' + tac.column_alias + '\''
+
 class SQLQueryGenerator:
-    _select: list[ColumnAlias]
+    _select: list[TableAliasColumn]
     _from: set[TableAlias]
     _join: list[Join]
     __table_alias_incr: int
@@ -136,14 +141,14 @@ class SQLQueryGenerator:
                 required_joins.add(parent)
             else:
                 self._from.add(ta)
-            ca = ColumnAlias(col.column().name, ta)
+            ca = TableAliasColumn(col.column(), ta, col.display_name())
             self._select.append(ca)
 
         for parent in required_joins:
             left = parent.left
-            sc = ColumnAlias(left.name, self.__table_alias_for_table(left.owner))
+            sc = TableAliasColumn(left, self.__table_alias_for_table(left.owner))
             right = parent.right
-            tc = ColumnAlias(right.name, self.__table_alias_for_table(right.owner))
+            tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner))
             self._join.append(Join(sc, tc, parent.filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
@@ -174,10 +179,10 @@ class SQLQueryGenerator:
 
     def build_query_string(self) -> str:
         joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
-                              ' ON ' + j.source.table_alias.alias + '.' + j.source.column_name + ' = ' +
-                              j.target.table_alias.alias + '.' + j.target.column_name
+                              ' ON ' + j.source.table_alias.alias + '.' + j.source.column.name + ' = ' +
+                              j.target.table_alias.alias + '.' + j.target.column.name
                               + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else ''), self._join)
-        return 'SELECT ' + ','.join(map(lambda ca: ca.table_alias.alias + '.' + ca.column_name, self._select)) \
+        return 'SELECT ' + ','.join(map(lambda ca: table_alias_column_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
             + self.__build_where()
@@ -187,8 +192,6 @@ class SQLQueryGenerator:
             return ' WHERE ' + ''.join(self._where)
         else:
             return ''
-
-
 
 
 def select_sql_to_string(select_operation: SelectOperation) -> str:

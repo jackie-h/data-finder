@@ -4,12 +4,14 @@ from model.relational import Column, Operation, ComparisonOperation, ComparisonO
 
 
 class Attribute:
+    __display_name: str
     __column: Column
     __owner: str
     __parent: Any
 
-    def __init__(self, name: str, column_db_type: str, owner:str, parent=None):
-        self.__column = Column(name, column_db_type, owner)
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
+        self.__display_name = display_name
+        self.__column = Column(column_name, column_db_type, owner)
         self.__owner = owner
         self.__parent = parent
 
@@ -21,3 +23,6 @@ class Attribute:
 
     def parent(self) -> Any:
         return self.__parent
+
+    def display_name(self) -> str:
+        return self.__display_name
