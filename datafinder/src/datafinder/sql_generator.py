@@ -5,8 +5,13 @@ from datafinder.attribute import Attribute
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
-    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, Column, NoOperation, JoinOperation
+    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, Column, NoOperation, JoinOperation, \
+    UnaryOperation, ColumnWithJoin, AggregateOperation
 
+class Alias:
+    def __init__(self, element: RelationalOperationElement, name: str):
+        self.element = element
+        self.name = name
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -14,11 +19,11 @@ class TableAlias:
         self.alias = alias
 
 
-class TableAliasColumn:
-    def __init__(self, column: Column, table_alias: TableAlias, column_alias: str = None):
+class TableAliasColumn(RelationalOperationElement):
+    def __init__(self, column: Column, table_alias: TableAlias):
+        super().__init__()
         self.column = column
         self.table_alias = table_alias
-        self.column_alias = column_alias
 
 
 class Join:
@@ -48,6 +53,14 @@ def build_milestoning_filter_operation(business_date:datetime.date, processing_d
         op = business_att == business_date
     return op
 
+def find_column(operation: RelationalOperationElement) -> ColumnWithJoin:
+    if isinstance(operation, UnaryOperation):
+        return find_column(operation.element)
+    elif isinstance(operation, ColumnWithJoin):
+        return operation
+    else:
+        raise TypeError(operation)
+
 def build_query_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                          columns: list[Attribute], table: Table, op: Operation) -> SelectOperation:
     if isinstance(table, MilestonedTable):
@@ -56,7 +69,10 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
 
     required_joins = set()
     for col in columns:
-        parent: JoinOperation = col.parent()
+        if isinstance(col, Attribute):
+            parent: JoinOperation = col.parent()
+        else:
+            parent: JoinOperation = find_column(col).parent
         if parent is not None:
             required_joins.add(parent)
 
@@ -109,11 +125,20 @@ def constant_value_string(op:ConstantOperation) -> str:
         raise ValueError
 
 def table_alias_column_string(tac: TableAliasColumn) -> str:
-    col_str = tac.table_alias.alias + '.' + tac.column.name
-    return col_str if tac.column_alias is None else col_str + ' AS \'' + tac.column_alias + '\''
+    return tac.table_alias.alias + '.' + tac.column.name
+
+def sql_operation_to_string(operation: RelationalOperationElement) -> str:
+    if isinstance(operation, TableAliasColumn):
+        return table_alias_column_string(operation)
+    elif isinstance(operation, AggregateOperation):
+        return operation.operator.name + '(' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, Alias):
+        return sql_operation_to_string(operation.element) + ' AS \'' + operation.name + '\''
+    else:
+        raise TypeError(operation)
 
 class SQLQueryGenerator:
-    _select: list[TableAliasColumn]
+    _select: list[Alias]
     _from: set[TableAlias]
     _join: list[Join]
     __table_alias_incr: int
@@ -134,15 +159,28 @@ class SQLQueryGenerator:
         required_joins = set()
 
         for col in cols:
-            table = col.owner()
-            ta = self.__table_alias_for_table(table)
-            parent: JoinOperation = col.parent()
-            if parent is not None:
-                required_joins.add(parent)
-            else:
-                self._from.add(ta)
-            ca = TableAliasColumn(col.column(), ta, col.display_name())
-            self._select.append(ca)
+            if isinstance(col, Attribute):
+                table = col.owner()
+                ta = self.__table_alias_for_table(table)
+                parent: JoinOperation = col.parent()
+                if parent is not None:
+                    required_joins.add(parent)
+                else:
+                    self._from.add(ta)
+                ca = Alias(TableAliasColumn(col.column(), ta), col.display_name())
+                self._select.append(ca)
+            elif isinstance(col, AggregateOperation):
+                col_nested = find_column(col)
+                table = col_nested.column.owner
+                ta = self.__table_alias_for_table(table)
+                parent: JoinOperation = col_nested.parent
+                if parent is not None:
+                    required_joins.add(parent)
+                else:
+                    self._from.add(ta)
+                ca = Alias(AggregateOperation(TableAliasColumn(col_nested.column, ta),col.operator), col.operator.name + ' ' + col_nested.column.name)
+                self._select.append(ca)
+
 
         for parent in required_joins:
             left = parent.left
@@ -182,7 +220,7 @@ class SQLQueryGenerator:
                               ' ON ' + j.source.table_alias.alias + '.' + j.source.column.name + ' = ' +
                               j.target.table_alias.alias + '.' + j.target.column.name
                               + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else ''), self._join)
-        return 'SELECT ' + ','.join(map(lambda ca: table_alias_column_string(ca), self._select)) \
+        return 'SELECT ' + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
             + self.__build_where()

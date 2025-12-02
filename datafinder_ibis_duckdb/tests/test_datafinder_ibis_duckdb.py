@@ -114,3 +114,13 @@ class TestDataFinderIbisDuckDb:
         np_pos = positions.to_numpy()
         print(np_pos)
         assert_array_equal(np_pos, np.array([['IBM', 200.0]], dtype=object))
+
+    def test_aggregate_columns(self):
+        self.setup()
+        # Import after generation, so we get the latest version
+        from trade_finder import TradeFinder
+        trades_sum = TradeFinder.find_all(datetime.datetime.now(),
+                                                   [TradeFinder.price().sum()])
+        np_trades = trades_sum.to_numpy()
+        print(np_trades)
+        assert_array_equal(np_trades, np.array([[3130.31]], dtype=object))

@@ -59,6 +59,14 @@ class DateTimeConstantOperation(ConstantOperation):
         self.value = value
 
 
+class UnaryOperation(Operation):
+    element: RelationalOperationElement
+
+    def __init__(self, element: RelationalOperationElement):
+        super().__init__()
+        self.element = element
+
+
 class BinaryOperation(Operation):
     left: RelationalOperationElement
     right: RelationalOperationElement
@@ -103,6 +111,23 @@ class LogicalOperation(BinaryOperation, BooleanOperation):
         super().__init__(left, right)
         self.operator = op
 
+
+class AggregateOperator(Enum):
+    COUNT = 1
+    SUM = 2
+    MIN = 3
+    MAX = 4
+    AVERAGE = 5
+
+
+class AggregateOperation(UnaryOperation):
+    operator: AggregateOperator
+
+    def __init__(self, element: RelationalOperationElement, operator: AggregateOperator):
+        super().__init__(element)
+        self.operator = operator
+
+
 class Relation:
     def __init__(self):
         pass
@@ -133,6 +158,12 @@ class JoinOperation:
         self.right = rhs
         self.filter = _filter
 
+
+class ColumnWithJoin(RelationalOperationElement):
+    def __init__(self, column: Column, join: JoinOperation):
+        super().__init__()
+        self.column = column
+        self.parent = join
 
 
 

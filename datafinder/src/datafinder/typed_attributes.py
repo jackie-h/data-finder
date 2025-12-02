@@ -2,7 +2,8 @@ import datetime
 
 from datafinder import Attribute
 from model.relational import ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
-    FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation
+    FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
+    AggregateOperation, AggregateOperator, ColumnWithJoin
 
 
 class StringAttribute(Attribute):
@@ -16,8 +17,25 @@ class StringAttribute(Attribute):
     def __eq__(self, value: str) -> Operation:
         return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
+class NumericAttribute(Attribute):
 
-class FloatAttribute(Attribute):
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
+        super().__init__(display_name, column_name, column_db_type, owner, parent)
+
+    def sum(self):
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.SUM)
+
+    def min(self):
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MIN)
+
+    def max(self):
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MAX)
+
+    def average(self):
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.AVERAGE)
+
+
+class FloatAttribute(NumericAttribute):
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
@@ -42,7 +60,7 @@ class FloatAttribute(Attribute):
 
 
 
-class IntegerAttribute(Attribute):
+class IntegerAttribute(NumericAttribute):
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
