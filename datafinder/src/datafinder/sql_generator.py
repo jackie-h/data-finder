@@ -33,9 +33,8 @@ class Join:
         self.filter_op = filter_op
 
 class SelectOperation:
-    def __init__(self, display: list[Attribute], table: str, filter: Operation):
+    def __init__(self, display: list[Attribute], filter: Operation):
         self.display = display
-        self.table = table
         self.filter = filter
 
 def build_milestoning_filter_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
@@ -81,7 +80,7 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, j.target)
             j.filter = milestoned_op
 
-    select = SelectOperation(columns, table.name, op)
+    select = SelectOperation(columns, op)
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
