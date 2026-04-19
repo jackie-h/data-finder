@@ -277,10 +277,11 @@ def to_markdown(title: str, mapping: Mapping, model_path: str = None) -> str:
                 col_rows = []
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Column):
-                        col_rows.append([pm.target.name, pm.property.name])
+                        col_rows.append([pm.target.name, pm.target.type or "", pm.property.name])
                     elif isinstance(pm.target, Join):
-                        col_rows.append([pm.target.lhs.name, pm.property.name])
-                lines.append(_md_table(["Column", "Property"], col_rows))
+                        lhs = pm.target.lhs
+                        col_rows.append([lhs.name, lhs.type or "", pm.property.name])
+                lines.append(_md_table(["Column", "Type", "Property"], col_rows))
                 lines.append("")
 
             for rcm in rcms:
@@ -294,6 +295,33 @@ def to_markdown(title: str, mapping: Mapping, model_path: str = None) -> str:
                             [[pm.target.lhs.name, pm.target.rhs.table.name, pm.target.rhs.name]],
                         ))
                         lines.append("")
+
+    return "\n".join(lines)
+
+
+def draft_from_repository(title: str, repo: Repository) -> str:
+    """Generate a draft mapping markdown with all columns populated and properties left blank."""
+    lines: list[str] = [f"# {title}", ""]
+    lines.append(f"## Repository: {repo.name}")
+    lines.append("")
+
+    if repo.milestoning_schemes:
+        scheme_rows = [
+            [s.name, s.processing_start or "", s.processing_end or "", s.business_date or ""]
+            for s in repo.milestoning_schemes
+        ]
+        lines.append(_md_table(["Scheme", "processing_start", "processing_end", "business_date"], scheme_rows))
+        lines.append("")
+
+    for schema in repo.schemas:
+        lines.append(f"### Schema: {schema.name}")
+        lines.append("")
+        for table in schema.tables:
+            lines.append(f"#### Table: {table.name} → ?")
+            lines.append("")
+            col_rows = [[col.name, col.type or "", ""] for col in table.columns]
+            lines.append(_md_table(["Column", "Type", "Property"], col_rows))
+            lines.append("")
 
     return "\n".join(lines)
 
