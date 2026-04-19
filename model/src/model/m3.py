@@ -1,6 +1,7 @@
 class Package:
     def __init__(self, name: str):
         self.name = name
+        self.children: list = []
 
 class TaggedValue:
     DOC = 'doc'
@@ -21,6 +22,8 @@ class PackagableElement(AnnotatedElement):
     def __init__(self, package: Package, tagged_values: list[TaggedValue]):
         super().__init__(tagged_values)
         self.package = package
+        if package is not None:
+            package.children.append(self)
 
 
 class Type:
