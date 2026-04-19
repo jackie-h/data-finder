@@ -9,6 +9,12 @@ This project uses `uv` with a `.venv`. Always:
 - Use `uv add --optional <group> <package>` for optional dependencies
 - Use `uv run pytest` to run tests
 
+## Dependencies
+
+- Keep library dependencies to a minimum
+- Only add a dependency to the sub-project that requires it, using `uv add --optional <group> <package>`
+- Never add a dependency to the root project unless it is needed by all sub-projects
+
 ## Git Workflow
 
 - Create a new branch for every new feature or bug fix before making any changes
