@@ -34,20 +34,6 @@
 | price      | price    |
 | account_id | account  |
 
-#### Table: contractualposition → ContractualPosition (milestoning: bitemporal)
-
-| Column     | Property      |
-|------------|---------------|
-| DATE       | business_date |
-| INSTRUMENT | instrument    |
-| CPTY_ID    | counterparty  |
-| QUANTITY   | quantity      |
-| NPV        | npv           |
-
-| Scheme     | Milestoning   | Column |
-|------------|---------------|--------|
-| bitemporal | business_date | DATE   |
-
 #### Association: TradeAccount
 
 | Source Column | Target Table   | Target Column |

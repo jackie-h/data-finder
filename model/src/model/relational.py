@@ -133,11 +133,20 @@ class Relation:
         pass
 
 
+class MilestoningScheme:
+    def __init__(self, name: str, processing_start: str = None, processing_end: str = None, business_date: str = None):
+        self.name = name
+        self.processing_start = processing_start
+        self.processing_end = processing_end
+        self.business_date = business_date
+
+
 class Repository:
     def __init__(self, name: str, location: str = None):
         self.name = name
         self.location = location
         self.schemas: list = []
+        self.milestoning_schemes: list = []
 
 
 class Schema:

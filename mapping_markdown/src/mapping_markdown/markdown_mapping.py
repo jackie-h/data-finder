@@ -1,86 +1,49 @@
 import logging
 import re
-from dataclasses import dataclass, field
 from typing import Optional
 
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
+from model.m3 import Class, PrimitiveType
+from model.mapping import Mapping
+from model.relational import Repository, MilestoningScheme, Column
+from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
-
 _TABLE_RE = re.compile(r'(\S+)\s*→\s*(\w+)(?:\s*\(milestoning:\s*(\w+)\))?')
 
 
-@dataclass
-class MilestoningScheme:
-    name: str
-    processing_start: Optional[str] = None
-    processing_end: Optional[str] = None
-    business_date: Optional[str] = None
-
-
-@dataclass
-class ColumnMapping:
-    column: str
-    property: str
-
-
-@dataclass
-class MilestoningOverride:
-    scheme: str
-    milestoning: str
-    column: str
-
-
-@dataclass
-class AssociationMapping:
-    name: str
-    source_column: str
-    target_table: str
-    target_column: str
-
-
-@dataclass
-class TableMapping:
-    table: str
-    cls: str
-    milestoning_scheme: Optional[str] = None
-    column_mappings: list = field(default_factory=list)
-    milestoning_overrides: list = field(default_factory=list)
-
-
-@dataclass
-class SchemaMapping:
-    schema: str
-    table_mappings: list = field(default_factory=list)
-    association_mappings: list = field(default_factory=list)
-
-
-@dataclass
-class RepositoryMapping:
-    name: str
-    milestoning_schemes: list = field(default_factory=list)
-    schema_mappings: list = field(default_factory=list)
-
-
 # ---------------------------------------------------------------------------
-# Load: markdown → model
+# Load: markdown → Mapping
 # ---------------------------------------------------------------------------
 
-def load(path: str) -> list[RepositoryMapping]:
+def load(path: str, packages: list, repository: Repository) -> Mapping:
     with open(path, encoding="utf-8") as f:
-        content = f.read()
-    return loads(content)
+        return loads(f.read(), packages, repository)
 
 
-def loads(content: str) -> list[RepositoryMapping]:
+def loads(content: str, packages: list, repository: Repository) -> Mapping:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
 
-    repositories: list[RepositoryMapping] = []
-    current_repo: Optional[RepositoryMapping] = None
-    current_schema: Optional[SchemaMapping] = None
+    classes_by_name = {
+        child.name: child
+        for pkg in packages
+        for child in pkg.children
+        if isinstance(child, Class)
+    }
+    tables_by_name = {
+        table.name: table
+        for schema in repository.schemas
+        for table in schema.tables
+    }
+
+    title = "Mapping"
+    class_mappings: list[RelationalClassMapping] = []
+    # (table_name, col_name) -> (property_mappings_list, prop, lhs_col)
+    deferred_joins: dict = {}
 
     i = 0
     while i < len(nodes):
@@ -90,58 +53,68 @@ def loads(content: str) -> list[RepositoryMapping]:
             text = node.children[0].content if node.children else ""
             level = node.tag
 
-            if level == "h2" and text.startswith("Repository:"):
-                current_repo = RepositoryMapping(text[len("Repository:"):].strip())
-                repositories.append(current_repo)
+            if level == "h1":
+                title = text
+
+            elif level == "h2" and text.startswith("Repository:"):
                 i += 1
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i]):
-                        current_repo.milestoning_schemes.append(MilestoningScheme(
-                            name=row.get("Scheme", "").strip(),
-                            processing_start=row.get("processing_start", "").strip() or None,
-                            processing_end=row.get("processing_end", "").strip() or None,
-                            business_date=row.get("business_date", "").strip() or None,
-                        ))
+                        name = row.get("Scheme", "").strip()
+                        if name:
+                            repository.milestoning_schemes.append(MilestoningScheme(
+                                name=name,
+                                processing_start=row.get("processing_start", "").strip() or None,
+                                processing_end=row.get("processing_end", "").strip() or None,
+                                business_date=row.get("business_date", "").strip() or None,
+                            ))
                     i += 1
                 continue
-
-            elif level == "h3" and text.startswith("Schema:"):
-                current_schema = SchemaMapping(text[len("Schema:"):].strip())
-                if current_repo is not None:
-                    current_repo.schema_mappings.append(current_schema)
 
             elif level == "h4" and text.startswith("Table:"):
                 m = _TABLE_RE.match(text[len("Table:"):].strip())
                 if m is None:
                     i += 1
                     continue
-                table_mapping = TableMapping(
-                    table=m.group(1),
-                    cls=m.group(2),
-                    milestoning_scheme=m.group(3),
-                )
-                if current_schema is not None:
-                    current_schema.table_mappings.append(table_mapping)
+                table_name, class_name, scheme_name = m.group(1), m.group(2), m.group(3)
+
+                cls = classes_by_name.get(class_name)
+                table = tables_by_name.get(table_name)
+                if cls is None or table is None:
+                    _log.warning("Table '%s' or class '%s' not found", table_name, class_name)
+                    i += 1
+                    continue
+
+                cols_by_name = {col.name: col for col in table.columns}
+                property_mappings: list[RelationalPropertyMapping] = []
                 i += 1
 
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i]):
-                        col = row.get("Column", "").strip()
-                        prop = row.get("Property", "").strip()
-                        if col:
-                            table_mapping.column_mappings.append(ColumnMapping(col, prop))
+                        col_name = row.get("Column", "").strip()
+                        prop_name = row.get("Property", "").strip()
+                        if not col_name or not prop_name:
+                            continue
+                        col = cols_by_name.get(col_name)
+                        prop = cls.properties.get(prop_name)
+                        if col is None or prop is None:
+                            _log.warning("Column '%s' or property '%s' not found", col_name, prop_name)
+                            continue
+                        if isinstance(prop.type, PrimitiveType):
+                            property_mappings.append(RelationalPropertyMapping(prop, col))
+                        else:
+                            deferred_joins[(table_name, col_name)] = (property_mappings, prop, col)
                     i += 1
 
+                # optional milestoning override table (Scheme | Milestoning | Column)
                 if i < len(nodes) and nodes[i].type == "table":
                     rows = _parse_ast_table(nodes[i])
                     if rows and "Scheme" in rows[0] and "Milestoning" in rows[0]:
-                        for row in rows:
-                            table_mapping.milestoning_overrides.append(MilestoningOverride(
-                                scheme=row.get("Scheme", "").strip(),
-                                milestoning=row.get("Milestoning", "").strip(),
-                                column=row.get("Column", "").strip(),
-                            ))
-                        i += 1
+                        i += 1  # consumed but not yet acted on
+
+                class_mappings.append(
+                    RelationalClassMapping(cls, property_mappings, milestoning_scheme=scheme_name)
+                )
                 continue
 
             elif level == "h4" and text.startswith("Association:"):
@@ -149,19 +122,24 @@ def loads(content: str) -> list[RepositoryMapping]:
                 i += 1
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i]):
-                        if current_schema is not None:
-                            current_schema.association_mappings.append(AssociationMapping(
-                                name=assoc_name,
-                                source_column=row.get("Source Column", "").strip(),
-                                target_table=row.get("Target Table", "").strip(),
-                                target_column=row.get("Target Column", "").strip(),
-                            ))
+                        src_col = row.get("Source Column", "").strip()
+                        tgt_table_name = row.get("Target Table", "").strip()
+                        tgt_col_name = row.get("Target Column", "").strip()
+                        for key in list(deferred_joins.keys()):
+                            if key[1] == src_col:
+                                pm_list, prop, lhs_col = deferred_joins.pop(key)
+                                tgt_table = tables_by_name.get(tgt_table_name)
+                                if tgt_table:
+                                    tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
+                                    if tgt_col:
+                                        pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col, assoc_name)))
+                                break
                     i += 1
                 continue
 
         i += 1
 
-    return repositories
+    return Mapping(title, class_mappings)
 
 
 def _parse_ast_table(node: SyntaxTreeNode) -> list[dict]:
@@ -175,22 +153,46 @@ def _parse_ast_table(node: SyntaxTreeNode) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
-# Save: model → markdown
+# Save: Mapping → markdown
 # ---------------------------------------------------------------------------
 
-def save(path: str, title: str, repositories: list[RepositoryMapping]) -> None:
+def save(path: str, title: str, mapping: Mapping) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        f.write(to_markdown(title, repositories))
+        f.write(to_markdown(title, mapping))
 
 
-def to_markdown(title: str, repositories: list[RepositoryMapping]) -> str:
+def to_markdown(title: str, mapping: Mapping) -> str:
     lines: list[str] = [f"# {title}", ""]
 
-    for repo in repositories:
-        lines.append(f"## Repository: {repo.name}")
+    # Group by repo → schema, preserving insertion order
+    repos_seen: list[str] = []
+    repo_objs: dict = {}
+    repo_schema_map: dict = {}
+
+    for rcm in mapping.mappings:
+        table = _primary_table(rcm)
+        if table is None:
+            continue
+        schema = table.schema
+        repo = schema.repository if schema else None
+        repo_name = repo.name if repo else "(none)"
+
+        if repo_name not in repo_schema_map:
+            repos_seen.append(repo_name)
+            repo_objs[repo_name] = repo
+            repo_schema_map[repo_name] = {}
+
+        schema_name = schema.name if schema else "(none)"
+        if schema_name not in repo_schema_map[repo_name]:
+            repo_schema_map[repo_name][schema_name] = []
+        repo_schema_map[repo_name][schema_name].append(rcm)
+
+    for repo_name in repos_seen:
+        repo = repo_objs[repo_name]
+        lines.append(f"## Repository: {repo_name}")
         lines.append("")
 
-        if repo.milestoning_schemes:
+        if repo and repo.milestoning_schemes:
             scheme_rows = [
                 [s.name, s.processing_start or "", s.processing_end or "", s.business_date or ""]
                 for s in repo.milestoning_schemes
@@ -198,36 +200,47 @@ def to_markdown(title: str, repositories: list[RepositoryMapping]) -> str:
             lines.append(_md_table(["Scheme", "processing_start", "processing_end", "business_date"], scheme_rows))
             lines.append("")
 
-        for schema in repo.schema_mappings:
-            lines.append(f"### Schema: {schema.schema}")
+        for schema_name, rcms in repo_schema_map[repo_name].items():
+            lines.append(f"### Schema: {schema_name}")
             lines.append("")
 
-            for table in schema.table_mappings:
-                heading = f"#### Table: {table.table} → {table.cls}"
-                if table.milestoning_scheme:
-                    heading += f" (milestoning: {table.milestoning_scheme})"
+            for rcm in rcms:
+                table = _primary_table(rcm)
+                heading = f"#### Table: {table.name} → {rcm.clazz.name}"
+                if rcm.milestoning_scheme:
+                    heading += f" (milestoning: {rcm.milestoning_scheme})"
                 lines.append(heading)
                 lines.append("")
 
-                col_rows = [[cm.column, cm.property] for cm in table.column_mappings]
+                col_rows = []
+                for pm in rcm.property_mappings:
+                    if isinstance(pm.target, Column):
+                        col_rows.append([pm.target.name, pm.property.name])
+                    elif isinstance(pm.target, Join):
+                        col_rows.append([pm.target.lhs.name, pm.property.name])
                 lines.append(_md_table(["Column", "Property"], col_rows))
                 lines.append("")
 
-                if table.milestoning_overrides:
-                    override_rows = [[mo.scheme, mo.milestoning, mo.column] for mo in table.milestoning_overrides]
-                    lines.append(_md_table(["Scheme", "Milestoning", "Column"], override_rows))
-                    lines.append("")
-
-            for assoc in schema.association_mappings:
-                lines.append(f"#### Association: {assoc.name}")
-                lines.append("")
-                lines.append(_md_table(
-                    ["Source Column", "Target Table", "Target Column"],
-                    [[assoc.source_column, assoc.target_table, assoc.target_column]],
-                ))
-                lines.append("")
+            for rcm in rcms:
+                for pm in rcm.property_mappings:
+                    if isinstance(pm.target, Join):
+                        assoc_name = pm.target.name or f"{rcm.clazz.name}{pm.property.type.name}"
+                        lines.append(f"#### Association: {assoc_name}")
+                        lines.append("")
+                        lines.append(_md_table(
+                            ["Source Column", "Target Table", "Target Column"],
+                            [[pm.target.lhs.name, pm.target.rhs.table.name, pm.target.rhs.name]],
+                        ))
+                        lines.append("")
 
     return "\n".join(lines)
+
+
+def _primary_table(rcm: RelationalClassMapping) -> Optional[Column]:
+    for pm in rcm.property_mappings:
+        if isinstance(pm.target, Column) and pm.target.table is not None:
+            return pm.target.table
+    return None
 
 
 def _md_table(headers: list[str], rows: list[list[str]]) -> str:
