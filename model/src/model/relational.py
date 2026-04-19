@@ -133,10 +133,29 @@ class Relation:
         pass
 
 
-class Schema:
-    def __init__(self, name: str):
+class MilestoningScheme:
+    def __init__(self, name: str, processing_start: str = None, processing_end: str = None, business_date: str = None):
         self.name = name
+        self.processing_start = processing_start
+        self.processing_end = processing_end
+        self.business_date = business_date
+
+
+class Repository:
+    def __init__(self, name: str, location: str = None):
+        self.name = name
+        self.location = location
+        self.schemas: list = []
+        self.milestoning_schemes: list = []
+
+
+class Schema:
+    def __init__(self, name: str, repository: Repository = None):
+        self.name = name
+        self.repository = repository
         self.tables: list = []
+        if repository is not None:
+            repository.schemas.append(self)
 
 
 class Column(RelationalOperationElement):
