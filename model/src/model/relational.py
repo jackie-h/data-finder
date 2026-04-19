@@ -133,10 +133,20 @@ class Relation:
         pass
 
 
-class Schema:
-    def __init__(self, name: str):
+class Repository:
+    def __init__(self, name: str, location: str = None):
         self.name = name
+        self.location = location
+        self.schemas: list = []
+
+
+class Schema:
+    def __init__(self, name: str, repository: Repository = None):
+        self.name = name
+        self.repository = repository
         self.tables: list = []
+        if repository is not None:
+            repository.schemas.append(self)
 
 
 class Column(RelationalOperationElement):
