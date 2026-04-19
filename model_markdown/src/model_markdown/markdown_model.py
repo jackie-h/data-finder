@@ -53,19 +53,17 @@ def _type_to_str(t: Type) -> str:
 # Load: markdown → m3
 # ---------------------------------------------------------------------------
 
-def load(path: str) -> tuple[list[Package], list[Class], list[Association]]:
+def load(path: str) -> list[Package]:
     with open(path, encoding="utf-8") as f:
         content = f.read()
     return loads(content)
 
 
-def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
+def loads(content: str) -> list[Package]:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
 
     packages: list[Package] = []
-    classes: list[Class] = []
-    associations: list[Association] = []
     classes_by_name: dict[str, Class] = {}
     current_package: Optional[Package] = None
 
@@ -121,7 +119,6 @@ def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
                     tagged_values.append(TaggedValue(TaggedValue.DOC, description))
 
                 cls = Class(class_name, properties, current_package, tagged_values or None)
-                classes.append(cls)
                 classes_by_name[cls.name] = cls
                 continue
 
@@ -137,73 +134,64 @@ def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
                         target = row.get("Target", "")
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else None
-                        associations.append(Association(assoc_name, source, target, current_package, tagged))
+                        Association(assoc_name, source, target, current_package, tagged)
                     i += 1
                 continue
 
         i += 1
 
     # Second pass: resolve string type references to Class objects
-    for cls in classes:
+    for cls in classes_by_name.values():
         for prop in cls.properties.values():
             if isinstance(prop.type, str) and prop.type in classes_by_name:
                 prop.type = classes_by_name[prop.type]
 
-    return packages, classes, associations
+    return packages
 
 
 # ---------------------------------------------------------------------------
 # Save: m3 → markdown
 # ---------------------------------------------------------------------------
 
-def save(path: str, title: str, classes: list[Class], associations: list[Association]) -> None:
+def save(path: str, title: str, packages: list[Package]) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        f.write(to_markdown(title, classes, associations))
+        f.write(to_markdown(title, packages))
 
 
-def to_markdown(title: str, classes: list[Class], associations: list[Association]) -> str:
+def to_markdown(title: str, packages: list[Package]) -> str:
     lines: list[str] = []
     lines.append(f"# {title}")
     lines.append("")
 
-    packages: dict[str, tuple[list[Class], list[Association]]] = {}
-    for cls in classes:
-        pkg = cls.package.name if cls.package else "default"
-        packages.setdefault(pkg, ([], []))
-        packages[pkg][0].append(cls)
-    for assoc in associations:
-        pkg = assoc.package.name if assoc.package else "default"
-        packages.setdefault(pkg, ([], []))
-        packages[pkg][1].append(assoc)
-
-    for pkg_name, (pkg_classes, pkg_assocs) in packages.items():
-        lines.append(f"## Sub-Domain: {pkg_name}")
+    for pkg in packages:
+        lines.append(f"## Sub-Domain: {pkg.name}")
         lines.append("")
 
-        for cls in pkg_classes:
-            lines.append(f"### Class: {cls.name}")
-            lines.append("")
-            description = cls.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-            lines.append(_md_table(["Name", "Description"], [[cls.name, description]]))
-            lines.append("")
+        for child in pkg.children:
+            if isinstance(child, Class):
+                lines.append(f"### Class: {child.name}")
+                lines.append("")
+                description = child.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
+                lines.append(_md_table(["Name", "Description"], [[child.name, description]]))
+                lines.append("")
 
-            prop_rows = []
-            for prop in cls.properties.values():
-                is_key = "Y" if TaggedValue.KEY in prop.tagged_values else ""
-                desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-                prop_rows.append([prop.name, _type_to_str(prop.type), is_key, desc])
-            lines.append(_md_table(["Property", "Type", "Key", "Description"], prop_rows))
-            lines.append("")
+                prop_rows = []
+                for prop in child.properties.values():
+                    is_key = "Y" if TaggedValue.KEY in prop.tagged_values else ""
+                    desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
+                    prop_rows.append([prop.name, _type_to_str(prop.type), is_key, desc])
+                lines.append(_md_table(["Property", "Type", "Key", "Description"], prop_rows))
+                lines.append("")
 
-        for assoc in pkg_assocs:
-            lines.append(f"### Association: {assoc.name}")
-            lines.append("")
-            description = assoc.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-            lines.append(_md_table(
-                ["Name", "Source", "Target", "Description"],
-                [[assoc.name, assoc.source, assoc.target, description]],
-            ))
-            lines.append("")
+            elif isinstance(child, Association):
+                lines.append(f"### Association: {child.name}")
+                lines.append("")
+                description = child.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
+                lines.append(_md_table(
+                    ["Name", "Source", "Target", "Description"],
+                    [[child.name, child.source, child.target, description]],
+                ))
+                lines.append("")
 
     return "\n".join(lines)
 
