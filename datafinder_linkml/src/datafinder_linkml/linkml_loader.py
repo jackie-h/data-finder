@@ -38,12 +38,10 @@ def _resolve_type(range_name: Optional[str]) -> Type:
     return _RANGE_MAP.get(range_name.lower(), String)
 
 
-def load_schema(path: str) -> tuple[Package, list[Class]]:
-    """Load a LinkML YAML schema and return a Package with its Classes."""
+def load_schema(path: str) -> Package:
     schema: SchemaDefinition = yaml_loader.load(path, target_class=SchemaDefinition)
 
     package = Package(schema.name or "default")
-    classes: list[Class] = []
 
     for class_name, class_def in schema.classes.items():
         properties: list[Property] = []
@@ -71,6 +69,6 @@ def load_schema(path: str) -> tuple[Package, list[Class]]:
         if class_def.description:
             tagged_values.append(TaggedValue(TaggedValue.DOC, class_def.description))
 
-        classes.append(Class(class_name, properties, package, tagged_values or None))
+        Class(class_name, properties, package, tagged_values or None)
 
-    return package, classes
+    return package
