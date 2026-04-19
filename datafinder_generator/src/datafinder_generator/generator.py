@@ -19,6 +19,11 @@ def has_uni_business_temporal(mapping: MilestonePropertyMapping) -> bool:
 def display_name(property_name:str) -> str:
     return property_name.replace('_', ' ').title()
 
+def table_qualified_name(table) -> str:
+    if table.schema is not None:
+        return table.schema.name + '.' + table.name
+    return table.name
+
 def generate(mapping:Mapping, output_directory):
     environment = Environment(loader=PackageLoader("datafinder_generator"), trim_blocks=True, lstrip_blocks=True)
     template = environment.get_template("finder_template.txt")
@@ -27,7 +32,8 @@ def generate(mapping:Mapping, output_directory):
         filename = f"{rcm.clazz.name.lower()}_finder.py"
         filepath = os.path.join(output_directory, filename)
         content = template.render(rcm=rcm,is_primitive=is_primitive,has_processing_temporal=has_processing_temporal,
-                                  has_uni_business_temporal=has_uni_business_temporal, display_name=display_name)
+                                  has_uni_business_temporal=has_uni_business_temporal, display_name=display_name,
+                                  table_qualified_name=table_qualified_name)
         with open(filepath, mode="w", encoding="utf-8") as message:
             message.write(content)
             print(f"... wrote {filename}")

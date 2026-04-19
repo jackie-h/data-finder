@@ -23,19 +23,19 @@ class {{rcm.clazz.name}}Finder:
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
-    __table = MilestonedTable('{{rcm.property_mappings[0].target.table.name}}', [], __zz_milestoning_columns)
+    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [], __zz_milestoning_columns)
 {% else %}
-    __table = Table('{{rcm.property_mappings[0].target.table.name}}', [])
+    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [])
 {% endif %}
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}')
+    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}')
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}
-    __{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
+    __{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'))
 {% endif %}
 {% endfor %}
 
@@ -87,21 +87,21 @@ class {{rcm.clazz.name}}RelatedFinder:
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
-    __table = MilestonedTable('{{rcm.property_mappings[0].target.table.name}}', [], __zz_milestoning_columns)
+    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [], __zz_milestoning_columns)
 {% else %}
-    __table = Table('{{rcm.property_mappings[0].target.table.name}}', [])
+    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [])
 {% endif %}
 
     def __init__(self, relation_name:str, source: Column, target: Column):
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-        self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{rpm.target.table.name}}', join)
+        self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', join)
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}
-        self.__{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{rpm.target.lhs.table.name}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{rpm.target.rhs.table.name}}'))
+        self.__{{rpm.property.name}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'))
 {% endif %}
 {% endfor %}
 

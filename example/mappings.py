@@ -3,7 +3,7 @@ import os
 from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
-from model.relational import Column, Table
+from model.relational import Column, Table, Schema
 from model.relational_mapping import RelationalPropertyMapping, RelationalClassMapping, Join
 
 
@@ -51,18 +51,21 @@ def create_contractual_position_class(instrument:Class) -> Class:
 
 
 def create_mappings_normalized() -> Mapping:
+    ref_data = Schema('ref_data')
+    trading = Schema('trading')
+
     account_c = create_account_class()
 
     ac1 = Column('ID', 'INT')
     ac2 = Column('ACCT_NAME', 'VARCHAR')
-    account_t = Table('account_master', [ac1, ac2])
+    account_t = Table('account_master', [ac1, ac2], ref_data)
 
     instrument_c = create_instrument_class()
     ic1 = Column('SYM', 'VARCHAR')
     ic2 = Column('PRICE', 'DOUBLE')
     ic3 = Column('START_AT', 'DATE_TIME')
     ic4 = Column('END_AT', 'DATE_TIME')
-    instrument_t = Table('price', [ic1,ic2,ic3,ic4])
+    instrument_t = Table('price', [ic1,ic2,ic3,ic4], ref_data)
 
     c_position_c = create_contractual_position_class(instrument_c)
     p1 = Column('DATE', 'DATE')
@@ -70,7 +73,7 @@ def create_mappings_normalized() -> Mapping:
     p3 = Column('CPTY_ID', 'INT')
     p4 = Column('QUANTITY', 'DOUBLE')
     p5 = Column('NPV', 'DOUBLE')
-    pos_t = Table('contractualposition', [p1, p2, p3, p4, p5])
+    pos_t = Table('contractualposition', [p1, p2, p3, p4, p5], trading)
 
     trade_c = create_trade_class(account_c, instrument_c)
 
@@ -81,7 +84,7 @@ def create_mappings_normalized() -> Mapping:
     c5 = Column('start_at', 'TIMESTAMP')
     c6 = Column('end_at', 'TIMESTAMP')
 
-    trade_t = Table('trades', [c1, c2, c3, c4, c5, c6])
+    trade_t = Table('trades', [c1, c2, c3, c4, c5, c6], trading)
 
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3)
     pm2 = RelationalPropertyMapping(trade_c.property('price'), c4)
