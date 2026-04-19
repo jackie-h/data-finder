@@ -1,38 +1,14 @@
 import re
-from typing import Optional
-
+import model.m3 as m3
 from model.m3 import (
     Class, Package, Property, Association,
-    String, Integer, Float, Date, DateTime, Boolean,
-    TaggedValue, Type, PrimitiveType,
+    String, TaggedValue, Type, PrimitiveType,
 )
-
-_TYPE_MAP: dict[str, Type] = {
-    "string": String,
-    "integer": Integer,
-    "int": Integer,
-    "float": Float,
-    "double": Float,
-    "boolean": Boolean,
-    "bool": Boolean,
-    "date": Date,
-    "datetime": DateTime,
-}
-
-_TYPE_NAMES = {
-    id(String): "String",
-    id(Integer): "Integer",
-    id(Float): "Float",
-    id(Date): "Date",
-    id(DateTime): "DateTime",
-    id(Boolean): "Boolean",
-}
 
 TAG_KEY = "key"
 
 
 def _parse_table(lines: list[str]) -> list[dict[str, str]]:
-    """Parse a markdown table into a list of dicts keyed by header."""
     rows = [l for l in lines if l.startswith("|") and not re.match(r"^\|[-| :]+\|$", l.strip())]
     if len(rows) < 2:
         return []
@@ -45,22 +21,17 @@ def _parse_table(lines: list[str]) -> list[dict[str, str]]:
 
 
 def _resolve_type(type_str: str, classes_by_name: dict[str, Class]) -> Type:
-    t = _type_map_lookup(type_str)
-    if t is not None:
-        return t
+    candidate = getattr(m3, type_str, None)
+    if isinstance(candidate, PrimitiveType):
+        return candidate
     if type_str in classes_by_name:
         return classes_by_name[type_str]
     return String
 
 
-def _type_map_lookup(type_str: str) -> Optional[Type]:
-    return _TYPE_MAP.get(type_str.lower())
-
-
-def _type_to_str(t: Type, classes_by_name: dict[str, Class]) -> str:
-    name = _TYPE_NAMES.get(id(t))
-    if name:
-        return name
+def _type_to_str(t: Type) -> str:
+    if isinstance(t, PrimitiveType):
+        return t.name
     if isinstance(t, Class):
         return t.name
     return "String"
@@ -138,7 +109,7 @@ def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
                 if desc:
                     tagged.append(TaggedValue(TaggedValue.DOC, desc))
 
-                prop_type = _type_map_lookup(type_str) or type_str
+                prop_type = _resolve_type(type_str, classes_by_name)
                 properties.append(Property(name, prop_type, tagged or None))
 
             tagged_values: list[TaggedValue] = []
@@ -205,8 +176,6 @@ def dumps(title: str, classes: list[Class], associations: list[Association]) -> 
         packages.setdefault(pkg, ([], []))
         packages[pkg][1].append(assoc)
 
-    classes_by_name = {cls.name: cls for cls in classes}
-
     for pkg_name, (pkg_classes, pkg_assocs) in packages.items():
         lines.append(f"## Sub-Domain: {pkg_name}")
         lines.append("")
@@ -220,7 +189,7 @@ def dumps(title: str, classes: list[Class], associations: list[Association]) -> 
 
             prop_rows = []
             for prop in cls.properties.values():
-                type_str = _type_to_str(prop.type, classes_by_name)
+                type_str = _type_to_str(prop.type)
                 is_key = "Y" if TAG_KEY in prop.tagged_values else ""
                 desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
                 prop_rows.append([prop.name, type_str, is_key, desc])
