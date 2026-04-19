@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from model_markdown.markdown_model import load, save, loads, dumps, TAG_KEY
+from model_markdown.markdown_model import load, save, loads, to_markdown, TAG_KEY
 from model.m3 import String, Integer, Float, TaggedValue, Class, Association
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance.md")
@@ -65,7 +65,7 @@ class TestMarkdownSave:
         self.packages, self.classes, self.associations = load(FIXTURE)
 
     def test_roundtrip(self):
-        content = dumps("Finance Model", self.classes, self.associations)
+        content = to_markdown("Finance Model", self.classes, self.associations)
         packages2, classes2, associations2 = loads(content)
 
         by_name = {c.name: c for c in classes2}
@@ -86,9 +86,9 @@ class TestMarkdownSave:
             os.unlink(path)
 
     def test_generated_markdown_has_sub_domain(self):
-        content = dumps("Finance Model", self.classes, self.associations)
+        content = to_markdown("Finance Model", self.classes, self.associations)
         assert "## Sub-Domain: finance" in content
 
     def test_generated_markdown_has_association(self):
-        content = dumps("Finance Model", self.classes, self.associations)
+        content = to_markdown("Finance Model", self.classes, self.associations)
         assert "### Association: TradeAccount" in content

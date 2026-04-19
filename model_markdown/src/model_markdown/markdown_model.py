@@ -142,10 +142,10 @@ def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
 
 def save(path: str, title: str, classes: list[Class], associations: list[Association]) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        f.write(dumps(title, classes, associations))
+        f.write(to_markdown(title, classes, associations))
 
 
-def dumps(title: str, classes: list[Class], associations: list[Association]) -> str:
+def to_markdown(title: str, classes: list[Class], associations: list[Association]) -> str:
     lines: list[str] = []
     lines.append(f"# {title}")
     lines.append("")
