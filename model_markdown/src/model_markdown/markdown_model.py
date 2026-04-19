@@ -1,4 +1,8 @@
-import re
+from typing import Optional
+
+from markdown_it import MarkdownIt
+from markdown_it.tree import SyntaxTreeNode
+
 import model.m3 as m3
 from model.m3 import (
     Class, Package, Property, Association,
@@ -7,17 +11,17 @@ from model.m3 import (
 
 TAG_KEY = "key"
 
+_md_parser = MarkdownIt().enable("table")
 
-def _parse_table(lines: list[str]) -> list[dict[str, str]]:
-    rows = [l for l in lines if l.startswith("|") and not re.match(r"^\|[-| :]+\|$", l.strip())]
-    if len(rows) < 2:
-        return []
-    headers = [h.strip() for h in rows[0].strip("|").split("|")]
-    result = []
-    for row in rows[1:]:
-        values = [v.strip() for v in row.strip("|").split("|")]
-        result.append({headers[i]: values[i] if i < len(values) else "" for i in range(len(headers))})
-    return result
+
+def _parse_ast_table(node: SyntaxTreeNode) -> list[dict[str, str]]:
+    thead, tbody = node.children[0], node.children[1]
+    headers = [c.children[0].content for c in thead.children[0].children]
+    rows = []
+    for tr in tbody.children:
+        cells = [c.children[0].content if c.children else "" for c in tr.children]
+        rows.append({headers[i]: cells[i] if i < len(cells) else "" for i in range(len(headers))})
+    return rows
 
 
 def _resolve_type(type_str: str, classes_by_name: dict[str, Class]) -> Type:
@@ -30,24 +34,9 @@ def _resolve_type(type_str: str, classes_by_name: dict[str, Class]) -> Type:
 
 
 def _type_to_str(t: Type) -> str:
-    if isinstance(t, PrimitiveType):
-        return t.name
-    if isinstance(t, Class):
+    if isinstance(t, (PrimitiveType, Class)):
         return t.name
     return "String"
-
-
-def _table_rows(lines: list[str], start: int) -> tuple[list[str], int]:
-    """Collect consecutive table lines starting at index start."""
-    rows = []
-    i = start
-    while i < len(lines) and (lines[i].startswith("|") or lines[i].strip() == ""):
-        if lines[i].startswith("|"):
-            rows.append(lines[i])
-        elif rows:
-            break
-        i += 1
-    return rows, i
 
 
 # ---------------------------------------------------------------------------
@@ -61,83 +50,80 @@ def load(path: str) -> tuple[list[Package], list[Class], list[Association]]:
 
 
 def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
-    lines = content.splitlines()
+    root = SyntaxTreeNode(_md_parser.parse(content))
+    nodes = root.children
+
     packages: list[Package] = []
     classes: list[Class] = []
     associations: list[Association] = []
     classes_by_name: dict[str, Class] = {}
-
     current_package: Optional[Package] = None
+
     i = 0
+    while i < len(nodes):
+        node = nodes[i]
 
-    while i < len(lines):
-        line = lines[i].rstrip()
+        if node.type == "heading":
+            text = node.children[0].content if node.children else ""
+            level = node.tag
 
-        # Sub-Domain
-        m = re.match(r"^## Sub-Domain:\s*(.+)$", line)
-        if m:
-            current_package = Package(m.group(1).strip())
-            packages.append(current_package)
-            i += 1
-            continue
+            if level == "h2" and text.startswith("Sub-Domain:"):
+                current_package = Package(text[len("Sub-Domain:"):].strip())
+                packages.append(current_package)
 
-        # Class
-        m = re.match(r"^### Class:\s*(.+)$", line)
-        if m:
-            i += 1
-            # first table = class header (name + description)
-            table_lines, i = _table_rows(lines, i)
-            rows = _parse_table(table_lines)
-            description = rows[0].get("Description", "") if rows else ""
+            elif level == "h3" and text.startswith("Class:"):
+                class_name = text[len("Class:"):].strip()
+                i += 1
 
-            # second table = properties
-            table_lines, i = _table_rows(lines, i)
-            prop_rows = _parse_table(table_lines)
+                # first table: class header
+                description = ""
+                if i < len(nodes) and nodes[i].type == "table":
+                    rows = _parse_ast_table(nodes[i])
+                    description = rows[0].get("Description", "") if rows else ""
+                    i += 1
 
-            properties: list[Property] = []
-            for row in prop_rows:
-                name = row.get("Property", "").strip()
-                if not name:
-                    continue
-                type_str = row.get("Type", "String").strip()
-                is_key = row.get("Key", "").strip().upper() == "Y"
-                desc = row.get("Description", "").strip()
+                # second table: properties
+                properties: list[Property] = []
+                if i < len(nodes) and nodes[i].type == "table":
+                    for row in _parse_ast_table(nodes[i]):
+                        name = row.get("Property", "").strip()
+                        if not name:
+                            continue
+                        type_str = row.get("Type", "String").strip()
+                        is_key = row.get("Key", "").strip().upper() == "Y"
+                        desc = row.get("Description", "").strip()
+                        tagged: list[TaggedValue] = []
+                        if is_key:
+                            tagged.append(TaggedValue(TAG_KEY, True))
+                        if desc:
+                            tagged.append(TaggedValue(TaggedValue.DOC, desc))
+                        prop_type = _resolve_type(type_str, classes_by_name)
+                        properties.append(Property(name, prop_type, tagged or None))
+                    i += 1
 
-                tagged: list[TaggedValue] = []
-                if is_key:
-                    tagged.append(TaggedValue(TAG_KEY, True))
-                if desc:
-                    tagged.append(TaggedValue(TaggedValue.DOC, desc))
-
-                prop_type = _resolve_type(type_str, classes_by_name)
-                properties.append(Property(name, prop_type, tagged or None))
-
-            tagged_values: list[TaggedValue] = []
-            if description:
-                tagged_values.append(TaggedValue(TaggedValue.DOC, description))
-
-            cls = Class(m.group(1).strip(), properties, current_package, tagged_values or None)
-            classes.append(cls)
-            classes_by_name[cls.name] = cls
-            continue
-
-        # Association
-        m = re.match(r"^### Association:\s*(.+)$", line)
-        if m:
-            assoc_name = m.group(1).strip()
-            i += 1
-            table_lines, i = _table_rows(lines, i)
-            rows = _parse_table(table_lines)
-            if rows:
-                row = rows[0]
-                source = row.get("Source", "")
-                target = row.get("Target", "")
-                description = row.get("Description", "").strip()
-                tagged: list[TaggedValue] = []
+                tagged_values: list[TaggedValue] = []
                 if description:
-                    tagged.append(TaggedValue(TaggedValue.DOC, description))
-                associations.append(Association(assoc_name, source, target, current_package, tagged or None))
-            continue
+                    tagged_values.append(TaggedValue(TaggedValue.DOC, description))
+
+                cls = Class(class_name, properties, current_package, tagged_values or None)
+                classes.append(cls)
+                classes_by_name[cls.name] = cls
+                continue
+
+            elif level == "h3" and text.startswith("Association:"):
+                assoc_name = text[len("Association:"):].strip()
+                i += 1
+                if i < len(nodes) and nodes[i].type == "table":
+                    rows = _parse_ast_table(nodes[i])
+                    if rows:
+                        row = rows[0]
+                        source = row.get("Source", "")
+                        target = row.get("Target", "")
+                        desc = row.get("Description", "").strip()
+                        tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else None
+                        associations.append(Association(assoc_name, source, target, current_package, tagged))
+                    i += 1
+                continue
 
         i += 1
 
@@ -164,13 +150,11 @@ def dumps(title: str, classes: list[Class], associations: list[Association]) -> 
     lines.append(f"# {title}")
     lines.append("")
 
-    # Group by package
     packages: dict[str, tuple[list[Class], list[Association]]] = {}
     for cls in classes:
         pkg = cls.package.name if cls.package else "default"
         packages.setdefault(pkg, ([], []))
         packages[pkg][0].append(cls)
-
     for assoc in associations:
         pkg = assoc.package.name if assoc.package else "default"
         packages.setdefault(pkg, ([], []))
@@ -189,11 +173,9 @@ def dumps(title: str, classes: list[Class], associations: list[Association]) -> 
 
             prop_rows = []
             for prop in cls.properties.values():
-                type_str = _type_to_str(prop.type)
                 is_key = "Y" if TAG_KEY in prop.tagged_values else ""
                 desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-                prop_rows.append([prop.name, type_str, is_key, desc])
-
+                prop_rows.append([prop.name, _type_to_str(prop.type), is_key, desc])
             lines.append(_md_table(["Property", "Type", "Key", "Description"], prop_rows))
             lines.append("")
 
