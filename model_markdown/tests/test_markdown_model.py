@@ -59,6 +59,73 @@ class TestMarkdownLoad:
             assert cls.package is self.packages[0]
 
 
+class TestMarkdownUnexpectedColumns:
+
+    def test_extra_property_column_ignored(self, caplog):
+        content = """
+## Sub-Domain: finance
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Type    | Key | Description | Notes         |
+|----------|---------|-----|-------------|---------------|
+| id       | Integer | Y   |             | internal only |
+| name     | String  |     |             |               |
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
+            _, classes, _ = loads(content)
+        account = classes[0]
+        assert account.property("id").type == Integer
+        assert account.property("name").type == String
+        assert TAG_KEY in account.property("id").tagged_values
+        assert any("Notes" in m for m in caplog.messages)
+
+    def test_extra_class_header_column_ignored(self, caplog):
+        content = """
+## Sub-Domain: finance
+
+### Class: Account
+
+| Name    | Description     | Owner   |
+|---------|-----------------|---------|
+| Account | Trading account | finance |
+
+| Property | Type    | Key | Description |
+|----------|---------|-----|-------------|
+| id       | Integer | Y   |             |
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
+            _, classes, _ = loads(content)
+        account = classes[0]
+        assert account.name == "Account"
+        assert "Trading account" in account.tagged_values[TaggedValue.DOC].value
+        assert any("Owner" in m for m in caplog.messages)
+
+    def test_extra_association_column_ignored(self, caplog):
+        content = """
+## Sub-Domain: finance
+
+### Association: TradeAccount
+
+| Name         | Source | Target  | Description | Cardinality |
+|--------------|--------|---------|-------------|-------------|
+| TradeAccount | Trade  | Account | A link      | many-to-one |
+"""
+        import logging
+        with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
+            _, _, associations = loads(content)
+        assoc = associations[0]
+        assert assoc.source == "Trade"
+        assert assoc.target == "Account"
+        assert any("Cardinality" in m for m in caplog.messages)
+
+
 class TestMarkdownSave:
 
     def setup_method(self):

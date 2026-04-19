@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from markdown_it import MarkdownIt
@@ -12,6 +13,17 @@ from model.m3 import (
 TAG_KEY = "key"
 
 _md_parser = MarkdownIt().enable("table")
+_log = logging.getLogger(__name__)
+
+_CLASS_HEADER_COLUMNS = {"Name", "Description"}
+_PROPERTY_COLUMNS = {"Property", "Type", "Key", "Description"}
+_ASSOCIATION_COLUMNS = {"Name", "Source", "Target", "Description"}
+
+
+def _warn_unexpected_columns(found: list[str], expected: set[str], context: str) -> None:
+    unexpected = set(found) - expected
+    if unexpected:
+        _log.warning("Unexpected columns in %s table (will be ignored): %s", context, sorted(unexpected))
 
 
 def _parse_ast_table(node: SyntaxTreeNode) -> list[dict[str, str]]:
@@ -79,13 +91,18 @@ def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
                 description = ""
                 if i < len(nodes) and nodes[i].type == "table":
                     rows = _parse_ast_table(nodes[i])
-                    description = rows[0].get("Description", "") if rows else ""
+                    if rows:
+                        _warn_unexpected_columns(list(rows[0].keys()), _CLASS_HEADER_COLUMNS, f"Class '{class_name}' header")
+                        description = rows[0].get("Description", "")
                     i += 1
 
                 # second table: properties
                 properties: list[Property] = []
                 if i < len(nodes) and nodes[i].type == "table":
-                    for row in _parse_ast_table(nodes[i]):
+                    prop_rows = _parse_ast_table(nodes[i])
+                    if prop_rows:
+                        _warn_unexpected_columns(list(prop_rows[0].keys()), _PROPERTY_COLUMNS, f"Class '{class_name}' properties")
+                    for row in prop_rows:
                         name = row.get("Property", "").strip()
                         if not name:
                             continue
@@ -116,6 +133,7 @@ def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
                 if i < len(nodes) and nodes[i].type == "table":
                     rows = _parse_ast_table(nodes[i])
                     if rows:
+                        _warn_unexpected_columns(list(rows[0].keys()), _ASSOCIATION_COLUMNS, f"Association '{assoc_name}'")
                         row = rows[0]
                         source = row.get("Source", "")
                         target = row.get("Target", "")
