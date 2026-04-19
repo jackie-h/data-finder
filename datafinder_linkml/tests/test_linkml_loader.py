@@ -1,8 +1,7 @@
 import os
-import pytest
 
 from datafinder_linkml.linkml_loader import load_schema
-from model.m3 import String, Integer, Float, DateTime, Boolean, TaggedValue
+from model.m3 import Class, String, Integer, Float, DateTime, Boolean, TaggedValue
 
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "finance.yaml")
 
@@ -10,7 +9,8 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "finance.yaml")
 class TestLinkMLLoader:
 
     def setup_method(self):
-        self.package, self.classes = load_schema(SCHEMA_PATH)
+        self.package = load_schema(SCHEMA_PATH)
+        self.classes = [c for c in self.package.children if isinstance(c, Class)]
         self.by_name = {c.name: c for c in self.classes}
 
     def test_package_name(self):
