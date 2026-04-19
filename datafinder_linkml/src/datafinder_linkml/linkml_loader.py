@@ -1,3 +1,5 @@
+from typing import Optional
+
 from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.linkml_model import SchemaDefinition
 
@@ -30,7 +32,7 @@ _RANGE_MAP: dict[str, Type] = {
 }
 
 
-def _resolve_type(range_name: str | None) -> Type:
+def _resolve_type(range_name: Optional[str]) -> Type:
     if range_name is None:
         return String
     return _RANGE_MAP.get(range_name.lower(), String)
