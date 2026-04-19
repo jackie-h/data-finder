@@ -1,5 +1,7 @@
 # Finance Mapping
 
+## Model: finance.md
+
 ## Repository: finance_db
 
 | Scheme          | processing_start | processing_end | business_date |
@@ -29,7 +31,6 @@
 
 | Column     | Property |
 |------------|----------|
-| id         | id       |
 | sym        | symbol   |
 | price      | price    |
 | account_id | account  |

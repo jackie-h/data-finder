@@ -2,25 +2,13 @@ import os
 import tempfile
 
 from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
-from model.m3 import Package, Class, Property, String, Integer, Float
-from model.mapping import Mapping
+from model_markdown.markdown_model import load as load_model
+from model.m3 import Class
 from model.relational import Repository, Schema, Table, Column
-from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+from model.relational_mapping import RelationalPropertyMapping, Join
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping.md")
-
-
-def _build_packages() -> list:
-    pkg = Package("finance")
-    account = Class("Account", [Property("id", Integer), Property("name", String)], pkg)
-    instrument = Class("Instrument", [Property("symbol", String), Property("price", Float)], pkg)
-    Class("Trade", [
-        Property("id", Integer),
-        Property("sym", String),
-        Property("price", Float),
-        Property("account", account),
-    ], pkg)
-    return [pkg]
+MODEL_FILE = os.path.join(os.path.dirname(__file__), "finance.md")
 
 
 def _build_repository() -> Repository:
@@ -30,7 +18,7 @@ def _build_repository() -> Repository:
     Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
-    Table("trades", [Column("id", "INT"), Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
+    Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
                      Column("account_id", "INT"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
     return repo
 
@@ -38,9 +26,8 @@ def _build_repository() -> Repository:
 class TestMarkdownMappingLoad:
 
     def setup_method(self):
-        self.packages = _build_packages()
         self.repo = _build_repository()
-        self.mapping = load(FIXTURE, self.packages, self.repo)
+        self.mapping = load(FIXTURE, self.repo)
         self.by_class = {rcm.clazz.name: rcm for rcm in self.mapping.mappings}
 
     def test_mapping_title(self):
@@ -60,6 +47,11 @@ class TestMarkdownMappingLoad:
         for pm in rcm.property_mappings:
             assert isinstance(pm, RelationalPropertyMapping)
             assert isinstance(pm.target, Column)
+
+    def test_classes_resolved_from_model_file(self):
+        account = self.by_class["Account"].clazz
+        assert isinstance(account, Class)
+        assert account.package.name == "finance"
 
     def test_milestoning_schemes_loaded_onto_repository(self):
         schemes = {s.name: s for s in self.repo.milestoning_schemes}
@@ -106,15 +98,14 @@ class TestMarkdownMappingLoad:
 class TestMarkdownMappingSave:
 
     def setup_method(self):
-        self.packages = _build_packages()
         self.repo = _build_repository()
-        self.mapping = load(FIXTURE, self.packages, self.repo)
+        self.mapping = load(FIXTURE, self.repo)
+        self.packages = load_model(MODEL_FILE)
 
     def test_roundtrip(self):
-        content = to_markdown("Finance Mapping", self.mapping)
-        packages2 = _build_packages()
+        content = to_markdown("Finance Mapping", self.mapping, "finance.md")
         repo2 = _build_repository()
-        mapping2 = loads(content, packages2, repo2)
+        mapping2 = loads(content, self.packages, repo2)
         by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
         assert set(by_class2.keys()) == {"Account", "Instrument", "Trade"}
         assert by_class2["Trade"].milestoning_scheme == "processing_only"
@@ -122,17 +113,21 @@ class TestMarkdownMappingSave:
         by_prop2 = {pm.property.name: pm for pm in by_class2["Trade"].property_mappings}
         assert isinstance(by_prop2["account"].target, Join)
 
-    def test_save_to_file(self):
-        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w") as f:
-            path = f.name
+    def test_save_and_reload(self):
+        fixture_dir = os.path.dirname(FIXTURE)
+        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", dir=fixture_dir) as f:
+            temp_path = f.name
         try:
-            save(path, "Finance Mapping", self.mapping)
-            packages2 = _build_packages()
+            save(temp_path, "Finance Mapping", self.mapping, "finance.md")
             repo2 = _build_repository()
-            mapping2 = load(path, packages2, repo2)
+            mapping2 = load(temp_path, repo2)
             assert len(mapping2.mappings) == 3
         finally:
-            os.unlink(path)
+            os.unlink(temp_path)
+
+    def test_generated_markdown_has_model_reference(self):
+        content = to_markdown("Finance Mapping", self.mapping, "finance.md")
+        assert "## Model: finance.md" in content
 
     def test_generated_markdown_has_repository(self):
         content = to_markdown("Finance Mapping", self.mapping)

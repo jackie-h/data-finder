@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from typing import Optional
 
@@ -19,9 +20,25 @@ _TABLE_RE = re.compile(r'(\S+)\s*→\s*(\w+)(?:\s*\(milestoning:\s*(\w+)\))?')
 # Load: markdown → Mapping
 # ---------------------------------------------------------------------------
 
-def load(path: str, packages: list, repository: Repository) -> Mapping:
+def load(path: str, repository: Repository) -> Mapping:
     with open(path, encoding="utf-8") as f:
-        return loads(f.read(), packages, repository)
+        content = f.read()
+    base_dir = os.path.dirname(os.path.abspath(path))
+    packages = _load_model_reference(content, base_dir)
+    return loads(content, packages, repository)
+
+
+def _load_model_reference(content: str, base_dir: str) -> list:
+    from model_markdown.markdown_model import load as load_model
+    root = SyntaxTreeNode(_md_parser.parse(content))
+    for node in root.children:
+        if node.type == "heading" and node.tag == "h2":
+            text = node.children[0].content if node.children else ""
+            if text.startswith("Model:"):
+                model_file = text[len("Model:"):].strip()
+                model_path = os.path.join(base_dir, model_file)
+                return load_model(model_path)
+    return []
 
 
 def loads(content: str, packages: list, repository: Repository) -> Mapping:
@@ -156,13 +173,16 @@ def _parse_ast_table(node: SyntaxTreeNode) -> list[dict]:
 # Save: Mapping → markdown
 # ---------------------------------------------------------------------------
 
-def save(path: str, title: str, mapping: Mapping) -> None:
+def save(path: str, title: str, mapping: Mapping, model_path: str = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        f.write(to_markdown(title, mapping))
+        f.write(to_markdown(title, mapping, model_path))
 
 
-def to_markdown(title: str, mapping: Mapping) -> str:
+def to_markdown(title: str, mapping: Mapping, model_path: str = None) -> str:
     lines: list[str] = [f"# {title}", ""]
+    if model_path:
+        lines.append(f"## Model: {model_path}")
+        lines.append("")
 
     # Group by repo → schema, preserving insertion order
     repos_seen: list[str] = []
