@@ -4,11 +4,10 @@ from model.relational import RelationalOperationElement, Column
 
 
 class Join(RelationalOperationElement):
-    def __init__(self, lhs: Column, rhs: Column, name: str = None):
+    def __init__(self, lhs: Column, rhs: Column):
         super().__init__()
         self.lhs = lhs
         self.rhs = rhs
-        self.name = name
 
 class RelationalPropertyMapping(PropertyMapping):
     def __init__(self, property: Property, target: RelationalOperationElement):

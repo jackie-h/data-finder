@@ -84,10 +84,9 @@ class TestMarkdownMappingLoad:
         assert join.lhs.name == "account_id"
         assert join.rhs.name == "ID"
 
-    def test_join_association_name(self):
-        rcm = self.by_class["Trade"]
-        by_prop = {pm.property.name: pm for pm in rcm.property_mappings}
-        assert by_prop["account"].target.name == "TradeAccount"
+    def test_generated_association_uses_model_name(self):
+        content = to_markdown("Finance Mapping", self.mapping)
+        assert "#### Association: TradeAccount" in content
 
     def test_join_target_table(self):
         rcm = self.by_class["Trade"]

@@ -6,7 +6,7 @@ from typing import Optional
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
-from model.m3 import Class, PrimitiveType
+from model.m3 import Class, PrimitiveType, Association
 from model.mapping import Mapping
 from model.relational import Repository, MilestoningScheme, Column
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
@@ -149,7 +149,7 @@ def loads(content: str, packages: list, repository: Repository) -> Mapping:
                                 if tgt_table:
                                     tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
                                     if tgt_col:
-                                        pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col, assoc_name)))
+                                        pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col)))
                                 break
                     i += 1
                 continue
@@ -172,6 +172,15 @@ def _parse_ast_table(node: SyntaxTreeNode) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Save: Mapping → markdown
 # ---------------------------------------------------------------------------
+
+def _find_association_name(source_cls: Class, target_cls: Class) -> str:
+    pkg = source_cls.package
+    if pkg is not None:
+        for child in pkg.children:
+            if isinstance(child, Association) and child.source == source_cls.name and child.target == target_cls.name:
+                return child.name
+    return f"{source_cls.name}{target_cls.name}"
+
 
 def save(path: str, title: str, mapping: Mapping, model_path: str = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
@@ -244,7 +253,7 @@ def to_markdown(title: str, mapping: Mapping, model_path: str = None) -> str:
             for rcm in rcms:
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Join):
-                        assoc_name = pm.target.name or f"{rcm.clazz.name}{pm.property.type.name}"
+                        assoc_name = _find_association_name(rcm.clazz, pm.property.type)
                         lines.append(f"#### Association: {assoc_name}")
                         lines.append("")
                         lines.append(_md_table(
