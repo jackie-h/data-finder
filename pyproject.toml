@@ -10,7 +10,6 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "jinja2>=3.1.6",
-    "markdown-it-py>=3.0.0",
     "numpy>=1.26.4",
     "pandas>=2.2.2",
 ]
@@ -30,6 +29,9 @@ linkml = [
 ]
 iceberg = [
     "pyiceberg>=0.10.0",
+]
+markdown = [
+    "markdown-it-py>=3.0.0",
 ]
 
 
