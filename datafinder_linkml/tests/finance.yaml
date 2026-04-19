@@ -1,0 +1,45 @@
+id: https://example.org/finance
+name: finance
+description: Sample financial domain schema
+
+prefixes:
+  linkml: https://w3id.org/linkml/
+
+default_range: string
+
+imports:
+  - linkml:types
+
+classes:
+  Account:
+    description: Trading account used to buy and sell securities
+    attributes:
+      id:
+        range: integer
+      name:
+        range: string
+
+  Instrument:
+    attributes:
+      symbol:
+        range: string
+      price:
+        range: float
+
+  Trade:
+    description: A trade executed on an account
+    attributes:
+      symbol:
+        range: string
+        description: The symbol of the instrument traded
+      price:
+        range: float
+        description: The price at which the trade was executed
+      account_id:
+        range: integer
+      valid_from:
+        range: datetime
+      valid_to:
+        range: datetime
+      is_settled:
+        range: boolean

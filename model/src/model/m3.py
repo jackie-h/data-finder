@@ -38,6 +38,7 @@ String = PrimitiveType("String")
 Float = PrimitiveType("Float")
 DateTime = PrimitiveType("DateTime")
 Date = PrimitiveType("Date")
+Boolean = PrimitiveType("Boolean")
 
 
 class Property(AnnotatedElement):
