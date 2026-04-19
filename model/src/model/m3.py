@@ -61,8 +61,8 @@ class Class(PackagableElement, Type):
 
 
 class Association(PackagableElement):
-    def __init__(self, name: str, source: str, target: str, package: Package):
-        super().__init__(package)
+    def __init__(self, name: str, source: str, target: str, package: Package, tagged_values: list[TaggedValue] = None):
+        super().__init__(package, tagged_values)
         self.name = name
         self.source = source
         self.target = target
