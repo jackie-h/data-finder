@@ -1,7 +1,7 @@
 import os
 import tempfile
 
-from model_markdown.markdown_model import load, save, loads, to_markdown, TAG_KEY
+from model_markdown.markdown_model import load, save, loads, to_markdown
 from model.m3 import String, Integer, Float, TaggedValue, Class, Association
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance.md")
@@ -27,8 +27,8 @@ class TestMarkdownLoad:
 
     def test_key_indicator(self):
         account = self.by_name["Account"]
-        assert TAG_KEY in account.property("id").tagged_values
-        assert TAG_KEY not in account.property("name").tagged_values
+        assert TaggedValue.KEY in account.property("id").tagged_values
+        assert TaggedValue.KEY not in account.property("name").tagged_values
 
     def test_class_description(self):
         account = self.by_name["Account"]
@@ -82,7 +82,7 @@ class TestMarkdownUnexpectedColumns:
         account = classes[0]
         assert account.property("id").type == Integer
         assert account.property("name").type == String
-        assert TAG_KEY in account.property("id").tagged_values
+        assert TaggedValue.KEY in account.property("id").tagged_values
         assert any("Notes" in m for m in caplog.messages)
 
     def test_extra_class_header_column_ignored(self, caplog):
@@ -138,7 +138,7 @@ class TestMarkdownSave:
         by_name = {c.name: c for c in classes2}
         assert set(by_name.keys()) == {"Account", "Instrument", "Trade"}
         assert by_name["Account"].property("id").type == Integer
-        assert TAG_KEY in by_name["Account"].property("id").tagged_values
+        assert TaggedValue.KEY in by_name["Account"].property("id").tagged_values
         assert len(associations2) == 1
         assert associations2[0].name == "TradeAccount"
 

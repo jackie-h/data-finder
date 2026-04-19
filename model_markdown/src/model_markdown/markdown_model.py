@@ -10,8 +10,6 @@ from model.m3 import (
     String, TaggedValue, Type, PrimitiveType,
 )
 
-TAG_KEY = "key"
-
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
 
@@ -111,7 +109,7 @@ def loads(content: str) -> tuple[list[Package], list[Class], list[Association]]:
                         desc = row.get("Description", "").strip()
                         tagged: list[TaggedValue] = []
                         if is_key:
-                            tagged.append(TaggedValue(TAG_KEY, True))
+                            tagged.append(TaggedValue(TaggedValue.KEY, True))
                         if desc:
                             tagged.append(TaggedValue(TaggedValue.DOC, desc))
                         prop_type = _resolve_type(type_str, classes_by_name)
@@ -191,7 +189,7 @@ def to_markdown(title: str, classes: list[Class], associations: list[Association
 
             prop_rows = []
             for prop in cls.properties.values():
-                is_key = "Y" if TAG_KEY in prop.tagged_values else ""
+                is_key = "Y" if TaggedValue.KEY in prop.tagged_values else ""
                 desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
                 prop_rows.append([prop.name, _type_to_str(prop.type), is_key, desc])
             lines.append(_md_table(["Property", "Type", "Key", "Description"], prop_rows))
