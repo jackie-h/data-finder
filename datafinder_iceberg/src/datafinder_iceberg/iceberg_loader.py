@@ -1,5 +1,6 @@
-from typing import Union
+from typing import Optional
 
+from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.schema import Schema
 from pyiceberg.types import (
     IcebergType, StructType,
@@ -72,3 +73,18 @@ def load_schema_from_json(path: str, table_name: str) -> Table:
     with open(path) as f:
         schema_dict = json.load(f)
     return load_schema_from_dict(schema_dict, table_name)
+
+
+def load_schema_from_catalog(
+    catalog_uri: str,
+    namespace: str,
+    table_name: str,
+    credentials: Optional[dict] = None,
+) -> Table:
+    """Load a Table by fetching its schema from an Iceberg REST catalog."""
+    properties = {"uri": catalog_uri}
+    if credentials:
+        properties.update(credentials)
+    catalog = RestCatalog("catalog", **properties)
+    iceberg_table = catalog.load_table((namespace, table_name))
+    return schema_to_table(iceberg_table.schema(), table_name)
