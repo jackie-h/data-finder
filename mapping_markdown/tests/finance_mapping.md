@@ -20,20 +20,24 @@
 
 #### Table: price → Instrument (milestoning: processing_only)
 
-| Column | Property |
-|--------|----------|
-| SYM    | symbol   |
-| PRICE  | price    |
+| Column | Property   |
+|--------|------------|
+| SYM    | symbol     |
+| PRICE  | price      |
+| in_z   | valid_from |
+| out_z  | valid_to   |
 
 ### Schema: trading
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Property |
-|------------|----------|
-| sym        | symbol   |
-| price      | price    |
-| account_id | account  |
+| Column     | Property   |
+|------------|------------|
+| sym        | symbol     |
+| price      | price      |
+| account_id | account    |
+| in_z       | valid_from |
+| out_z      | valid_to   |
 
 #### Association: TradeAccount
 

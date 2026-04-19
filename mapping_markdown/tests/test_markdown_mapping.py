@@ -5,6 +5,7 @@ from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
 from model_markdown.markdown_model import load as load_model
 from model.m3 import Class
 from model.relational import Repository, Schema, Table, Column
+from model.mapping import ProcessingDateMilestonesPropertyMapping
 from model.relational_mapping import RelationalPropertyMapping, Join
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping.md")
@@ -72,9 +73,14 @@ class TestMarkdownMappingLoad:
         assert s.business_date == "business_date"
 
     def test_table_milestoning_scheme_on_mapping(self):
-        assert self.by_class["Account"].milestoning_scheme is None
-        assert self.by_class["Instrument"].milestoning_scheme == "processing_only"
-        assert self.by_class["Trade"].milestoning_scheme == "processing_only"
+        assert self.by_class["Account"].milestone_mapping is None
+        assert isinstance(self.by_class["Instrument"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
+        assert isinstance(self.by_class["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
+
+    def test_milestone_mapping_columns(self):
+        mm = self.by_class["Trade"].milestone_mapping
+        assert mm._in.target.name == "in_z"
+        assert mm._out.target.name == "out_z"
 
     def test_join_mapping_for_non_primitive_property(self):
         rcm = self.by_class["Trade"]
@@ -107,8 +113,8 @@ class TestMarkdownMappingSave:
         mapping2 = loads(content, self.packages, repo2)
         by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
         assert set(by_class2.keys()) == {"Account", "Instrument", "Trade"}
-        assert by_class2["Trade"].milestoning_scheme == "processing_only"
-        assert by_class2["Account"].milestoning_scheme is None
+        assert isinstance(by_class2["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
+        assert by_class2["Account"].milestone_mapping is None
         by_prop2 = {pm.property.name: pm for pm in by_class2["Trade"].property_mappings}
         assert isinstance(by_prop2["account"].target, Join)
 

@@ -19,10 +19,12 @@
 |------------|-------------|
 | Instrument |             |
 
-| Property | Type   | Key | Description |
-|----------|--------|-----|-------------|
-| symbol   | String | Y   |             |
-| price    | Float  |     |             |
+| Property   | Type     | Key | Description |
+|------------|----------|-----|-------------|
+| symbol     | String   | Y   |             |
+| price      | Float    |     |             |
+| valid_from | DateTime |     |             |
+| valid_to   | DateTime |     |             |
 
 ### Class: Trade
 
@@ -30,12 +32,14 @@
 |-------|--------------------------------|
 | Trade | A trade executed on an account |
 
-| Property | Type       | Key | Description                         |
-|----------|------------|-----|-------------------------------------|
-| symbol   | String     | Y   | The symbol of the instrument traded |
-| price    | Float      |     | The price at which trade was executed |
-| account  | Account    |     | The trading account                 |
-| instrument | Instrument |   |                                     |
+| Property   | Type       | Key | Description                           |
+|------------|------------|-----|---------------------------------------|
+| symbol     | String     | Y   | The symbol of the instrument traded   |
+| price      | Float      |     | The price at which trade was executed |
+| account    | Account    |     | The trading account                   |
+| instrument | Instrument |     |                                       |
+| valid_from | DateTime   |     |                                       |
+| valid_to   | DateTime   |     |                                       |
 
 ### Association: TradeAccount
 

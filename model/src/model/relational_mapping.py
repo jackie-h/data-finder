@@ -15,6 +15,5 @@ class RelationalPropertyMapping(PropertyMapping):
 
 
 class RelationalClassMapping(ClassMapping):
-    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping = None, milestoning_scheme: str = None):
+    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping = None):
         super().__init__(clazz, property_mappings, milestone_mapping)
-        self.milestoning_scheme = milestoning_scheme

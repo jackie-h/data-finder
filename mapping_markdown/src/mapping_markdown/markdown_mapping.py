@@ -7,7 +7,7 @@ from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, PrimitiveType, Association
-from model.mapping import Mapping
+from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
 from model.relational import Repository, MilestoningScheme, Column
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
 
@@ -123,14 +123,9 @@ def loads(content: str, packages: list, repository: Repository) -> Mapping:
                             deferred_joins[(table_name, col_name)] = (property_mappings, prop, col)
                     i += 1
 
-                # optional milestoning override table (Scheme | Milestoning | Column)
-                if i < len(nodes) and nodes[i].type == "table":
-                    rows = _parse_ast_table(nodes[i])
-                    if rows and "Scheme" in rows[0] and "Milestoning" in rows[0]:
-                        i += 1  # consumed but not yet acted on
-
+                milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository)
                 class_mappings.append(
-                    RelationalClassMapping(cls, property_mappings, milestoning_scheme=scheme_name)
+                    RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping)
                 )
                 continue
 
@@ -167,6 +162,43 @@ def _parse_ast_table(node: SyntaxTreeNode) -> list[dict]:
         cells = [c.children[0].content if c.children else "" for c in tr.children]
         rows.append({headers[i]: cells[i] if i < len(cells) else "" for i in range(len(headers))})
     return rows
+
+
+def _build_milestone_mapping(scheme_name, property_mappings, repository):
+    if not scheme_name:
+        return None
+    scheme = next((s for s in repository.milestoning_schemes if s.name == scheme_name), None)
+    if scheme is None:
+        return None
+    pm_by_col = {pm.target.name: pm for pm in property_mappings if isinstance(pm.target, Column)}
+    if scheme.processing_start and scheme.processing_end:
+        _in = pm_by_col.get(scheme.processing_start)
+        _out = pm_by_col.get(scheme.processing_end)
+        if _in and _out:
+            return ProcessingDateMilestonesPropertyMapping(_in, _out)
+    elif scheme.business_date:
+        _date = pm_by_col.get(scheme.business_date)
+        if _date:
+            return SingleBusinessDateMilestonePropertyMapping(_date)
+    return None
+
+
+def _milestone_scheme_name(rcm: RelationalClassMapping, repo: Repository) -> Optional[str]:
+    mm = rcm.milestone_mapping
+    if mm is None or repo is None:
+        return None
+    if isinstance(mm, ProcessingDateMilestonesPropertyMapping):
+        in_col = mm._in.target.name if isinstance(mm._in.target, Column) else None
+        out_col = mm._out.target.name if isinstance(mm._out.target, Column) else None
+        for s in repo.milestoning_schemes:
+            if s.processing_start == in_col and s.processing_end == out_col and not s.business_date:
+                return s.name
+    elif isinstance(mm, SingleBusinessDateMilestonePropertyMapping):
+        date_col = mm._date.target.name if isinstance(mm._date.target, Column) else None
+        for s in repo.milestoning_schemes:
+            if s.business_date == date_col and not s.processing_start:
+                return s.name
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -236,8 +268,9 @@ def to_markdown(title: str, mapping: Mapping, model_path: str = None) -> str:
             for rcm in rcms:
                 table = _primary_table(rcm)
                 heading = f"#### Table: {table.name} → {rcm.clazz.name}"
-                if rcm.milestoning_scheme:
-                    heading += f" (milestoning: {rcm.milestoning_scheme})"
+                scheme_name = _milestone_scheme_name(rcm, repo)
+                if scheme_name:
+                    heading += f" (milestoning: {scheme_name})"
                 lines.append(heading)
                 lines.append("")
 
