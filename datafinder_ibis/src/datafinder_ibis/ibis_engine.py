@@ -19,9 +19,7 @@ class IbisConnect(QueryRunnerBase):
         select_op = build_query_operation(business_date, processing_datetime, columns, table, op)
         query = select_sql_to_string(select_op)
         print(query)
-        t = conn.table(table.name)
-        #todo - can also do this with the dataframe API
-        return IbisOutput(t.sql(query))
+        return IbisOutput(conn.sql(query))
 
 
 class IbisOutput(DataFrame):

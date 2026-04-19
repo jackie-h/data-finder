@@ -132,6 +132,13 @@ class Relation:
     def __init__(self):
         pass
 
+
+class Schema:
+    def __init__(self, name: str):
+        self.name = name
+        self.tables: list = []
+
+
 class Column(RelationalOperationElement):
     #TODO owner should be Relation
     def __init__(self, name: str, _type: str, owner:str = None):
@@ -142,12 +149,15 @@ class Column(RelationalOperationElement):
 
 
 class Table(Relation):
-    def __init__(self, name: str, columns: list[Column]):
+    def __init__(self, name: str, columns: list[Column], schema: Schema = None):
         super().__init__()
         self.name = name
         self.columns = columns
+        self.schema = schema
         for col in columns:
             col.table = self
+        if schema is not None:
+            schema.tables.append(self)
 
 
 class JoinOperation:
