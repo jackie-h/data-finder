@@ -1,0 +1,55 @@
+# Finance Mapping
+
+## Repository: finance_db
+
+| Scheme          | processing_start | processing_end | business_date |
+|-----------------|------------------|----------------|---------------|
+| bitemporal      | in_z             | out_z          | business_date |
+| processing_only | in_z             | out_z          |               |
+
+### Schema: ref_data
+
+#### Table: account_master → Account
+
+| Column    | Property |
+|-----------|----------|
+| ID        | id       |
+| ACCT_NAME | name     |
+
+#### Table: price → Instrument (milestoning: processing_only)
+
+| Column | Property |
+|--------|----------|
+| SYM    | symbol   |
+| PRICE  | price    |
+
+### Schema: trading
+
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column     | Property |
+|------------|----------|
+| id         | id       |
+| sym        | symbol   |
+| price      | price    |
+| account_id | account  |
+
+#### Table: contractualposition → ContractualPosition (milestoning: bitemporal)
+
+| Column     | Property      |
+|------------|---------------|
+| DATE       | business_date |
+| INSTRUMENT | instrument    |
+| CPTY_ID    | counterparty  |
+| QUANTITY   | quantity      |
+| NPV        | npv           |
+
+| Scheme     | Milestoning   | Column |
+|------------|---------------|--------|
+| bitemporal | business_date | DATE   |
+
+#### Association: TradeAccount
+
+| Source Column | Target Table   | Target Column |
+|---------------|----------------|---------------|
+| account_id    | account_master | ID            |
