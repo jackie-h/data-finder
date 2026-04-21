@@ -189,7 +189,9 @@ class SQLQueryGenerator:
             self._join.append(Join(sc, tc, parent.filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
-        if isinstance(op, LogicalOperation):
+        if isinstance(op, NoOperation):
+            return ''
+        elif isinstance(op, LogicalOperation):
             return self.build_filter(op.left) + logical_operator_string(op.operator) + self.build_filter(op.right)
         elif isinstance(op, ComparisonOperation):
             return self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)

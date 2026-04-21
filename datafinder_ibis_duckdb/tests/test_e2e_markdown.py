@@ -92,11 +92,10 @@ class TestE2EMarkdownIbisDuckDb:
         ).to_numpy()
         assert_array_equal(result, np.array([[1, "Acme Corp"]], dtype=object))
 
-    def test_account_to_pandas(self, finders):
+    def test_account_to_pandas_no_filter(self, finders):
         AccountFinder = finders["Account"]
         df = AccountFinder.find_all(
             [AccountFinder.id(), AccountFinder.name()],
-            AccountFinder.id().eq(1),
         ).to_pandas()
         assert list(df.columns) == ["Id", "Name"]
         assert df.iloc[0]["Name"] == "Acme Corp"
