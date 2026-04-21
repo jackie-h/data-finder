@@ -1,0 +1,140 @@
+import datetime
+import os
+import shutil
+import sys
+import tempfile
+
+import duckdb
+import numpy as np
+import pytest
+from numpy.testing import assert_array_equal
+
+from datafinder import QueryRunnerBase
+from datafinder_generator.generator import generate
+from datafinder_ibis.ibis_engine import IbisConnect
+from mapping_markdown.markdown_mapping import load
+from model.relational import Repository, Schema, Table, Column
+
+_MAPPING_FILE = os.path.normpath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "mapping_markdown", "tests", "finance_mapping.md")
+)
+
+_FINDER_MODULES = ["account_finder", "instrument_finder", "trade_finder"]
+
+
+def _build_repository() -> Repository:
+    repo = Repository("finance_db", "duckdb://test.db")
+    ref_data = Schema("ref_data", repo)
+    trading = Schema("trading", repo)
+    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+    Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
+                    Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
+    Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
+                     Column("account_id", "INT"), Column("in_z", "TIMESTAMP"),
+                     Column("out_z", "TIMESTAMP")], trading)
+    return repo
+
+
+def _seed_test_db():
+    conn = duckdb.connect("test.db")
+    conn.execute("DROP SCHEMA IF EXISTS trading CASCADE")
+    conn.execute("DROP SCHEMA IF EXISTS ref_data CASCADE")
+    conn.execute("CREATE SCHEMA trading")
+    conn.execute("CREATE SCHEMA ref_data")
+    conn.execute("CREATE TABLE ref_data.account_master(ID INT, ACCT_NAME VARCHAR)")
+    conn.execute("INSERT INTO ref_data.account_master VALUES (1, 'Acme Corp')")
+    conn.execute("CREATE TABLE ref_data.price(SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)")
+    conn.execute("INSERT INTO ref_data.price VALUES ('AAPL', 150.0, '2020-01-01', '9999-12-31')")
+    conn.execute(
+        "CREATE TABLE trading.trades(sym VARCHAR, price DOUBLE, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP)"
+    )
+    # AAPL trade: currently active
+    conn.execute("INSERT INTO trading.trades VALUES ('AAPL', 84.11, 1, '2020-01-01', '9999-12-31')")
+    # GOOG trade: expired before 2022
+    conn.execute("INSERT INTO trading.trades VALUES ('GOOG', 200.0, 1, '2020-01-01', '2022-01-01')")
+    conn.close()
+
+
+@pytest.fixture(scope="module")
+def finders():
+    """Generate finders from markdown, seed test DB, yield finder classes, then clean up."""
+    QueryRunnerBase.clear()
+    QueryRunnerBase.register(IbisConnect)
+
+    temp_dir = tempfile.mkdtemp()
+    for mod in _FINDER_MODULES:
+        sys.modules.pop(mod, None)
+    sys.path.insert(0, temp_dir)
+
+    repo = _build_repository()
+    mapping = load(_MAPPING_FILE, repo)
+    generate(mapping, temp_dir)
+    _seed_test_db()
+
+    from account_finder import AccountFinder
+    from trade_finder import TradeFinder
+
+    yield {"Account": AccountFinder, "Trade": TradeFinder}
+
+    sys.path.remove(temp_dir)
+    for mod in _FINDER_MODULES:
+        sys.modules.pop(mod, None)
+    shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+class TestE2EMarkdownIbisDuckDb:
+
+    def test_account_query(self, finders):
+        AccountFinder = finders["Account"]
+        result = AccountFinder.find_all(
+            [AccountFinder.id(), AccountFinder.name()],
+            AccountFinder.id().eq(1),
+        ).to_numpy()
+        assert_array_equal(result, np.array([[1, "Acme Corp"]], dtype=object))
+
+    def test_account_to_pandas(self, finders):
+        AccountFinder = finders["Account"]
+        df = AccountFinder.find_all(
+            [AccountFinder.id(), AccountFinder.name()],
+            AccountFinder.id().eq(1),
+        ).to_pandas()
+        assert list(df.columns) == ["Id", "Name"]
+        assert df.iloc[0]["Name"] == "Acme Corp"
+
+    def test_trade_query_with_milestoning(self, finders):
+        TradeFinder = finders["Trade"]
+        # Both AAPL and GOOG are active in 2021
+        result = TradeFinder.find_all(
+            "2021-06-01 12:00:00",
+            [TradeFinder.symbol(), TradeFinder.price()],
+        ).to_pandas()
+        assert len(result) == 2
+        assert set(result["Symbol"].tolist()) == {"AAPL", "GOOG"}
+
+    def test_trade_milestoning_filters_expired_records(self, finders):
+        TradeFinder = finders["Trade"]
+        # After 2022-01-01, GOOG record expired — only AAPL visible
+        result = TradeFinder.find_all(
+            "2023-01-01 12:00:00",
+            [TradeFinder.symbol(), TradeFinder.price()],
+        ).to_numpy()
+        assert_array_equal(result, np.array([["AAPL", 84.11]], dtype=object))
+
+    def test_trade_query_with_account_join(self, finders):
+        TradeFinder = finders["Trade"]
+        result = TradeFinder.find_all(
+            datetime.datetime.now(),
+            [TradeFinder.account().name(), TradeFinder.symbol(), TradeFinder.price()],
+            TradeFinder.symbol().eq("AAPL"),
+        ).to_numpy()
+        assert_array_equal(result, np.array([["Acme Corp", "AAPL", 84.11]], dtype=object))
+
+    def test_trade_filter_by_symbol(self, finders):
+        TradeFinder = finders["Trade"]
+        result = TradeFinder.find_all(
+            datetime.datetime.now(),
+            [TradeFinder.symbol(), TradeFinder.price()],
+            TradeFinder.symbol().eq("AAPL"),
+        ).to_pandas()
+        assert len(result) == 1
+        assert result.iloc[0]["Price"] == 84.11
