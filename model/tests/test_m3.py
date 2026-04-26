@@ -5,7 +5,7 @@ class TestPackageChildren:
 
     def test_class_registered_in_package(self):
         pkg = Package("finance")
-        cls = Class("Account", [Property("id", Integer)], pkg)
+        cls = Class("Account", [Property("Id", "id", Integer)], pkg)
         assert cls in pkg.children
 
     def test_multiple_classes_registered(self):

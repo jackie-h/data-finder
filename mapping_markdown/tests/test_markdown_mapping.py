@@ -40,7 +40,7 @@ class TestMarkdownMappingLoad:
 
     def test_account_column_mappings(self):
         rcm = self.by_class["Account"]
-        by_prop = {pm.property.name: pm for pm in rcm.property_mappings}
+        by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
         assert by_prop["id"].target.name == "ID"
         assert by_prop["name"].target.name == "ACCT_NAME"
 
@@ -85,7 +85,7 @@ class TestMarkdownMappingLoad:
 
     def test_join_mapping_for_non_primitive_property(self):
         rcm = self.by_class["Trade"]
-        by_prop = {pm.property.name: pm for pm in rcm.property_mappings}
+        by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
         join = by_prop["account"].target
         assert isinstance(join, Join)
         assert join.lhs.name == "account_id"
@@ -97,7 +97,7 @@ class TestMarkdownMappingLoad:
 
     def test_join_target_table(self):
         rcm = self.by_class["Trade"]
-        by_prop = {pm.property.name: pm for pm in rcm.property_mappings}
+        by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
         assert by_prop["account"].target.rhs.table.name == "account_master"
 
 
@@ -119,7 +119,7 @@ class TestMarkdownMappingSave:
         assert set(by_class2.keys()) == {"Account", "Instrument", "Trade"}
         assert isinstance(by_class2["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
         assert by_class2["Account"].milestone_mapping is None
-        by_prop2 = {pm.property.name: pm for pm in by_class2["Trade"].property_mappings}
+        by_prop2 = {pm.property.id: pm for pm in by_class2["Trade"].property_mappings}
         assert isinstance(by_prop2["account"].target, Join)
 
     def test_save_and_reload(self):
@@ -178,7 +178,7 @@ class TestMarkdownMappingLoadNoRepository:
         assert instrument_table.schema.name == "ref_data"
 
     def test_columns_built_from_markdown(self):
-        by_prop = {pm.property.name: pm for pm in self.by_class["Account"].property_mappings}
+        by_prop = {pm.property.id: pm for pm in self.by_class["Account"].property_mappings}
         assert by_prop["id"].target.name == "ID"
         assert by_prop["id"].target.type == "INT"
 
@@ -186,5 +186,5 @@ class TestMarkdownMappingLoadNoRepository:
         assert isinstance(self.by_class["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
 
     def test_join_resolved_from_markdown(self):
-        by_prop = {pm.property.name: pm for pm in self.by_class["Trade"].property_mappings}
+        by_prop = {pm.property.id: pm for pm in self.by_class["Trade"].property_mappings}
         assert isinstance(by_prop["account"].target, Join)
