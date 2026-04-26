@@ -54,28 +54,14 @@ def _map_type(iceberg_type: IcebergType) -> str:
     return "VARCHAR"
 
 
-def read_repository_from_iceberg_catalog(
-    catalog_uri: str,
+def read_repository_from_catalog(
+    catalog,
     repo_name: str = None,
-    credentials: Optional[dict] = None,
     fail_on_error: bool = True,
 ) -> Repository:
-    """Build a Repository by reading all namespaces and tables from an Iceberg REST catalog.
-
-    Args:
-        catalog_uri: URI of the Iceberg REST catalog.
-        repo_name: Name for the repository; defaults to catalog_uri.
-        credentials: Optional dict of credential properties passed to the catalog.
-        fail_on_error: If True (default), re-raise exceptions when a table cannot be
-            loaded (e.g. non-Iceberg tables). If False, log a warning and skip the table.
-    """
-    name = repo_name or catalog_uri
-    repo = Repository(name, catalog_uri)
-
-    properties = {"uri": catalog_uri}
-    if credentials:
-        properties.update(credentials)
-    catalog = RestCatalog("catalog", **properties)
+    """Build a Repository from an already-constructed pyiceberg Catalog instance."""
+    name = repo_name or catalog.name
+    repo = Repository(name, "")
 
     for namespace in catalog.list_namespaces():
         namespace_name = ".".join(str(part) for part in namespace)
@@ -95,3 +81,17 @@ def read_repository_from_iceberg_catalog(
                 _log.warning("Skipping table %s.%s: %s", namespace_name, table_name, e)
 
     return repo
+
+
+def read_repository_from_iceberg_catalog(
+    catalog_uri: str,
+    repo_name: str = None,
+    credentials: Optional[dict] = None,
+    fail_on_error: bool = True,
+) -> Repository:
+    """Build a Repository by connecting to an Iceberg REST catalog by URI."""
+    properties = {"uri": catalog_uri}
+    if credentials:
+        properties.update(credentials)
+    catalog = RestCatalog("catalog", **properties)
+    return read_repository_from_catalog(catalog, repo_name=repo_name or catalog_uri, fail_on_error=fail_on_error)
