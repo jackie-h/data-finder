@@ -58,6 +58,13 @@ class DateTimeConstantOperation(ConstantOperation):
         super().__init__()
         self.value = value
 
+class BooleanConstantOperation(ConstantOperation):
+    value:bool
+
+    def __init__(self, value:bool):
+        super().__init__()
+        self.value = value
+
 
 class UnaryOperation(Operation):
     element: RelationalOperationElement

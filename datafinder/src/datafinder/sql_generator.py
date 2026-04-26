@@ -5,7 +5,7 @@ from datafinder.attribute import Attribute
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
-    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, Column, NoOperation, JoinOperation, \
+    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, Column, NoOperation, JoinOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation
 
 class Alias:
@@ -120,6 +120,8 @@ def constant_value_string(op:ConstantOperation) -> str:
         return str(op.value)
     elif isinstance(op, FloatConstantOperation):
         return str(op.value)
+    elif isinstance(op, BooleanConstantOperation):
+        return "TRUE" if op.value else "FALSE"
     else:
         raise ValueError
 
