@@ -31,14 +31,21 @@ def load(path: str, repository: Repository) -> Mapping:
 def _load_model_reference(content: str, base_dir: str) -> list:
     from model_markdown.markdown_model import load as load_model
     root = SyntaxTreeNode(_md_parser.parse(content))
+    packages = []
+    known_classes = {}
     for node in root.children:
         if node.type == "heading" and node.tag == "h2":
             text = node.children[0].content if node.children else ""
             if text.startswith("Model:"):
                 model_file = text[len("Model:"):].strip()
                 model_path = os.path.join(base_dir, model_file)
-                return load_model(model_path)
-    return []
+                new_packages = load_model(model_path, known_classes=known_classes)
+                packages.extend(new_packages)
+                for pkg in new_packages:
+                    for child in pkg.children:
+                        if isinstance(child, Class):
+                            known_classes[child.name] = child
+    return packages
 
 
 def loads(content: str, packages: list, repository: Repository) -> Mapping:
@@ -214,15 +221,15 @@ def _find_association_name(source_cls: Class, target_cls: Class) -> str:
     return f"{source_cls.name}{target_cls.name}"
 
 
-def save(path: str, title: str, mapping: Mapping, model_path: str = None) -> None:
+def save(path: str, title: str, mapping: Mapping, model_paths: list[str] = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        f.write(to_markdown(title, mapping, model_path))
+        f.write(to_markdown(title, mapping, model_paths))
 
 
-def to_markdown(title: str, mapping: Mapping, model_path: str = None) -> str:
+def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> str:
     lines: list[str] = [f"# {title}", ""]
-    if model_path:
-        lines.append(f"## Model: {model_path}")
+    for mp in (model_paths or []):
+        lines.append(f"## Model: {mp}")
         lines.append("")
 
     # Group by repo → schema, preserving insertion order

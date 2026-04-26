@@ -1,6 +1,7 @@
 # Finance Mapping
 
 ## Model: finance.md
+## Model: finance_trade.md
 
 ## Repository: finance_db
 
