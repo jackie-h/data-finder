@@ -35,7 +35,7 @@ class NumericAttribute(Attribute):
         return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.AVERAGE)
 
 
-class FloatAttribute(NumericAttribute):
+class DoubleAttribute(NumericAttribute):
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
@@ -57,6 +57,9 @@ class FloatAttribute(NumericAttribute):
 
     def __le__(self, value: float):
         return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
+
+
+FloatAttribute = DoubleAttribute
 
 
 

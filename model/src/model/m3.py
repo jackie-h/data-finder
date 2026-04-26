@@ -39,6 +39,7 @@ class PrimitiveType(Type):
 
 Integer = PrimitiveType("Integer")
 String = PrimitiveType("String")
+Double = PrimitiveType("Double")
 Float = PrimitiveType("Float")
 DateTime = PrimitiveType("DateTime")
 Date = PrimitiveType("Date")
