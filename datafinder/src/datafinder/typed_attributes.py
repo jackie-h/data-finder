@@ -3,7 +3,7 @@ import datetime
 from datafinder import Attribute
 from model.relational import ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
-    AggregateOperation, AggregateOperator, ColumnWithJoin
+    BooleanConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin
 
 
 class StringAttribute(Attribute):
@@ -61,6 +61,24 @@ class DoubleAttribute(NumericAttribute):
 
 FloatAttribute = DoubleAttribute
 
+
+
+class BooleanAttribute(Attribute):
+
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None):
+        super().__init__(display_name, column_name, column_db_type, owner, parent)
+
+    def eq(self, value: bool) -> Operation:
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(value))
+
+    def __eq__(self, value: bool) -> Operation:
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(value))
+
+    def is_true(self) -> Operation:
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(True))
+
+    def is_false(self) -> Operation:
+        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(False))
 
 
 class IntegerAttribute(NumericAttribute):

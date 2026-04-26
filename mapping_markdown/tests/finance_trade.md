@@ -10,12 +10,13 @@
 
 | Property   | Type       | Key | Description                           |
 |------------|------------|-----|---------------------------------------|
-| symbol     | String     | Y   | The symbol of the instrument traded   |
-| price      | Double     |     | The price at which trade was executed |
-| account    | Account    |     | The trading account                   |
-| instrument | Instrument |     |                                       |
-| valid_from | DateTime   |     |                                       |
-| valid_to   | DateTime   |     |                                       |
+| symbol      | String     | Y   | The symbol of the instrument traded   |
+| price       | Double     |     | The price at which trade was executed |
+| is_settled  | Boolean    |     |                                       |
+| account     | Account    |     | The trading account                   |
+| instrument  | Instrument |     |                                       |
+| valid_from  | DateTime   |     |                                       |
+| valid_to    | DateTime   |     |                                       |
 
 ### Association: TradeAccount
 

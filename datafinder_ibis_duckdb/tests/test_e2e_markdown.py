@@ -29,7 +29,7 @@ def _build_repository() -> Repository:
     Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
-    Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
+    Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("is_settled", "BOOLEAN"),
                      Column("account_id", "INT"), Column("in_z", "TIMESTAMP"),
                      Column("out_z", "TIMESTAMP")], trading)
     return repo
@@ -46,12 +46,12 @@ def _seed_test_db():
     conn.execute("CREATE TABLE ref_data.price(SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)")
     conn.execute("INSERT INTO ref_data.price VALUES ('AAPL', 150.0, '2020-01-01', '9999-12-31')")
     conn.execute(
-        "CREATE TABLE trading.trades(sym VARCHAR, price DOUBLE, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP)"
+        "CREATE TABLE trading.trades(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP)"
     )
-    # AAPL trade: currently active
-    conn.execute("INSERT INTO trading.trades VALUES ('AAPL', 84.11, 1, '2020-01-01', '9999-12-31')")
-    # GOOG trade: expired before 2022
-    conn.execute("INSERT INTO trading.trades VALUES ('GOOG', 200.0, 1, '2020-01-01', '2022-01-01')")
+    # AAPL trade: currently active, settled
+    conn.execute("INSERT INTO trading.trades VALUES ('AAPL', 84.11, true, 1, '2020-01-01', '9999-12-31')")
+    # GOOG trade: expired before 2022, not settled
+    conn.execute("INSERT INTO trading.trades VALUES ('GOOG', 200.0, false, 1, '2020-01-01', '2022-01-01')")
     conn.close()
 
 
@@ -137,3 +137,13 @@ class TestE2EMarkdownIbisDuckDb:
         ).to_pandas()
         assert len(result) == 1
         assert result.iloc[0]["Price"] == 84.11
+
+    def test_trade_filter_by_boolean(self, finders):
+        TradeFinder = finders["Trade"]
+        result = TradeFinder.find_all(
+            datetime.datetime.now(),
+            [TradeFinder.symbol(), TradeFinder.is_settled()],
+            TradeFinder.is_settled().is_true(),
+        ).to_pandas()
+        assert len(result) == 1
+        assert result.iloc[0]["Symbol"] == "AAPL"
