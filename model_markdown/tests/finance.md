@@ -8,10 +8,10 @@
 |---------|-------------------------------------------------|
 | Account | Trading account used to buy and sell securities |
 
-| Property | Type    | Key | Description |
-|----------|---------|-----|-------------|
-| id       | Integer | Y   |             |
-| name     | String  |     |             |
+| Property | Id      | Type    | Key | Description |
+|----------|---------|---------|-----|-------------|
+| Id       | id      | Integer | Y   |             |
+| Name     | name    | String  |     |             |
 
 ### Class: Instrument
 
@@ -19,10 +19,10 @@
 |------------|-------------|
 | Instrument |             |
 
-| Property | Type   | Key | Description |
-|----------|--------|-----|-------------|
-| symbol   | String | Y   |             |
-| price    | Double |     |             |
+| Property | Id     | Type   | Key | Description |
+|----------|--------|--------|-----|-------------|
+| Symbol   | symbol | String | Y   |             |
+| Price    | price  | Double |     |             |
 
 ### Class: Trade
 
@@ -30,12 +30,12 @@
 |-------|--------------------------------|
 | Trade | A trade executed on an account |
 
-| Property | Type       | Key | Description                         |
-|----------|------------|-----|-------------------------------------|
-| symbol   | String     | Y   | The symbol of the instrument traded |
-| price    | Double     |     | The price at which trade was executed |
-| account  | Account    |     | The trading account                 |
-| instrument | Instrument |   |                                     |
+| Property   | Id         | Type       | Key | Description                           |
+|------------|------------|------------|-----|---------------------------------------|
+| Symbol     | symbol     | String     | Y   | The symbol of the instrument traded   |
+| Price      | price      | Double     |     | The price at which trade was executed |
+| Account    | account    | Account    |     | The trading account                   |
+| Instrument | instrument | Instrument |     |                                       |
 
 ### Association: TradeAccount
 

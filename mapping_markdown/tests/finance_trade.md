@@ -8,15 +8,15 @@
 |-------|--------------------------------|
 | Trade | A trade executed on an account |
 
-| Property   | Type       | Key | Description                           |
-|------------|------------|-----|---------------------------------------|
-| symbol      | String     | Y   | The symbol of the instrument traded   |
-| price       | Double     |     | The price at which trade was executed |
-| is_settled  | Boolean    |     |                                       |
-| account     | Account    |     | The trading account                   |
-| instrument  | Instrument |     |                                       |
-| valid_from  | DateTime   |     |                                       |
-| valid_to    | DateTime   |     |                                       |
+| Property   | Id         | Type       | Key | Description                           |
+|------------|------------|------------|-----|---------------------------------------|
+| Symbol     | symbol     | String     | Y   | The symbol of the instrument traded   |
+| Price      | price      | Double     |     | The price at which trade was executed |
+| Is Settled | is_settled | Boolean    |     |                                       |
+| Account    | account    | Account    |     | The trading account                   |
+| Instrument | instrument | Instrument |     |                                       |
+| Valid From | valid_from | DateTime   |     |                                       |
+| Valid To   | valid_to   | DateTime   |     |                                       |
 
 ### Association: TradeAccount
 

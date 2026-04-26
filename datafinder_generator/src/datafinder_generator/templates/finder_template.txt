@@ -30,7 +30,7 @@ class {{rcm.clazz.name}}Finder:
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}')
+    __{{rpm.property.name}} = {{rpm.property.type.name}}Attribute('{{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}')
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
@@ -96,7 +96,7 @@ class {{rcm.clazz.name}}RelatedFinder:
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-        self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property.name)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', join)
+        self.__{{rpm.property.name}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', join)
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
