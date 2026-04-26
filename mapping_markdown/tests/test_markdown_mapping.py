@@ -10,6 +10,7 @@ from model.relational_mapping import RelationalPropertyMapping, Join
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping.md")
 MODEL_FILE = os.path.join(os.path.dirname(__file__), "finance.md")
+TRADE_MODEL_FILE = os.path.join(os.path.dirname(__file__), "finance_trade.md")
 
 
 def _build_repository() -> Repository:
@@ -105,10 +106,13 @@ class TestMarkdownMappingSave:
     def setup_method(self):
         self.repo = _build_repository()
         self.mapping = load(FIXTURE, self.repo)
-        self.packages = load_model(MODEL_FILE)
+        packages1 = load_model(MODEL_FILE)
+        known = {c.name: c for pkg in packages1 for c in pkg.children if isinstance(c, Class)}
+        packages2 = load_model(TRADE_MODEL_FILE, known_classes=known)
+        self.packages = packages1 + packages2
 
     def test_roundtrip(self):
-        content = to_markdown("Finance Mapping", self.mapping, "finance.md")
+        content = to_markdown("Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
         repo2 = _build_repository()
         mapping2 = loads(content, self.packages, repo2)
         by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
@@ -123,7 +127,7 @@ class TestMarkdownMappingSave:
         with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", dir=fixture_dir) as f:
             temp_path = f.name
         try:
-            save(temp_path, "Finance Mapping", self.mapping, "finance.md")
+            save(temp_path, "Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
             repo2 = _build_repository()
             mapping2 = load(temp_path, repo2)
             assert len(mapping2.mappings) == 3
@@ -131,8 +135,9 @@ class TestMarkdownMappingSave:
             os.unlink(temp_path)
 
     def test_generated_markdown_has_model_reference(self):
-        content = to_markdown("Finance Mapping", self.mapping, "finance.md")
+        content = to_markdown("Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
         assert "## Model: finance.md" in content
+        assert "## Model: finance_trade.md" in content
 
     def test_generated_markdown_has_repository(self):
         content = to_markdown("Finance Mapping", self.mapping)
