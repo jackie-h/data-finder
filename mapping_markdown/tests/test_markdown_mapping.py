@@ -156,3 +156,35 @@ class TestMarkdownMappingSave:
     def test_generated_markdown_has_association(self):
         content = to_markdown("Finance Mapping", self.mapping)
         assert "#### Association: TradeAccount" in content
+
+
+class TestMarkdownMappingLoadNoRepository:
+
+    def setup_method(self):
+        self.mapping = load(FIXTURE)
+        self.by_class = {rcm.clazz.name: rcm for rcm in self.mapping.mappings}
+
+    def test_classes_mapped(self):
+        assert set(self.by_class.keys()) == {"Account", "Instrument", "Trade"}
+
+    def test_repository_built_from_markdown(self):
+        table = self.by_class["Account"].property_mappings[0].target.table
+        assert table.schema.repository.name == "finance_db"
+
+    def test_schemas_built_from_markdown(self):
+        account_table = self.by_class["Account"].property_mappings[0].target.table
+        instrument_table = self.by_class["Instrument"].property_mappings[0].target.table
+        assert account_table.schema.name == "ref_data"
+        assert instrument_table.schema.name == "ref_data"
+
+    def test_columns_built_from_markdown(self):
+        by_prop = {pm.property.name: pm for pm in self.by_class["Account"].property_mappings}
+        assert by_prop["id"].target.name == "ID"
+        assert by_prop["id"].target.type == "INT"
+
+    def test_milestoning_resolved_from_markdown(self):
+        assert isinstance(self.by_class["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
+
+    def test_join_resolved_from_markdown(self):
+        by_prop = {pm.property.name: pm for pm in self.by_class["Trade"].property_mappings}
+        assert isinstance(by_prop["account"].target, Join)

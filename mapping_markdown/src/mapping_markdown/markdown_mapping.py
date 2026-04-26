@@ -8,7 +8,7 @@ from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, PrimitiveType, Association
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
-from model.relational import Repository, MilestoningScheme, Column
+from model.relational import Repository, Schema, Table, MilestoningScheme, Column
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
 
 _md_parser = MarkdownIt().enable("table")
@@ -20,7 +20,7 @@ _TABLE_RE = re.compile(r'(\S+)\s*→\s*(\w+)(?:\s*\(milestoning:\s*(\w+)\))?')
 # Load: markdown → Mapping
 # ---------------------------------------------------------------------------
 
-def load(path: str, repository: Repository) -> Mapping:
+def load(path: str, repository: Repository = None) -> Mapping:
     with open(path, encoding="utf-8") as f:
         content = f.read()
     base_dir = os.path.dirname(os.path.abspath(path))
@@ -48,9 +48,47 @@ def _load_model_reference(content: str, base_dir: str) -> list:
     return packages
 
 
-def loads(content: str, packages: list, repository: Repository) -> Mapping:
+def _build_repository_from_content(nodes: list) -> Repository:
+    repo = None
+    current_schema = None
+    i = 0
+    while i < len(nodes):
+        node = nodes[i]
+        if node.type == "heading":
+            text = node.children[0].content if node.children else ""
+            level = node.tag
+            if level == "h2" and text.startswith("Repository:"):
+                repo_name = text[len("Repository:"):].strip()
+                repo = Repository(repo_name, "")
+                current_schema = None
+            elif level == "h3" and text.startswith("Schema:") and repo is not None:
+                current_schema = Schema(text[len("Schema:"):].strip(), repo)
+            elif level == "h4" and text.startswith("Table:") and current_schema is not None:
+                m = _TABLE_RE.match(text[len("Table:"):].strip())
+                if m:
+                    table_name = m.group(1)
+                    i += 1
+                    columns = []
+                    if i < len(nodes) and nodes[i].type == "table":
+                        for row in _parse_ast_table(nodes[i]):
+                            col_name = row.get("Column", "").strip()
+                            col_type = row.get("Type", "").strip()
+                            if col_name:
+                                columns.append(Column(col_name, col_type or None))
+                    Table(table_name, columns, current_schema)
+                    continue
+        i += 1
+    return repo
+
+
+def loads(content: str, packages: list, repository: Repository = None) -> Mapping:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
+
+    if repository is None:
+        repository = _build_repository_from_content(nodes)
+        if repository is None:
+            raise ValueError("No '## Repository:' section found in mapping markdown")
 
     classes_by_name = {
         child.name: child
