@@ -322,10 +322,10 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
                 col_rows = []
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Column):
-                        col_rows.append([pm.target.name, pm.target.type or "", pm.property.name])
+                        col_rows.append([pm.target.name, pm.target.type or "", pm.property.id])
                     elif isinstance(pm.target, Join):
                         lhs = pm.target.lhs
-                        col_rows.append([lhs.name, lhs.type or "", pm.property.name])
+                        col_rows.append([lhs.name, lhs.type or "", pm.property.id])
                 lines.append(_md_table(["Column", "Type", "Property"], col_rows))
                 lines.append("")
 

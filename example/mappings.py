@@ -12,40 +12,39 @@ def create_description(text: str) -> TaggedValue:
     return t
 
 def create_account_class() -> Class:
-    p1 = Property('id', Integer)
-    p2 = Property('name', String)
+    p1 = Property('Id', 'id', Integer)
+    p2 = Property('Name', 'name', String)
 
     account_c = Class('Account', [p1, p2], Package('finance'), [create_description('Trading Account used to buy and sell securities')])
     return account_c
 
 
 def create_instrument_class() -> Class:
-    p1 = Property('symbol', String)
-    #TODO this doesn't belong here, but using for simple example
-    p2 = Property('price', Float)
+    p1 = Property('Symbol', 'symbol', String)
+    p2 = Property('Price', 'price', Float)
 
     instrument_c = Class('Instrument', [p1, p2], Package('finance'))
     return instrument_c
 
 
 def create_trade_class(account:Class, instrument:Class) -> Class:
-    p1 = Property('symbol', String, [create_description('The symbol of the instrument traded')])
-    p2 = Property('price', Float, [create_description('The current price of the trade')])
-    p3 = Property('account', account, [create_description('The trading account')])
-    p4 = Property('valid_from', DateTime)
-    p5 = Property('valid_to', DateTime)
-    p6 = Property('instrument', instrument)
+    p1 = Property('Symbol', 'symbol', String, [create_description('The symbol of the instrument traded')])
+    p2 = Property('Price', 'price', Float, [create_description('The current price of the trade')])
+    p3 = Property('Account', 'account', account, [create_description('The trading account')])
+    p4 = Property('Valid From', 'valid_from', DateTime)
+    p5 = Property('Valid To', 'valid_to', DateTime)
+    p6 = Property('Instrument', 'instrument', instrument)
 
     trade_c = Class('Trade', [p1, p2, p3, p4, p5, p6], Package('finance'))
     return trade_c
 
 
 def create_contractual_position_class(instrument:Class) -> Class:
-    p1 = Property('business_date', Date)
-    p2 = Property('quantity', Float)
-    p3 = Property('counterparty', Integer)
-    p4 = Property('instrument', instrument)
-    p5 = Property('npv', Float)
+    p1 = Property('Business Date', 'business_date', Date)
+    p2 = Property('Quantity', 'quantity', Float)
+    p3 = Property('Counterparty', 'counterparty', Integer)
+    p4 = Property('Instrument', 'instrument', instrument)
+    p5 = Property('Npv', 'npv', Float)
     pos_c = Class('ContractualPosition', [p1, p2, p3, p4, p5], Package('finance'))
     return pos_c
 

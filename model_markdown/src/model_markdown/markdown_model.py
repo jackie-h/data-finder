@@ -101,21 +101,20 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                     for row in prop_rows:
                         label = row.get("Property", "").strip()
                         prop_id = row.get("Id", "").strip()
-                        name = prop_id or label
-                        if not name:
+                        if not label and not prop_id:
                             continue
+                        prop_id = prop_id or label
+                        label = label or prop_id
                         type_str = row.get("Type", "String").strip()
                         is_key = row.get("Key", "").strip().upper() == "Y"
                         desc = row.get("Description", "").strip()
                         tagged: list[TaggedValue] = []
-                        if prop_id and label:
-                            tagged.append(TaggedValue(TaggedValue.LABEL, label))
                         if is_key:
                             tagged.append(TaggedValue(TaggedValue.KEY, True))
                         if desc:
                             tagged.append(TaggedValue(TaggedValue.DOC, desc))
                         prop_type = _resolve_type(type_str, classes_by_name)
-                        properties.append(Property(name, prop_type, tagged or None))
+                        properties.append(Property(label, prop_id, prop_type, tagged or None))
                     i += 1
 
                 tagged_values: list[TaggedValue] = []
@@ -181,10 +180,9 @@ def to_markdown(title: str, packages: list[Package]) -> str:
 
                 prop_rows = []
                 for prop in child.properties.values():
-                    label = prop.tagged_values.get(TaggedValue.LABEL, TaggedValue("", "")).value or ""
                     is_key = "Y" if TaggedValue.KEY in prop.tagged_values else ""
                     desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-                    prop_rows.append([label or prop.name, prop.name, _type_to_str(prop.type), is_key, desc])
+                    prop_rows.append([prop.name, prop.id, _type_to_str(prop.type), is_key, desc])
                 lines.append(_md_table(["Property", "Id", "Type", "Key", "Description"], prop_rows))
                 lines.append("")
 

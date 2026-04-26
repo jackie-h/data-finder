@@ -6,7 +6,6 @@ class Package:
 class TaggedValue:
     DOC = 'doc'
     KEY = 'key'
-    LABEL = 'label'
     def __init__(self, name: str, value):
         self.name = name
         self.value = value
@@ -49,22 +48,23 @@ Boolean = PrimitiveType("Boolean")
 
 
 class Property(AnnotatedElement):
-    def __init__(self, name: str, type: Type, tagged_values: list[TaggedValue] = None):
+    def __init__(self, name: str, id: str, type: Type, tagged_values: list[TaggedValue] = None):
         super().__init__(tagged_values)
-        self.name = name
+        self.name = name   # human-readable label, e.g. "Valid From"
+        self.id = id       # machine identifier, e.g. "valid_from"
         self.type = type
 
 
 class Class(PackagableElement, Type):
     def __init__(self, name: str, properties: list[Property], package: Package, tagged_values: list[TaggedValue] = None):
-        super().__init__(package,tagged_values)
+        super().__init__(package, tagged_values)
         self.properties = {}
         self.name = name
         for prop in properties:
-            self.properties[prop.name] = prop
+            self.properties[prop.id] = prop
 
-    def property(self, name:str) -> Property:
-        return self.properties[name]
+    def property(self, id: str) -> Property:
+        return self.properties[id]
 
 
 class Association(PackagableElement):

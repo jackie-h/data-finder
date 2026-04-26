@@ -51,7 +51,7 @@ def load_schema(path: str) -> Package:
             if slot_def.description:
                 tagged.append(TaggedValue(TaggedValue.DOC, slot_def.description))
             prop_type = _resolve_type(slot_def.range)
-            properties.append(Property(slot_name, prop_type, tagged or None))
+            properties.append(Property(slot_name, slot_name, prop_type, tagged or None))
 
         for slot_name in (class_def.slots or []):
             if slot_name in (class_def.attributes or {}):
@@ -63,7 +63,7 @@ def load_schema(path: str) -> Package:
             if slot_def.description:
                 tagged.append(TaggedValue(TaggedValue.DOC, slot_def.description))
             prop_type = _resolve_type(slot_def.range)
-            properties.append(Property(slot_name, prop_type, tagged or None))
+            properties.append(Property(slot_name, slot_name, prop_type, tagged or None))
 
         tagged_values: list[TaggedValue] = []
         if class_def.description:
