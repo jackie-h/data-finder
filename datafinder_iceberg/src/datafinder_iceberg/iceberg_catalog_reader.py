@@ -54,7 +54,7 @@ def _map_type(iceberg_type: IcebergType) -> str:
     return "VARCHAR"
 
 
-def read_repository_from_iceberg(
+def read_repository_from_iceberg_catalog(
     catalog_uri: str,
     repo_name: str = None,
     credentials: Optional[dict] = None,
