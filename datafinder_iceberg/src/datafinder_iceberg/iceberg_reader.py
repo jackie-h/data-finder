@@ -1,6 +1,9 @@
+import logging
 from typing import Optional
 
 from pyiceberg.catalog.rest import RestCatalog
+
+_log = logging.getLogger(__name__)
 from pyiceberg.types import (
     IcebergType, StructType,
     StringType, BooleanType,
@@ -55,8 +58,17 @@ def read_repository_from_iceberg(
     catalog_uri: str,
     repo_name: str = None,
     credentials: Optional[dict] = None,
+    fail_on_error: bool = True,
 ) -> Repository:
-    """Build a Repository by reading all namespaces and tables from an Iceberg REST catalog."""
+    """Build a Repository by reading all namespaces and tables from an Iceberg REST catalog.
+
+    Args:
+        catalog_uri: URI of the Iceberg REST catalog.
+        repo_name: Name for the repository; defaults to catalog_uri.
+        credentials: Optional dict of credential properties passed to the catalog.
+        fail_on_error: If True (default), re-raise exceptions when a table cannot be
+            loaded (e.g. non-Iceberg tables). If False, log a warning and skip the table.
+    """
     name = repo_name or catalog_uri
     repo = Repository(name, catalog_uri)
 
@@ -70,11 +82,16 @@ def read_repository_from_iceberg(
         schema = Schema(namespace_name, repo)
         for table_id in catalog.list_tables(namespace):
             table_name = table_id[-1]
-            iceberg_table = catalog.load_table(table_id)
-            columns = [
-                Column(field.name, _map_type(field.field_type))
-                for field in iceberg_table.schema().fields
-            ]
-            Table(table_name, columns, schema)
+            try:
+                iceberg_table = catalog.load_table(table_id)
+                columns = [
+                    Column(field.name, _map_type(field.field_type))
+                    for field in iceberg_table.schema().fields
+                ]
+                Table(table_name, columns, schema)
+            except Exception as e:
+                if fail_on_error:
+                    raise
+                _log.warning("Skipping table %s.%s: %s", namespace_name, table_name, e)
 
     return repo
