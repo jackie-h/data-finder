@@ -53,18 +53,18 @@ def _type_to_str(t: Type) -> str:
 # Load: markdown → m3
 # ---------------------------------------------------------------------------
 
-def load(path: str) -> list[Package]:
+def load(path: str, known_classes: dict[str, Class] = None) -> list[Package]:
     with open(path, encoding="utf-8") as f:
         content = f.read()
-    return loads(content)
+    return loads(content, known_classes)
 
 
-def loads(content: str) -> list[Package]:
+def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
 
     packages: list[Package] = []
-    classes_by_name: dict[str, Class] = {}
+    classes_by_name: dict[str, Class] = dict(known_classes) if known_classes else {}
     current_package: Optional[Package] = None
 
     i = 0
