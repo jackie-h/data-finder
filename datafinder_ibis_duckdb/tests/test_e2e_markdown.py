@@ -45,6 +45,7 @@ def _seed_test_db():
     conn.execute("INSERT INTO ref_data.account_master VALUES (1, 'Acme Corp')")
     conn.execute("CREATE TABLE ref_data.price(SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)")
     conn.execute("INSERT INTO ref_data.price VALUES ('AAPL', 150.0, '2020-01-01', '9999-12-31')")
+    conn.execute("INSERT INTO ref_data.price VALUES ('GOOG', 2800.0, '2020-01-01', '2022-01-01')")
     conn.execute(
         "CREATE TABLE trading.trades(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP)"
     )
@@ -74,7 +75,9 @@ def finders():
     from account_finder import AccountFinder
     from trade_finder import TradeFinder
 
-    yield {"Account": AccountFinder, "Trade": TradeFinder}
+    from instrument_finder import InstrumentFinder
+
+    yield {"Account": AccountFinder, "Trade": TradeFinder, "Instrument": InstrumentFinder}
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -137,6 +140,31 @@ class TestE2EMarkdownIbisDuckDb:
         ).to_pandas()
         assert len(result) == 1
         assert result.iloc[0]["Price"] == 84.11
+
+    def test_instrument_milestoning_returns_active_rows(self, finders):
+        InstrumentFinder = finders["Instrument"]
+        # Both AAPL and GOOG active in 2021
+        result = InstrumentFinder.find_all(
+            "2021-06-01 12:00:00",
+            [InstrumentFinder.symbol(), InstrumentFinder.price()],
+        ).to_pandas()
+        assert set(result["Symbol"].tolist()) == {"AAPL", "GOOG"}
+
+    def test_instrument_milestoning_filters_expired(self, finders):
+        InstrumentFinder = finders["Instrument"]
+        # GOOG record expired before 2023 — only AAPL visible
+        result = InstrumentFinder.find_all(
+            "2023-01-01 12:00:00",
+            [InstrumentFinder.symbol(), InstrumentFinder.price()],
+        ).to_pandas()
+        assert result["Symbol"].tolist() == ["AAPL"]
+
+    def test_instrument_synthetic_milestoning_attrs_accessible(self, finders):
+        # valid_from / valid_to are synthetic (not in the model) but should be
+        # accessible as finder attributes since they appear in the mapping markdown
+        InstrumentFinder = finders["Instrument"]
+        assert InstrumentFinder.valid_from() is not None
+        assert InstrumentFinder.valid_to() is not None
 
     def test_trade_filter_by_boolean(self, finders):
         TradeFinder = finders["Trade"]

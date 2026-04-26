@@ -6,7 +6,7 @@ from typing import Optional
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
-from model.m3 import Class, PrimitiveType, Association
+from model.m3 import Class, PrimitiveType, Association, Property, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
 from model.relational import Repository, Schema, Table, MilestoningScheme, Column
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
@@ -158,10 +158,15 @@ def loads(content: str, packages: list, repository: Repository = None) -> Mappin
                         if not col_name or not prop_name:
                             continue
                         col = cols_by_name.get(col_name)
-                        prop = cls.properties.get(prop_name)
-                        if col is None or prop is None:
-                            _log.warning("Column '%s' or property '%s' not found", col_name, prop_name)
+                        if col is None:
+                            _log.warning("Column '%s' not found in table '%s'", col_name, table_name)
                             continue
+                        prop = cls.properties.get(prop_name)
+                        if prop is None:
+                            prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name, repository)
+                            if prop is None:
+                                _log.warning("Property '%s' not found in class '%s'", prop_name, cls.name)
+                                continue
                         if isinstance(prop.type, PrimitiveType):
                             property_mappings.append(RelationalPropertyMapping(prop, col))
                         else:
@@ -207,6 +212,19 @@ def _parse_ast_table(node: SyntaxTreeNode) -> list[dict]:
         cells = [c.children[0].content if c.children else "" for c in tr.children]
         rows.append({headers[i]: cells[i] if i < len(cells) else "" for i in range(len(headers))})
     return rows
+
+
+def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: str, repository) -> Property:
+    """Return a synthetic Property for a milestoning column not defined in the model, or None."""
+    if not scheme_name or repository is None:
+        return None
+    scheme = next((s for s in repository.milestoning_schemes if s.name == scheme_name), None)
+    if scheme is None:
+        return None
+    milestoning_cols = {scheme.processing_start, scheme.processing_end, scheme.business_date} - {None}
+    if col_name in milestoning_cols:
+        return Property(prop_name, prop_name, DateTime)
+    return None
 
 
 def _build_milestone_mapping(scheme_name, property_mappings, repository):
