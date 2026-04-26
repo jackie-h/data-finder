@@ -19,9 +19,7 @@
 |------------|-------------|
 | Instrument |             |
 
-| Property   | Id         | Type     | Key | Description |
-|------------|------------|----------|-----|-------------|
-| Symbol     | symbol     | String   | Y   |             |
-| Price      | price      | Double   |     |             |
-| Valid From | valid_from | DateTime |     |             |
-| Valid To   | valid_to   | DateTime |     |             |
+| Property | Id     | Type   | Key | Description |
+|----------|--------|--------|-----|-------------|
+| Symbol   | symbol | String | Y   |             |
+| Price    | price  | Double |     |             |
