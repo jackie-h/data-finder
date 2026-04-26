@@ -1,6 +1,6 @@
 import os
 
-from model.m3 import PrimitiveType, Property
+from model.m3 import PrimitiveType, Property, TaggedValue
 from jinja2 import Environment, PackageLoader
 
 from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
@@ -16,8 +16,11 @@ def has_processing_temporal(mapping: MilestonePropertyMapping) -> bool:
 def has_uni_business_temporal(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, SingleBusinessDateMilestonePropertyMapping)
 
-def display_name(property_name:str) -> str:
-    return property_name.replace('_', ' ').title()
+def display_name(prop: Property) -> str:
+    label = prop.tagged_values.get(TaggedValue.LABEL)
+    if label:
+        return label.value
+    return prop.name.replace('_', ' ').title()
 
 def table_qualified_name(table) -> str:
     if table.schema is not None:

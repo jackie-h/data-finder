@@ -14,7 +14,7 @@ _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
 
 _CLASS_HEADER_COLUMNS = {"Name", "Description"}
-_PROPERTY_COLUMNS = {"Property", "Type", "Key", "Description"}
+_PROPERTY_COLUMNS = {"Property", "Id", "Type", "Key", "Description"}
 _ASSOCIATION_COLUMNS = {"Name", "Source", "Target", "Description"}
 
 
@@ -99,13 +99,17 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                     if prop_rows:
                         _warn_unexpected_columns(list(prop_rows[0].keys()), _PROPERTY_COLUMNS, f"Class '{class_name}' properties")
                     for row in prop_rows:
-                        name = row.get("Property", "").strip()
+                        label = row.get("Property", "").strip()
+                        prop_id = row.get("Id", "").strip()
+                        name = prop_id or label
                         if not name:
                             continue
                         type_str = row.get("Type", "String").strip()
                         is_key = row.get("Key", "").strip().upper() == "Y"
                         desc = row.get("Description", "").strip()
                         tagged: list[TaggedValue] = []
+                        if prop_id and label:
+                            tagged.append(TaggedValue(TaggedValue.LABEL, label))
                         if is_key:
                             tagged.append(TaggedValue(TaggedValue.KEY, True))
                         if desc:
@@ -177,10 +181,11 @@ def to_markdown(title: str, packages: list[Package]) -> str:
 
                 prop_rows = []
                 for prop in child.properties.values():
+                    label = prop.tagged_values.get(TaggedValue.LABEL, TaggedValue("", "")).value or ""
                     is_key = "Y" if TaggedValue.KEY in prop.tagged_values else ""
                     desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-                    prop_rows.append([prop.name, _type_to_str(prop.type), is_key, desc])
-                lines.append(_md_table(["Property", "Type", "Key", "Description"], prop_rows))
+                    prop_rows.append([label or prop.name, prop.name, _type_to_str(prop.type), is_key, desc])
+                lines.append(_md_table(["Property", "Id", "Type", "Key", "Description"], prop_rows))
                 lines.append("")
 
             elif isinstance(child, Association):

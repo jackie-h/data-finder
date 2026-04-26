@@ -8,10 +8,10 @@
 |---------|-------------------------------------------------|
 | Account | Trading account used to buy and sell securities |
 
-| Property | Type    | Key | Description |
-|----------|---------|-----|-------------|
-| id       | Integer | Y   |             |
-| name     | String  |     |             |
+| Property | Id   | Type    | Key | Description |
+|----------|------|---------|-----|-------------|
+| Id       | id   | Integer | Y   |             |
+| Name     | name | String  |     |             |
 
 ### Class: Instrument
 
@@ -19,9 +19,9 @@
 |------------|-------------|
 | Instrument |             |
 
-| Property   | Type     | Key | Description |
-|------------|----------|-----|-------------|
-| symbol     | String   | Y   |             |
-| price      | Double   |     |             |
-| valid_from | DateTime |     |             |
-| valid_to   | DateTime |     |             |
+| Property   | Id         | Type     | Key | Description |
+|------------|------------|----------|-----|-------------|
+| Symbol     | symbol     | String   | Y   |             |
+| Price      | price      | Double   |     |             |
+| Valid From | valid_from | DateTime |     |             |
+| Valid To   | valid_to   | DateTime |     |             |
