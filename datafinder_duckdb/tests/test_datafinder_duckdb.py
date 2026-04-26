@@ -29,8 +29,8 @@ class TestDataFinderDuckDb:
         queries.find_trades(TradeFinder)
         from account_finder import AccountFinder
         np_accts = AccountFinder \
-            .find_all([AccountFinder.id(), AccountFinder.name()],
-                      AccountFinder.id().eq(211978)) \
+            .find_all([AccountFinder.id_(), AccountFinder.name()],
+                      AccountFinder.id_().eq(211978)) \
             .to_numpy()
         print(np_accts)
         assert_array_equal(np_accts, np.array([[211978, 'Trading Account 1']],dtype=object))

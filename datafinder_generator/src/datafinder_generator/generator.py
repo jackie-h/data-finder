@@ -1,6 +1,10 @@
+import builtins
+import keyword
 import os
 
 from model.m3 import PrimitiveType, Property
+
+_BUILTIN_NAMES = set(dir(builtins))
 from jinja2 import Environment, PackageLoader
 
 from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
@@ -21,7 +25,10 @@ def display_name(prop: Property) -> str:
 
 
 def to_python_name(prop: Property) -> str:
-    return prop.name.lower().replace(' ', '_')
+    name = prop.name.lower().replace(' ', '_')
+    if keyword.iskeyword(name) or name in _BUILTIN_NAMES:
+        name += '_'
+    return name
 
 def table_qualified_name(table) -> str:
     if table.schema is not None:
