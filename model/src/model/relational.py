@@ -1,4 +1,5 @@
 import datetime
+import decimal
 from enum import Enum
 
 
@@ -55,6 +56,13 @@ class DateTimeConstantOperation(ConstantOperation):
     value:datetime.datetime
 
     def __init__(self, value:datetime.datetime):
+        super().__init__()
+        self.value = value
+
+class DecimalConstantOperation(ConstantOperation):
+    value: decimal.Decimal
+
+    def __init__(self, value: decimal.Decimal):
         super().__init__()
         self.value = value
 

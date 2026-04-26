@@ -5,7 +5,7 @@ from linkml_runtime.linkml_model import SchemaDefinition
 
 from model.m3 import (
     Class, Package, Property,
-    String, Integer, Float, Double, Date, DateTime, Boolean,
+    String, Integer, Float, Double, Decimal, Date, DateTime, Boolean,
     TaggedValue, Type
 )
 
@@ -15,7 +15,7 @@ _RANGE_MAP: dict[str, Type] = {
     "boolean": Boolean,
     "float": Float,
     "double": Double,
-    "decimal": Double,
+    "decimal": Decimal,
     "date": Date,
     "datetime": DateTime,
     "date_or_datetime": DateTime,
