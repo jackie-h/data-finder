@@ -22,6 +22,6 @@
 | Property   | Type     | Key | Description |
 |------------|----------|-----|-------------|
 | symbol     | String   | Y   |             |
-| price      | Float    |     |             |
+| price      | Double   |     |             |
 | valid_from | DateTime |     |             |
 | valid_to   | DateTime |     |             |

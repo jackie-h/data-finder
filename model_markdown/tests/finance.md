@@ -22,7 +22,7 @@
 | Property | Type   | Key | Description |
 |----------|--------|-----|-------------|
 | symbol   | String | Y   |             |
-| price    | Float  |     |             |
+| price    | Double |     |             |
 
 ### Class: Trade
 
@@ -33,7 +33,7 @@
 | Property | Type       | Key | Description                         |
 |----------|------------|-----|-------------------------------------|
 | symbol   | String     | Y   | The symbol of the instrument traded |
-| price    | Float      |     | The price at which trade was executed |
+| price    | Double     |     | The price at which trade was executed |
 | account  | Account    |     | The trading account                 |
 | instrument | Instrument |   |                                     |
 

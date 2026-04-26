@@ -3,7 +3,7 @@ import os
 import tempfile
 
 from model_markdown.markdown_model import load, save, loads, to_markdown
-from model.m3 import String, Integer, Float, TaggedValue, Class, Association, Package
+from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance.md")
 
