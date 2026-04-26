@@ -44,7 +44,11 @@ class {{rcm.clazz.name}}Finder:
     @staticmethod
     def {{to_python_name(rpm.property)}}() -> {{rpm.property.type.name}}Attribute:
 {% if rpm.property.tagged_values['doc'] %}
-        """{{rpm.property.tagged_values['doc'].value}}"""
+        """{{display_name(rpm.property)}}
+        {{rpm.property.tagged_values['doc'].value}}
+        """
+{% else %}
+        """{{display_name(rpm.property)}}"""
 {% endif %}
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
@@ -52,7 +56,11 @@ class {{rcm.clazz.name}}Finder:
     @staticmethod
     def {{to_python_name(rpm.property)}}() -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
-        """{{rpm.property.tagged_values['doc'].value}}"""
+        """{{display_name(rpm.property)}}
+        {{rpm.property.tagged_values['doc'].value}}
+        """
+{% else %}
+        """{{display_name(rpm.property)}}"""
 {% endif %}
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
@@ -109,14 +117,22 @@ class {{rcm.clazz.name}}RelatedFinder:
 {% if is_primitive(rpm.property) %}
     def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}Attribute:
 {% if rpm.property.tagged_values['doc'] %}
-        """{{rpm.property.tagged_values['doc'].value}}"""
+        """{{display_name(rpm.property)}}
+        {{rpm.property.tagged_values['doc'].value}}
+        """
+{% else %}
+        """{{display_name(rpm.property)}}"""
 {% endif %}
         return self.__{{to_python_name(rpm.property)}}
 
 {% else %}
     def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
-        """{{rpm.property.tagged_values['doc'].value}}"""
+        """{{display_name(rpm.property)}}
+        {{rpm.property.tagged_values['doc'].value}}
+        """
+{% else %}
+        """{{display_name(rpm.property)}}"""
 {% endif %}
         return self.__{{to_python_name(rpm.property)}}
 
