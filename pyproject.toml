@@ -32,6 +32,9 @@ linkml = [
 iceberg = [
     "pyiceberg>=0.11.0",
 ]
+iceberg-test = [
+    "sqlalchemy>=2.0.0",
+]
 markdown = [
     "markdown-it-py>=4.0.0",
 ]
