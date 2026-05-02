@@ -25,7 +25,31 @@ def load(path: str, repository: Repository = None) -> Mapping:
         content = f.read()
     base_dir = os.path.dirname(os.path.abspath(path))
     packages = _load_model_reference(content, base_dir)
-    return loads(content, packages, repository)
+    root = SyntaxTreeNode(_md_parser.parse(content))
+    nodes = _expand_schema_includes(root.children, base_dir)
+    if repository is None:
+        repository = _build_repository_from_content(nodes)
+        if repository is None:
+            raise ValueError("No '## Repository:' section found in mapping markdown")
+    return _loads_from_nodes(nodes, packages, repository)
+
+
+def _expand_schema_includes(nodes: list, base_dir: str) -> list:
+    """Replace '## Schema: <file>.md' nodes with the parsed nodes from that file."""
+    expanded = []
+    for node in nodes:
+        if node.type == "heading" and node.tag == "h2":
+            text = node.children[0].content if node.children else ""
+            if text.startswith("Schema:") and text[len("Schema:"):].strip().endswith(".md"):
+                filename = text[len("Schema:"):].strip()
+                file_path = os.path.join(base_dir, filename)
+                with open(file_path, encoding="utf-8") as f:
+                    child_content = f.read()
+                child_nodes = SyntaxTreeNode(_md_parser.parse(child_content)).children
+                expanded.extend(_expand_schema_includes(child_nodes, os.path.dirname(file_path)))
+                continue
+        expanded.append(node)
+    return expanded
 
 
 def _load_model_reference(content: str, base_dir: str) -> list:
@@ -85,11 +109,14 @@ def _build_repository_from_content(nodes: list) -> Repository:
 def loads(content: str, packages: list, repository: Repository = None) -> Mapping:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
-
     if repository is None:
         repository = _build_repository_from_content(nodes)
         if repository is None:
             raise ValueError("No '## Repository:' section found in mapping markdown")
+    return _loads_from_nodes(nodes, packages, repository)
+
+
+def _loads_from_nodes(nodes: list, packages: list, repository: Repository) -> Mapping:
 
     classes_by_name = {
         child.name: child
