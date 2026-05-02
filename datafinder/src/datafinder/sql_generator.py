@@ -7,7 +7,7 @@ from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColum
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, \
-    UnaryOperation, ColumnWithJoin, AggregateOperation
+    UnaryOperation, ColumnWithJoin, AggregateOperation, SortOperation, SortDirection
 
 class Alias:
     def __init__(self, element: RelationalOperationElement, name: str):
@@ -34,9 +34,10 @@ class Join:
         self.filter_op = filter_op
 
 class SelectOperation:
-    def __init__(self, display: list[Attribute], filter: Operation):
+    def __init__(self, display: list[Attribute], filter: Operation, order_by: list[SortOperation] = None):
         self.display = display
         self.filter = filter
+        self.order_by = order_by or []
 
 def build_milestoning_filter_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                                table:MilestonedTable) -> Operation:
@@ -82,7 +83,8 @@ def find_column(operation: RelationalOperationElement) -> ColumnWithJoin:
         raise TypeError(operation)
 
 def build_query_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
-                         columns: list[Attribute], table: Table, op: Operation) -> SelectOperation:
+                         columns: list[Attribute], table: Table, op: Operation,
+                         order_by: list[SortOperation] = None) -> SelectOperation:
     if isinstance(table, MilestonedTable):
         milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
         op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
@@ -101,7 +103,7 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, j.target)
             j.filter = milestoned_op
 
-    select = SelectOperation(columns, op)
+    select = SelectOperation(columns, op, order_by or [])
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
@@ -174,6 +176,7 @@ class SQLQueryGenerator:
         self._select = []
         self._from = set()
         self._join = []
+        self._order_by_parts = []
         self.__table_alias_incr = 0
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
@@ -181,6 +184,10 @@ class SQLQueryGenerator:
     def generate(self, select:SelectOperation):
         self.select(select.display)
         self._where = self.build_filter(select.filter)
+        self._order_by_parts = [
+            self.build_filter(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+            for s in select.order_by
+        ]
 
     @staticmethod
     def __is_self_join(parent: JoinOperation) -> bool:
@@ -274,13 +281,19 @@ class SQLQueryGenerator:
         return 'SELECT ' + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
-            + self.__build_where()
+            + self.__build_where() \
+            + self.__build_order_by()
 
     def __build_where(self) -> str:
         if len(self._where) > 0:
             return ' WHERE ' + ''.join(self._where)
         else:
             return ''
+
+    def __build_order_by(self) -> str:
+        if not self._order_by_parts:
+            return ''
+        return ' ORDER BY ' + ', '.join(self._order_by_parts)
 
 
 def select_sql_to_string(select_operation: SelectOperation) -> str:
