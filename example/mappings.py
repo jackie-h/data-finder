@@ -15,7 +15,7 @@ def create_account_class() -> Class:
     p1 = Property('Id', 'id', Integer)
     p2 = Property('Name', 'name', String)
 
-    account_c = Class('Account', [p1, p2], Package('finance'), [create_description('Trading Account used to buy and sell securities')])
+    account_c = Class('Account', [p1, p2], Package('finance'), tagged_values=[create_description('Trading Account used to buy and sell securities')])
     return account_c
 
 

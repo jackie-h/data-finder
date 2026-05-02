@@ -69,6 +69,6 @@ def load_schema(path: str) -> Package:
         if class_def.description:
             tagged_values.append(TaggedValue(TaggedValue.DOC, class_def.description))
 
-        Class(class_name, properties, package, tagged_values or None)
+        Class(class_name, properties, package, tagged_values=tagged_values or None)
 
     return package
