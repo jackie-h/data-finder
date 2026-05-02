@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional
 
 from markdown_it import MarkdownIt
@@ -16,6 +17,7 @@ _log = logging.getLogger(__name__)
 _CLASS_HEADER_COLUMNS = {"Name", "Description"}
 _PROPERTY_COLUMNS = {"Property", "Id", "Type", "Key", "Description"}
 _ASSOCIATION_COLUMNS = {"Name", "Source", "Target", "Description"}
+_CLASS_HEADING_RE = re.compile(r"^(.+?)(?:\s+extends\s+(.+))?$")
 
 
 def _warn_unexpected_columns(found: list[str], expected: set[str], context: str) -> None:
@@ -66,6 +68,7 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
     packages: list[Package] = []
     classes_by_name: dict[str, Class] = dict(known_classes) if known_classes else {}
     current_package: Optional[Package] = None
+    pending_superclasses: dict[str, list[str]] = {}  # class_name -> [superclass_name, ...]
 
     i = 0
     while i < len(nodes):
@@ -80,7 +83,9 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                 packages.append(current_package)
 
             elif level == "h3" and text.startswith("Class:"):
-                class_name = text[len("Class:"):].strip()
+                m = _CLASS_HEADING_RE.match(text[len("Class:"):].strip())
+                class_name = m.group(1).strip()
+                superclass_names = [s.strip() for s in m.group(2).split(",")] if m.group(2) else []
                 i += 1
 
                 # first table: class header
@@ -96,11 +101,10 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                 if description:
                     tagged_values.append(TaggedValue(TaggedValue.DOC, description))
 
-                # Create the class before resolving property types so that
-                # self-referential properties (e.g. Employee.manager: Employee)
-                # can resolve correctly via classes_by_name.
-                cls = Class(class_name, [], current_package, tagged_values or None)
+                cls = Class(class_name, [], current_package, tagged_values=tagged_values or None)
                 classes_by_name[cls.name] = cls
+                if superclass_names:
+                    pending_superclasses[class_name] = superclass_names
 
                 # second table: properties
                 if i < len(nodes) and nodes[i].type == "table":
@@ -152,6 +156,18 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
             if isinstance(prop.type, str) and prop.type in classes_by_name:
                 prop.type = classes_by_name[prop.type]
 
+    # Third pass: resolve superclass names to Class objects
+    for cls_name, super_names in pending_superclasses.items():
+        cls = classes_by_name.get(cls_name)
+        if cls is None:
+            continue
+        for super_name in super_names:
+            super_cls = classes_by_name.get(super_name)
+            if super_cls:
+                cls.superclasses.append(super_cls)
+            else:
+                _log.warning("Superclass '%s' not found for class '%s'", super_name, cls_name)
+
     return packages
 
 
@@ -175,7 +191,10 @@ def to_markdown(title: str, packages: list[Package]) -> str:
 
         for child in pkg.children:
             if isinstance(child, Class):
-                lines.append(f"### Class: {child.name}")
+                heading = f"### Class: {child.name}"
+                if child.superclasses:
+                    heading += " extends " + ", ".join(s.name for s in child.superclasses)
+                lines.append(heading)
                 lines.append("")
                 description = child.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
                 lines.append(_md_table(["Name", "Description"], [[child.name, description]]))
