@@ -218,14 +218,14 @@ class SQLQueryGenerator:
             return self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
-        elif isinstance(op, Attribute):
-            parent = op.parent()
+        elif isinstance(op, ColumnWithJoin):
+            parent = op.parent
             if parent is not None:
-                ta = self.__table_alias_for_table(op.owner(), key=self.__join_target_key(parent))
+                ta = self.__table_alias_for_table(op.column.owner, key=self.__join_target_key(parent))
                 self.__add_join(parent)
             else:
-                ta = self.__table_alias_for_table(op.owner())
-            return ta.alias + '.' + op.column().name
+                ta = self.__table_alias_for_table(op.column.owner)
+            return ta.alias + '.' + op.column.name
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
