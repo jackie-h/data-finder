@@ -153,10 +153,20 @@ class SQLQueryGenerator:
         self._join = []
         self.__table_alias_incr = 0
         self.__table_aliases_by_table = {}
+        self.__added_join_ids = set()
 
     def generate(self, select:SelectOperation):
         self.select(select.display)
         self._where = self.build_filter(select.filter)
+
+    @staticmethod
+    def __is_self_join(parent: JoinOperation) -> bool:
+        return parent.left.owner == parent.right.owner
+
+    def __join_target_key(self, parent: JoinOperation):
+        """Cache key for the join target alias. Use join op identity only for self-joins
+        so the target gets a distinct alias from the source table."""
+        return parent if self.__is_self_join(parent) else None
 
     def select(self, cols: list[Attribute]):
         required_joins = set()
@@ -164,33 +174,40 @@ class SQLQueryGenerator:
         for col in cols:
             if isinstance(col, Attribute):
                 table = col.owner()
-                ta = self.__table_alias_for_table(table)
                 parent: JoinOperation = col.parent()
                 if parent is not None:
                     required_joins.add(parent)
+                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
                 else:
+                    ta = self.__table_alias_for_table(table)
                     self._from.add(ta)
                 ca = Alias(TableAliasColumn(col.column(), ta), col.display_name())
                 self._select.append(ca)
             elif isinstance(col, AggregateOperation):
                 col_nested = find_column(col)
                 table = col_nested.column.owner
-                ta = self.__table_alias_for_table(table)
                 parent: JoinOperation = col_nested.parent
                 if parent is not None:
                     required_joins.add(parent)
+                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
                 else:
+                    ta = self.__table_alias_for_table(table)
                     self._from.add(ta)
                 ca = Alias(AggregateOperation(TableAliasColumn(col_nested.column, ta),col.operator), col.operator.name + ' ' + col_nested.column.name)
                 self._select.append(ca)
 
-
         for parent in required_joins:
-            left = parent.left
-            sc = TableAliasColumn(left, self.__table_alias_for_table(left.owner))
-            right = parent.right
-            tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner))
-            self._join.append(Join(sc, tc, parent.filter))
+            self.__add_join(parent)
+
+    def __add_join(self, parent: JoinOperation):
+        if id(parent) in self.__added_join_ids:
+            return
+        self.__added_join_ids.add(id(parent))
+        left = parent.left
+        sc = TableAliasColumn(left, self.__table_alias_for_table(left.owner))
+        right = parent.right
+        tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=self.__join_target_key(parent)))
+        self._join.append(Join(sc, tc, parent.filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
@@ -201,23 +218,29 @@ class SQLQueryGenerator:
             return self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
+        elif isinstance(op, ColumnWithJoin):
+            parent = op.parent
+            if parent is not None:
+                ta = self.__table_alias_for_table(op.column.owner, key=self.__join_target_key(parent))
+                self.__add_join(parent)
+            else:
+                ta = self.__table_alias_for_table(op.column.owner)
+            return ta.alias + '.' + op.column.name
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
         else:
             raise ValueError(op)
 
-    def __table_alias_for_table(self, table: str) -> TableAlias:
-        ta = None
+    def __table_alias_for_table(self, table: str, key=None) -> TableAlias:
         if table is None:
             raise TypeError
-
-        if table in self.__table_aliases_by_table:
-            ta = self.__table_aliases_by_table[table]
-        else:
-            ta = TableAlias(table, "t" + str(self.__table_alias_incr))
-            self.__table_alias_incr = self.__table_alias_incr + 1
-            self.__table_aliases_by_table[table] = ta
+        cache_key = key if key is not None else table
+        if cache_key in self.__table_aliases_by_table:
+            return self.__table_aliases_by_table[cache_key]
+        ta = TableAlias(table, "t" + str(self.__table_alias_incr))
+        self.__table_alias_incr += 1
+        self.__table_aliases_by_table[cache_key] = ta
         return ta
 
     def build_query_string(self) -> str:

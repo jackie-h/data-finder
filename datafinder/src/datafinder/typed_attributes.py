@@ -14,10 +14,10 @@ class StringAttribute(Attribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: str) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, StringConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, StringConstantOperation(value))
 
     def __eq__(self, value: str) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, StringConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, StringConstantOperation(value))
 
 class NumericAttribute(Attribute):
 
@@ -43,22 +43,22 @@ class DoubleAttribute(NumericAttribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: float) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, FloatConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
     def __eq__(self, value: float) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, FloatConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
     def __gt__(self, value: float) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, FloatConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN, FloatConstantOperation(value))
 
     def __lt__(self, value: float):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, FloatConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN, FloatConstantOperation(value))
 
     def __ge__(self, value: float) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
 
     def __le__(self, value: float):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
 
 
 FloatAttribute = DoubleAttribute
@@ -71,22 +71,22 @@ class DecimalAttribute(NumericAttribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: decimal.Decimal) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DecimalConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DecimalConstantOperation(value))
 
     def __eq__(self, value: decimal.Decimal) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DecimalConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DecimalConstantOperation(value))
 
     def __gt__(self, value: decimal.Decimal) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, DecimalConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN, DecimalConstantOperation(value))
 
     def __lt__(self, value: decimal.Decimal) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, DecimalConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN, DecimalConstantOperation(value))
 
     def __ge__(self, value: decimal.Decimal) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, DecimalConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, DecimalConstantOperation(value))
 
     def __le__(self, value: decimal.Decimal) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO, DecimalConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN_OR_EQUAL_TO, DecimalConstantOperation(value))
 
 
 class BooleanAttribute(Attribute):
@@ -95,16 +95,16 @@ class BooleanAttribute(Attribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: bool) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, BooleanConstantOperation(value))
 
     def __eq__(self, value: bool) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, BooleanConstantOperation(value))
 
     def is_true(self) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(True))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, BooleanConstantOperation(True))
 
     def is_false(self) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, BooleanConstantOperation(False))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, BooleanConstantOperation(False))
 
 
 class IntegerAttribute(NumericAttribute):
@@ -113,23 +113,23 @@ class IntegerAttribute(NumericAttribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: int) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, IntegerConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
     def __eq__(self, value: int) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, IntegerConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
     def __gt__(self, value: int) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, IntegerConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN, IntegerConstantOperation(value))
 
     def __lt__(self, value: int):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, IntegerConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN, IntegerConstantOperation(value))
 
     def __ge__(self, value: int) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
                                    IntegerConstantOperation(value))
 
     def __le__(self, value: int):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    IntegerConstantOperation(value))
 
 
@@ -142,23 +142,23 @@ class DateAttribute(Attribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: datetime.date) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateConstantOperation(value))
 
     def __eq__(self, value: datetime.date) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateConstantOperation(value))
 
     def __gt__(self, value: datetime.date) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, DateConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN, DateConstantOperation(value))
 
     def __lt__(self, value: datetime.date):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, DateConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN, DateConstantOperation(value))
 
     def __ge__(self, value: datetime.date) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
                                    DateConstantOperation(value))
 
     def __le__(self, value: datetime.date):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    DateConstantOperation(value))
 
 
@@ -168,21 +168,21 @@ class DateTimeAttribute(Attribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: datetime.datetime) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
 
     def __eq__(self, value: datetime.datetime) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
 
     def __gt__(self, value: datetime.datetime) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN, DateTimeConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN, DateTimeConstantOperation(value))
 
     def __lt__(self, value: datetime.datetime):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN, DateTimeConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN, DateTimeConstantOperation(value))
 
     def __ge__(self, value: datetime.datetime) -> Operation:
-        return ComparisonOperation(self.column(), ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
                                    DateTimeConstantOperation(value))
 
     def __le__(self, value: datetime.datetime):
-        return ComparisonOperation(self.column(), ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    DateTimeConstantOperation(value))
