@@ -192,14 +192,22 @@ class ForeignKey:
 class Table(Relation):
     def __init__(self, name: str, columns: list[Column], schema: Schema = None):
         super().__init__()
+        self._columns_by_name: dict[str, Column] = {}
+        for col in columns:
+            if col.name in self._columns_by_name:
+                raise ValueError(f"Duplicate column name '{col.name}' in table '{name}'")
+            self._columns_by_name[col.name] = col
         self.name = name
-        self.columns = columns
         self.schema = schema
         self.foreign_keys: list[ForeignKey] = []
-        for col in columns:
+        for col in self._columns_by_name.values():
             col.table = self
         if schema is not None:
             schema.tables.append(self)
+
+    @property
+    def columns(self) -> list[Column]:
+        return list(self._columns_by_name.values())
 
 
 class JoinOperation:
