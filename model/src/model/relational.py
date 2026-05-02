@@ -175,11 +175,18 @@ class Schema:
 
 class Column(RelationalOperationElement):
     #TODO owner should be Relation
-    def __init__(self, name: str, _type: str, owner:str = None):
+    def __init__(self, name: str, _type: str, owner: str = None, primary_key: bool = False):
         super().__init__()
         self.name = name
         self.type = _type
         self.owner = owner
+        self.primary_key = primary_key
+
+
+class ForeignKey:
+    def __init__(self, column: Column, references: Column):
+        self.column = column
+        self.references = references
 
 
 class Table(Relation):
@@ -188,6 +195,7 @@ class Table(Relation):
         self.name = name
         self.columns = columns
         self.schema = schema
+        self.foreign_keys: list[ForeignKey] = []
         for col in columns:
             col.table = self
         if schema is not None:
