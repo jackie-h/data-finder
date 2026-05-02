@@ -7,7 +7,7 @@ from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColum
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, \
-    UnaryOperation, ColumnWithJoin, AggregateOperation, SortOperation, SortDirection
+    UnaryOperation, ColumnWithJoin, AggregateOperation, SortOperation, SortDirection, CountAllOperation
 
 class Alias:
     def __init__(self, element: RelationalOperationElement, name: str):
@@ -91,6 +91,8 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
 
     required_joins = set()
     for col in columns:
+        if isinstance(col, CountAllOperation):
+            continue
         if isinstance(col, Attribute):
             parent: JoinOperation = col.parent()
         else:
@@ -160,6 +162,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return table_alias_column_string(operation)
     elif isinstance(operation, AggregateOperation):
         return operation.operator.name + '(' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, CountAllOperation):
+        return 'COUNT(*)'
     elif isinstance(operation, Alias):
         return sql_operation_to_string(operation.element) + ' AS \'' + operation.name + '\''
     else:
@@ -225,6 +229,10 @@ class SQLQueryGenerator:
                     self._from.add(ta)
                 ca = Alias(AggregateOperation(TableAliasColumn(col_nested.column, ta),col.operator), col.operator.name + ' ' + col_nested.column.name)
                 self._select.append(ca)
+            elif isinstance(col, CountAllOperation):
+                ta = self.__table_alias_for_table(col.table)
+                self._from.add(ta)
+                self._select.append(Alias(col, 'Count'))
 
         for parent in required_joins:
             self.__add_join(parent)

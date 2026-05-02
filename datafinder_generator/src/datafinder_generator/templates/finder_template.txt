@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select
-from model.relational import Column, Table, NoOperation, JoinOperation
+from model.relational import Column, Table, NoOperation, JoinOperation, CountAllOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 
 {% for rpm in rcm.property_mappings %}
@@ -138,6 +138,11 @@ class {{rcm.clazz.name}}Finder:
 
 {% endif %}
 {% endfor %}
+    @staticmethod
+    def count() -> CountAllOperation:
+        """Count all rows"""
+        return CountAllOperation('{{table_qualified_name(rcm.property_mappings[0].target.table)}}')
+
     @staticmethod
 {% if rcm.milestone_mapping %}
 {% if has_bitemporal(rcm.milestone_mapping) %}

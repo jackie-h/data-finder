@@ -1,7 +1,7 @@
 from typing import Any
 
 from model.relational import Column, Operation, ComparisonOperation, ComparisonOperator, RelationalOperationElement, \
-    ColumnWithJoin, SortOperation, SortDirection
+    ColumnWithJoin, SortOperation, SortDirection, AggregateOperation, AggregateOperator
 
 
 class Attribute:
@@ -27,6 +27,9 @@ class Attribute:
 
     def display_name(self) -> str:
         return self.__display_name
+
+    def count(self) -> AggregateOperation:
+        return AggregateOperation(ColumnWithJoin(self.__column, self.__parent), AggregateOperator.COUNT)
 
     def ascending(self) -> SortOperation:
         return SortOperation(ColumnWithJoin(self.__column, self.__parent), SortDirection.ASC)
