@@ -56,15 +56,25 @@ class Property(AnnotatedElement):
 
 
 class Class(PackagableElement, Type):
-    def __init__(self, name: str, properties: list[Property], package: Package, tagged_values: list[TaggedValue] = None):
+    def __init__(self, name: str, properties: list[Property], package: Package,
+                 superclasses: list['Class'] = None, tagged_values: list[TaggedValue] = None):
         super().__init__(package, tagged_values)
-        self.properties = {}
         self.name = name
+        self.superclasses: list['Class'] = superclasses or []
+        self.properties = {}
         for prop in properties:
             self.properties[prop.id] = prop
 
     def property(self, id: str) -> Property:
         return self.properties[id]
+
+    def all_properties(self) -> dict[str, 'Property']:
+        """Return inherited properties (left-to-right) merged with own; own take precedence."""
+        result = {}
+        for superclass in self.superclasses:
+            result.update(superclass.all_properties())
+        result.update(self.properties)
+        return result
 
 
 class Association(PackagableElement):

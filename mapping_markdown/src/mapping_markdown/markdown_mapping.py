@@ -179,6 +179,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: Repository) -> Ma
                     continue
 
                 cols_by_name = {col.name: col for col in table.columns}
+                all_props = cls.all_properties()
                 property_mappings: list[RelationalPropertyMapping] = []
                 i += 1
 
@@ -195,7 +196,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: Repository) -> Ma
                         key = row.get("Key", "").strip().upper()
                         if key == "PK":
                             col.primary_key = True
-                        prop = cls.properties.get(prop_name)
+                        prop = all_props.get(prop_name)
                         if prop is None:
                             prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name, repository)
                             if prop is None:
