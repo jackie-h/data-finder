@@ -231,6 +231,37 @@ class TestMarkdownMappingSave:
         assert "#### Association: TradeAccount" in content
 
 
+SPLIT_FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping_split.md")
+
+
+class TestMarkdownMappingSplitLoad:
+    """Load via a parent file that references per-schema files."""
+
+    def setup_method(self):
+        self.mapping = load(SPLIT_FIXTURE)
+        self.by_class = {rcm.clazz.name: rcm for rcm in self.mapping.mappings}
+
+    def test_classes_mapped(self):
+        assert set(self.by_class.keys()) == {"Account", "Instrument", "Trade"}
+
+    def test_repository_built_from_parent(self):
+        table = self.by_class["Account"].property_mappings[0].target.table
+        assert table.schema.repository.name == "finance_db"
+
+    def test_schemas_from_included_files(self):
+        account_table = self.by_class["Account"].property_mappings[0].target.table
+        trade_table = self.by_class["Trade"].property_mappings[0].target.table
+        assert account_table.schema.name == "ref_data"
+        assert trade_table.schema.name == "trading"
+
+    def test_milestoning_resolved(self):
+        assert isinstance(self.by_class["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
+
+    def test_join_resolved(self):
+        by_prop = {pm.property.id: pm for pm in self.by_class["Trade"].property_mappings}
+        assert isinstance(by_prop["account"].target, Join)
+
+
 class TestMarkdownMappingLoadNoRepository:
 
     def setup_method(self):
