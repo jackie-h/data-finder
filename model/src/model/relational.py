@@ -231,6 +231,17 @@ class ColumnWithJoin(RelationalOperationElement):
         self.parent = join
 
 
+class SortDirection(Enum):
+    ASC = 1
+    DESC = 2
+
+
+class SortOperation:
+    def __init__(self, column: ColumnWithJoin, direction: SortDirection):
+        self.column = column
+        self.direction = direction
+
+
 
 
 
