@@ -29,7 +29,7 @@ class Attribute:
         return self.__display_name
 
     def count(self) -> AggregateOperation:
-        return AggregateOperation(ColumnWithJoin(self.__column, self.__parent), AggregateOperator.COUNT)
+        return AggregateOperation(ColumnWithJoin(self.__column, self.__parent), AggregateOperator.COUNT, self.__display_name + ' Count')
 
     def ascending(self) -> SortOperation:
         return SortOperation(ColumnWithJoin(self.__column, self.__parent), SortDirection.ASC)
