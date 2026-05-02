@@ -18,6 +18,17 @@
 | Valid From | valid_from | DateTime   |     |                                       |
 | Valid To   | valid_to   | DateTime   |     |                                       |
 
+### Class: ContractualPosition
+
+| Name               | Description                                             |
+|--------------------|---------------------------------------------------------|
+| ContractualPosition | A position on a given business date as of a processing time |
+
+| Property   | Id         | Type       | Key | Description              |
+|------------|------------|------------|-----|--------------------------|
+| Quantity   | quantity   | Double     |     | Net quantity of position |
+| Npv        | npv        | Double     |     | Net present value        |
+
 ### Association: TradeAccount
 
 | Name         | Source | Target  | Description                  |

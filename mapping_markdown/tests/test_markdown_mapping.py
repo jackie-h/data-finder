@@ -5,7 +5,8 @@ from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
 from model_markdown.markdown_model import load as load_model
 from model.m3 import Class
 from model.relational import Repository, Schema, Table, Column
-from model.mapping import ProcessingDateMilestonesPropertyMapping
+from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
+    BiTemporalMilestonePropertyMapping
 from model.relational_mapping import RelationalPropertyMapping, Join
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping.md")
@@ -22,6 +23,8 @@ def _build_repository() -> Repository:
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("is_settled", "BOOLEAN"),
                      Column("account_id", "INT"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
+    Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"),
+                                  Column("NPV", "DOUBLE"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
     return repo
 
 
@@ -36,7 +39,7 @@ class TestMarkdownMappingLoad:
         assert self.mapping.name == "Finance Mapping"
 
     def test_classes_mapped(self):
-        assert set(self.by_class.keys()) == {"Account", "Instrument", "Trade"}
+        assert set(self.by_class.keys()) == {"Account", "Instrument", "Trade", "ContractualPosition"}
 
     def test_account_column_mappings(self):
         rcm = self.by_class["Account"]
@@ -57,7 +60,7 @@ class TestMarkdownMappingLoad:
 
     def test_milestoning_schemes_loaded_onto_repository(self):
         schemes = {s.name: s for s in self.repo.milestoning_schemes}
-        assert set(schemes.keys()) == {"bitemporal", "processing_only"}
+        assert set(schemes.keys()) == {"bitemporal", "processing_only", "business_date_processing"}
 
     def test_processing_only_scheme_columns(self):
         schemes = {s.name: s for s in self.repo.milestoning_schemes}
@@ -65,18 +68,35 @@ class TestMarkdownMappingLoad:
         assert s.processing_start == "in_z"
         assert s.processing_end == "out_z"
         assert s.business_date is None
+        assert s.business_date_from is None
+
+    def test_business_date_processing_scheme_columns(self):
+        schemes = {s.name: s for s in self.repo.milestoning_schemes}
+        s = schemes["business_date_processing"]
+        assert s.business_date == "DATE"
+        assert s.processing_start == "in_z"
+        assert s.processing_end == "out_z"
+        assert s.business_date_from is None
 
     def test_bitemporal_scheme_columns(self):
         schemes = {s.name: s for s in self.repo.milestoning_schemes}
         s = schemes["bitemporal"]
         assert s.processing_start == "in_z"
         assert s.processing_end == "out_z"
-        assert s.business_date == "business_date"
+        assert s.business_date_from == "DATE_FROM"
+        assert s.business_date_to == "DATE_TO"
 
     def test_table_milestoning_scheme_on_mapping(self):
         assert self.by_class["Account"].milestone_mapping is None
         assert isinstance(self.by_class["Instrument"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
         assert isinstance(self.by_class["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
+        assert isinstance(self.by_class["ContractualPosition"].milestone_mapping, BusinessDateAndProcessingMilestonePropertyMapping)
+
+    def test_business_date_processing_milestone_mapping_columns(self):
+        mm = self.by_class["ContractualPosition"].milestone_mapping
+        assert mm._date.target.name == "DATE"
+        assert mm._in.target.name == "in_z"
+        assert mm._out.target.name == "out_z"
 
     def test_milestone_mapping_columns(self):
         mm = self.by_class["Trade"].milestone_mapping
@@ -162,7 +182,7 @@ class TestMarkdownMappingSave:
         repo2 = _build_repository()
         mapping2 = loads(content, self.packages, repo2)
         by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
-        assert set(by_class2.keys()) == {"Account", "Instrument", "Trade"}
+        assert set(by_class2.keys()) == {"Account", "Instrument", "Trade", "ContractualPosition"}
         assert isinstance(by_class2["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
         assert by_class2["Account"].milestone_mapping is None
         by_prop2 = {pm.property.id: pm for pm in by_class2["Trade"].property_mappings}
@@ -203,7 +223,7 @@ class TestMarkdownMappingSave:
             save(temp_path, "Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
             repo2 = _build_repository()
             mapping2 = load(temp_path, repo2)
-            assert len(mapping2.mappings) == 3
+            assert len(mapping2.mappings) == 4
         finally:
             os.unlink(temp_path)
 
@@ -269,7 +289,7 @@ class TestMarkdownMappingLoadNoRepository:
         self.by_class = {rcm.clazz.name: rcm for rcm in self.mapping.mappings}
 
     def test_classes_mapped(self):
-        assert set(self.by_class.keys()) == {"Account", "Instrument", "Trade"}
+        assert set(self.by_class.keys()) == {"Account", "Instrument", "Trade", "ContractualPosition"}
 
     def test_repository_built_from_markdown(self):
         table = self.by_class["Account"].property_mappings[0].target.table

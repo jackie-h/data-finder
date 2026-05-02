@@ -21,6 +21,21 @@ class SingleBusinessDateMilestonePropertyMapping(MilestonePropertyMapping):
     def __init__(self, _date: PropertyMapping):
         self._date = _date
 
+
+class BusinessDateAndProcessingMilestonePropertyMapping(SingleBusinessDateMilestonePropertyMapping,
+                                                        ProcessingDateMilestonesPropertyMapping):
+    def __init__(self, _date: PropertyMapping, _in: PropertyMapping, _out: PropertyMapping):
+        SingleBusinessDateMilestonePropertyMapping.__init__(self, _date)
+        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out)
+
+
+class BiTemporalMilestonePropertyMapping(ProcessingDateMilestonesPropertyMapping):
+    def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping,
+                 _in: PropertyMapping, _out: PropertyMapping):
+        super().__init__(_in, _out)
+        self._date_from = _date_from
+        self._date_to = _date_to
+
 class ClassMapping:
     def __init__(self, clazz: Class, property_mappings: list[PropertyMapping], milestone_mapping: MilestonePropertyMapping = None):
         self.clazz = clazz

@@ -149,11 +149,14 @@ class Relation:
 
 
 class MilestoningScheme:
-    def __init__(self, name: str, processing_start: str = None, processing_end: str = None, business_date: str = None):
+    def __init__(self, name: str, processing_start: str = None, processing_end: str = None,
+                 business_date: str = None, business_date_from: str = None, business_date_to: str = None):
         self.name = name
         self.processing_start = processing_start
         self.processing_end = processing_end
         self.business_date = business_date
+        self.business_date_from = business_date_from
+        self.business_date_to = business_date_to
 
 
 class Repository:
