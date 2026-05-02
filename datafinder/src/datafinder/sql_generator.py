@@ -121,7 +121,9 @@ COMPARISON_OPERATOR_STR = {
     ComparisonOperator.GREATER_THAN: ' > ',
     ComparisonOperator.LESS_THAN_OR_EQUAL_TO: ' <= ',
     ComparisonOperator.GREATER_THAN_OR_EQUAL_TO: ' >= ',
-    ComparisonOperator.NOT_EQUAL: ' <> '
+    ComparisonOperator.NOT_EQUAL: ' <> ',
+    ComparisonOperator.LIKE: ' LIKE ',
+    ComparisonOperator.NOT_LIKE: ' NOT LIKE ',
 }
 
 def logical_operator_string(op:LogicalOperator) -> str:
