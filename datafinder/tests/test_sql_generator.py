@@ -1,7 +1,7 @@
 from datafinder import StringAttribute, build_query_operation, select_sql_to_string
 from datafinder import IntegerAttribute
 from datafinder.sql_generator import SQLQueryGenerator
-from model.relational import Table, Column, NoOperation
+from model.relational import Table, Column, NoOperation, CountAllOperation
 
 
 def _make_table_and_attr():
@@ -162,3 +162,69 @@ class TestOrderBy:
         chained = result.order_by(attr.ascending())
         assert chained is result
         assert len(result._order_by) == 1
+
+
+class TestCountAllOperation:
+
+    def test_count_all_produces_count_star(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [CountAllOperation("accounts")], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "COUNT(*)" in sql
+
+    def test_count_all_has_count_alias(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [CountAllOperation("accounts")], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "'Count'" in sql
+
+    def test_count_all_includes_from_clause(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [CountAllOperation("accounts")], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "FROM" in sql
+        assert "accounts" in sql
+
+    def test_count_all_with_filter(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [CountAllOperation("accounts")], table, attr.eq("Acme"))
+        sql = select_sql_to_string(select_op)
+        assert "COUNT(*)" in sql
+        assert "WHERE" in sql
+
+    def test_count_all_alongside_column(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr, CountAllOperation("accounts")], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "COUNT(*)" in sql
+        assert "NAME" in sql
+
+
+class TestAttributeCount:
+
+    def test_attribute_count_produces_count_column(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.count()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "COUNT(" in sql
+        assert "NAME" in sql
+
+    def test_attribute_count_does_not_produce_star(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.count()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "COUNT(*)" not in sql
+
+    def test_attribute_count_with_filter(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.count()], table, attr.eq("Acme"))
+        sql = select_sql_to_string(select_op)
+        assert "COUNT(" in sql
+        assert "WHERE" in sql
+
+    def test_integer_attribute_count(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(None, None, [id_attr.count()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "COUNT(" in sql
+        assert "ID" in sql

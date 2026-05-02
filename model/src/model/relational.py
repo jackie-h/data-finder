@@ -242,6 +242,13 @@ class SortOperation:
         self.direction = direction
 
 
+class CountAllOperation(RelationalOperationElement):
+    """Represents COUNT(*) — counts all rows without reference to a specific column."""
+    def __init__(self, table: str):
+        super().__init__()
+        self.table = table
+
+
 
 
 
