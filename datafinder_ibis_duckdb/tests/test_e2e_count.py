@@ -108,24 +108,24 @@ class TestAttributeCount:
         result = CompanyFinder.find_all(
             [CompanyFinder.name().count()],
         ).to_pandas()
-        assert result.iloc[0]["COUNT name"] == 5
+        assert result.iloc[0]["Name Count"] == 5
 
     def test_count_id_returns_total(self, CompanyFinder):
         result = CompanyFinder.find_all(
             [CompanyFinder.id_().count()],
         ).to_pandas()
-        assert result.iloc[0]["COUNT id"] == 5
+        assert result.iloc[0]["Id Count"] == 5
 
     def test_count_attribute_with_filter(self, CompanyFinder):
         result = CompanyFinder.find_all(
             [CompanyFinder.name().count()],
             CompanyFinder.category().eq("Technology"),
         ).to_pandas()
-        assert result.iloc[0]["COUNT name"] == 2
+        assert result.iloc[0]["Name Count"] == 2
 
     def test_count_attribute_with_ne_filter(self, CompanyFinder):
         result = CompanyFinder.find_all(
             [CompanyFinder.name().count()],
             CompanyFinder.category().ne("Technology"),
         ).to_pandas()
-        assert result.iloc[0]["COUNT name"] == 3
+        assert result.iloc[0]["Name Count"] == 3

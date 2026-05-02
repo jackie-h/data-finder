@@ -140,9 +140,10 @@ class AggregateOperator(Enum):
 class AggregateOperation(UnaryOperation):
     operator: AggregateOperator
 
-    def __init__(self, element: RelationalOperationElement, operator: AggregateOperator):
+    def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str = None):
         super().__init__(element)
         self.operator = operator
+        self.display_name = display_name
 
 
 class Relation:

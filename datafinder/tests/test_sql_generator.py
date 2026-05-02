@@ -228,3 +228,55 @@ class TestAttributeCount:
         sql = select_sql_to_string(select_op)
         assert "COUNT(" in sql
         assert "ID" in sql
+
+
+class TestGroupBy:
+
+    def test_no_group_by_produces_no_group_clause(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "GROUP BY" not in sql
+
+    def test_group_by_single_column(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(None, None, [name_attr], table, NoOperation(), group_by=[name_attr])
+        sql = select_sql_to_string(select_op)
+        assert "GROUP BY" in sql
+        assert "NAME" in sql.split("GROUP BY")[1]
+
+    def test_group_by_multiple_columns(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(None, None, [name_attr, id_attr], table, NoOperation(),
+                                          group_by=[name_attr, id_attr])
+        sql = select_sql_to_string(select_op)
+        group_clause = sql.split("GROUP BY")[1]
+        assert "NAME" in group_clause
+        assert "ID" in group_clause
+
+    def test_group_by_with_filter(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(None, None, [name_attr], table, name_attr.eq("Acme"),
+                                          group_by=[name_attr])
+        sql = select_sql_to_string(select_op)
+        assert "WHERE" in sql
+        assert "GROUP BY" in sql
+        assert sql.index("WHERE") < sql.index("GROUP BY")
+
+    def test_group_by_before_order_by(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(None, None, [name_attr], table, NoOperation(),
+                                          order_by=[name_attr.ascending()], group_by=[name_attr])
+        sql = select_sql_to_string(select_op)
+        assert "GROUP BY" in sql
+        assert "ORDER BY" in sql
+        assert sql.index("GROUP BY") < sql.index("ORDER BY")
+
+    def test_finder_result_group_by_chaining(self):
+        from datafinder import FinderResult, convert_inputs_and_select
+        table, name_attr, id_attr = _make_multi_col_table()
+        result = convert_inputs_and_select(None, None, [name_attr], table, NoOperation())
+        assert isinstance(result, FinderResult)
+        chained = result.group_by(name_attr)
+        assert chained is result
+        assert len(result._group_by) == 1

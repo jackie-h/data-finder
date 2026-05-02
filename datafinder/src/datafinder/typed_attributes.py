@@ -37,16 +37,16 @@ class NumericAttribute(Attribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def sum(self):
-        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.SUM)
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.SUM, 'Sum ' + self.display_name())
 
     def min(self):
-        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MIN)
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MIN, 'Min ' + self.display_name())
 
     def max(self):
-        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MAX)
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MAX, 'Max ' + self.display_name())
 
     def average(self):
-        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.AVERAGE)
+        return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.AVERAGE, 'Average ' + self.display_name())
 
 
 class DoubleAttribute(NumericAttribute):
