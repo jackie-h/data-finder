@@ -102,8 +102,10 @@ class ComparisonOperator(Enum):
     NOT_EQUAL = 2
     LESS_THAN = 3
     GREATER_THAN = 4
-    LESS_THAN_OR_EQUAL_TO =5
+    LESS_THAN_OR_EQUAL_TO = 5
     GREATER_THAN_OR_EQUAL_TO = 6
+    LIKE = 7
+    NOT_LIKE = 8
 
 
 class ComparisonOperation(BinaryOperation, BooleanOperation):

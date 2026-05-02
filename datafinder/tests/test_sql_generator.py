@@ -36,3 +36,58 @@ class TestNoOperationFilter:
         sql = select_sql_to_string(select_op)
         assert "WHERE" in sql
         assert "'Acme'" in sql
+
+
+class TestStringOperations:
+
+    def test_ne_produces_not_equal(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.ne("Acme"))
+        sql = select_sql_to_string(select_op)
+        assert "<>" in sql
+        assert "'Acme'" in sql
+
+    def test_contains_produces_like_with_wildcards(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.contains("corp"))
+        sql = select_sql_to_string(select_op)
+        assert "LIKE" in sql
+        assert "'%corp%'" in sql
+
+    def test_starts_with_produces_like_with_trailing_wildcard(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.starts_with("Acme"))
+        sql = select_sql_to_string(select_op)
+        assert "LIKE" in sql
+        assert "'Acme%'" in sql
+
+    def test_ends_with_produces_like_with_leading_wildcard(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.ends_with("Inc"))
+        sql = select_sql_to_string(select_op)
+        assert "LIKE" in sql
+        assert "'%Inc'" in sql
+
+    def test_ne_no_like_in_sql(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.ne("Acme"))
+        sql = select_sql_to_string(select_op)
+        assert "LIKE" not in sql
+
+    def test_contains_has_where_clause(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.contains("corp"))
+        sql = select_sql_to_string(select_op)
+        assert "WHERE" in sql
+
+    def test_starts_with_has_where_clause(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.starts_with("Acme"))
+        sql = select_sql_to_string(select_op)
+        assert "WHERE" in sql
+
+    def test_ends_with_has_where_clause(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.ends_with("Inc"))
+        sql = select_sql_to_string(select_op)
+        assert "WHERE" in sql

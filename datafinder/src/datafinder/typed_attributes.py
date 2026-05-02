@@ -14,10 +14,22 @@ class StringAttribute(Attribute):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def eq(self, value: str) -> Operation:
-        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, StringConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
     def __eq__(self, value: str) -> Operation:
-        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, StringConstantOperation(value))
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.EQUAL, StringConstantOperation(value))
+
+    def ne(self, value: str) -> Operation:
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.NOT_EQUAL, StringConstantOperation(value))
+
+    def contains(self, value: str) -> Operation:
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.LIKE, StringConstantOperation(f"%{value}%"))
+
+    def starts_with(self, prefix: str) -> Operation:
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.LIKE, StringConstantOperation(f"{prefix}%"))
+
+    def ends_with(self, suffix: str) -> Operation:
+        return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.LIKE, StringConstantOperation(f"%{suffix}"))
 
 class NumericAttribute(Attribute):
 
