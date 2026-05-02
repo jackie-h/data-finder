@@ -92,8 +92,17 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                         description = rows[0].get("Description", "")
                     i += 1
 
+                tagged_values: list[TaggedValue] = []
+                if description:
+                    tagged_values.append(TaggedValue(TaggedValue.DOC, description))
+
+                # Create the class before resolving property types so that
+                # self-referential properties (e.g. Employee.manager: Employee)
+                # can resolve correctly via classes_by_name.
+                cls = Class(class_name, [], current_package, tagged_values or None)
+                classes_by_name[cls.name] = cls
+
                 # second table: properties
-                properties: list[Property] = []
                 if i < len(nodes) and nodes[i].type == "table":
                     prop_rows = _parse_ast_table(nodes[i])
                     if prop_rows:
@@ -114,15 +123,9 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                         if desc:
                             tagged.append(TaggedValue(TaggedValue.DOC, desc))
                         prop_type = _resolve_type(type_str, classes_by_name)
-                        properties.append(Property(label, prop_id, prop_type, tagged or None))
+                        prop = Property(label, prop_id, prop_type, tagged or None)
+                        cls.properties[prop.id] = prop
                     i += 1
-
-                tagged_values: list[TaggedValue] = []
-                if description:
-                    tagged_values.append(TaggedValue(TaggedValue.DOC, description))
-
-                cls = Class(class_name, properties, current_package, tagged_values or None)
-                classes_by_name[cls.name] = cls
                 continue
 
             elif level == "h3" and text.startswith("Association:"):
