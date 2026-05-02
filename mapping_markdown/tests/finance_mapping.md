@@ -14,32 +14,32 @@
 
 #### Table: account_master → Account
 
-| Column    | Type    | Property |
-|-----------|---------|----------|
-| ID        | INT     | id       |
-| ACCT_NAME | VARCHAR | name     |
+| Column    | Type    | Key | Property |
+|-----------|---------|-----|----------|
+| ID        | INT     | PK  | id       |
+| ACCT_NAME | VARCHAR |     | name     |
 
 #### Table: price → Instrument (milestoning: processing_only)
 
-| Column | Type      | Property   |
-|--------|-----------|------------|
-| SYM    | VARCHAR   | symbol     |
-| PRICE  | DOUBLE    | price      |
-| in_z   | TIMESTAMP | valid_from |
-| out_z  | TIMESTAMP | valid_to   |
+| Column | Type      | Key | Property   |
+|--------|-----------|-----|------------|
+| SYM    | VARCHAR   | PK  | symbol     |
+| PRICE  | DOUBLE    |     | price      |
+| in_z   | TIMESTAMP |     | valid_from |
+| out_z  | TIMESTAMP |     | valid_to   |
 
 ### Schema: trading
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column      | Type      | Property   |
-|-------------|-----------|------------|
-| sym         | VARCHAR   | symbol     |
-| price       | DOUBLE    | price      |
-| is_settled  | BOOLEAN   | is_settled |
-| account_id  | INT       | account    |
-| in_z        | TIMESTAMP | valid_from |
-| out_z       | TIMESTAMP | valid_to   |
+| Column     | Type      | Key | Property   |
+|------------|-----------|-----|------------|
+| sym        | VARCHAR   |     | symbol     |
+| price      | DOUBLE    |     | price      |
+| is_settled | BOOLEAN   |     | is_settled |
+| account_id | INT       | FK  | account    |
+| in_z       | TIMESTAMP |     | valid_from |
+| out_z      | TIMESTAMP |     | valid_to   |
 
 #### Association: TradeAccount
 

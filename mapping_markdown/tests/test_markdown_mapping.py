@@ -102,6 +102,33 @@ class TestMarkdownMappingLoad:
         assert by_prop["valid_from"].target.name == "in_z"
         assert by_prop["valid_to"].target.name == "out_z"
 
+    def test_primary_key_set_on_column(self):
+        rcm = self.by_class["Account"]
+        by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
+        assert by_prop["id"].target.primary_key is True
+        assert by_prop["name"].target.primary_key is False
+
+    def test_instrument_primary_key(self):
+        rcm = self.by_class["Instrument"]
+        by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
+        assert by_prop["symbol"].target.primary_key is True
+
+    def test_foreign_key_on_table(self):
+        rcm = self.by_class["Trade"]
+        by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
+        trades_table = by_prop["symbol"].target.table
+        assert len(trades_table.foreign_keys) == 1
+        fk = trades_table.foreign_keys[0]
+        assert fk.column.name == "account_id"
+        assert fk.references.name == "ID"
+        assert fk.references.table.name == "account_master"
+
+    def test_non_fk_column_not_in_foreign_keys(self):
+        rcm = self.by_class["Account"]
+        by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
+        account_table = by_prop["id"].target.table
+        assert len(account_table.foreign_keys) == 0
+
     def test_join_mapping_for_non_primitive_property(self):
         rcm = self.by_class["Trade"]
         by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
@@ -140,6 +167,33 @@ class TestMarkdownMappingSave:
         assert by_class2["Account"].milestone_mapping is None
         by_prop2 = {pm.property.id: pm for pm in by_class2["Trade"].property_mappings}
         assert isinstance(by_prop2["account"].target, Join)
+
+    def test_roundtrip_preserves_primary_key(self):
+        content = to_markdown("Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
+        repo2 = _build_repository()
+        mapping2 = loads(content, self.packages, repo2)
+        by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
+        by_prop2 = {pm.property.id: pm for pm in by_class2["Account"].property_mappings}
+        assert by_prop2["id"].target.primary_key is True
+        assert by_prop2["name"].target.primary_key is False
+
+    def test_roundtrip_preserves_foreign_key(self):
+        content = to_markdown("Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
+        repo2 = _build_repository()
+        mapping2 = loads(content, self.packages, repo2)
+        by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
+        by_prop2 = {pm.property.id: pm for pm in by_class2["Trade"].property_mappings}
+        trades_table = by_prop2["symbol"].target.table
+        assert len(trades_table.foreign_keys) == 1
+        assert trades_table.foreign_keys[0].column.name == "account_id"
+
+    def test_generated_markdown_has_pk_column(self):
+        content = to_markdown("Finance Mapping", self.mapping)
+        assert "| ID        | INT     | PK  | id       |" in content
+
+    def test_generated_markdown_has_fk_column(self):
+        content = to_markdown("Finance Mapping", self.mapping)
+        assert "FK" in content
 
     def test_save_and_reload(self):
         fixture_dir = os.path.dirname(FIXTURE)

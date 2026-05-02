@@ -8,7 +8,7 @@ from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, PrimitiveType, Association, Property, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
-from model.relational import Repository, Schema, Table, MilestoningScheme, Column
+from model.relational import Repository, Schema, Table, MilestoningScheme, Column, ForeignKey
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
 
 _md_parser = MarkdownIt().enable("table")
@@ -73,8 +73,9 @@ def _build_repository_from_content(nodes: list) -> Repository:
                         for row in _parse_ast_table(nodes[i]):
                             col_name = row.get("Column", "").strip()
                             col_type = row.get("Type", "").strip()
+                            key = row.get("Key", "").strip().upper()
                             if col_name:
-                                columns.append(Column(col_name, col_type or None))
+                                columns.append(Column(col_name, col_type or None, primary_key=(key == "PK")))
                     Table(table_name, columns, current_schema)
                     continue
         i += 1
@@ -161,6 +162,9 @@ def loads(content: str, packages: list, repository: Repository = None) -> Mappin
                         if col is None:
                             _log.warning("Column '%s' not found in table '%s'", col_name, table_name)
                             continue
+                        key = row.get("Key", "").strip().upper()
+                        if key == "PK":
+                            col.primary_key = True
                         prop = cls.properties.get(prop_name)
                         if prop is None:
                             prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name, repository)
@@ -195,6 +199,7 @@ def loads(content: str, packages: list, repository: Repository = None) -> Mappin
                                     tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
                                     if tgt_col:
                                         pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col)))
+                                        lhs_col.table.foreign_keys.append(ForeignKey(lhs_col, tgt_col))
                                 break
                     i += 1
                 continue
@@ -337,14 +342,17 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
                 lines.append(heading)
                 lines.append("")
 
+                fk_cols = {fk.column.name for fk in table.foreign_keys}
                 col_rows = []
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Column):
-                        col_rows.append([pm.target.name, pm.target.type or "", pm.property.id])
+                        key = "PK" if pm.target.primary_key else ""
+                        col_rows.append([pm.target.name, pm.target.type or "", key, pm.property.id])
                     elif isinstance(pm.target, Join):
                         lhs = pm.target.lhs
-                        col_rows.append([lhs.name, lhs.type or "", pm.property.id])
-                lines.append(_md_table(["Column", "Type", "Property"], col_rows))
+                        key = "FK" if lhs.name in fk_cols else ""
+                        col_rows.append([lhs.name, lhs.type or "", key, pm.property.id])
+                lines.append(_md_table(["Column", "Type", "Key", "Property"], col_rows))
                 lines.append("")
 
             for rcm in rcms:
@@ -382,8 +390,11 @@ def draft_from_repository(title: str, repo: Repository) -> str:
         for table in schema.tables:
             lines.append(f"#### Table: {table.name} → ?")
             lines.append("")
-            col_rows = [[col.name, col.type or "", ""] for col in table.columns]
-            lines.append(_md_table(["Column", "Type", "Property"], col_rows))
+            col_rows = [
+                [col.name, col.type or "", "PK" if col.primary_key else "", ""]
+                for col in table.columns
+            ]
+            lines.append(_md_table(["Column", "Type", "Key", "Property"], col_rows))
             lines.append("")
 
     return "\n".join(lines)
