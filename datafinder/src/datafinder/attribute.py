@@ -28,8 +28,8 @@ class Attribute:
     def display_name(self) -> str:
         return self.__display_name
 
-    def asc(self) -> SortOperation:
+    def ascending(self) -> SortOperation:
         return SortOperation(ColumnWithJoin(self.__column, self.__parent), SortDirection.ASC)
 
-    def desc(self) -> SortOperation:
+    def descending(self) -> SortOperation:
         return SortOperation(ColumnWithJoin(self.__column, self.__parent), SortDirection.DESC)

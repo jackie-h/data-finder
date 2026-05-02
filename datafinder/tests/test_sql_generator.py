@@ -113,34 +113,34 @@ class TestOrderBy:
 
     def test_asc_produces_order_by_clause(self):
         table, attr = _make_table_and_attr()
-        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.asc()])
+        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.ascending()])
         sql = select_sql_to_string(select_op)
         assert "ORDER BY" in sql
         assert "ASC" in sql
 
     def test_desc_produces_order_by_clause(self):
         table, attr = _make_table_and_attr()
-        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.desc()])
+        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.descending()])
         sql = select_sql_to_string(select_op)
         assert "ORDER BY" in sql
         assert "DESC" in sql
 
     def test_asc_does_not_produce_desc(self):
         table, attr = _make_table_and_attr()
-        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.asc()])
+        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.ascending()])
         sql = select_sql_to_string(select_op)
         assert "DESC" not in sql
 
     def test_order_by_references_correct_column(self):
         table, attr = _make_table_and_attr()
-        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.asc()])
+        select_op = build_query_operation(None, None, [attr], table, NoOperation(), [attr.ascending()])
         sql = select_sql_to_string(select_op)
         assert "NAME" in sql.split("ORDER BY")[1]
 
     def test_multi_column_order_by(self):
         table, name_attr, id_attr = _make_multi_col_table()
         select_op = build_query_operation(None, None, [name_attr, id_attr], table, NoOperation(),
-                                          [name_attr.asc(), id_attr.desc()])
+                                          [name_attr.ascending(), id_attr.descending()])
         sql = select_sql_to_string(select_op)
         order_clause = sql.split("ORDER BY")[1]
         assert "ASC" in order_clause
@@ -148,7 +148,7 @@ class TestOrderBy:
 
     def test_order_by_with_filter(self):
         table, attr = _make_table_and_attr()
-        select_op = build_query_operation(None, None, [attr], table, attr.eq("Acme"), [attr.asc()])
+        select_op = build_query_operation(None, None, [attr], table, attr.eq("Acme"), [attr.ascending()])
         sql = select_sql_to_string(select_op)
         assert "WHERE" in sql
         assert "ORDER BY" in sql
@@ -159,6 +159,6 @@ class TestOrderBy:
         table, attr = _make_table_and_attr()
         result = convert_inputs_and_select(None, None, [attr], table, NoOperation())
         assert isinstance(result, FinderResult)
-        chained = result.order_by(attr.asc())
+        chained = result.order_by(attr.ascending())
         assert chained is result
         assert len(result._order_by) == 1
