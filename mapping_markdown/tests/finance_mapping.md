@@ -5,10 +5,11 @@
 
 ## Repository: finance_db
 
-| Scheme          | processing_start | processing_end | business_date |
-|-----------------|------------------|----------------|---------------|
-| bitemporal      | in_z             | out_z          | business_date |
-| processing_only | in_z             | out_z          |               |
+| Scheme                    | processing_start | processing_end | business_date | business_date_from | business_date_to |
+|---------------------------|------------------|----------------|---------------|--------------------|------------------|
+| processing_only           | in_z             | out_z          |               |                    |                  |
+| business_date_processing  | in_z             | out_z          | DATE          |                    |                  |
+| bitemporal                | in_z             | out_z          |               | DATE_FROM          | DATE_TO          |
 
 ### Schema: ref_data
 
@@ -46,3 +47,13 @@
 | Source Column | Target Table   | Target Column |
 |---------------|----------------|---------------|
 | account_id    | account_master | ID            |
+
+#### Table: contractualposition → ContractualPosition (milestoning: business_date_processing)
+
+| Column   | Type      | Key | Property      |
+|----------|-----------|-----|---------------|
+| DATE     | DATE      |     | business_date |
+| QUANTITY | DOUBLE    |     | quantity      |
+| NPV      | DOUBLE    |     | npv           |
+| in_z     | TIMESTAMP |     | valid_from    |
+| out_z    | TIMESTAMP |     | valid_to      |

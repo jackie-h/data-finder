@@ -8,7 +8,8 @@ _BUILTIN_NAMES = set(dir(builtins))
 from jinja2 import Environment, PackageLoader
 
 from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
-    SingleBusinessDateMilestonePropertyMapping
+    SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
+    BiTemporalMilestonePropertyMapping
 
 
 def is_primitive(prop: Property) -> bool:
@@ -19,6 +20,12 @@ def has_processing_temporal(mapping: MilestonePropertyMapping) -> bool:
 
 def has_uni_business_temporal(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, SingleBusinessDateMilestonePropertyMapping)
+
+def has_business_date_and_processing(mapping: MilestonePropertyMapping) -> bool:
+    return isinstance(mapping, BusinessDateAndProcessingMilestonePropertyMapping)
+
+def has_bitemporal(mapping: MilestonePropertyMapping) -> bool:
+    return isinstance(mapping, BiTemporalMilestonePropertyMapping)
 
 def display_name(prop: Property) -> str:
     return prop.name
@@ -45,6 +52,8 @@ def generate(mapping:Mapping, output_directory):
         content = template.render(rcm=rcm, is_primitive=is_primitive,
                                   has_processing_temporal=has_processing_temporal,
                                   has_uni_business_temporal=has_uni_business_temporal,
+                                  has_business_date_and_processing=has_business_date_and_processing,
+                                  has_bitemporal=has_bitemporal,
                                   display_name=display_name, to_python_name=to_python_name,
                                   table_qualified_name=table_qualified_name)
         with open(filepath, mode="w", encoding="utf-8") as message:

@@ -7,7 +7,8 @@ from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, PrimitiveType, Association, Property, DateTime
-from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
+from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
+    BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping
 from model.relational import Repository, Schema, Table, MilestoningScheme, Column, ForeignKey
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
 
@@ -157,6 +158,8 @@ def _loads_from_nodes(nodes: list, packages: list, repository: Repository) -> Ma
                                 processing_start=row.get("processing_start", "").strip() or None,
                                 processing_end=row.get("processing_end", "").strip() or None,
                                 business_date=row.get("business_date", "").strip() or None,
+                                business_date_from=row.get("business_date_from", "").strip() or None,
+                                business_date_to=row.get("business_date_to", "").strip() or None,
                             ))
                     i += 1
                 continue
@@ -253,7 +256,10 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
     scheme = next((s for s in repository.milestoning_schemes if s.name == scheme_name), None)
     if scheme is None:
         return None
-    milestoning_cols = {scheme.processing_start, scheme.processing_end, scheme.business_date} - {None}
+    milestoning_cols = {
+        scheme.processing_start, scheme.processing_end,
+        scheme.business_date, scheme.business_date_from, scheme.business_date_to,
+    } - {None}
     if col_name in milestoning_cols:
         return Property(prop_name, prop_name, DateTime)
     return None
@@ -266,12 +272,30 @@ def _build_milestone_mapping(scheme_name, property_mappings, repository):
     if scheme is None:
         return None
     pm_by_col = {pm.target.name: pm for pm in property_mappings if isinstance(pm.target, Column)}
-    if scheme.processing_start and scheme.processing_end:
+
+    has_processing = scheme.processing_start and scheme.processing_end
+    has_single_date = scheme.business_date and not scheme.business_date_from
+    has_range_date = scheme.business_date_from and scheme.business_date_to
+
+    if has_range_date and has_processing:
+        _date_from = pm_by_col.get(scheme.business_date_from)
+        _date_to = pm_by_col.get(scheme.business_date_to)
+        _in = pm_by_col.get(scheme.processing_start)
+        _out = pm_by_col.get(scheme.processing_end)
+        if _date_from and _date_to and _in and _out:
+            return BiTemporalMilestonePropertyMapping(_date_from, _date_to, _in, _out)
+    elif has_single_date and has_processing:
+        _date = pm_by_col.get(scheme.business_date)
+        _in = pm_by_col.get(scheme.processing_start)
+        _out = pm_by_col.get(scheme.processing_end)
+        if _date and _in and _out:
+            return BusinessDateAndProcessingMilestonePropertyMapping(_date, _in, _out)
+    elif has_processing:
         _in = pm_by_col.get(scheme.processing_start)
         _out = pm_by_col.get(scheme.processing_end)
         if _in and _out:
             return ProcessingDateMilestonesPropertyMapping(_in, _out)
-    elif scheme.business_date:
+    elif has_single_date:
         _date = pm_by_col.get(scheme.business_date)
         if _date:
             return SingleBusinessDateMilestonePropertyMapping(_date)
@@ -282,16 +306,34 @@ def _milestone_scheme_name(rcm: RelationalClassMapping, repo: Repository) -> Opt
     mm = rcm.milestone_mapping
     if mm is None or repo is None:
         return None
-    if isinstance(mm, ProcessingDateMilestonesPropertyMapping):
+    if isinstance(mm, BiTemporalMilestonePropertyMapping):
+        date_from_col = mm._date_from.target.name if isinstance(mm._date_from.target, Column) else None
+        date_to_col = mm._date_to.target.name if isinstance(mm._date_to.target, Column) else None
         in_col = mm._in.target.name if isinstance(mm._in.target, Column) else None
         out_col = mm._out.target.name if isinstance(mm._out.target, Column) else None
         for s in repo.milestoning_schemes:
-            if s.processing_start == in_col and s.processing_end == out_col and not s.business_date:
+            if s.business_date_from == date_from_col and s.business_date_to == date_to_col \
+                    and s.processing_start == in_col and s.processing_end == out_col:
+                return s.name
+    elif isinstance(mm, BusinessDateAndProcessingMilestonePropertyMapping):
+        date_col = mm._date.target.name if isinstance(mm._date.target, Column) else None
+        in_col = mm._in.target.name if isinstance(mm._in.target, Column) else None
+        out_col = mm._out.target.name if isinstance(mm._out.target, Column) else None
+        for s in repo.milestoning_schemes:
+            if s.business_date == date_col and s.processing_start == in_col \
+                    and s.processing_end == out_col and not s.business_date_from:
+                return s.name
+    elif isinstance(mm, ProcessingDateMilestonesPropertyMapping):
+        in_col = mm._in.target.name if isinstance(mm._in.target, Column) else None
+        out_col = mm._out.target.name if isinstance(mm._out.target, Column) else None
+        for s in repo.milestoning_schemes:
+            if s.processing_start == in_col and s.processing_end == out_col \
+                    and not s.business_date and not s.business_date_from:
                 return s.name
     elif isinstance(mm, SingleBusinessDateMilestonePropertyMapping):
         date_col = mm._date.target.name if isinstance(mm._date.target, Column) else None
         for s in repo.milestoning_schemes:
-            if s.business_date == date_col and not s.processing_start:
+            if s.business_date == date_col and not s.processing_start and not s.business_date_from:
                 return s.name
     return None
 
@@ -350,10 +392,13 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
 
         if repo and repo.milestoning_schemes:
             scheme_rows = [
-                [s.name, s.processing_start or "", s.processing_end or "", s.business_date or ""]
+                [s.name, s.processing_start or "", s.processing_end or "",
+                 s.business_date or "", s.business_date_from or "", s.business_date_to or ""]
                 for s in repo.milestoning_schemes
             ]
-            lines.append(_md_table(["Scheme", "processing_start", "processing_end", "business_date"], scheme_rows))
+            lines.append(_md_table(
+                ["Scheme", "processing_start", "processing_end", "business_date", "business_date_from", "business_date_to"],
+                scheme_rows))
             lines.append("")
 
         for schema_name, rcms in repo_schema_map[repo_name].items():

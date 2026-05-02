@@ -1,2 +1,9 @@
 .idea/
+.vscode/
 __pycache__/
+rust/
+.DS_Store
+*.db
+*.egg-info/
+todo.txt
+example/*_finder.py

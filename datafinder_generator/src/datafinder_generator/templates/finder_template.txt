@@ -3,7 +3,7 @@ from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import DataFrame, convert_inputs_and_select
 from model.relational import Column, Table, NoOperation, JoinOperation
-from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, MilestonedTable
+from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}from {{rpm.property.type.name.lower()}}_finder import {{rpm.property.type.name}}RelatedFinder
@@ -14,7 +14,16 @@ from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColum
 class {{rcm.clazz.name}}RelatedFinder:
 
 {% if rcm.milestone_mapping %}
-{% if has_processing_temporal(rcm.milestone_mapping) %}
+{% if has_bitemporal(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = BiTemporalColumns(Column('{{rcm.milestone_mapping._date_from.target.name}}', '{{rcm.milestone_mapping._date_from.target.type}}'),
+                                                 Column('{{rcm.milestone_mapping._date_to.target.name}}', '{{rcm.milestone_mapping._date_to.target.type}}'),
+                                                 Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
+                                                 Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+{% elif has_business_date_and_processing(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = BusinessDateAndProcessingTemporalColumns(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'),
+                                                                        Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
+                                                                        Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+{% elif has_processing_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = ProcessingTemporalColumns(Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
                                                          Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
@@ -71,7 +80,16 @@ class {{rcm.clazz.name}}Finder:
 {% endif %}
 
 {% if rcm.milestone_mapping %}
-{% if has_processing_temporal(rcm.milestone_mapping) %}
+{% if has_bitemporal(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = BiTemporalColumns(Column('{{rcm.milestone_mapping._date_from.target.name}}', '{{rcm.milestone_mapping._date_from.target.type}}'),
+                                                 Column('{{rcm.milestone_mapping._date_to.target.name}}', '{{rcm.milestone_mapping._date_to.target.type}}'),
+                                                 Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
+                                                 Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+{% elif has_business_date_and_processing(rcm.milestone_mapping) %}
+    __zz_milestoning_columns = BusinessDateAndProcessingTemporalColumns(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'),
+                                                                        Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
+                                                                        Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+{% elif has_processing_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = ProcessingTemporalColumns(Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
                                                          Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
@@ -122,7 +140,19 @@ class {{rcm.clazz.name}}Finder:
 {% endfor %}
     @staticmethod
 {% if rcm.milestone_mapping %}
-{% if has_processing_temporal(rcm.milestone_mapping) %}
+{% if has_bitemporal(rcm.milestone_mapping) %}
+    def find_all(business_date: Union[datetime.date,str],
+                 processing_valid_at: Union[datetime.datetime,str],
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> DataFrame:
+        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+{% elif has_business_date_and_processing(rcm.milestone_mapping) %}
+    def find_all(business_date: Union[datetime.date,str],
+                 processing_valid_at: Union[datetime.datetime,str],
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> DataFrame:
+        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+{% elif has_processing_temporal(rcm.milestone_mapping) %}
     def find_all(processing_valid_at: Union[datetime.datetime,str],
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> DataFrame:
