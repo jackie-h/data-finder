@@ -35,11 +35,12 @@ class Join:
 
 class SelectOperation:
     def __init__(self, display: list[Attribute], filter: Operation, order_by: list[SortOperation] = None,
-                 group_by: list = None):
+                 group_by: list = None, limit: int = None):
         self.display = display
         self.filter = filter
         self.order_by = order_by or []
         self.group_by = group_by or []
+        self.limit = limit
 
 def build_milestoning_filter_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                                table:MilestonedTable) -> Operation:
@@ -86,7 +87,8 @@ def find_column(operation: RelationalOperationElement) -> ColumnWithJoin:
 
 def build_query_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                          columns: list[Attribute], table: Table, op: Operation,
-                         order_by: list[SortOperation] = None, group_by: list = None) -> SelectOperation:
+                         order_by: list[SortOperation] = None, group_by: list = None,
+                         limit: int = None) -> SelectOperation:
     if isinstance(table, MilestonedTable):
         milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
         op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
@@ -107,7 +109,7 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, j.target)
             j.filter = milestoned_op
 
-    select = SelectOperation(columns, op, order_by or [], group_by or [])
+    select = SelectOperation(columns, op, order_by or [], group_by or [], limit)
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
@@ -203,6 +205,7 @@ class SQLQueryGenerator:
             self.build_filter(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
             for s in select.order_by
         ]
+        self._limit = select.limit
 
     def __attr_to_col_string(self, attr: Attribute) -> str:
         ta = self.__table_alias_for_table(attr.owner())
@@ -307,7 +310,8 @@ class SQLQueryGenerator:
             + ''.join(joins) \
             + self.__build_where() \
             + self.__build_group_by() \
-            + self.__build_order_by()
+            + self.__build_order_by() \
+            + self.__build_limit()
 
     def __build_where(self) -> str:
         if len(self._where) > 0:
@@ -324,6 +328,11 @@ class SQLQueryGenerator:
         if not self._order_by_parts:
             return ''
         return ' ORDER BY ' + ', '.join(self._order_by_parts)
+
+    def __build_limit(self) -> str:
+        if self._limit is None:
+            return ''
+        return ' LIMIT ' + str(self._limit)
 
 
 def select_sql_to_string(select_operation: SelectOperation) -> str:

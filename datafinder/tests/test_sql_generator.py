@@ -280,3 +280,44 @@ class TestGroupBy:
         chained = result.group_by(name_attr)
         assert chained is result
         assert len(result._group_by) == 1
+
+
+class TestLimit:
+
+    def test_no_limit_produces_no_limit_clause(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "LIMIT" not in sql
+
+    def test_limit_produces_limit_clause(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, NoOperation(), limit=10)
+        sql = select_sql_to_string(select_op)
+        assert "LIMIT 10" in sql
+
+    def test_limit_after_order_by(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, NoOperation(),
+                                          order_by=[attr.ascending()], limit=5)
+        sql = select_sql_to_string(select_op)
+        assert "ORDER BY" in sql
+        assert "LIMIT 5" in sql
+        assert sql.index("ORDER BY") < sql.index("LIMIT")
+
+    def test_limit_after_where(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr], table, attr.eq("Acme"), limit=3)
+        sql = select_sql_to_string(select_op)
+        assert "WHERE" in sql
+        assert "LIMIT 3" in sql
+        assert sql.index("WHERE") < sql.index("LIMIT")
+
+    def test_finder_result_limit_chaining(self):
+        from datafinder import FinderResult, convert_inputs_and_select
+        table, attr = _make_table_and_attr()
+        result = convert_inputs_and_select(None, None, [attr], table, NoOperation())
+        assert isinstance(result, FinderResult)
+        chained = result.limit(10)
+        assert chained is result
+        assert result._limit == 10

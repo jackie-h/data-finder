@@ -13,9 +13,10 @@ class DuckDbConnect(QueryRunnerBase):
 
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
-               table: Table, op: Operation, order_by: list = None, group_by: list = None) -> DataFrame:
+               table: Table, op: Operation, order_by: list = None, group_by: list = None,
+               limit: int = None) -> DataFrame:
         conn = duckdb.connect('test.db')
-        select_op = build_query_operation(business_date, processing_datetime, columns, table, op, order_by or [], group_by or [])
+        select_op = build_query_operation(business_date, processing_datetime, columns, table, op, order_by or [], group_by or [], limit)
         query = select_sql_to_string(select_op)
         print(query)
         # TODO this is inefficient, could convert straight to desired output - such as numpy, instead of list
