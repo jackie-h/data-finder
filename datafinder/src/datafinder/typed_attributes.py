@@ -6,7 +6,7 @@ import decimal
 from model.relational import ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
-    ScalarFunction, ScalarFunctionOperation
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
 
 
 class StringAttribute(Attribute):
@@ -195,6 +195,54 @@ class DateAttribute(Attribute):
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    DateConstantOperation(value))
 
+    def _cwj(self):
+        return ColumnWithJoin(self.column(), self.parent())
+
+    def year(self):
+        return DateExtractOperation(self._cwj(), DatePart.YEAR, 'Year ' + self.display_name())
+
+    def month(self):
+        return DateExtractOperation(self._cwj(), DatePart.MONTH, 'Month ' + self.display_name())
+
+    def day(self):
+        return DateExtractOperation(self._cwj(), DatePart.DAY, 'Day ' + self.display_name())
+
+    def quarter(self):
+        return DateExtractOperation(self._cwj(), DatePart.QUARTER, 'Quarter ' + self.display_name())
+
+    def week(self):
+        return DateExtractOperation(self._cwj(), DatePart.WEEK, 'Week ' + self.display_name())
+
+    def day_of_week(self):
+        return DateExtractOperation(self._cwj(), DatePart.DOW, 'Day Of Week ' + self.display_name())
+
+    def add_days(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, True, 'Add Days ' + self.display_name())
+
+    def add_months(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, True, 'Add Months ' + self.display_name())
+
+    def add_years(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, True, 'Add Years ' + self.display_name())
+
+    def subtract_days(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, False, 'Subtract Days ' + self.display_name())
+
+    def subtract_months(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, False, 'Subtract Months ' + self.display_name())
+
+    def subtract_years(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, False, 'Subtract Years ' + self.display_name())
+
+    def diff_days(self, other: datetime.date):
+        return DateDiffOperation(self._cwj(), other, DatePart.DAY, 'Diff Days ' + self.display_name())
+
+    def diff_months(self, other: datetime.date):
+        return DateDiffOperation(self._cwj(), other, DatePart.MONTH, 'Diff Months ' + self.display_name())
+
+    def diff_years(self, other: datetime.date):
+        return DateDiffOperation(self._cwj(), other, DatePart.YEAR, 'Diff Years ' + self.display_name())
+
 
 class DateTimeAttribute(Attribute):
 
@@ -220,3 +268,87 @@ class DateTimeAttribute(Attribute):
     def __le__(self, value: datetime.datetime):
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    DateTimeConstantOperation(value))
+
+    def _cwj(self):
+        return ColumnWithJoin(self.column(), self.parent())
+
+    def year(self):
+        return DateExtractOperation(self._cwj(), DatePart.YEAR, 'Year ' + self.display_name())
+
+    def month(self):
+        return DateExtractOperation(self._cwj(), DatePart.MONTH, 'Month ' + self.display_name())
+
+    def day(self):
+        return DateExtractOperation(self._cwj(), DatePart.DAY, 'Day ' + self.display_name())
+
+    def hour(self):
+        return DateExtractOperation(self._cwj(), DatePart.HOUR, 'Hour ' + self.display_name())
+
+    def minute(self):
+        return DateExtractOperation(self._cwj(), DatePart.MINUTE, 'Minute ' + self.display_name())
+
+    def second(self):
+        return DateExtractOperation(self._cwj(), DatePart.SECOND, 'Second ' + self.display_name())
+
+    def quarter(self):
+        return DateExtractOperation(self._cwj(), DatePart.QUARTER, 'Quarter ' + self.display_name())
+
+    def week(self):
+        return DateExtractOperation(self._cwj(), DatePart.WEEK, 'Week ' + self.display_name())
+
+    def day_of_week(self):
+        return DateExtractOperation(self._cwj(), DatePart.DOW, 'Day Of Week ' + self.display_name())
+
+    def add_days(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, True, 'Add Days ' + self.display_name())
+
+    def add_months(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, True, 'Add Months ' + self.display_name())
+
+    def add_years(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, True, 'Add Years ' + self.display_name())
+
+    def add_hours(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.HOUR, True, 'Add Hours ' + self.display_name())
+
+    def add_minutes(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.MINUTE, True, 'Add Minutes ' + self.display_name())
+
+    def add_seconds(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.SECOND, True, 'Add Seconds ' + self.display_name())
+
+    def subtract_days(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, False, 'Subtract Days ' + self.display_name())
+
+    def subtract_months(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, False, 'Subtract Months ' + self.display_name())
+
+    def subtract_years(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, False, 'Subtract Years ' + self.display_name())
+
+    def subtract_hours(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.HOUR, False, 'Subtract Hours ' + self.display_name())
+
+    def subtract_minutes(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.MINUTE, False, 'Subtract Minutes ' + self.display_name())
+
+    def subtract_seconds(self, n: int):
+        return DateArithmeticOperation(self._cwj(), n, DatePart.SECOND, False, 'Subtract Seconds ' + self.display_name())
+
+    def diff_days(self, other: datetime.datetime):
+        return DateDiffOperation(self._cwj(), other, DatePart.DAY, 'Diff Days ' + self.display_name())
+
+    def diff_months(self, other: datetime.datetime):
+        return DateDiffOperation(self._cwj(), other, DatePart.MONTH, 'Diff Months ' + self.display_name())
+
+    def diff_years(self, other: datetime.datetime):
+        return DateDiffOperation(self._cwj(), other, DatePart.YEAR, 'Diff Years ' + self.display_name())
+
+    def diff_hours(self, other: datetime.datetime):
+        return DateDiffOperation(self._cwj(), other, DatePart.HOUR, 'Diff Hours ' + self.display_name())
+
+    def diff_minutes(self, other: datetime.datetime):
+        return DateDiffOperation(self._cwj(), other, DatePart.MINUTE, 'Diff Minutes ' + self.display_name())
+
+    def diff_seconds(self, other: datetime.datetime):
+        return DateDiffOperation(self._cwj(), other, DatePart.SECOND, 'Diff Seconds ' + self.display_name())
