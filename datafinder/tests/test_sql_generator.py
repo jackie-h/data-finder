@@ -526,6 +526,42 @@ class TestDateArithmetic:
         sql = select_sql_to_string(select_op)
         assert "+ INTERVAL 6 HOUR" in sql
 
+    def test_timedelta_days_operator_on_date(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr + datetime.timedelta(days=7)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 7 DAY" in sql
+
+    def test_timedelta_subtraction_operator_on_date(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr - datetime.timedelta(days=3)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "- INTERVAL 3 DAY" in sql
+
+    def test_timedelta_days_operator_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr + datetime.timedelta(days=2)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 2 DAY" in sql
+
+    def test_timedelta_hours_operator_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr + datetime.timedelta(hours=6)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 6 HOUR" in sql
+
+    def test_timedelta_minutes_operator_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr + datetime.timedelta(minutes=30)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 30 MINUTE" in sql
+
+    def test_timedelta_seconds_operator_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr + datetime.timedelta(seconds=45)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 45 SECOND" in sql
+
 
 class TestDateDiff:
 

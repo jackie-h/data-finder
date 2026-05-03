@@ -311,8 +311,24 @@ class IntegerAttribute(NumericAttribute):
 
 
 class DateAttribute(Attribute):
-    """
-    Represents a date attribute without a time YYYY-MM-DD
+    """A date column attribute (YYYY-MM-DD) supporting extract, arithmetic, and diff operations.
+
+    Extract methods mirror ``datetime.date`` attributes::
+
+        trade_date.year()   # d.year
+        trade_date.month()  # d.month
+        trade_date.day()    # d.day
+        trade_date.week()   # d.isocalendar().week
+        trade_date.quarter()  # (d.month - 1) // 3 + 1
+
+    Arithmetic methods mirror ``datetime.timedelta`` addition/subtraction::
+
+        trade_date.add_days(n)       # d + timedelta(days=n)
+        trade_date.subtract_days(n)  # d - timedelta(days=n)
+
+    Diff methods return the integer difference between the column value and ``other``::
+
+        trade_date.diff_days(other)   # (other - d).days
     """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
@@ -342,52 +358,101 @@ class DateAttribute(Attribute):
         return ColumnWithJoin(self.column(), self.parent())
 
     def year(self):
+        """Extract the year. Equivalent to ``d.year``."""
         return DateExtractOperation(self._cwj(), DatePart.YEAR, 'Year ' + self.display_name())
 
     def month(self):
+        """Extract the month (1–12). Equivalent to ``d.month``."""
         return DateExtractOperation(self._cwj(), DatePart.MONTH, 'Month ' + self.display_name())
 
     def day(self):
+        """Extract the day of the month (1–31). Equivalent to ``d.day``."""
         return DateExtractOperation(self._cwj(), DatePart.DAY, 'Day ' + self.display_name())
 
     def quarter(self):
+        """Extract the quarter (1–4). Equivalent to ``(d.month - 1) // 3 + 1``."""
         return DateExtractOperation(self._cwj(), DatePart.QUARTER, 'Quarter ' + self.display_name())
 
     def week(self):
+        """Extract the ISO week number. Equivalent to ``d.isocalendar().week``."""
         return DateExtractOperation(self._cwj(), DatePart.WEEK, 'Week ' + self.display_name())
 
     def day_of_week(self):
+        """Extract the day of the week (0=Sunday in SQL). See ``d.weekday()`` for Python's Monday-based equivalent."""
         return DateExtractOperation(self._cwj(), DatePart.DOW, 'Day Of Week ' + self.display_name())
 
     def add_days(self, n: int):
+        """Add ``n`` days. Equivalent to ``d + timedelta(days=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, True, 'Add Days ' + self.display_name())
 
     def add_months(self, n: int):
+        """Add ``n`` calendar months."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, True, 'Add Months ' + self.display_name())
 
     def add_years(self, n: int):
+        """Add ``n`` calendar years."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, True, 'Add Years ' + self.display_name())
 
     def subtract_days(self, n: int):
+        """Subtract ``n`` days. Equivalent to ``d - timedelta(days=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, False, 'Subtract Days ' + self.display_name())
 
     def subtract_months(self, n: int):
+        """Subtract ``n`` calendar months."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, False, 'Subtract Months ' + self.display_name())
 
     def subtract_years(self, n: int):
+        """Subtract ``n`` calendar years."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, False, 'Subtract Years ' + self.display_name())
 
+    def __add__(self, td: datetime.timedelta):
+        """Add a ``timedelta``. Equivalent to ``d + td``. Only day-precision timedeltas are supported."""
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        if td.seconds != 0 or td.microseconds != 0:
+            raise ValueError("DateAttribute only supports day-precision timedelta; use DateTimeAttribute for sub-day offsets")
+        return self.add_days(td.days)
+
+    def __sub__(self, td: datetime.timedelta):
+        """Subtract a ``timedelta``. Equivalent to ``d - td``. Only day-precision timedeltas are supported."""
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        if td.seconds != 0 or td.microseconds != 0:
+            raise ValueError("DateAttribute only supports day-precision timedelta; use DateTimeAttribute for sub-day offsets")
+        return self.subtract_days(td.days)
+
     def diff_days(self, other: datetime.date):
+        """Return the number of days between the column value and ``other``. Equivalent to ``(other - d).days``."""
         return DateDiffOperation(self._cwj(), other, DatePart.DAY, 'Diff Days ' + self.display_name())
 
     def diff_months(self, other: datetime.date):
+        """Return the number of whole calendar months between the column value and ``other``."""
         return DateDiffOperation(self._cwj(), other, DatePart.MONTH, 'Diff Months ' + self.display_name())
 
     def diff_years(self, other: datetime.date):
+        """Return the number of whole calendar years between the column value and ``other``."""
         return DateDiffOperation(self._cwj(), other, DatePart.YEAR, 'Diff Years ' + self.display_name())
 
 
 class DateTimeAttribute(Attribute):
+    """A datetime column attribute (YYYY-MM-DD HH:MM:SS) supporting extract, arithmetic, and diff operations.
+
+    Extends the capabilities of ``DateAttribute`` with hour, minute, and second
+    granularity. Extract methods mirror ``datetime.datetime`` attributes::
+
+        ts.year()    # dt.year
+        ts.month()   # dt.month
+        ts.hour()    # dt.hour
+        ts.minute()  # dt.minute
+        ts.second()  # dt.second
+
+    Arithmetic and diff methods work the same as ``DateAttribute`` but also
+    support hours, minutes, and seconds::
+
+        ts.add_hours(n)       # dt + timedelta(hours=n)
+        ts.subtract_hours(n)  # dt - timedelta(hours=n)
+        ts.diff_seconds(other)
+    """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
@@ -416,82 +481,139 @@ class DateTimeAttribute(Attribute):
         return ColumnWithJoin(self.column(), self.parent())
 
     def year(self):
+        """Extract the year. Equivalent to ``dt.year``."""
         return DateExtractOperation(self._cwj(), DatePart.YEAR, 'Year ' + self.display_name())
 
     def month(self):
+        """Extract the month (1–12). Equivalent to ``dt.month``."""
         return DateExtractOperation(self._cwj(), DatePart.MONTH, 'Month ' + self.display_name())
 
     def day(self):
+        """Extract the day of the month (1–31). Equivalent to ``dt.day``."""
         return DateExtractOperation(self._cwj(), DatePart.DAY, 'Day ' + self.display_name())
 
     def hour(self):
+        """Extract the hour (0–23). Equivalent to ``dt.hour``."""
         return DateExtractOperation(self._cwj(), DatePart.HOUR, 'Hour ' + self.display_name())
 
     def minute(self):
+        """Extract the minute (0–59). Equivalent to ``dt.minute``."""
         return DateExtractOperation(self._cwj(), DatePart.MINUTE, 'Minute ' + self.display_name())
 
     def second(self):
+        """Extract the second (0–59). Equivalent to ``dt.second``."""
         return DateExtractOperation(self._cwj(), DatePart.SECOND, 'Second ' + self.display_name())
 
     def quarter(self):
+        """Extract the quarter (1–4). Equivalent to ``(dt.month - 1) // 3 + 1``."""
         return DateExtractOperation(self._cwj(), DatePart.QUARTER, 'Quarter ' + self.display_name())
 
     def week(self):
+        """Extract the ISO week number. Equivalent to ``dt.isocalendar().week``."""
         return DateExtractOperation(self._cwj(), DatePart.WEEK, 'Week ' + self.display_name())
 
     def day_of_week(self):
+        """Extract the day of the week (0=Sunday in SQL). See ``dt.weekday()`` for Python's Monday-based equivalent."""
         return DateExtractOperation(self._cwj(), DatePart.DOW, 'Day Of Week ' + self.display_name())
 
     def add_days(self, n: int):
+        """Add ``n`` days. Equivalent to ``dt + timedelta(days=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, True, 'Add Days ' + self.display_name())
 
     def add_months(self, n: int):
+        """Add ``n`` calendar months."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, True, 'Add Months ' + self.display_name())
 
     def add_years(self, n: int):
+        """Add ``n`` calendar years."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, True, 'Add Years ' + self.display_name())
 
     def add_hours(self, n: int):
+        """Add ``n`` hours. Equivalent to ``dt + timedelta(hours=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.HOUR, True, 'Add Hours ' + self.display_name())
 
     def add_minutes(self, n: int):
+        """Add ``n`` minutes. Equivalent to ``dt + timedelta(minutes=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.MINUTE, True, 'Add Minutes ' + self.display_name())
 
     def add_seconds(self, n: int):
+        """Add ``n`` seconds. Equivalent to ``dt + timedelta(seconds=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.SECOND, True, 'Add Seconds ' + self.display_name())
 
     def subtract_days(self, n: int):
+        """Subtract ``n`` days. Equivalent to ``dt - timedelta(days=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.DAY, False, 'Subtract Days ' + self.display_name())
 
     def subtract_months(self, n: int):
+        """Subtract ``n`` calendar months."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.MONTH, False, 'Subtract Months ' + self.display_name())
 
     def subtract_years(self, n: int):
+        """Subtract ``n`` calendar years."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.YEAR, False, 'Subtract Years ' + self.display_name())
 
     def subtract_hours(self, n: int):
+        """Subtract ``n`` hours. Equivalent to ``dt - timedelta(hours=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.HOUR, False, 'Subtract Hours ' + self.display_name())
 
     def subtract_minutes(self, n: int):
+        """Subtract ``n`` minutes. Equivalent to ``dt - timedelta(minutes=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.MINUTE, False, 'Subtract Minutes ' + self.display_name())
 
     def subtract_seconds(self, n: int):
+        """Subtract ``n`` seconds. Equivalent to ``dt - timedelta(seconds=n)``."""
         return DateArithmeticOperation(self._cwj(), n, DatePart.SECOND, False, 'Subtract Seconds ' + self.display_name())
 
+    def __add__(self, td: datetime.timedelta):
+        """Add a ``timedelta``. Equivalent to ``dt + td``.
+
+        Dispatches to the finest unit the timedelta represents:
+        days → ``add_days``, hours → ``add_hours``, minutes → ``add_minutes``,
+        seconds → ``add_seconds``.
+        """
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        return self._timedelta_op(td, is_add=True)
+
+    def __sub__(self, td: datetime.timedelta):
+        """Subtract a ``timedelta``. Equivalent to ``dt - td``."""
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        return self._timedelta_op(td, is_add=False)
+
+    def _timedelta_op(self, td: datetime.timedelta, is_add: bool):
+        total_seconds = int(td.total_seconds())
+        if total_seconds % 86400 == 0:
+            n = total_seconds // 86400
+            return self.add_days(n) if is_add else self.subtract_days(n)
+        if total_seconds % 3600 == 0:
+            n = total_seconds // 3600
+            return self.add_hours(n) if is_add else self.subtract_hours(n)
+        if total_seconds % 60 == 0:
+            n = total_seconds // 60
+            return self.add_minutes(n) if is_add else self.subtract_minutes(n)
+        return self.add_seconds(total_seconds) if is_add else self.subtract_seconds(total_seconds)
+
     def diff_days(self, other: datetime.datetime):
+        """Return the number of days between the column value and ``other``. Equivalent to ``(other - dt).days``."""
         return DateDiffOperation(self._cwj(), other, DatePart.DAY, 'Diff Days ' + self.display_name())
 
     def diff_months(self, other: datetime.datetime):
+        """Return the number of whole calendar months between the column value and ``other``."""
         return DateDiffOperation(self._cwj(), other, DatePart.MONTH, 'Diff Months ' + self.display_name())
 
     def diff_years(self, other: datetime.datetime):
+        """Return the number of whole calendar years between the column value and ``other``."""
         return DateDiffOperation(self._cwj(), other, DatePart.YEAR, 'Diff Years ' + self.display_name())
 
     def diff_hours(self, other: datetime.datetime):
+        """Return the number of whole hours between the column value and ``other``. Equivalent to ``int((other - dt).total_seconds() // 3600)``."""
         return DateDiffOperation(self._cwj(), other, DatePart.HOUR, 'Diff Hours ' + self.display_name())
 
     def diff_minutes(self, other: datetime.datetime):
+        """Return the number of whole minutes between the column value and ``other``. Equivalent to ``int((other - dt).total_seconds() // 60)``."""
         return DateDiffOperation(self._cwj(), other, DatePart.MINUTE, 'Diff Minutes ' + self.display_name())
 
     def diff_seconds(self, other: datetime.datetime):
+        """Return the number of whole seconds between the column value and ``other``. Equivalent to ``int((other - dt).total_seconds())``."""
         return DateDiffOperation(self._cwj(), other, DatePart.SECOND, 'Diff Seconds ' + self.display_name())

@@ -54,45 +54,51 @@ def PositionFinder():
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
         sys.modules.pop(mod, None)
-    shutil.rmtree(temp_dir, ignore_errors=True)
+    import shutil as _shutil
+    _shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 class TestDateExtract:
 
     def test_year_extracts_correct_value(self, PositionFinder):
+        date = datetime.date(2024, 3, 15)
         result = PositionFinder.find_all(
             [PositionFinder.trade_date().year()],
             PositionFinder.id_().eq(1),
         ).to_pandas()
-        assert result.iloc[0]["Year Trade Date"] == 2024
+        assert result.iloc[0]["Year Trade Date"] == date.year
 
     def test_month_extracts_correct_value(self, PositionFinder):
+        date = datetime.date(2024, 3, 15)
         result = PositionFinder.find_all(
             [PositionFinder.trade_date().month()],
             PositionFinder.id_().eq(1),
         ).to_pandas()
-        assert result.iloc[0]["Month Trade Date"] == 3
+        assert result.iloc[0]["Month Trade Date"] == date.month
 
     def test_day_extracts_correct_value(self, PositionFinder):
+        date = datetime.date(2024, 3, 15)
         result = PositionFinder.find_all(
             [PositionFinder.trade_date().day()],
             PositionFinder.id_().eq(1),
         ).to_pandas()
-        assert result.iloc[0]["Day Trade Date"] == 15
+        assert result.iloc[0]["Day Trade Date"] == date.day
 
     def test_quarter_extracts_correct_value(self, PositionFinder):
+        date = datetime.date(2024, 7, 20)
         result = PositionFinder.find_all(
             [PositionFinder.trade_date().quarter()],
             PositionFinder.id_().eq(2),
         ).to_pandas()
-        assert result.iloc[0]["Quarter Trade Date"] == 3
+        assert result.iloc[0]["Quarter Trade Date"] == (date.month - 1) // 3 + 1
 
     def test_week_extracts_correctly(self, PositionFinder):
+        date = datetime.date(2024, 3, 15)
         result = PositionFinder.find_all(
             [PositionFinder.trade_date().week()],
             PositionFinder.id_().eq(1),
         ).to_pandas()
-        assert result.iloc[0]["Week Trade Date"] == 11
+        assert result.iloc[0]["Week Trade Date"] == date.isocalendar().week
 
     def test_multiple_extract_columns(self, PositionFinder):
         result = PositionFinder.find_all(
@@ -106,18 +112,20 @@ class TestDateExtract:
 class TestDateArithmetic:
 
     def test_add_days_shifts_date_forward(self, PositionFinder):
+        date, n = datetime.date(2024, 3, 15), 10
         result = PositionFinder.find_all(
-            [PositionFinder.trade_date().add_days(10)],
+            [PositionFinder.trade_date().add_days(n)],
             PositionFinder.id_().eq(1),
         ).to_pandas()
-        assert result.iloc[0]["Add Days Trade Date"].date() == datetime.date(2024, 3, 25)
+        assert result.iloc[0]["Add Days Trade Date"].date() == date + datetime.timedelta(days=n)
 
     def test_subtract_days_shifts_date_back(self, PositionFinder):
+        date, n = datetime.date(2024, 3, 15), 5
         result = PositionFinder.find_all(
-            [PositionFinder.trade_date().subtract_days(5)],
+            [PositionFinder.trade_date().subtract_days(n)],
             PositionFinder.id_().eq(1),
         ).to_pandas()
-        assert result.iloc[0]["Subtract Days Trade Date"].date() == datetime.date(2024, 3, 10)
+        assert result.iloc[0]["Subtract Days Trade Date"].date() == date - datetime.timedelta(days=n)
 
     def test_add_months_shifts_date_forward(self, PositionFinder):
         result = PositionFinder.find_all(
@@ -140,15 +148,35 @@ class TestDateArithmetic:
         ).to_pandas()
         assert result.iloc[0]["Subtract Months Trade Date"].date() == datetime.date(2024, 2, 15)
 
+    def test_add_timedelta_operator_matches_add_days(self, PositionFinder):
+        date, n = datetime.date(2024, 3, 15), 10
+        td = datetime.timedelta(days=n)
+        result = PositionFinder.find_all(
+            [PositionFinder.trade_date() + td],
+            PositionFinder.id_().eq(1),
+        ).to_pandas()
+        assert result.iloc[0]["Add Days Trade Date"].date() == date + td
+
+    def test_sub_timedelta_operator_matches_subtract_days(self, PositionFinder):
+        date, n = datetime.date(2024, 3, 15), 5
+        td = datetime.timedelta(days=n)
+        result = PositionFinder.find_all(
+            [PositionFinder.trade_date() - td],
+            PositionFinder.id_().eq(1),
+        ).to_pandas()
+        assert result.iloc[0]["Subtract Days Trade Date"].date() == date - td
+
 
 class TestDateDiff:
 
     def test_diff_days_returns_correct_count(self, PositionFinder):
+        date = datetime.date(2024, 3, 15)
+        other = datetime.date(2024, 3, 25)
         result = PositionFinder.find_all(
-            [PositionFinder.trade_date().diff_days(datetime.date(2024, 3, 25))],
+            [PositionFinder.trade_date().diff_days(other)],
             PositionFinder.id_().eq(1),
         ).to_pandas()
-        assert result.iloc[0]["Diff Days Trade Date"] == 10
+        assert result.iloc[0]["Diff Days Trade Date"] == (other - date).days
 
     def test_diff_months_returns_correct_count(self, PositionFinder):
         result = PositionFinder.find_all(
