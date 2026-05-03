@@ -154,15 +154,28 @@ class ScalarFunction(Enum):
     POWER = 5
     SQRT = 6
     ROUND = 7
+    UPPER = 8
+    LOWER = 9
+    TRIM = 10
+    LTRIM = 11
+    RTRIM = 12
+    LENGTH = 13
+    REVERSE = 14
+    LEFT = 15
+    RIGHT = 16
+    REPEAT = 17
+    REPLACE = 18
+    SUBSTRING = 19
 
 
 class ScalarFunctionOperation(UnaryOperation):
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
-                 display_name: str = None, second_arg: int = None):
+                 display_name: str = None, second_arg: int = None, extra_args: list = None):
         super().__init__(element)
         self.function = function
         self.display_name = display_name
         self.second_arg = second_arg
+        self.extra_args = extra_args or []
 
 
 class DatePart(Enum):

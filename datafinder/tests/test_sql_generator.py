@@ -539,3 +539,141 @@ class TestDateDiff:
         sql = select_sql_to_string(select_op)
         assert "DATE_DIFF('hour'," in sql
         assert "2024-01-01 12:00:00" in sql
+
+
+class TestStringScalarFunctions:
+
+    def test_upper_produces_upper_function(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.upper()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "UPPER(" in sql
+
+    def test_lower_produces_lower_function(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.lower()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "LOWER(" in sql
+
+    def test_strip_produces_trim_function(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.strip()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "TRIM(" in sql
+
+    def test_lstrip_produces_ltrim_function(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.lstrip()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "LTRIM(" in sql
+
+    def test_rstrip_produces_rtrim_function(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.rstrip()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "RTRIM(" in sql
+
+    def test_length_produces_length_function(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.length()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "LENGTH(" in sql
+
+    def test_reverse_produces_reverse_function(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.reverse()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "REVERSE(" in sql
+
+    def test_left_produces_left_with_n(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.left(3)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "LEFT(" in sql
+        assert ", 3" in sql
+
+    def test_right_produces_right_with_n(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.right(5)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "RIGHT(" in sql
+        assert ", 5" in sql
+
+    def test_repeat_produces_repeat_with_n(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.repeat(2)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "REPEAT(" in sql
+        assert ", 2" in sql
+
+    def test_replace_produces_replace_with_quoted_args(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.replace("Corp", "LLC")], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "REPLACE(" in sql
+        assert "'Corp'" in sql
+        assert "'LLC'" in sql
+
+    def test_substring_without_length(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.substring(2)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "SUBSTRING(" in sql
+        assert ", 3" in sql
+
+    def test_substring_with_length(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.substring(2, 4)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "SUBSTRING(" in sql
+        assert ", 3, 4" in sql
+
+    def test_upper_display_name(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.upper()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "'Upper Name'" in sql
+
+
+class TestStringSlice:
+
+    def test_slice_stop_only_produces_left(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr[:4]], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "LEFT(" in sql
+        assert ", 4" in sql
+
+    def test_slice_negative_start_produces_right(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr[-4:]], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "RIGHT(" in sql
+        assert ", 4" in sql
+
+    def test_slice_reverse_produces_reverse(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr[::-1]], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "REVERSE(" in sql
+
+    def test_slice_start_only_produces_substring(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr[2:]], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "SUBSTRING(" in sql
+        assert ", 3" in sql
+
+    def test_slice_start_and_stop_produces_substring(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr[2:6]], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "SUBSTRING(" in sql
+        assert ", 3, 4" in sql
+
+    def test_mul_produces_repeat(self):
+        table, attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr * 3], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "REPEAT(" in sql
+        assert ", 3" in sql
