@@ -146,6 +146,25 @@ class AggregateOperation(UnaryOperation):
         self.display_name = display_name
 
 
+class ScalarFunction(Enum):
+    ABS = 1
+    CEILING = 2
+    FLOOR = 3
+    MOD = 4
+    POWER = 5
+    SQRT = 6
+    ROUND = 7
+
+
+class ScalarFunctionOperation(UnaryOperation):
+    def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
+                 display_name: str = None, second_arg: int = None):
+        super().__init__(element)
+        self.function = function
+        self.display_name = display_name
+        self.second_arg = second_arg
+
+
 class Relation:
     def __init__(self):
         pass
