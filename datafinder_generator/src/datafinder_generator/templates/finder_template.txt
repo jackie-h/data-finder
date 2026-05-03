@@ -140,7 +140,7 @@ class {{rcm.clazz.name}}Finder:
 {% endfor %}
     @staticmethod
     def count() -> CountAllOperation:
-        """Count all rows"""
+        """Count all rows in the underlying table."""
         return CountAllOperation('{{table_qualified_name(rcm.property_mappings[0].target.table)}}')
 
     @staticmethod
@@ -150,27 +150,32 @@ class {{rcm.clazz.name}}Finder:
                  processing_valid_at: Union[datetime.datetime,str],
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data for the requested business date and processing timestamp."""
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_business_date_and_processing(rcm.milestone_mapping) %}
     def find_all(business_date: Union[datetime.date,str],
                  processing_valid_at: Union[datetime.datetime,str],
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data for the requested business date and processing timestamp."""
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_processing_temporal(rcm.milestone_mapping) %}
     def find_all(processing_valid_at: Union[datetime.datetime,str],
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data for the requested processing timestamp."""
         return convert_inputs_and_select(None, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     def find_all(business_date: Union[datetime.date,str],
                  processing_valid_at: Union[datetime.datetime,str],
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data for the requested business date and processing timestamp."""
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}
 {% else %}
     def find_all(display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data matching the optional filter."""
         return convert_inputs_and_select(None, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}
