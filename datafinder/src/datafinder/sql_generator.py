@@ -8,7 +8,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
-    ScalarFunction, ScalarFunctionOperation
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
 
 class Alias:
     def __init__(self, element: RelationalOperationElement, name: str):
@@ -188,6 +188,14 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         if operation.second_arg is not None:
             return fn + '(' + inner + ', ' + str(operation.second_arg) + ')'
         return fn + '(' + inner + ')'
+    elif isinstance(operation, DateExtractOperation):
+        return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, DateArithmeticOperation):
+        op = '+' if operation.is_add else '-'
+        return sql_operation_to_string(operation.element) + ' ' + op + ' INTERVAL ' + str(operation.n) + ' ' + operation.unit.value
+    elif isinstance(operation, DateDiffOperation):
+        other_sql = sql_format_datetime(operation.other) if isinstance(operation.other, datetime.datetime) else sql_format_date(operation.other)
+        return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
     elif isinstance(operation, Alias):
@@ -278,6 +286,24 @@ class SQLQueryGenerator:
                 alias = col.display_name if col.display_name else col.function.name + ' ' + col_nested.column.name
                 ca = Alias(ScalarFunctionOperation(TableAliasColumn(col_nested.column, ta), col.function,
                                                    second_arg=col.second_arg), alias)
+                self._select.append(ca)
+            elif isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
+                col_nested = find_column(col)
+                table = col_nested.column.owner
+                parent: JoinOperation = col_nested.parent
+                if parent is not None:
+                    required_joins.add(parent)
+                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
+                else:
+                    ta = self.__table_alias_for_table(table)
+                    self._from.add(ta)
+                alias = col.display_name if col.display_name else col_nested.column.name
+                if isinstance(col, DateExtractOperation):
+                    ca = Alias(DateExtractOperation(TableAliasColumn(col_nested.column, ta), col.part), alias)
+                elif isinstance(col, DateArithmeticOperation):
+                    ca = Alias(DateArithmeticOperation(TableAliasColumn(col_nested.column, ta), col.n, col.unit, col.is_add), alias)
+                else:
+                    ca = Alias(DateDiffOperation(TableAliasColumn(col_nested.column, ta), col.other, col.unit), alias)
                 self._select.append(ca)
             elif isinstance(col, CountAllOperation):
                 ta = self.__table_alias_for_table(col.table)

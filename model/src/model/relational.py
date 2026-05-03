@@ -165,6 +165,43 @@ class ScalarFunctionOperation(UnaryOperation):
         self.second_arg = second_arg
 
 
+class DatePart(Enum):
+    YEAR = 'YEAR'
+    MONTH = 'MONTH'
+    DAY = 'DAY'
+    HOUR = 'HOUR'
+    MINUTE = 'MINUTE'
+    SECOND = 'SECOND'
+    QUARTER = 'QUARTER'
+    WEEK = 'WEEK'
+    DOW = 'DOW'
+
+
+class DateExtractOperation(UnaryOperation):
+    def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str = None):
+        super().__init__(element)
+        self.part = part
+        self.display_name = display_name
+
+
+class DateArithmeticOperation(UnaryOperation):
+    def __init__(self, element: RelationalOperationElement, n: int, unit: DatePart,
+                 is_add: bool = True, display_name: str = None):
+        super().__init__(element)
+        self.n = n
+        self.unit = unit
+        self.is_add = is_add
+        self.display_name = display_name
+
+
+class DateDiffOperation(UnaryOperation):
+    def __init__(self, element: RelationalOperationElement, other, unit: DatePart, display_name: str = None):
+        super().__init__(element)
+        self.other = other
+        self.unit = unit
+        self.display_name = display_name
+
+
 class Relation:
     def __init__(self):
         pass

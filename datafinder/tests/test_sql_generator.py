@@ -1,7 +1,9 @@
+import datetime
+
 from datafinder import StringAttribute, build_query_operation, select_sql_to_string
 from datafinder import IntegerAttribute
 from datafinder.sql_generator import SQLQueryGenerator
-from datafinder.typed_attributes import DoubleAttribute
+from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute
 from model.relational import Table, Column, NoOperation, CountAllOperation
 
 
@@ -399,3 +401,141 @@ class TestNumericScalarFunctions:
         sql = select_sql_to_string(select_op)
         assert "FROM" in sql
         assert "trades" in sql
+
+
+def _make_date_attr():
+    col = Column("TRADE_DATE", "DATE")
+    table = Table("trades", [col])
+    attr = DateAttribute("Trade Date", "TRADE_DATE", "DATE", "trades")
+    return table, attr
+
+
+def _make_datetime_attr():
+    col = Column("CREATED_AT", "TIMESTAMP")
+    table = Table("events", [col])
+    attr = DateTimeAttribute("Created At", "CREATED_AT", "TIMESTAMP", "events")
+    return table, attr
+
+
+class TestDateExtract:
+
+    def test_year_produces_extract_year(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.year()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(YEAR FROM" in sql
+
+    def test_month_produces_extract_month(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.month()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(MONTH FROM" in sql
+
+    def test_day_produces_extract_day(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.day()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(DAY FROM" in sql
+
+    def test_quarter_produces_extract_quarter(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.quarter()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(QUARTER FROM" in sql
+
+    def test_week_produces_extract_week(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.week()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(WEEK FROM" in sql
+
+    def test_day_of_week_produces_extract_dow(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.day_of_week()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(DOW FROM" in sql
+
+    def test_hour_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr.hour()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(HOUR FROM" in sql
+
+    def test_minute_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr.minute()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(MINUTE FROM" in sql
+
+    def test_second_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr.second()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "EXTRACT(SECOND FROM" in sql
+
+    def test_year_display_name(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.year()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "'Year Trade Date'" in sql
+
+
+class TestDateArithmetic:
+
+    def test_add_days_produces_interval(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.add_days(7)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 7 DAY" in sql
+
+    def test_subtract_days_produces_minus_interval(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.subtract_days(3)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "- INTERVAL 3 DAY" in sql
+
+    def test_add_months_produces_month_interval(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.add_months(2)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 2 MONTH" in sql
+
+    def test_add_years_produces_year_interval(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.add_years(1)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 1 YEAR" in sql
+
+    def test_add_hours_on_datetime(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr.add_hours(6)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "+ INTERVAL 6 HOUR" in sql
+
+
+class TestDateDiff:
+
+    def test_diff_days_produces_date_diff(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.diff_days(datetime.date(2024, 1, 1))], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "DATE_DIFF('day'," in sql
+
+    def test_diff_months_uses_month_part(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.diff_months(datetime.date(2024, 1, 1))], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "DATE_DIFF('month'," in sql
+
+    def test_diff_days_includes_date_literal(self):
+        table, attr = _make_date_attr()
+        select_op = build_query_operation(None, None, [attr.diff_days(datetime.date(2024, 6, 15))], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "2024-06-15" in sql
+
+    def test_diff_datetime_formats_as_timestamp(self):
+        table, attr = _make_datetime_attr()
+        select_op = build_query_operation(None, None, [attr.diff_hours(datetime.datetime(2024, 1, 1, 12, 0, 0))], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "DATE_DIFF('hour'," in sql
+        assert "2024-01-01 12:00:00" in sql
