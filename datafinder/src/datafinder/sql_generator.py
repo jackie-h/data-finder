@@ -167,13 +167,25 @@ _AGGREGATE_SQL_NAMES = {
 }
 
 _SCALAR_SQL_NAMES = {
-    ScalarFunction.ABS:     'ABS',
-    ScalarFunction.CEILING: 'CEILING',
-    ScalarFunction.FLOOR:   'FLOOR',
-    ScalarFunction.MOD:     'MOD',
-    ScalarFunction.POWER:   'POWER',
-    ScalarFunction.SQRT:    'SQRT',
-    ScalarFunction.ROUND:   'ROUND',
+    ScalarFunction.ABS:       'ABS',
+    ScalarFunction.CEILING:   'CEILING',
+    ScalarFunction.FLOOR:     'FLOOR',
+    ScalarFunction.MOD:       'MOD',
+    ScalarFunction.POWER:     'POWER',
+    ScalarFunction.SQRT:      'SQRT',
+    ScalarFunction.ROUND:     'ROUND',
+    ScalarFunction.UPPER:     'UPPER',
+    ScalarFunction.LOWER:     'LOWER',
+    ScalarFunction.TRIM:      'TRIM',
+    ScalarFunction.LTRIM:     'LTRIM',
+    ScalarFunction.RTRIM:     'RTRIM',
+    ScalarFunction.LENGTH:    'LENGTH',
+    ScalarFunction.REVERSE:   'REVERSE',
+    ScalarFunction.LEFT:      'LEFT',
+    ScalarFunction.RIGHT:     'RIGHT',
+    ScalarFunction.REPEAT:    'REPEAT',
+    ScalarFunction.REPLACE:   'REPLACE',
+    ScalarFunction.SUBSTRING: 'SUBSTRING',
 }
 
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
@@ -184,10 +196,12 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return fn + '(' + sql_operation_to_string(operation.element) + ')'
     elif isinstance(operation, ScalarFunctionOperation):
         fn = _SCALAR_SQL_NAMES[operation.function]
-        inner = sql_operation_to_string(operation.element)
+        parts = [sql_operation_to_string(operation.element)]
         if operation.second_arg is not None:
-            return fn + '(' + inner + ', ' + str(operation.second_arg) + ')'
-        return fn + '(' + inner + ')'
+            parts.append(str(operation.second_arg))
+        for arg in operation.extra_args:
+            parts.append("'" + arg + "'" if isinstance(arg, str) else str(arg))
+        return fn + '(' + ', '.join(parts) + ')'
     elif isinstance(operation, DateExtractOperation):
         return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
     elif isinstance(operation, DateArithmeticOperation):
@@ -285,7 +299,7 @@ class SQLQueryGenerator:
                     self._from.add(ta)
                 alias = col.display_name if col.display_name else col.function.name + ' ' + col_nested.column.name
                 ca = Alias(ScalarFunctionOperation(TableAliasColumn(col_nested.column, ta), col.function,
-                                                   second_arg=col.second_arg), alias)
+                                                   second_arg=col.second_arg, extra_args=col.extra_args), alias)
                 self._select.append(ca)
             elif isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
                 col_nested = find_column(col)

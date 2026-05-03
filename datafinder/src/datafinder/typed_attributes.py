@@ -10,9 +10,113 @@ from model.relational import ComparisonOperation, StringConstantOperation, Opera
 
 
 class StringAttribute(Attribute):
+    """A string column attribute supporting scalar functions and filter operations.
+
+    Scalar functions return a ``ScalarFunctionOperation`` that can be passed as
+    a column in ``find_all()``.  Filter operations return a ``ComparisonOperation``
+    for use as the ``where`` argument.
+
+    Slicing and ``*`` mirror Python ``str`` semantics::
+
+        finder.name()[:5]    # first 5 characters
+        finder.name()[-3:]   # last 3 characters
+        finder.name()[::-1]  # reversed
+        finder.name()[2:7]   # characters at index 2–6 (0-based, exclusive stop)
+        finder.name() * 3    # repeated 3 times
+    """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
+
+    def _cwj(self):
+        return ColumnWithJoin(self.column(), self.parent())
+
+    def upper(self):
+        """Return the value converted to uppercase. Equivalent to ``str.upper()``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.UPPER, 'Upper ' + self.display_name())
+
+    def lower(self):
+        """Return the value converted to lowercase. Equivalent to ``str.lower()``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.LOWER, 'Lower ' + self.display_name())
+
+    def strip(self):
+        """Remove leading and trailing whitespace. Equivalent to ``str.strip()``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.TRIM, 'Strip ' + self.display_name())
+
+    def lstrip(self):
+        """Remove leading whitespace. Equivalent to ``str.lstrip()``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.LTRIM, 'Lstrip ' + self.display_name())
+
+    def rstrip(self):
+        """Remove trailing whitespace. Equivalent to ``str.rstrip()``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.RTRIM, 'Rstrip ' + self.display_name())
+
+    def length(self):
+        """Return the number of characters. Equivalent to ``len(s)``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.LENGTH, 'Length ' + self.display_name())
+
+    def reverse(self):
+        """Return the value with characters in reverse order. Equivalent to ``s[::-1]``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.REVERSE, 'Reverse ' + self.display_name())
+
+    def left(self, n: int):
+        """Return the first ``n`` characters. Equivalent to ``s[:n]``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.LEFT, 'Left ' + self.display_name(), extra_args=[n])
+
+    def right(self, n: int):
+        """Return the last ``n`` characters. Equivalent to ``s[-n:]``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.RIGHT, 'Right ' + self.display_name(), extra_args=[n])
+
+    def repeat(self, n: int):
+        """Return the value repeated ``n`` times. Equivalent to ``s * n``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.REPEAT, 'Repeat ' + self.display_name(), extra_args=[n])
+
+    def __mul__(self, n: int):
+        """Repeat the value ``n`` times. Equivalent to ``repeat(n)``."""
+        return self.repeat(n)
+
+    def replace(self, from_str: str, to_str: str):
+        """Replace all occurrences of ``from_str`` with ``to_str``. Equivalent to ``str.replace()``."""
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.REPLACE, 'Replace ' + self.display_name(), extra_args=[from_str, to_str])
+
+    def substring(self, start: int, length: int = None):
+        """Return a substring using 0-based ``start`` index.
+
+        ``substring(start)`` returns from ``start`` to end of string.
+        ``substring(start, length)`` returns ``length`` characters from ``start``.
+        Equivalent to ``s[start:]`` and ``s[start:start+length]`` respectively.
+        """
+        args = [start + 1] if length is None else [start + 1, length]
+        return ScalarFunctionOperation(self._cwj(), ScalarFunction.SUBSTRING, 'Substring ' + self.display_name(), extra_args=args)
+
+    def __getitem__(self, key):
+        """Support Python slice syntax to produce string operations.
+
+        Supported forms::
+
+            s[:n]     → left(n)
+            s[-n:]    → right(n)
+            s[::-1]   → reverse()
+            s[start:] → substring(start)
+            s[a:b]    → substring(a, b - a)
+        """
+        if not isinstance(key, slice):
+            raise TypeError("StringAttribute only supports slice indexing")
+        start, stop, step = key.start, key.stop, key.step
+        if step == -1 and start is None and stop is None:
+            return self.reverse()
+        if step is not None and step != 1:
+            raise ValueError(f"Unsupported slice step: {step}")
+        if start is not None and start < 0 and stop is None:
+            return self.right(-start)
+        if start is None and stop is not None and stop >= 0:
+            return self.left(stop)
+        if start is not None and start >= 0:
+            if stop is None:
+                return self.substring(start)
+            if stop > start:
+                return self.substring(start, stop - start)
+        raise ValueError(f"Unsupported slice: [{start}:{stop}:{step}]")
 
     def eq(self, value: str) -> Operation:
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.EQUAL, StringConstantOperation(value))
