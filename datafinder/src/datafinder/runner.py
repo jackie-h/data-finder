@@ -66,6 +66,7 @@ class FinderResult(DataFrame):
         self._op = op
         self._order_by: list[SortOperation] = []
         self._group_by: list = []
+        self._limit: int = None
 
     def group_by(self, *attrs) -> 'FinderResult':
         self._group_by = list(attrs)
@@ -75,10 +76,14 @@ class FinderResult(DataFrame):
         self._order_by = list(sort_ops)
         return self
 
+    def limit(self, n: int) -> 'FinderResult':
+        self._limit = n
+        return self
+
     def _execute(self) -> DataFrame:
         return QueryRunnerBase.get_runner().select(
             self._business_date, self._processing_datetime,
-            self._columns, self._table, self._op, self._order_by, self._group_by,
+            self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
         )
 
     def to_pandas(self):
@@ -101,7 +106,8 @@ class QueryRunnerBase(metaclass=RegistryBase):
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: Table, op: Operation,
-               order_by: list[SortOperation] = None, group_by: list = None) -> DataFrame:
+               order_by: list[SortOperation] = None, group_by: list = None,
+               limit: int = None) -> DataFrame:
         pass
 
     @staticmethod
