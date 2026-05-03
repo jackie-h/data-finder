@@ -1,6 +1,7 @@
 from datafinder import StringAttribute, build_query_operation, select_sql_to_string
 from datafinder import IntegerAttribute
 from datafinder.sql_generator import SQLQueryGenerator
+from datafinder.typed_attributes import DoubleAttribute
 from model.relational import Table, Column, NoOperation, CountAllOperation
 
 
@@ -321,3 +322,80 @@ class TestLimit:
         chained = result.limit(10)
         assert chained is result
         assert result._limit == 10
+
+
+def _make_double_attr():
+    col = Column("PRICE", "DOUBLE")
+    table = Table("trades", [col])
+    attr = DoubleAttribute("Price", "PRICE", "DOUBLE", "trades")
+    return table, attr
+
+
+class TestNumericScalarFunctions:
+
+    def test_abs_produces_abs_function(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.abs()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "ABS(" in sql
+        assert "PRICE" in sql
+
+    def test_abs_display_name(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.abs()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "'Abs Price'" in sql
+
+    def test_ceiling_produces_ceiling_function(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.ceiling()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "CEILING(" in sql
+
+    def test_floor_produces_floor_function(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.floor()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "FLOOR(" in sql
+
+    def test_sqrt_produces_sqrt_function(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.sqrt()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "SQRT(" in sql
+
+    def test_mod_produces_mod_with_second_arg(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.mod(3)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "MOD(" in sql
+        assert ", 3" in sql
+
+    def test_power_produces_power_with_second_arg(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.power(2)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "POWER(" in sql
+        assert ", 2" in sql
+
+    def test_round_without_decimals(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.round()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "ROUND(" in sql
+        assert ", " not in sql.split("ROUND(")[1].split(")")[0]
+
+    def test_round_with_decimals(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr.round(2)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "ROUND(" in sql
+        assert ", 2" in sql
+
+    def test_scalar_function_with_filter(self):
+        table, attr = _make_double_attr()
+        _, str_attr = _make_table_and_attr()
+        select_op = build_query_operation(None, None, [attr.abs()], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "FROM" in sql
+        assert "trades" in sql

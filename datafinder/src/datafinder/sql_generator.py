@@ -7,7 +7,8 @@ from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColum
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, \
-    UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation
+    UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
+    ScalarFunction, ScalarFunctionOperation
 
 class Alias:
     def __init__(self, element: RelationalOperationElement, name: str):
@@ -165,12 +166,28 @@ _AGGREGATE_SQL_NAMES = {
     AggregateOperator.AVERAGE: 'AVG',
 }
 
+_SCALAR_SQL_NAMES = {
+    ScalarFunction.ABS:     'ABS',
+    ScalarFunction.CEILING: 'CEILING',
+    ScalarFunction.FLOOR:   'FLOOR',
+    ScalarFunction.MOD:     'MOD',
+    ScalarFunction.POWER:   'POWER',
+    ScalarFunction.SQRT:    'SQRT',
+    ScalarFunction.ROUND:   'ROUND',
+}
+
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
     elif isinstance(operation, AggregateOperation):
         fn = _AGGREGATE_SQL_NAMES.get(operation.operator, operation.operator.name)
         return fn + '(' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, ScalarFunctionOperation):
+        fn = _SCALAR_SQL_NAMES[operation.function]
+        inner = sql_operation_to_string(operation.element)
+        if operation.second_arg is not None:
+            return fn + '(' + inner + ', ' + str(operation.second_arg) + ')'
+        return fn + '(' + inner + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
     elif isinstance(operation, Alias):
@@ -247,6 +264,20 @@ class SQLQueryGenerator:
                     self._from.add(ta)
                 alias = col.display_name if col.display_name else col.operator.name + ' ' + col_nested.column.name
                 ca = Alias(AggregateOperation(TableAliasColumn(col_nested.column, ta), col.operator), alias)
+                self._select.append(ca)
+            elif isinstance(col, ScalarFunctionOperation):
+                col_nested = find_column(col)
+                table = col_nested.column.owner
+                parent: JoinOperation = col_nested.parent
+                if parent is not None:
+                    required_joins.add(parent)
+                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
+                else:
+                    ta = self.__table_alias_for_table(table)
+                    self._from.add(ta)
+                alias = col.display_name if col.display_name else col.function.name + ' ' + col_nested.column.name
+                ca = Alias(ScalarFunctionOperation(TableAliasColumn(col_nested.column, ta), col.function,
+                                                   second_arg=col.second_arg), alias)
                 self._select.append(ca)
             elif isinstance(col, CountAllOperation):
                 ta = self.__table_alias_for_table(col.table)

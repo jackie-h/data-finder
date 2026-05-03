@@ -5,7 +5,8 @@ import decimal
 
 from model.relational import ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
-    BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin
+    BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
+    ScalarFunction, ScalarFunctionOperation
 
 
 class StringAttribute(Attribute):
@@ -47,6 +48,27 @@ class NumericAttribute(Attribute):
 
     def average(self):
         return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.AVERAGE, 'Average ' + self.display_name())
+
+    def abs(self):
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.ABS, 'Abs ' + self.display_name())
+
+    def ceiling(self):
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.CEILING, 'Ceiling ' + self.display_name())
+
+    def floor(self):
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.FLOOR, 'Floor ' + self.display_name())
+
+    def sqrt(self):
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.SQRT, 'Sqrt ' + self.display_name())
+
+    def mod(self, n: int):
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.MOD, 'Mod ' + self.display_name(), second_arg=n)
+
+    def power(self, n: int):
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.POWER, 'Power ' + self.display_name(), second_arg=n)
+
+    def round(self, d: int = None):
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.ROUND, 'Round ' + self.display_name(), second_arg=d)
 
 
 class DoubleAttribute(NumericAttribute):
