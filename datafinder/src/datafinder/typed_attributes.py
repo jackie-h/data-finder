@@ -137,41 +137,80 @@ class StringAttribute(Attribute):
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.LIKE, StringConstantOperation(f"%{suffix}"))
 
 class NumericAttribute(Attribute):
+    """A numeric column attribute supporting aggregate and scalar functions.
+
+    Aggregate functions return an ``AggregateOperation`` for use with
+    ``group_by()``; scalar functions return a ``ScalarFunctionOperation``
+    that can be passed as a column in ``find_all()``.
+
+    Scalar operations mirror Python's ``math`` module and built-in operators::
+
+        price.abs()        # abs(price)
+        price.ceil()       # math.ceil(price)
+        price.floor()      # math.floor(price)
+        price.sqrt()       # math.sqrt(price)
+        price.mod(n)       # price % n  (or price % n)
+        price.power(n)     # price ** n (or price ** n)
+        price.round()      # round(price)
+        price.round(d)     # round(price, d)
+    """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
         super().__init__(display_name, column_name, column_db_type, owner, parent)
 
     def sum(self):
+        """Return the sum of all values in the group."""
         return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.SUM, 'Sum ' + self.display_name())
 
     def min(self):
+        """Return the minimum value in the group."""
         return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MIN, 'Min ' + self.display_name())
 
     def max(self):
+        """Return the maximum value in the group."""
         return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.MAX, 'Max ' + self.display_name())
 
     def average(self):
+        """Return the mean of all values in the group."""
         return AggregateOperation(ColumnWithJoin(self.column(), self.parent()), AggregateOperator.AVERAGE, 'Average ' + self.display_name())
 
     def abs(self):
+        """Return the absolute value. Equivalent to ``abs(n)``."""
         return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.ABS, 'Abs ' + self.display_name())
 
-    def ceiling(self):
-        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.CEILING, 'Ceiling ' + self.display_name())
+    def ceil(self):
+        """Return the smallest integer >= the value. Equivalent to ``math.ceil(n)``."""
+        return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.CEILING, 'Ceil ' + self.display_name())
 
     def floor(self):
+        """Return the largest integer <= the value. Equivalent to ``math.floor(n)``."""
         return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.FLOOR, 'Floor ' + self.display_name())
 
     def sqrt(self):
+        """Return the square root. Equivalent to ``math.sqrt(n)``."""
         return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.SQRT, 'Sqrt ' + self.display_name())
 
     def mod(self, n: int):
+        """Return the remainder after division by ``n``. Equivalent to ``value % n``."""
         return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.MOD, 'Mod ' + self.display_name(), second_arg=n)
 
+    def __mod__(self, n: int):
+        """Return the remainder after division by ``n``. Equivalent to ``mod(n)``."""
+        return self.mod(n)
+
     def power(self, n: int):
+        """Return the value raised to the power of ``n``. Equivalent to ``value ** n``."""
         return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.POWER, 'Power ' + self.display_name(), second_arg=n)
 
+    def __pow__(self, n: int):
+        """Return the value raised to the power of ``n``. Equivalent to ``power(n)``."""
+        return self.power(n)
+
     def round(self, d: int = None):
+        """Round to ``d`` decimal places. Equivalent to ``round(value, d)``.
+
+        When ``d`` is omitted, rounds to the nearest integer.
+        """
         return ScalarFunctionOperation(ColumnWithJoin(self.column(), self.parent()), ScalarFunction.ROUND, 'Round ' + self.display_name(), second_arg=d)
 
 

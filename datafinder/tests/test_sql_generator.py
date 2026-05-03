@@ -348,9 +348,9 @@ class TestNumericScalarFunctions:
         sql = select_sql_to_string(select_op)
         assert "'Abs Price'" in sql
 
-    def test_ceiling_produces_ceiling_function(self):
+    def test_ceil_produces_ceiling_function(self):
         table, attr = _make_double_attr()
-        select_op = build_query_operation(None, None, [attr.ceiling()], table, NoOperation())
+        select_op = build_query_operation(None, None, [attr.ceil()], table, NoOperation())
         sql = select_sql_to_string(select_op)
         assert "CEILING(" in sql
 
@@ -373,9 +373,23 @@ class TestNumericScalarFunctions:
         assert "MOD(" in sql
         assert ", 3" in sql
 
+    def test_mod_operator_produces_mod(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr % 3], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "MOD(" in sql
+        assert ", 3" in sql
+
     def test_power_produces_power_with_second_arg(self):
         table, attr = _make_double_attr()
         select_op = build_query_operation(None, None, [attr.power(2)], table, NoOperation())
+        sql = select_sql_to_string(select_op)
+        assert "POWER(" in sql
+        assert ", 2" in sql
+
+    def test_pow_operator_produces_power(self):
+        table, attr = _make_double_attr()
+        select_op = build_query_operation(None, None, [attr ** 2], table, NoOperation())
         sql = select_sql_to_string(select_op)
         assert "POWER(" in sql
         assert ", 2" in sql
