@@ -201,6 +201,7 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "pandas" },
+    { name = "sqlglot" },
 ]
 
 [package.optional-dependencies]
@@ -242,6 +243,7 @@ requires-dist = [
     { name = "pyiceberg", marker = "extra == 'iceberg'", specifier = ">=0.11.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=9.0.0" },
     { name = "sqlalchemy", marker = "extra == 'iceberg-test'", specifier = ">=2.0.0" },
+    { name = "sqlglot", specifier = ">=23.12.2" },
 ]
 provides-extras = ["test", "ibis", "duckdb", "linkml", "iceberg", "iceberg-test", "markdown"]
 

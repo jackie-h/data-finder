@@ -1,5 +1,8 @@
 import datetime
 
+import sqlglot
+import sqlglot.errors
+
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, \
@@ -125,7 +128,7 @@ LOGICAL_OPERATOR_STR = {
 }
 
 COMPARISON_OPERATOR_STR = {
-    ComparisonOperator.EQUAL: ' == ',
+    ComparisonOperator.EQUAL: ' = ',
     ComparisonOperator.LESS_THAN: ' < ',
     ComparisonOperator.GREATER_THAN: ' > ',
     ComparisonOperator.LESS_THAN_OR_EQUAL_TO: ' <= ',
@@ -406,8 +409,11 @@ class SQLQueryGenerator:
         return ' LIMIT ' + str(self._limit)
 
 
-def select_sql_to_string(select_operation: SelectOperation) -> str:
+def select_sql_to_string(select_operation: SelectOperation, validate_sqlglot: bool = True) -> str:
     qe = SQLQueryGenerator()
     qe.generate(select_operation)
-    return qe.build_query_string()
+    sql = qe.build_query_string()
+    if validate_sqlglot:
+        sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
+    return sql
 
