@@ -233,6 +233,50 @@ class TestAttributeCount:
         assert "ID" in sql
 
 
+class TestWindowFunctions:
+
+    def test_row_number_with_order_by(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(
+            None, None, [id_attr.row_number(order_by=[id_attr.ascending()])], table, NoOperation()
+        )
+        sql = select_sql_to_string(select_op)
+        assert "ROW_NUMBER()" in sql
+        assert "OVER (" in sql
+        assert "ORDER BY" in sql
+        assert "ID" in sql
+
+    def test_rank_with_partition_and_order_by(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(
+            None,
+            None,
+            [id_attr.rank(partition_by=[name_attr], order_by=[id_attr.descending()])],
+            table,
+            NoOperation(),
+        )
+        sql = select_sql_to_string(select_op)
+        assert "RANK()" in sql
+        assert "PARTITION BY" in sql
+        assert "NAME" in sql
+        assert "DESC" in sql
+
+    def test_sum_over_partition_and_order_by(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        select_op = build_query_operation(
+            None,
+            None,
+            [id_attr.sum().over(partition_by=[name_attr], order_by=[id_attr.ascending()])],
+            table,
+            NoOperation(),
+        )
+        sql = select_sql_to_string(select_op)
+        assert "SUM(" in sql
+        assert "OVER (" in sql
+        assert "PARTITION BY" in sql
+        assert "ORDER BY" in sql
+
+
 class TestGroupBy:
 
     def test_no_group_by_produces_no_group_clause(self):

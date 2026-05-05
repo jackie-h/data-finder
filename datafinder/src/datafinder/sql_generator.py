@@ -8,7 +8,8 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
-    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
+    WindowFunctionOperation, WindowFunction, WindowSpecification
 
 class Alias:
     def __init__(self, element: RelationalOperationElement, name: str):
@@ -36,12 +37,13 @@ class Join:
 
 class SelectOperation:
     def __init__(self, display: list[Attribute], filter: Operation, order_by: list[SortOperation] = None,
-                 group_by: list = None, limit: int = None):
+                 group_by: list = None, limit: int = None, table: Table = None):
         self.display = display
         self.filter = filter
         self.order_by = order_by or []
         self.group_by = group_by or []
         self.limit = limit
+        self.table = table
 
 def build_milestoning_filter_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                                table:MilestonedTable) -> Operation:
@@ -86,6 +88,47 @@ def find_column(operation: RelationalOperationElement) -> ColumnWithJoin:
     else:
         raise TypeError(operation)
 
+def collect_required_joins(op: RelationalOperationElement, required_joins: set):
+    if op is None:
+        return
+    if isinstance(op, Attribute):
+        parent = op.parent()
+        if parent is not None:
+            required_joins.add(parent)
+    elif isinstance(op, ColumnWithJoin):
+        if op.parent is not None:
+            required_joins.add(op.parent)
+    elif isinstance(op, AggregateOperation):
+        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.window, required_joins)
+    elif isinstance(op, ScalarFunctionOperation):
+        collect_required_joins(op.element, required_joins)
+    elif isinstance(op, DateExtractOperation):
+        collect_required_joins(op.element, required_joins)
+    elif isinstance(op, DateArithmeticOperation):
+        collect_required_joins(op.element, required_joins)
+    elif isinstance(op, DateDiffOperation):
+        collect_required_joins(op.element, required_joins)
+    elif isinstance(op, WindowFunctionOperation):
+        if op.element is not None:
+            collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.window, required_joins)
+    elif isinstance(op, WindowSpecification):
+        for part in op.partition_by:
+            collect_required_joins(part, required_joins)
+        for sort_op in op.order_by:
+            collect_required_joins(sort_op.column, required_joins)
+    elif isinstance(op, SortOperation):
+        collect_required_joins(op.column, required_joins)
+    elif isinstance(op, Alias):
+        collect_required_joins(op.element, required_joins)
+    elif isinstance(op, LogicalOperation):
+        collect_required_joins(op.left, required_joins)
+        collect_required_joins(op.right, required_joins)
+    elif isinstance(op, ComparisonOperation):
+        collect_required_joins(op.left, required_joins)
+        collect_required_joins(op.right, required_joins)
+
 def build_query_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                          columns: list[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] = None, group_by: list = None,
@@ -96,21 +139,19 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
 
     required_joins = set()
     for col in columns:
-        if isinstance(col, CountAllOperation):
-            continue
-        if isinstance(col, Attribute):
-            parent: JoinOperation = col.parent()
-        else:
-            parent: JoinOperation = find_column(col).parent
-        if parent is not None:
-            required_joins.add(parent)
+        collect_required_joins(col, required_joins)
+    for group_by_expr in group_by or []:
+        collect_required_joins(group_by_expr, required_joins)
+    for sort_op in order_by or []:
+        collect_required_joins(sort_op.column, required_joins)
+    collect_required_joins(op, required_joins)
 
     for j in required_joins:
         if isinstance(j.target, MilestonedTable):
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, j.target)
             j.filter = milestoned_op
 
-    select = SelectOperation(columns, op, order_by or [], group_by or [], limit)
+    select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table)
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
@@ -188,12 +229,51 @@ _SCALAR_SQL_NAMES = {
     ScalarFunction.SUBSTRING: 'SUBSTRING',
 }
 
+_WINDOW_SQL_NAMES = {
+    WindowFunction.ROW_NUMBER:  'ROW_NUMBER',
+    WindowFunction.RANK:        'RANK',
+    WindowFunction.DENSE_RANK:  'DENSE_RANK',
+    WindowFunction.NTILE:       'NTILE',
+    WindowFunction.LAG:         'LAG',
+    WindowFunction.LEAD:        'LEAD',
+    WindowFunction.FIRST_VALUE: 'FIRST_VALUE',
+    WindowFunction.LAST_VALUE:  'LAST_VALUE',
+    WindowFunction.CUME_DIST:   'CUME_DIST',
+    WindowFunction.PERCENT_RANK:'PERCENT_RANK',
+}
+
+def _window_spec_to_string(window: WindowSpecification) -> str:
+    parts = []
+    if window.partition_by:
+        parts.append('PARTITION BY ' + ', '.join(sql_operation_to_string(part) for part in window.partition_by))
+    if window.order_by:
+        parts.append('ORDER BY ' + ', '.join(
+            sql_operation_to_string(sort.column) + (' ASC' if sort.direction == SortDirection.ASC else ' DESC')
+            for sort in window.order_by
+        ))
+    return 'OVER (' + ' '.join(parts) + ')'
+
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
     elif isinstance(operation, AggregateOperation):
         fn = _AGGREGATE_SQL_NAMES.get(operation.operator, operation.operator.name)
-        return fn + '(' + sql_operation_to_string(operation.element) + ')'
+        sql = fn + '(' + sql_operation_to_string(operation.element) + ')'
+        if operation.window is not None:
+            sql += ' ' + _window_spec_to_string(operation.window)
+        return sql
+    elif isinstance(operation, WindowFunctionOperation):
+        fn = _WINDOW_SQL_NAMES[operation.function]
+        parts = []
+        if operation.element is not None:
+            parts.append(sql_operation_to_string(operation.element))
+        if operation.second_arg is not None:
+            parts.append(str(operation.second_arg))
+        for arg in operation.extra_args:
+            parts.append("'" + arg + "'" if isinstance(arg, str) else str(arg))
+        sql = fn + '(' + ', '.join(parts) + ')'
+        sql += ' ' + _window_spec_to_string(operation.window) if operation.window is not None else ' OVER ()'
+        return sql
     elif isinstance(operation, ScalarFunctionOperation):
         fn = _SCALAR_SQL_NAMES[operation.function]
         parts = [sql_operation_to_string(operation.element)]
@@ -233,10 +313,19 @@ class SQLQueryGenerator:
         self.__table_alias_incr = 0
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
+        self._root_table = None
 
     def generate(self, select:SelectOperation):
+        self._root_table = select.table
         self.select(select.display)
         self._where = self.build_filter(select.filter)
+        required_joins = set()
+        for group_by_expr in select.group_by:
+            self.__collect_required_joins(group_by_expr, required_joins)
+        for sort_op in select.order_by:
+            self.__collect_required_joins(sort_op.column, required_joins)
+        for parent in required_joins:
+            self.__add_join(parent)
         self._group_by_parts = [
             self.__attr_to_col_string(a) for a in select.group_by
         ]
@@ -247,7 +336,8 @@ class SQLQueryGenerator:
         self._limit = select.limit
 
     def __attr_to_col_string(self, attr: Attribute) -> str:
-        ta = self.__table_alias_for_table(attr.owner())
+        parent = attr.parent()
+        ta = self.__table_alias_for_table(attr.owner(), key=self.__join_target_key(parent) if parent is not None else None)
         return ta.alias + '.' + attr.column().name
 
     @staticmethod
@@ -259,70 +349,122 @@ class SQLQueryGenerator:
         so the target gets a distinct alias from the source table."""
         return parent if self.__is_self_join(parent) else None
 
+    def __table_alias_for_column(self, column: Column, parent: JoinOperation = None) -> TableAlias:
+        key = self.__join_target_key(parent) if parent is not None else None
+        return self.__table_alias_for_table(column.owner, key=key)
+
+    def __rewrite_window_spec(self, window: WindowSpecification):
+        if window is None:
+            return None
+        partition_by = [self.__rewrite_operation(p) for p in window.partition_by]
+        order_by = [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in window.order_by]
+        return WindowSpecification(partition_by, order_by)
+
+    def __rewrite_operation(self, op: RelationalOperationElement):
+        if isinstance(op, Attribute):
+            return TableAliasColumn(op.column(), self.__table_alias_for_column(op.column(), op.parent()))
+        elif isinstance(op, ColumnWithJoin):
+            return TableAliasColumn(op.column, self.__table_alias_for_column(op.column, op.parent))
+        elif isinstance(op, Column):
+            return TableAliasColumn(op, self.__table_alias_for_table(op.owner))
+        elif isinstance(op, AggregateOperation):
+            return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,
+                                      self.__rewrite_window_spec(op.window))
+        elif isinstance(op, ScalarFunctionOperation):
+            return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
+                                           second_arg=op.second_arg, extra_args=list(op.extra_args))
+        elif isinstance(op, DateExtractOperation):
+            return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
+        elif isinstance(op, DateArithmeticOperation):
+            return DateArithmeticOperation(self.__rewrite_operation(op.element), op.n, op.unit, op.is_add,
+                                           op.display_name)
+        elif isinstance(op, DateDiffOperation):
+            return DateDiffOperation(self.__rewrite_operation(op.element), op.other, op.unit, op.display_name)
+        elif isinstance(op, WindowFunctionOperation):
+            element = None if op.element is None else self.__rewrite_operation(op.element)
+            return WindowFunctionOperation(element, op.function, op.display_name, second_arg=op.second_arg,
+                                           extra_args=list(op.extra_args),
+                                           window=self.__rewrite_window_spec(op.window))
+        elif isinstance(op, Alias):
+            return Alias(self.__rewrite_operation(op.element), op.name)
+        return op
+
+    def __collect_required_joins(self, op: RelationalOperationElement, required_joins: set):
+        if op is None:
+            return
+        if isinstance(op, Attribute):
+            parent = op.parent()
+            if parent is not None:
+                required_joins.add(parent)
+        elif isinstance(op, ColumnWithJoin):
+            if op.parent is not None:
+                required_joins.add(op.parent)
+        elif isinstance(op, AggregateOperation):
+            self.__collect_required_joins(op.element, required_joins)
+            self.__collect_required_joins(op.window, required_joins)
+        elif isinstance(op, ScalarFunctionOperation):
+            self.__collect_required_joins(op.element, required_joins)
+        elif isinstance(op, DateExtractOperation):
+            self.__collect_required_joins(op.element, required_joins)
+        elif isinstance(op, DateArithmeticOperation):
+            self.__collect_required_joins(op.element, required_joins)
+        elif isinstance(op, DateDiffOperation):
+            self.__collect_required_joins(op.element, required_joins)
+        elif isinstance(op, WindowFunctionOperation):
+            if op.element is not None:
+                self.__collect_required_joins(op.element, required_joins)
+            self.__collect_required_joins(op.window, required_joins)
+        elif isinstance(op, WindowSpecification):
+            for part in op.partition_by:
+                self.__collect_required_joins(part, required_joins)
+            for sort_op in op.order_by:
+                self.__collect_required_joins(sort_op.column, required_joins)
+        elif isinstance(op, SortOperation):
+            self.__collect_required_joins(op.column, required_joins)
+        elif isinstance(op, Alias):
+            self.__collect_required_joins(op.element, required_joins)
+        elif isinstance(op, LogicalOperation):
+            self.__collect_required_joins(op.left, required_joins)
+            self.__collect_required_joins(op.right, required_joins)
+        elif isinstance(op, ComparisonOperation):
+            self.__collect_required_joins(op.left, required_joins)
+            self.__collect_required_joins(op.right, required_joins)
+
     def select(self, cols: list[Attribute]):
         required_joins = set()
+        if self._root_table is not None:
+            self._from.add(self.__table_alias_for_table(self._root_table.name))
 
         for col in cols:
-            if isinstance(col, Attribute):
-                table = col.owner()
-                parent: JoinOperation = col.parent()
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
-                else:
-                    ta = self.__table_alias_for_table(table)
-                    self._from.add(ta)
-                ca = Alias(TableAliasColumn(col.column(), ta), col.display_name())
-                self._select.append(ca)
+            self.__collect_required_joins(col, required_joins)
+            rewritten = self.__rewrite_operation(col)
+
+            if isinstance(col, CountAllOperation):
+                self._select.append(Alias(rewritten, 'Count'))
+            elif isinstance(col, Attribute):
+                self._select.append(Alias(rewritten, col.display_name()))
             elif isinstance(col, AggregateOperation):
                 col_nested = find_column(col)
-                table = col_nested.column.owner
-                parent: JoinOperation = col_nested.parent
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
-                else:
-                    ta = self.__table_alias_for_table(table)
-                    self._from.add(ta)
                 alias = col.display_name if col.display_name else col.operator.name + ' ' + col_nested.column.name
-                ca = Alias(AggregateOperation(TableAliasColumn(col_nested.column, ta), col.operator), alias)
-                self._select.append(ca)
+                self._select.append(Alias(rewritten, alias))
             elif isinstance(col, ScalarFunctionOperation):
                 col_nested = find_column(col)
-                table = col_nested.column.owner
-                parent: JoinOperation = col_nested.parent
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
-                else:
-                    ta = self.__table_alias_for_table(table)
-                    self._from.add(ta)
                 alias = col.display_name if col.display_name else col.function.name + ' ' + col_nested.column.name
-                ca = Alias(ScalarFunctionOperation(TableAliasColumn(col_nested.column, ta), col.function,
-                                                   second_arg=col.second_arg, extra_args=col.extra_args), alias)
-                self._select.append(ca)
+                self._select.append(Alias(rewritten, alias))
             elif isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
                 col_nested = find_column(col)
-                table = col_nested.column.owner
-                parent: JoinOperation = col_nested.parent
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
-                else:
-                    ta = self.__table_alias_for_table(table)
-                    self._from.add(ta)
                 alias = col.display_name if col.display_name else col_nested.column.name
-                if isinstance(col, DateExtractOperation):
-                    ca = Alias(DateExtractOperation(TableAliasColumn(col_nested.column, ta), col.part), alias)
-                elif isinstance(col, DateArithmeticOperation):
-                    ca = Alias(DateArithmeticOperation(TableAliasColumn(col_nested.column, ta), col.n, col.unit, col.is_add), alias)
+                self._select.append(Alias(rewritten, alias))
+            elif isinstance(col, WindowFunctionOperation):
+                if col.display_name:
+                    alias = col.display_name
+                elif col.function in (WindowFunction.ROW_NUMBER, WindowFunction.RANK, WindowFunction.DENSE_RANK):
+                    alias = col.function.name.replace('_', ' ').title()
                 else:
-                    ca = Alias(DateDiffOperation(TableAliasColumn(col_nested.column, ta), col.other, col.unit), alias)
-                self._select.append(ca)
-            elif isinstance(col, CountAllOperation):
-                ta = self.__table_alias_for_table(col.table)
-                self._from.add(ta)
-                self._select.append(Alias(col, 'Count'))
+                    alias = col.function.name + ('' if col.element is None else ' ' + find_column(col).column.name)
+                self._select.append(Alias(rewritten, alias))
+            else:
+                self._select.append(Alias(rewritten, str(col)))
 
         for parent in required_joins:
             self.__add_join(parent)
@@ -410,4 +552,3 @@ def select_sql_to_string(select_operation: SelectOperation) -> str:
     qe = SQLQueryGenerator()
     qe.generate(select_operation)
     return qe.build_query_string()
-

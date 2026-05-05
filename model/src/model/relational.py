@@ -137,13 +137,25 @@ class AggregateOperator(Enum):
     AVERAGE = 5
 
 
+class WindowSpecification:
+    def __init__(self, partition_by=None, order_by=None):
+        self.partition_by = partition_by or []
+        self.order_by = order_by or []
+
+
 class AggregateOperation(UnaryOperation):
     operator: AggregateOperator
 
-    def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str = None):
+    def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str = None,
+                 window=None):
         super().__init__(element)
         self.operator = operator
         self.display_name = display_name
+        self.window = window
+
+    def over(self, partition_by=None, order_by=None):
+        return AggregateOperation(self.element, self.operator, self.display_name,
+                                  WindowSpecification(partition_by, order_by))
 
 
 class ScalarFunction(Enum):
@@ -166,6 +178,35 @@ class ScalarFunction(Enum):
     REPEAT = 17
     REPLACE = 18
     SUBSTRING = 19
+
+
+class WindowFunction(Enum):
+    ROW_NUMBER = 1
+    RANK = 2
+    DENSE_RANK = 3
+    NTILE = 4
+    LAG = 5
+    LEAD = 6
+    FIRST_VALUE = 7
+    LAST_VALUE = 8
+    CUME_DIST = 9
+    PERCENT_RANK = 10
+
+
+class WindowFunctionOperation(UnaryOperation):
+    def __init__(self, element: RelationalOperationElement, function: WindowFunction,
+                 display_name: str = None, second_arg: int = None, extra_args: list = None, window=None):
+        super().__init__(element)
+        self.function = function
+        self.display_name = display_name
+        self.second_arg = second_arg
+        self.extra_args = extra_args or []
+        self.window = window
+
+    def over(self, partition_by=None, order_by=None):
+        return WindowFunctionOperation(self.element, self.function, self.display_name,
+                                       second_arg=self.second_arg, extra_args=list(self.extra_args),
+                                       window=WindowSpecification(partition_by, order_by))
 
 
 class ScalarFunctionOperation(UnaryOperation):
@@ -317,7 +358,6 @@ class CountAllOperation(RelationalOperationElement):
     def __init__(self, table: str):
         super().__init__()
         self.table = table
-
 
 
 

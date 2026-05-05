@@ -4,3 +4,4 @@ from .output import *
 from .runner import *
 from .sql_generator import select_sql_to_string, build_query_operation
 from .runner import FinderResult
+from model.relational import JoinOperation, WindowFunction, WindowFunctionOperation, WindowSpecification
