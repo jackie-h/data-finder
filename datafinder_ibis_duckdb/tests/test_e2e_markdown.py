@@ -19,7 +19,12 @@ _MAPPING_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "mapping_markdown", "tests", "finance_mapping.md")
 )
 
-_FINDER_MODULES = ["account_finder", "instrument_finder", "trade_finder"]
+_FINDER_MODULES = [
+    "finance", "finance.reference_data", "finance.trade",
+    "finance.reference_data.account_finder",
+    "finance.reference_data.instrument_finder",
+    "finance.trade.trade_finder",
+]
 
 
 def _build_repository() -> Repository:
@@ -72,10 +77,9 @@ def finders():
     generate(mapping, temp_dir)
     _seed_test_db()
 
-    from account_finder import AccountFinder
-    from trade_finder import TradeFinder
-
-    from instrument_finder import InstrumentFinder
+    from finance.reference_data.account_finder import AccountFinder
+    from finance.trade.trade_finder import TradeFinder
+    from finance.reference_data.instrument_finder import InstrumentFinder
 
     yield {"Account": AccountFinder, "Trade": TradeFinder, "Instrument": InstrumentFinder}
 

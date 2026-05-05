@@ -56,7 +56,7 @@ class TestMarkdownMappingLoad:
     def test_classes_resolved_from_model_file(self):
         account = self.by_class["Account"].clazz
         assert isinstance(account, Class)
-        assert account.package.name == "finance"
+        assert account.package.name == "finance.reference_data"
 
     def test_milestoning_schemes_loaded_onto_repository(self):
         schemes = {s.name: s for s in self.repo.milestoning_schemes}

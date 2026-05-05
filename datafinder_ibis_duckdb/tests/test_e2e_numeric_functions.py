@@ -16,7 +16,12 @@ _MAPPING_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "mapping_markdown", "tests", "finance_mapping.md")
 )
 
-_FINDER_MODULES = ["account_finder", "instrument_finder", "trade_finder"]
+_FINDER_MODULES = [
+    "finance", "finance.reference_data", "finance.trade",
+    "finance.reference_data.account_finder",
+    "finance.reference_data.instrument_finder",
+    "finance.trade.trade_finder",
+]
 
 _ACCOUNTS = [(1, "Alpha Fund")]
 
@@ -78,7 +83,7 @@ def TradeFinder():
     generate(mapping, temp_dir)
     _seed_test_db()
 
-    from trade_finder import TradeFinder as TF
+    from finance.trade.trade_finder import TradeFinder as TF
     yield TF
 
     sys.path.remove(temp_dir)

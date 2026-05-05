@@ -1,6 +1,6 @@
 # Finance Model
 
-## Sub-Domain: finance
+## Sub-Domain: finance.reference_data
 
 ### Class: Account
 
