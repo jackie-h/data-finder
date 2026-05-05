@@ -27,6 +27,9 @@ ibis = [
 duckdb = [
     "duckdb>=1.0.0",
 ]
+databricks = [
+    "databricks-sql-connector>=3.0.0",
+]
 linkml = [
     "linkml-runtime>=1.9.5",
 ]
@@ -42,7 +45,7 @@ markdown = [
 
 
 [tool.setuptools.packages.find]
-where = ["datafinder/src", "datafinder_generator/src", "model/src", "datafinder_duckdb/src", "datafinder_ibis/src", "datafinder_linkml/src", "datafinder_iceberg/src", "model_markdown/src", "mapping_markdown/src"]
+where = ["datafinder/src", "datafinder_generator/src", "model/src", "datafinder_duckdb/src", "datafinder_ibis/src", "datafinder_databricks/src", "datafinder_linkml/src", "datafinder_iceberg/src", "model_markdown/src", "mapping_markdown/src"]
 exclude = ["tests*"]
 
 [tool.setuptools.package-data]
@@ -51,5 +54,5 @@ datafinder_generator = ["templates/*.txt"]
 
 [tool.pytest.ini_options]
 pythonpath = [
-  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "model/src", "example", "datafinder_ibis/src", "datafinder_duckdb/src", "datafinder_linkml/src", "datafinder_iceberg/src", "model_markdown/src", "mapping_markdown/src"
+  ".", "src", "calc/src", "datafinder/src", "datafinder_generator/src", "model/src", "example", "datafinder_ibis/src", "datafinder_duckdb/src", "datafinder_databricks/src", "datafinder_linkml/src", "datafinder_iceberg/src", "model_markdown/src", "mapping_markdown/src"
 ]
