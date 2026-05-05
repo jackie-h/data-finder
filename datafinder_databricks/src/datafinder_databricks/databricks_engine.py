@@ -2,7 +2,7 @@ import datetime
 
 import sqlglot
 
-from datafinder import Operation, DataFrame, Attribute, build_query_operation, select_sql_to_string, QueryRunnerBase
+from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
 from model.relational import Table
 
 import numpy as np
@@ -13,9 +13,8 @@ def _to_databricks_sql(business_date: datetime.date, processing_datetime: dateti
                        columns: list, table: Table, op: Operation,
                        order_by: list = None, group_by: list = None,
                        limit: int = None) -> str:
-    select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
-                                      order_by or [], group_by or [], limit)
-    generic_sql = select_sql_to_string(select_op)
+    generic_sql = to_sql(business_date, processing_datetime, columns, table, op,
+                         order_by, group_by, limit, validate_sqlglot=False)
     return sqlglot.transpile(generic_sql, read='', write='databricks')[0]
 
 
