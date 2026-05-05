@@ -6,7 +6,7 @@ from model.relational import Column, Table, NoOperation, JoinOperation, CountAll
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 
 {% for rpm in rcm.property_mappings %}
-{% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}from {{rpm.property.type.name.lower()}}_finder import {{rpm.property.type.name}}RelatedFinder
+{% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}from {{class_module_map[rpm.property.type.name]}} import {{rpm.property.type.name}}RelatedFinder
 {% endif %}
 {% endfor %}
 

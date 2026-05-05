@@ -1,6 +1,6 @@
 # Finance Trade Model
 
-## Sub-Domain: finance_trade
+## Sub-Domain: finance.trade
 
 ### Class: Trade
 
