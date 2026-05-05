@@ -1,6 +1,6 @@
 import datetime
 
-from datafinder import Operation, DataFrame, Attribute, select_sql_to_string, QueryRunnerBase, build_query_operation
+from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
 
 import duckdb
 import numpy as np
@@ -16,8 +16,7 @@ class DuckDbConnect(QueryRunnerBase):
                table: Table, op: Operation, order_by: list = None, group_by: list = None,
                limit: int = None) -> DataFrame:
         conn = duckdb.connect('test.db')
-        select_op = build_query_operation(business_date, processing_datetime, columns, table, op, order_by or [], group_by or [], limit)
-        query = select_sql_to_string(select_op)
+        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit)
         print(query)
         # TODO this is inefficient, could convert straight to desired output - such as numpy, instead of list
         return DuckDbOutput(conn.sql(query).fetchall())
