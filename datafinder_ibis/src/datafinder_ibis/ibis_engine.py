@@ -1,6 +1,6 @@
 import datetime
 
-from datafinder import Operation, DataFrame, Attribute, select_sql_to_string, build_query_operation
+from datafinder import Operation, DataFrame, Attribute, to_sql
 
 import ibis
 import numpy as np
@@ -17,8 +17,7 @@ class IbisConnect(QueryRunnerBase):
                table: Table, op: Operation, order_by: list = None, group_by: list = None,
                limit: int = None) -> DataFrame:
         conn = ibis.connect('duckdb://test.db')
-        select_op = build_query_operation(business_date, processing_datetime, columns, table, op, order_by or [], group_by or [], limit)
-        query = select_sql_to_string(select_op)
+        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit)
         print(query)
         return IbisOutput(conn.sql(query))
 

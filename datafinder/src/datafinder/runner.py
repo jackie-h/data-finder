@@ -2,6 +2,7 @@ import datetime
 from typing import Union, Optional
 
 from datafinder import Attribute, Operation, DataFrame
+from datafinder.sql_generator import to_sql
 from model.relational import Table, SortOperation
 
 
@@ -84,6 +85,13 @@ class FinderResult(DataFrame):
         return QueryRunnerBase.get_runner().select(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
+        )
+
+    def to_sql(self) -> str:
+        return to_sql(
+            self._business_date, self._processing_datetime,
+            self._columns, self._table, self._op,
+            self._order_by, self._group_by, self._limit,
         )
 
     def to_pandas(self):

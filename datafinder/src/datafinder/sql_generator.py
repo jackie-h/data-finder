@@ -409,6 +409,15 @@ class SQLQueryGenerator:
         return ' LIMIT ' + str(self._limit)
 
 
+def to_sql(business_date: datetime.date, processing_datetime: datetime.datetime,
+           columns: list, table, op,
+           order_by: list = None, group_by: list = None,
+           limit: int = None, validate_sqlglot: bool = True) -> str:
+    select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
+                                      order_by or [], group_by or [], limit)
+    return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
+
+
 def select_sql_to_string(select_operation: SelectOperation, validate_sqlglot: bool = True) -> str:
     qe = SQLQueryGenerator()
     qe.generate(select_operation)
