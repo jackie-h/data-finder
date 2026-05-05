@@ -179,7 +179,7 @@ class TestCountAllOperation:
         table, attr = _make_table_and_attr()
         select_op = build_query_operation(None, None, [CountAllOperation("accounts")], table, NoOperation())
         sql = select_sql_to_string(select_op)
-        assert "'Count'" in sql
+        assert '"Count"' in sql
 
     def test_count_all_includes_from_clause(self):
         table, attr = _make_table_and_attr()
@@ -346,7 +346,7 @@ class TestNumericScalarFunctions:
         table, attr = _make_double_attr()
         select_op = build_query_operation(None, None, [attr.abs()], table, NoOperation())
         sql = select_sql_to_string(select_op)
-        assert "'Abs Price'" in sql
+        assert '"Abs Price"' in sql
 
     def test_ceil_produces_ceiling_function(self):
         table, attr = _make_double_attr()
@@ -491,7 +491,7 @@ class TestDateExtract:
         table, attr = _make_date_attr()
         select_op = build_query_operation(None, None, [attr.year()], table, NoOperation())
         sql = select_sql_to_string(select_op)
-        assert "'Year Trade Date'" in sql
+        assert '"Year Trade Date"' in sql
 
 
 class TestDateArithmetic:
@@ -682,7 +682,7 @@ class TestStringScalarFunctions:
         table, attr = _make_table_and_attr()
         select_op = build_query_operation(None, None, [attr.upper()], table, NoOperation())
         sql = select_sql_to_string(select_op)
-        assert "'Upper Name'" in sql
+        assert '"Upper Name"' in sql
 
 
 class TestStringSlice:

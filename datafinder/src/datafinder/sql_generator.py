@@ -213,7 +213,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
     elif isinstance(operation, Alias):
-        return sql_operation_to_string(operation.element) + ' AS \'' + operation.name + '\''
+        return sql_operation_to_string(operation.element) + ' AS "' + operation.name + '"'
     else:
         raise TypeError(operation)
 
