@@ -77,3 +77,28 @@ class TestSchema:
         col = Column("id", "INT")
         table = Table("trades", [col], schema)
         assert col.table is table
+
+    def test_schema_prefix_defaults_to_none(self):
+        schema = Schema("trading")
+        assert schema.prefix is None
+
+    def test_schema_prefix_set(self):
+        schema = Schema("trading", prefix="my_catalog")
+        assert schema.prefix == "my_catalog"
+
+
+class TestTableQualifiedName:
+
+    def test_no_schema(self):
+        table = Table("trades", [])
+        assert table.qualified_name == "trades"
+
+    def test_schema_no_prefix(self):
+        schema = Schema("trading")
+        table = Table("trades", [], schema)
+        assert table.qualified_name == "trading.trades"
+
+    def test_schema_with_prefix(self):
+        schema = Schema("trading", prefix="my_catalog")
+        table = Table("trades", [], schema)
+        assert table.qualified_name == "my_catalog.trading.trades"

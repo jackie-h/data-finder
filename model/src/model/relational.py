@@ -240,8 +240,9 @@ class Repository:
 
 
 class Schema:
-    def __init__(self, name: str, repository: Repository = None):
+    def __init__(self, name: str, repository: Repository = None, prefix: str = None):
         self.name = name
+        self.prefix = prefix
         self.repository = repository
         self.tables: list = []
         if repository is not None:
@@ -279,6 +280,14 @@ class Table(Relation):
             col.table = self
         if schema is not None:
             schema.tables.append(self)
+
+    @property
+    def qualified_name(self) -> str:
+        if self.schema is None:
+            return self.name
+        if self.schema.prefix:
+            return f"{self.schema.prefix}.{self.schema.name}.{self.name}"
+        return f"{self.schema.name}.{self.name}"
 
     @property
     def columns(self) -> list[Column]:
