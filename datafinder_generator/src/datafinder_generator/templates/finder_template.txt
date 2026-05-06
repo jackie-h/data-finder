@@ -18,14 +18,14 @@ class {{rcm.clazz.name}}RelatedFinder:
     __zz_milestoning_columns = BiTemporalColumns(Column('{{rcm.milestone_mapping._date_from.target.name}}', '{{rcm.milestone_mapping._date_from.target.type}}'),
                                                  Column('{{rcm.milestone_mapping._date_to.target.name}}', '{{rcm.milestone_mapping._date_to.target.type}}'),
                                                  Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
-                                                 Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+                                                 Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'){% if rcm.milestone_mapping.infinite_datetime %}, infinite_datetime='{{rcm.milestone_mapping.infinite_datetime}}'{% endif %})
 {% elif has_business_date_and_processing(rcm.milestone_mapping) %}
     __zz_milestoning_columns = BusinessDateAndProcessingTemporalColumns(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'),
                                                                         Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
-                                                                        Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+                                                                        Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'){% if rcm.milestone_mapping.infinite_datetime %}, infinite_datetime='{{rcm.milestone_mapping.infinite_datetime}}'{% endif %})
 {% elif has_processing_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = ProcessingTemporalColumns(Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
-                                                         Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+                                                         Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'){% if rcm.milestone_mapping.infinite_datetime %}, infinite_datetime='{{rcm.milestone_mapping.infinite_datetime}}'{% endif %})
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
@@ -84,14 +84,14 @@ class {{rcm.clazz.name}}Finder:
     __zz_milestoning_columns = BiTemporalColumns(Column('{{rcm.milestone_mapping._date_from.target.name}}', '{{rcm.milestone_mapping._date_from.target.type}}'),
                                                  Column('{{rcm.milestone_mapping._date_to.target.name}}', '{{rcm.milestone_mapping._date_to.target.type}}'),
                                                  Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
-                                                 Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+                                                 Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'){% if rcm.milestone_mapping.infinite_datetime %}, infinite_datetime='{{rcm.milestone_mapping.infinite_datetime}}'{% endif %})
 {% elif has_business_date_and_processing(rcm.milestone_mapping) %}
     __zz_milestoning_columns = BusinessDateAndProcessingTemporalColumns(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'),
                                                                         Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
-                                                                        Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+                                                                        Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'){% if rcm.milestone_mapping.infinite_datetime %}, infinite_datetime='{{rcm.milestone_mapping.infinite_datetime}}'{% endif %})
 {% elif has_processing_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = ProcessingTemporalColumns(Column('{{rcm.milestone_mapping._in.target.name}}', '{{rcm.milestone_mapping._in.target.type}}'),
-                                                         Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'))
+                                                         Column('{{rcm.milestone_mapping._out.target.name}}', '{{rcm.milestone_mapping._out.target.type}}'){% if rcm.milestone_mapping.infinite_datetime %}, infinite_datetime='{{rcm.milestone_mapping.infinite_datetime}}'{% endif %})
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
