@@ -65,7 +65,7 @@ def read_repository_from_catalog(
 
     for namespace in catalog.list_namespaces():
         namespace_name = ".".join(str(part) for part in namespace)
-        schema = Schema(namespace_name, repo)
+        schema = Schema(namespace_name, repo, prefix=catalog.name)
         for table_id in catalog.list_tables(namespace):
             table_name = table_id[-1]
             try:

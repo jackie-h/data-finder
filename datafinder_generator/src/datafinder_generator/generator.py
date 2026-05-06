@@ -38,9 +38,7 @@ def to_python_name(prop: Property) -> str:
     return name
 
 def table_qualified_name(table) -> str:
-    if table.schema is not None:
-        return table.schema.name + '.' + table.name
-    return table.name
+    return table.qualified_name
 
 
 def _class_package(clazz) -> str:

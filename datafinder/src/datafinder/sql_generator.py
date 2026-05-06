@@ -54,30 +54,30 @@ def build_milestoning_filter_operation(business_date:datetime.date, processing_d
     if isinstance(mc, BiTemporalColumns):
         ops = []
         if business_date is not None:
-            date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.table.name)
-            date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.table.name)
+            date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.table.qualified_name)
+            date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.table.qualified_name)
             ops.append(LogicalOperation(date_from <= business_date, LogicalOperator.AND, date_to > business_date))
         if processing_datetime is not None:
-            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.name)
-            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.name)
+            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
+            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
             ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, end_at > processing_datetime))
         op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
     elif isinstance(mc, BusinessDateAndProcessingTemporalColumns):
         ops = []
         if business_date is not None:
-            business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.name)
+            business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name)
             ops.append(business_att == business_date)
         if processing_datetime is not None:
-            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.name)
-            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.name)
+            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
+            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
             ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, end_at > processing_datetime))
         op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
     elif isinstance(mc, ProcessingTemporalColumns) and processing_datetime is not None:
-        start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.name)
-        end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.name)
+        start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
+        end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
         op = LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, end_at > processing_datetime)
     elif isinstance(mc, SingleBusinessDateColumn) and business_date is not None:
-        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.name)
+        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name)
         op = business_att == business_date
     return op
 
