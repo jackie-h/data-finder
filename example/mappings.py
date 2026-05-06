@@ -3,7 +3,7 @@ import os
 from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
-from model.relational import Column, Table, Schema, Repository
+from model.relational import Column, Table, Schema, Database
 from model.relational_mapping import RelationalPropertyMapping, RelationalClassMapping, Join
 
 
@@ -50,7 +50,7 @@ def create_contractual_position_class(instrument:Class) -> Class:
 
 
 def create_mappings_normalized() -> Mapping:
-    repo = Repository('finance_db', 'duckdb://test.db')
+    repo = Database('finance_db', 'duckdb://test.db')
     ref_data = Schema('ref_data', repo)
     trading = Schema('trading', repo)
 

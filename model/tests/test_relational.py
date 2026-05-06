@@ -1,42 +1,55 @@
-from model.relational import Repository, Schema, Table, Column
+from model.relational import Database, DataCatalog, Schema, Table, Column
 
 
-class TestRepository:
+class TestDatabase:
 
     def test_schema_registered_in_repository(self):
-        repo = Repository("finance_db", "jdbc:duckdb://finance.db")
+        repo = Database("finance_db", "jdbc:duckdb://finance.db")
         schema = Schema("trading", repo)
         assert schema in repo.schemas
 
     def test_multiple_schemas_registered(self):
-        repo = Repository("finance_db")
+        repo = Database("finance_db")
         s1 = Schema("trading", repo)
         s2 = Schema("ref_data", repo)
         assert s1 in repo.schemas
         assert s2 in repo.schemas
 
     def test_schemas_order_preserved(self):
-        repo = Repository("finance_db")
+        repo = Database("finance_db")
         s1 = Schema("trading", repo)
         s2 = Schema("ref_data", repo)
         assert repo.schemas == [s1, s2]
 
     def test_empty_repository_has_no_schemas(self):
-        repo = Repository("empty_db")
+        repo = Database("empty_db")
         assert repo.schemas == []
 
     def test_none_repository_does_not_raise(self):
         schema = Schema("orphan", None)
-        assert schema.repository is None
+        assert schema.datastore is None
 
     def test_repository_location(self):
-        repo = Repository("finance_db", "jdbc:duckdb://finance.db")
+        repo = Database("finance_db", "jdbc:duckdb://finance.db")
         assert repo.location == "jdbc:duckdb://finance.db"
 
     def test_schema_holds_repository_reference(self):
-        repo = Repository("finance_db")
+        repo = Database("finance_db")
         schema = Schema("trading", repo)
-        assert schema.repository is repo
+        assert schema.datastore is repo
+
+
+class TestDataCatalog:
+
+    def test_datacatalog_name(self):
+        catalog = DataCatalog("my_catalog")
+        assert catalog.name == "my_catalog"
+
+    def test_datacatalog_namespace(self):
+        assert DataCatalog("my_catalog").namespace("trading") == "my_catalog.trading"
+
+    def test_database_namespace(self):
+        assert Database("finance_db").namespace("trading") == "trading"
 
 
 class TestSchema:
@@ -78,27 +91,22 @@ class TestSchema:
         table = Table("trades", [col], schema)
         assert col.table is table
 
-    def test_schema_prefix_defaults_to_none(self):
-        schema = Schema("trading")
-        assert schema.prefix is None
-
-    def test_schema_prefix_set(self):
-        schema = Schema("trading", prefix="my_catalog")
-        assert schema.prefix == "my_catalog"
 
 
-class TestTableQualifiedName:
+class TestQualifiedName:
 
     def test_no_schema(self):
         table = Table("trades", [])
         assert table.qualified_name == "trades"
 
-    def test_schema_no_prefix(self):
-        schema = Schema("trading")
-        table = Table("trades", [], schema)
+    def test_schema_no_datastore(self):
+        table = Table("trades", [], Schema("trading"))
         assert table.qualified_name == "trading.trades"
 
-    def test_schema_with_prefix(self):
-        schema = Schema("trading", prefix="my_catalog")
-        table = Table("trades", [], schema)
+    def test_schema_with_database(self):
+        table = Table("trades", [], Schema("trading", Database("db")))
+        assert table.qualified_name == "trading.trades"
+
+    def test_schema_with_datacatalog(self):
+        table = Table("trades", [], Schema("trading", DataCatalog("my_catalog")))
         assert table.qualified_name == "my_catalog.trading.trades"

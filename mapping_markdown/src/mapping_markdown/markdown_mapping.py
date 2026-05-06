@@ -9,7 +9,7 @@ from markdown_it.tree import SyntaxTreeNode
 from model.m3 import Class, PrimitiveType, Association, Property, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping
-from model.relational import Repository, Schema, Table, MilestoningScheme, Column, ForeignKey
+from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
 
 _md_parser = MarkdownIt().enable("table")
@@ -21,18 +21,18 @@ _TABLE_RE = re.compile(r'(\S+)\s*→\s*(\w+)(?:\s*\(milestoning:\s*(\w+)\))?')
 # Load: markdown → Mapping
 # ---------------------------------------------------------------------------
 
-def load(path: str, repository: Repository = None) -> Mapping:
+def load(path: str, datastore: DataStore = None) -> Mapping:
     with open(path, encoding="utf-8") as f:
         content = f.read()
     base_dir = os.path.dirname(os.path.abspath(path))
     packages = _load_model_reference(content, base_dir)
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = _expand_schema_includes(root.children, base_dir)
-    if repository is None:
-        repository = _build_repository_from_content(nodes)
-        if repository is None:
-            raise ValueError("No '## Repository:' section found in mapping markdown")
-    return _loads_from_nodes(nodes, packages, repository)
+    if datastore is None:
+        datastore = _build_repository_from_content(nodes)
+        if datastore is None:
+            raise ValueError("No '## DataStore:' section found in mapping markdown")
+    return _loads_from_nodes(nodes, packages, datastore)
 
 
 def _expand_schema_includes(nodes: list, base_dir: str) -> list:
@@ -73,7 +73,7 @@ def _load_model_reference(content: str, base_dir: str) -> list:
     return packages
 
 
-def _build_repository_from_content(nodes: list) -> Repository:
+def _build_repository_from_content(nodes: list) -> DataStore:
     repo = None
     current_schema = None
     i = 0
@@ -82,9 +82,18 @@ def _build_repository_from_content(nodes: list) -> Repository:
         if node.type == "heading":
             text = node.children[0].content if node.children else ""
             level = node.tag
-            if level == "h2" and text.startswith("Repository:"):
-                repo_name = text[len("Repository:"):].strip()
-                repo = Repository(repo_name, "")
+            if level == "h2" and text.startswith("DataStore:"):
+                heading_text = text[len("DataStore:"):].strip()
+                catalog_match = re.match(r'^(.+?)\s*\(Catalog\)\s*$', heading_text)
+                database_match = re.match(r'^(.+?)\s*\(Database\)\s*$', heading_text)
+                if catalog_match:
+                    repo = DataCatalog(catalog_match.group(1))
+                elif database_match:
+                    repo = Database(database_match.group(1), "")
+                else:
+                    raise ValueError(
+                        f"DataStore '{heading_text}' must specify a type: (Database) or (Catalog)"
+                    )
                 current_schema = None
             elif level == "h3" and text.startswith("Schema:") and repo is not None:
                 current_schema = Schema(text[len("Schema:"):].strip(), repo)
@@ -107,17 +116,17 @@ def _build_repository_from_content(nodes: list) -> Repository:
     return repo
 
 
-def loads(content: str, packages: list, repository: Repository = None) -> Mapping:
+def loads(content: str, packages: list, datastore: DataStore = None) -> Mapping:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
-    if repository is None:
-        repository = _build_repository_from_content(nodes)
-        if repository is None:
-            raise ValueError("No '## Repository:' section found in mapping markdown")
-    return _loads_from_nodes(nodes, packages, repository)
+    if datastore is None:
+        datastore = _build_repository_from_content(nodes)
+        if datastore is None:
+            raise ValueError("No '## DataStore:' section found in mapping markdown")
+    return _loads_from_nodes(nodes, packages, datastore)
 
 
-def _loads_from_nodes(nodes: list, packages: list, repository: Repository) -> Mapping:
+def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Mapping:
 
     classes_by_name = {
         child.name: child
@@ -147,7 +156,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: Repository) -> Ma
             if level == "h1":
                 title = text
 
-            elif level == "h2" and text.startswith("Repository:"):
+            elif level == "h2" and text.startswith("DataStore:"):
                 i += 1
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i]):
@@ -303,7 +312,7 @@ def _build_milestone_mapping(scheme_name, property_mappings, repository):
     return None
 
 
-def _milestone_scheme_name(rcm: RelationalClassMapping, repo: Repository) -> Optional[str]:
+def _milestone_scheme_name(rcm: RelationalClassMapping, repo: DataStore) -> Optional[str]:
     mm = rcm.milestone_mapping
     if mm is None or repo is None:
         return None
@@ -373,7 +382,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
         if table is None:
             continue
         schema = table.schema
-        repo = schema.repository if schema else None
+        repo = schema.datastore if schema else None
         repo_name = repo.name if repo else "(none)"
 
         if repo_name not in repo_schema_map:
@@ -388,7 +397,10 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
 
     for repo_name in repos_seen:
         repo = repo_objs[repo_name]
-        lines.append(f"## Repository: {repo_name}")
+        if isinstance(repo, DataCatalog):
+            lines.append(f"## DataStore: {repo_name} (Catalog)")
+        else:
+            lines.append(f"## DataStore: {repo_name} (Database)")
         lines.append("")
 
         if repo and repo.milestoning_schemes:
@@ -443,10 +455,13 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
     return "\n".join(lines)
 
 
-def draft_from_repository(title: str, repo: Repository) -> str:
+def draft_from_repository(title: str, repo: DataStore) -> str:
     """Generate a draft mapping markdown with all columns populated and properties left blank."""
     lines: list[str] = [f"# {title}", ""]
-    lines.append(f"## Repository: {repo.name}")
+    if isinstance(repo, DataCatalog):
+        lines.append(f"## DataStore: {repo.name} (Catalog)")
+    else:
+        lines.append(f"## DataStore: {repo.name} (Database)")
     lines.append("")
 
     if repo.milestoning_schemes:

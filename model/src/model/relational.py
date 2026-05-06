@@ -231,22 +231,44 @@ class MilestoningScheme:
         self.business_date_to = business_date_to
 
 
-class Repository:
-    def __init__(self, name: str, location: str = None):
+from abc import ABC, abstractmethod
+
+
+class DataStore(ABC):
+    def __init__(self, name: str):
         self.name = name
-        self.location = location
         self.schemas: list = []
         self.milestoning_schemes: list = []
 
+    @abstractmethod
+    def namespace(self, schema_name: str) -> str:
+        pass
+
+
+class Database(DataStore):
+    def __init__(self, name: str, location: str = None):
+        super().__init__(name)
+        self.location = location
+
+    def namespace(self, schema_name: str) -> str:
+        return schema_name
+
+
+class DataCatalog(DataStore):
+    def __init__(self, name: str):
+        super().__init__(name)
+
+    def namespace(self, schema_name: str) -> str:
+        return f"{self.name}.{schema_name}"
+
 
 class Schema:
-    def __init__(self, name: str, repository: Repository = None, prefix: str = None):
+    def __init__(self, name: str, datastore: DataStore = None):
         self.name = name
-        self.prefix = prefix
-        self.repository = repository
+        self.datastore = datastore
         self.tables: list = []
-        if repository is not None:
-            repository.schemas.append(self)
+        if datastore is not None:
+            datastore.schemas.append(self)
 
 
 class Column(RelationalOperationElement):
@@ -292,6 +314,14 @@ class Table(Relation):
     @property
     def columns(self) -> list[Column]:
         return list(self._columns_by_name.values())
+
+    @property
+    def qualified_name(self) -> str:
+        if self.schema is None:
+            return self.name
+        if self.schema.datastore is None:
+            return f"{self.schema.name}.{self.name}"
+        return f"{self.schema.datastore.namespace(self.schema.name)}.{self.name}"
 
 
 class JoinOperation:

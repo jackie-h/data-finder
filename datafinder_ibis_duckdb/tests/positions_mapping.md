@@ -2,7 +2,7 @@
 
 ## Model: positions_model.md
 
-## Repository: positions_db
+## DataStore: positions_db (Database)
 
 ### Schema: main
 

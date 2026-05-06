@@ -13,7 +13,7 @@ from datafinder import QueryRunnerBase
 from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
-from model.relational import Repository, Schema, Table, Column
+from model.relational import Database, Schema, Table, Column
 
 _MAPPING_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "mapping_markdown", "tests", "finance_mapping.md")
@@ -27,8 +27,8 @@ _FINDER_MODULES = [
 ]
 
 
-def _build_repository() -> Repository:
-    repo = Repository("finance_db", "duckdb://test.db")
+def _build_repository() -> Database:
+    repo = Database("finance_db", "duckdb://test.db")
     ref_data = Schema("ref_data", repo)
     trading = Schema("trading", repo)
     Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)

@@ -2,7 +2,7 @@
 
 ## Model: ../../model_markdown/tests/diamond_model.md
 
-## Repository: diamond_db
+## DataStore: diamond_db (Database)
 
 ### Schema: records
 

@@ -37,7 +37,7 @@ class TestValidateMarkdown:
         content = """\
 # Test
 
-## Repository: db
+## DataStore: db
 
 ### Schema: s
 
@@ -56,7 +56,7 @@ class TestValidateMarkdown:
         content = """\
 # Test
 
-## Repository: db
+## DataStore: db
 
 ## Schema: nonexistent_schema.md
 """
@@ -72,7 +72,7 @@ class TestValidateMarkdown:
         content = """\
 # Test
 
-## Repository: db
+## DataStore: db
 
 ### Schema: s
 

@@ -99,9 +99,9 @@ class TestEnsurePackageDirs:
 class TestGeneratePackageStructure:
 
     def setup_method(self):
-        from model.relational import Repository, Schema, Table, Column
+        from model.relational import Database, Schema, Table, Column
         self.tmp = tempfile.mkdtemp()
-        repo = Repository("finance_db", "duckdb://test.db")
+        repo = Database("finance_db", "duckdb://test.db")
         ref_data = Schema("ref_data", repo)
         trading = Schema("trading", repo)
         Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)

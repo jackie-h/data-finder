@@ -36,30 +36,30 @@ def catalog():
 class TestIcebergCatalogReaderMemory:
 
     def test_schemas_loaded(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         schema_names = {s.name for s in repo.schemas}
         assert schema_names == {"ref_data", "trading"}
 
     def test_tables_loaded(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         by_schema = {s.name: s for s in repo.schemas}
         assert [t.name for t in by_schema["ref_data"].tables] == ["account_master"]
         assert [t.name for t in by_schema["trading"].tables] == ["trades"]
 
     def test_column_types_mapped(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         by_schema = {s.name: s for s in repo.schemas}
         cols = {c.name: c.type for c in by_schema["ref_data"].tables[0].columns}
         assert cols == {"ID": "INT", "ACCT_NAME": "VARCHAR"}
 
     def test_double_and_boolean_columns(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         by_schema = {s.name: s for s in repo.schemas}
         cols = {c.name: c.type for c in by_schema["trading"].tables[0].columns}
         assert cols["price"] == "DOUBLE"
         assert cols["is_settled"] == "BOOLEAN"
         assert cols["in_z"] == "TIMESTAMP"
 
-    def test_repo_name(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
-        assert repo.name == "finance_db"
+    def test_name_is_catalog_name(self, catalog):
+        repo = read_repository_from_catalog(catalog)
+        assert repo.name == "test"

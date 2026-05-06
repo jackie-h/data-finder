@@ -1,14 +1,14 @@
 import duckdb
 
-from model.relational import Repository, Schema, Table, Column
+from model.relational import Database, Schema, Table, Column
 
 _SYSTEM_SCHEMAS = {"information_schema", "pg_catalog"}
 
 
-def read_repository_from_duckdb(db_path: str, repo_name: str = None) -> Repository:
-    """Build a Repository by introspecting a DuckDB database schema."""
+def read_repository_from_duckdb(db_path: str, repo_name: str = None) -> Database:
+    """Build a Database by introspecting a DuckDB database schema."""
     name = repo_name or db_path
-    repo = Repository(name, f"duckdb://{db_path}")
+    repo = Database(name, f"duckdb://{db_path}")
 
     conn = duckdb.connect(db_path, read_only=True)
     try:

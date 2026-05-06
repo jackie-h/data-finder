@@ -4,7 +4,7 @@ import tempfile
 from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
 from model_markdown.markdown_model import load as load_model
 from model.m3 import Class
-from model.relational import Repository, Schema, Table, Column
+from model.relational import Database, Schema, Table, Column
 from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
 from model.relational_mapping import RelationalPropertyMapping, Join
@@ -14,8 +14,8 @@ MODEL_FILE = os.path.join(os.path.dirname(__file__), "finance.md")
 TRADE_MODEL_FILE = os.path.join(os.path.dirname(__file__), "finance_trade.md")
 
 
-def _build_repository() -> Repository:
-    repo = Repository("finance_db", "duckdb://test.db")
+def _build_repository() -> Database:
+    repo = Database("finance_db", "duckdb://test.db")
     ref_data = Schema("ref_data", repo)
     trading = Schema("trading", repo)
     Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
@@ -234,7 +234,7 @@ class TestMarkdownMappingSave:
 
     def test_generated_markdown_has_repository(self):
         content = to_markdown("Finance Mapping", self.mapping)
-        assert "## Repository: finance_db" in content
+        assert "## DataStore: finance_db" in content
 
     def test_generated_markdown_has_schemas(self):
         content = to_markdown("Finance Mapping", self.mapping)
@@ -266,7 +266,7 @@ class TestMarkdownMappingSplitLoad:
 
     def test_repository_built_from_parent(self):
         table = self.by_class["Account"].property_mappings[0].target.table
-        assert table.schema.repository.name == "finance_db"
+        assert table.schema.datastore.name == "finance_db"
 
     def test_schemas_from_included_files(self):
         account_table = self.by_class["Account"].property_mappings[0].target.table
@@ -293,7 +293,7 @@ class TestMarkdownMappingLoadNoRepository:
 
     def test_repository_built_from_markdown(self):
         table = self.by_class["Account"].property_mappings[0].target.table
-        assert table.schema.repository.name == "finance_db"
+        assert table.schema.datastore.name == "finance_db"
 
     def test_schemas_built_from_markdown(self):
         account_table = self.by_class["Account"].property_mappings[0].target.table
