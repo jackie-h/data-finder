@@ -169,6 +169,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                 business_date=row.get("business_date", "").strip() or None,
                                 business_date_from=row.get("business_date_from", "").strip() or None,
                                 business_date_to=row.get("business_date_to", "").strip() or None,
+                                infinite_datetime=row.get("infinite_datetime", "").strip() or None,
                             ))
                     i += 1
                 continue
@@ -293,18 +294,20 @@ def _build_milestone_mapping(scheme_name, property_mappings, repository):
         _in = pm_by_col.get(scheme.processing_start)
         _out = pm_by_col.get(scheme.processing_end)
         if _date_from and _date_to and _in and _out:
-            return BiTemporalMilestonePropertyMapping(_date_from, _date_to, _in, _out)
+            return BiTemporalMilestonePropertyMapping(_date_from, _date_to, _in, _out,
+                                                      infinite_datetime=scheme.infinite_datetime)
     elif has_single_date and has_processing:
         _date = pm_by_col.get(scheme.business_date)
         _in = pm_by_col.get(scheme.processing_start)
         _out = pm_by_col.get(scheme.processing_end)
         if _date and _in and _out:
-            return BusinessDateAndProcessingMilestonePropertyMapping(_date, _in, _out)
+            return BusinessDateAndProcessingMilestonePropertyMapping(_date, _in, _out,
+                                                                     infinite_datetime=scheme.infinite_datetime)
     elif has_processing:
         _in = pm_by_col.get(scheme.processing_start)
         _out = pm_by_col.get(scheme.processing_end)
         if _in and _out:
-            return ProcessingDateMilestonesPropertyMapping(_in, _out)
+            return ProcessingDateMilestonesPropertyMapping(_in, _out, infinite_datetime=scheme.infinite_datetime)
     elif has_single_date:
         _date = pm_by_col.get(scheme.business_date)
         if _date:
@@ -406,11 +409,13 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
         if repo and repo.milestoning_schemes:
             scheme_rows = [
                 [s.name, s.processing_start or "", s.processing_end or "",
-                 s.business_date or "", s.business_date_from or "", s.business_date_to or ""]
+                 s.business_date or "", s.business_date_from or "", s.business_date_to or "",
+                 s.infinite_datetime or ""]
                 for s in repo.milestoning_schemes
             ]
             lines.append(_md_table(
-                ["Scheme", "processing_start", "processing_end", "business_date", "business_date_from", "business_date_to"],
+                ["Scheme", "processing_start", "processing_end", "business_date",
+                 "business_date_from", "business_date_to", "infinite_datetime"],
                 scheme_rows))
             lines.append("")
 
@@ -466,10 +471,15 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
 
     if repo.milestoning_schemes:
         scheme_rows = [
-            [s.name, s.processing_start or "", s.processing_end or "", s.business_date or ""]
+            [s.name, s.processing_start or "", s.processing_end or "", s.business_date or "",
+             s.business_date_from or "", s.business_date_to or "", s.infinite_datetime or ""]
             for s in repo.milestoning_schemes
         ]
-        lines.append(_md_table(["Scheme", "processing_start", "processing_end", "business_date"], scheme_rows))
+        lines.append(_md_table(
+            ["Scheme", "processing_start", "processing_end", "business_date",
+             "business_date_from", "business_date_to", "infinite_datetime"],
+            scheme_rows,
+        ))
         lines.append("")
 
     for schema in repo.schemas:

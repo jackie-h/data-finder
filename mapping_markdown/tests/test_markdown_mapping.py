@@ -312,3 +312,55 @@ class TestMarkdownMappingLoadNoRepository:
     def test_join_resolved_from_markdown(self):
         by_prop = {pm.property.id: pm for pm in self.by_class["Trade"].property_mappings}
         assert isinstance(by_prop["account"].target, Join)
+
+
+class TestInfiniteDatetimeMarkdownParsing:
+
+    _MAPPING_WITH_INFINITE = """\
+# Finance Mapping
+
+## DataStore: finance_db (Database)
+
+| Scheme          | processing_start | processing_end | business_date | business_date_from | business_date_to | infinite_datetime         |
+|-----------------|------------------|----------------|---------------|--------------------|------------------|---------------------------|
+| processing_only | in_z             | out_z          |               |                    |                  | 9999-12-31 23:59:59       |
+| open_ended      | in_z             | out_z          |               |                    |                  |                           |
+
+### Schema: trading
+
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type      | Key | Property |
+|--------|-----------|-----|----------|
+| in_z   | TIMESTAMP |     | valid_from |
+| out_z  | TIMESTAMP |     | valid_to   |
+"""
+
+    def setup_method(self):
+        from mapping_markdown.markdown_mapping import _md_parser, _build_repository_from_content, _loads_from_nodes
+        from markdown_it.tree import SyntaxTreeNode
+        root = SyntaxTreeNode(_md_parser.parse(self._MAPPING_WITH_INFINITE))
+        nodes = root.children
+        repo = _build_repository_from_content(nodes)
+        # milestoning schemes are populated inside _loads_from_nodes
+        _loads_from_nodes(nodes, packages=[], repository=repo)
+        self.repo = repo
+        self.schemes = {s.name: s for s in self.repo.milestoning_schemes}
+
+    def test_infinite_datetime_parsed_when_set(self):
+        assert self.schemes["processing_only"].infinite_datetime == "9999-12-31 23:59:59"
+
+    def test_infinite_datetime_is_none_when_blank(self):
+        assert self.schemes["open_ended"].infinite_datetime is None
+
+    def test_infinite_datetime_flows_to_milestone_mapping(self):
+        from mapping_markdown.markdown_mapping import _md_parser, _build_repository_from_content, _loads_from_nodes
+        from markdown_it.tree import SyntaxTreeNode
+        from model.mapping import ProcessingDateMilestonesPropertyMapping
+        root = SyntaxTreeNode(_md_parser.parse(self._MAPPING_WITH_INFINITE))
+        nodes = root.children
+        repo = _build_repository_from_content(nodes)
+        mapping = _loads_from_nodes(nodes, packages=[], repository=repo)
+        schemes = {s.name: s for s in repo.milestoning_schemes}
+        assert schemes["processing_only"].infinite_datetime == "9999-12-31 23:59:59"
+        assert schemes["open_ended"].infinite_datetime is None

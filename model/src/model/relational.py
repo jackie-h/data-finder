@@ -92,6 +92,10 @@ class BinaryOperation(Operation):
         self.right = right
 
 
+class IsNullOperation(UnaryOperation):
+    pass
+
+
 class BooleanOperation:
     def __init__(self):
         pass
@@ -222,13 +226,15 @@ class Relation:
 
 class MilestoningScheme:
     def __init__(self, name: str, processing_start: str = None, processing_end: str = None,
-                 business_date: str = None, business_date_from: str = None, business_date_to: str = None):
+                 business_date: str = None, business_date_from: str = None, business_date_to: str = None,
+                 infinite_datetime: str = None):
         self.name = name
         self.processing_start = processing_start
         self.processing_end = processing_end
         self.business_date = business_date
         self.business_date_from = business_date_from
         self.business_date_to = business_date_to
+        self.infinite_datetime = infinite_datetime
 
 
 from abc import ABC, abstractmethod

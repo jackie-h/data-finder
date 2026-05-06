@@ -634,3 +634,55 @@ class TestStringSlice:
         sql = to_sql(None, None, [attr * 3], table, NoOperation())
         assert "REPEAT(" in sql
         assert ", 3" in sql
+
+
+class TestNullEndMilestoning:
+
+    def _make_milestoned_table(self, infinite_datetime=None):
+        from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+        start_col = Column("in_z", "TIMESTAMP")
+        end_col = Column("out_z", "TIMESTAMP")
+        mc = ProcessingTemporalColumns(start_col, end_col, infinite_datetime=infinite_datetime)
+        table = MilestonedTable("trades", [], mc)
+        return table
+
+    def test_finite_infinite_datetime_produces_no_is_null(self):
+        table = self._make_milestoned_table(infinite_datetime="9999-12-31 23:59:59")
+        dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
+        from datafinder.sql_generator import build_milestoning_filter_operation
+        op = build_milestoning_filter_operation(None, dt, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        assert "IS NULL" not in sql
+        assert "out_z" in sql
+
+    def test_null_infinite_datetime_produces_is_null_clause(self):
+        table = self._make_milestoned_table(infinite_datetime=None)
+        dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
+        from datafinder.sql_generator import build_milestoning_filter_operation
+        op = build_milestoning_filter_operation(None, dt, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        assert "IS NULL" in sql
+        assert "out_z" in sql
+
+    def test_null_infinite_datetime_uses_or_between_gt_and_is_null(self):
+        table = self._make_milestoned_table(infinite_datetime=None)
+        dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
+        from datafinder.sql_generator import build_milestoning_filter_operation
+        op = build_milestoning_filter_operation(None, dt, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        assert " OR " in sql
+        gt_pos = sql.index("out_z >")
+        or_pos = sql.index(" OR ")
+        null_pos = sql.index("IS NULL")
+        assert gt_pos < or_pos < null_pos
+
+    def test_to_sql_with_null_end_contains_is_null(self):
+        table = self._make_milestoned_table(infinite_datetime=None)
+        from datafinder.typed_attributes import DateTimeAttribute as DTA
+        attr = DTA("start_at", "in_z", "TIMESTAMP", "trades")
+        dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
+        sql = to_sql(None, dt, [attr], table, NoOperation())
+        assert "IS NULL" in sql

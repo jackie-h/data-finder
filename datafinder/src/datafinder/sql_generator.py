@@ -11,7 +11,8 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
-    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
+    IsNullOperation
 
 class Alias:
     def __init__(self, element: RelationalOperationElement, name: str):
@@ -46,6 +47,15 @@ class SelectOperation:
         self.group_by = group_by or []
         self.limit = limit
 
+def _open_end_clause(end_attr, value, infinite_datetime: str) -> Operation:
+    """Returns `end > value` normally, or `(end > value OR end IS NULL)` when infinite_datetime is None."""
+    gt_op = end_attr > value
+    if infinite_datetime is None:
+        col_ref = ColumnWithJoin(end_attr.column(), end_attr.parent())
+        return LogicalOperation(gt_op, LogicalOperator.OR, IsNullOperation(col_ref))
+    return gt_op
+
+
 def build_milestoning_filter_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                                table:MilestonedTable) -> Operation:
     op = None
@@ -56,11 +66,11 @@ def build_milestoning_filter_operation(business_date:datetime.date, processing_d
         if business_date is not None:
             date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.table.qualified_name)
             date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.table.qualified_name)
-            ops.append(LogicalOperation(date_from <= business_date, LogicalOperator.AND, date_to > business_date))
+            ops.append(LogicalOperation(date_from <= business_date, LogicalOperator.AND, _open_end_clause(date_to, business_date, mc.infinite_datetime)))
         if processing_datetime is not None:
             start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
             end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
-            ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, end_at > processing_datetime))
+            ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime)))
         op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
     elif isinstance(mc, BusinessDateAndProcessingTemporalColumns):
         ops = []
@@ -70,12 +80,12 @@ def build_milestoning_filter_operation(business_date:datetime.date, processing_d
         if processing_datetime is not None:
             start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
             end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
-            ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, end_at > processing_datetime))
+            ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime)))
         op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
     elif isinstance(mc, ProcessingTemporalColumns) and processing_datetime is not None:
         start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
         end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
-        op = LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, end_at > processing_datetime)
+        op = LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime))
     elif isinstance(mc, SingleBusinessDateColumn) and business_date is not None:
         business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name)
         op = business_att == business_date
@@ -343,8 +353,16 @@ class SQLQueryGenerator:
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
             return ''
+        elif isinstance(op, IsNullOperation):
+            return self.build_filter(op.element) + ' IS NULL'
         elif isinstance(op, LogicalOperation):
-            return self.build_filter(op.left) + logical_operator_string(op.operator) + self.build_filter(op.right)
+            left_str = self.build_filter(op.left)
+            right_str = self.build_filter(op.right)
+            if isinstance(op.left, LogicalOperation):
+                left_str = '(' + left_str + ')'
+            if isinstance(op.right, LogicalOperation):
+                right_str = '(' + right_str + ')'
+            return left_str + logical_operator_string(op.operator) + right_str
         elif isinstance(op, ComparisonOperation):
             return self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)
         elif isinstance(op, ConstantOperation):

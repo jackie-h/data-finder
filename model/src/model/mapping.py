@@ -13,9 +13,10 @@ class MilestonePropertyMapping:
         pass
 
 class ProcessingDateMilestonesPropertyMapping(MilestonePropertyMapping):
-    def __init__(self, _in: PropertyMapping, _out: PropertyMapping):
+    def __init__(self, _in: PropertyMapping, _out: PropertyMapping, infinite_datetime: str = None):
         self._in = _in
         self._out = _out
+        self.infinite_datetime = infinite_datetime
 
 class SingleBusinessDateMilestonePropertyMapping(MilestonePropertyMapping):
     def __init__(self, _date: PropertyMapping):
@@ -24,15 +25,16 @@ class SingleBusinessDateMilestonePropertyMapping(MilestonePropertyMapping):
 
 class BusinessDateAndProcessingMilestonePropertyMapping(SingleBusinessDateMilestonePropertyMapping,
                                                         ProcessingDateMilestonesPropertyMapping):
-    def __init__(self, _date: PropertyMapping, _in: PropertyMapping, _out: PropertyMapping):
+    def __init__(self, _date: PropertyMapping, _in: PropertyMapping, _out: PropertyMapping,
+                 infinite_datetime: str = None):
         SingleBusinessDateMilestonePropertyMapping.__init__(self, _date)
-        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out)
+        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, infinite_datetime)
 
 
 class BiTemporalMilestonePropertyMapping(ProcessingDateMilestonesPropertyMapping):
     def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping,
-                 _in: PropertyMapping, _out: PropertyMapping):
-        super().__init__(_in, _out)
+                 _in: PropertyMapping, _out: PropertyMapping, infinite_datetime: str = None):
+        super().__init__(_in, _out, infinite_datetime)
         self._date_from = _date_from
         self._date_to = _date_to
 
