@@ -2,7 +2,7 @@
 
 ## Model: companies_model.md
 
-## Repository: companies_db
+## DataStore: companies_db (Database)
 
 ### Schema: main
 

@@ -2,14 +2,14 @@ import logging
 import re
 from typing import Optional
 
-from model.relational import Repository, Table
+from model.relational import DataStore, Table
 
 _log = logging.getLogger(__name__)
 _TABLE_HEADING_RE = re.compile(r"^####\s+Table:\s+(\S+)\s*→")
 _SCHEMA_HEADING_RE = re.compile(r"^###\s+Schema:\s+(.+)$")
 
 
-def refresh_mapping(mapping_path: str, new_repo: Repository, output_path: str = None) -> str:
+def refresh_mapping(mapping_path: str, new_repo: DataStore, output_path: str = None) -> str:
     """
     Refresh an existing mapping markdown from a new repository schema snapshot.
 
@@ -32,7 +32,7 @@ def refresh_mapping(mapping_path: str, new_repo: Repository, output_path: str = 
     return result
 
 
-def refresh_mapping_content(content: str, new_repo: Repository) -> str:
+def refresh_mapping_content(content: str, new_repo: DataStore) -> str:
     """Core logic — operates on strings (no file I/O)."""
     new_schema_tables: dict[str, dict[str, Table]] = {
         schema.name: {t.name: t for t in schema.tables}

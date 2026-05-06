@@ -4,15 +4,15 @@ import tempfile
 import pytest
 
 from mapping_markdown.refresh import refresh_mapping, refresh_mapping_content
-from model.relational import Repository, Schema, Table, Column
+from model.relational import Database, Schema, Table, Column
 
 
-def _repo(schema_tables: dict[str, list[tuple[str, list[tuple[str, str, bool]]]]]) -> Repository:
+def _repo(schema_tables: dict[str, list[tuple[str, list[tuple[str, str, bool]]]]]) -> Database:
     """
     Build a Repository from a dict:
       {schema_name: [(table_name, [(col_name, col_type, is_pk), ...]), ...]}
     """
-    repo = Repository("db", "duckdb://test.db")
+    repo = Database("db", "duckdb://test.db")
     for schema_name, tables in schema_tables.items():
         schema = Schema(schema_name, repo)
         for table_name, cols in tables:
@@ -24,7 +24,7 @@ def _repo(schema_tables: dict[str, list[tuple[str, list[tuple[str, str, bool]]]]
 SIMPLE_MAPPING = """\
 # Test Mapping
 
-## Repository: db
+## DataStore: db
 
 ### Schema: s
 
@@ -59,7 +59,7 @@ class TestNoChanges:
         repo = _repo({"s": [("my_table", [("id", "INT", True), ("name", "VARCHAR", False)])]})
         result = refresh_mapping_content(SIMPLE_MAPPING, repo)
         assert "# Test Mapping" in result
-        assert "## Repository: db" in result
+        assert "## DataStore: db" in result
 
 
 class TestAddColumn:
@@ -231,7 +231,7 @@ class TestAssociationsPreserved:
     MAPPING_WITH_ASSOC = """\
 # Finance Mapping
 
-## Repository: db
+## DataStore: db
 
 ### Schema: trading
 
@@ -272,7 +272,7 @@ class TestMilestoningPreserved:
     MAPPING_WITH_MILESTONING = """\
 # Finance Mapping
 
-## Repository: db
+## DataStore: db
 
 | Scheme          | processing_start | processing_end | business_date | business_date_from | business_date_to |
 |-----------------|------------------|----------------|---------------|--------------------|------------------|
@@ -310,7 +310,7 @@ class TestMultipleSchemas:
     MULTI_SCHEMA_MAPPING = """\
 # Multi Mapping
 
-## Repository: db
+## DataStore: db
 
 ### Schema: schema_a
 

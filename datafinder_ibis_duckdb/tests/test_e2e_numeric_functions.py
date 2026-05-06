@@ -35,8 +35,8 @@ _TRADES = [
 
 
 def _build_repository():
-    from model.relational import Repository, Schema, Table, Column
-    repo = Repository("finance_db", "duckdb://test.db")
+    from model.relational import Database, Schema, Table, Column
+    repo = Database("finance_db", "duckdb://test.db")
     ref_data = Schema("ref_data", repo)
     trading = Schema("trading", repo)
     Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)

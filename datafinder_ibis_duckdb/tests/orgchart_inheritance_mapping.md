@@ -2,7 +2,7 @@
 
 ## Model: ../../model_markdown/tests/orgchart_inheritance.md
 
-## Repository: hr_db
+## DataStore: hr_db (Database)
 
 ### Schema: hr
 

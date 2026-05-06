@@ -11,7 +11,7 @@ from mapping_markdown.refresh import refresh_mapping_content
 _EXISTING_MAPPING = """\
 # Finance Mapping
 
-## Repository: finance_db
+## DataStore: finance_db
 
 ### Schema: ref_data
 
@@ -65,18 +65,18 @@ class TestIcebergRefresh:
         pass
 
     def test_existing_property_mappings_preserved(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         assert "id" in result       # Property for ID column
         assert "name" in result     # Property for ACCT_NAME column
 
     def test_new_column_added(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         assert "email" in result
 
     def test_new_column_has_empty_property(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         for line in result.splitlines():
             if "email" in line and "|" in line:
@@ -87,7 +87,7 @@ class TestIcebergRefresh:
             pytest.fail("email column not found")
 
     def test_deleted_column_removed(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         col_lines = [
             l for l in result.splitlines()
@@ -96,24 +96,24 @@ class TestIcebergRefresh:
         assert not col_lines, "Deleted column 'out_z' should not appear"
 
     def test_new_column_in_trades_added(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         assert "price" in result
 
     def test_table_class_heading_preserved(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         assert "#### Table: account_master → Account" in result
         assert "#### Table: trades → Trade" in result
 
     def test_schema_headings_preserved(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         assert "### Schema: ref_data" in result
         assert "### Schema: trading" in result
 
     def test_iceberg_type_reflected(self, catalog):
-        repo = read_repository_from_catalog(catalog, repo_name="finance_db")
+        repo = read_repository_from_catalog(catalog)
         result = refresh_mapping_content(_EXISTING_MAPPING, repo)
         for line in result.splitlines():
             if "price" in line and "|" in line and "---" not in line and "Column" not in line:

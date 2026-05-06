@@ -6,11 +6,11 @@ import pytest
 
 from mapping_markdown.markdown_mapping import draft_from_repository, load
 from datafinder_duckdb.duckdb_reader import read_repository_from_duckdb
-from model.relational import Repository, Schema, Table, Column
+from model.relational import Database, Schema, Table, Column
 
 
-def _build_repository() -> Repository:
-    repo = Repository("finance_db", "duckdb://test.db")
+def _build_repository() -> Database:
+    repo = Database("finance_db", "duckdb://test.db")
     ref_data = Schema("ref_data", repo)
     trading = Schema("trading", repo)
     Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
@@ -32,7 +32,7 @@ class TestDraftFromRepository:
         assert "# Finance Draft" in self.draft
 
     def test_draft_has_repository(self):
-        assert "## Repository: finance_db" in self.draft
+        assert "## DataStore: finance_db" in self.draft
 
     def test_draft_has_schemas(self):
         assert "### Schema: ref_data" in self.draft

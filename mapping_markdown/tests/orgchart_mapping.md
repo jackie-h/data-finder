@@ -2,7 +2,7 @@
 
 ## Model: orgchart.md
 
-## Repository: orgchart_db
+## DataStore: orgchart_db (Database)
 
 ### Schema: hr
 

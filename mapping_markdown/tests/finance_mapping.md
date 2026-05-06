@@ -3,7 +3,7 @@
 ## Model: finance.md
 ## Model: finance_trade.md
 
-## Repository: finance_db
+## DataStore: finance_db (Database)
 
 | Scheme                    | processing_start | processing_end | business_date | business_date_from | business_date_to |
 |---------------------------|------------------|----------------|---------------|--------------------|------------------|

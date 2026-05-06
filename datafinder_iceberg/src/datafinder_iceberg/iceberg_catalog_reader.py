@@ -16,7 +16,7 @@ from pyiceberg.types import (
     ListType, MapType,
 )
 
-from model.relational import Repository, Schema, Table, Column
+from model.relational import DataCatalog, Schema, Table, Column
 
 
 def _map_type(iceberg_type: IcebergType) -> str:
@@ -56,16 +56,14 @@ def _map_type(iceberg_type: IcebergType) -> str:
 
 def read_repository_from_catalog(
     catalog,
-    repo_name: str = None,
     fail_on_error: bool = True,
-) -> Repository:
-    """Build a Repository from an already-constructed pyiceberg Catalog instance."""
-    name = repo_name or catalog.name
-    repo = Repository(name, "")
+) -> DataCatalog:
+    """Build a DataCatalog from an already-constructed pyiceberg Catalog instance."""
+    repo = DataCatalog(catalog.name)
 
     for namespace in catalog.list_namespaces():
         namespace_name = ".".join(str(part) for part in namespace)
-        schema = Schema(namespace_name, repo, prefix=catalog.name)
+        schema = Schema(namespace_name, repo)
         for table_id in catalog.list_tables(namespace):
             table_name = table_id[-1]
             try:
@@ -85,13 +83,13 @@ def read_repository_from_catalog(
 
 def read_repository_from_iceberg_catalog(
     catalog_uri: str,
-    repo_name: str = None,
+    catalog_name: str,
     credentials: Optional[dict] = None,
     fail_on_error: bool = True,
-) -> Repository:
-    """Build a Repository by connecting to an Iceberg REST catalog by URI."""
+) -> DataCatalog:
+    """Build a DataCatalog by connecting to an Iceberg REST catalog by URI."""
     properties = {"uri": catalog_uri}
     if credentials:
         properties.update(credentials)
-    catalog = RestCatalog("catalog", **properties)
-    return read_repository_from_catalog(catalog, repo_name=repo_name or catalog_uri, fail_on_error=fail_on_error)
+    catalog = RestCatalog(catalog_name, **properties)
+    return read_repository_from_catalog(catalog, fail_on_error=fail_on_error)
