@@ -24,10 +24,13 @@
 |--------------------|---------------------------------------------------------|
 | ContractualPosition | A position on a given business date as of a processing time |
 
-| Property   | Id         | Type       | Key | Description              |
-|------------|------------|------------|-----|--------------------------|
-| Quantity   | quantity   | Double     |     | Net quantity of position |
-| Npv        | npv        | Double     |     | Net present value        |
+| Property      | Id            | Type     | Key | Description              |
+|---------------|---------------|----------|-----|--------------------------|
+| Business Date | business_date | Date     |     | The business date        |
+| Quantity      | quantity      | Double   |     | Net quantity of position |
+| Npv           | npv           | Double   |     | Net present value        |
+| Valid From    | valid_from    | DateTime |     |                          |
+| Valid To      | valid_to      | DateTime |     |                          |
 
 ### Association: TradeAccount
 
