@@ -20,7 +20,7 @@ class ProcessingTemporalColumns(MilestoningColumns):
 
 class SingleBusinessDateColumn(MilestoningColumns):
     def __init__(self, business_date_column: Column):
-        super().__init__()
+        MilestoningColumns.__init__(self)
         self.business_date_column = business_date_column
 
     def columns(self) -> [Column]:

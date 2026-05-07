@@ -24,6 +24,7 @@ _FINDER_MODULES = [
     "finance.reference_data.account_finder",
     "finance.reference_data.instrument_finder",
     "finance.trade.trade_finder",
+    "finance.trade.contractualposition_finder",
 ]
 
 
@@ -37,6 +38,9 @@ def _build_repository() -> Database:
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("is_settled", "BOOLEAN"),
                      Column("account_id", "INT"), Column("in_z", "TIMESTAMP"),
                      Column("out_z", "TIMESTAMP")], trading)
+    Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"),
+                                  Column("NPV", "DOUBLE"), Column("in_z", "TIMESTAMP"),
+                                  Column("out_z", "TIMESTAMP")], trading)
     return repo
 
 
@@ -58,6 +62,15 @@ def _seed_test_db():
     conn.execute("INSERT INTO trading.trades VALUES ('AAPL', 84.11, true, 1, '2020-01-01', '9999-12-31')")
     # GOOG trade: expired before 2022, not settled
     conn.execute("INSERT INTO trading.trades VALUES ('GOOG', 200.0, false, 1, '2020-01-01', '2022-01-01')")
+    conn.execute(
+        "CREATE TABLE trading.contractualposition(DATE DATE, QUANTITY DOUBLE, NPV DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)"
+    )
+    # Row 1: business_date=2023-01-15, processed from 2023-01-15 onward (active as of now)
+    conn.execute("INSERT INTO trading.contractualposition VALUES ('2023-01-15', 100.0, 500.0, '2023-01-15', '9999-12-31')")
+    # Row 2: same business_date=2023-01-15, superseded by row 1 (processing expired at 2023-01-15)
+    conn.execute("INSERT INTO trading.contractualposition VALUES ('2023-01-15', 90.0, 450.0, '2023-01-10', '2023-01-15')")
+    # Row 3: different business_date=2023-01-16, active as of now
+    conn.execute("INSERT INTO trading.contractualposition VALUES ('2023-01-16', 200.0, 1000.0, '2023-01-16', '9999-12-31')")
     conn.close()
 
 
@@ -80,8 +93,10 @@ def finders():
     from finance.reference_data.account_finder import AccountFinder
     from finance.trade.trade_finder import TradeFinder
     from finance.reference_data.instrument_finder import InstrumentFinder
+    from finance.trade.contractualposition_finder import ContractualPositionFinder
 
-    yield {"Account": AccountFinder, "Trade": TradeFinder, "Instrument": InstrumentFinder}
+    yield {"Account": AccountFinder, "Trade": TradeFinder, "Instrument": InstrumentFinder,
+           "ContractualPosition": ContractualPositionFinder}
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -179,3 +194,50 @@ class TestE2EMarkdownIbisDuckDb:
         ).to_pandas()
         assert len(result) == 1
         assert result.iloc[0]["Symbol"] == "AAPL"
+
+
+class TestE2EBusinessDateProcessingMilestoning:
+
+    def test_query_by_business_date_and_processing_time(self, finders):
+        CPFinder = finders["ContractualPosition"]
+        # business_date=2023-01-15, processing_valid_at=now → should return row 1 (quantity=100)
+        result = CPFinder.find_all(
+            "2023-01-15",
+            datetime.datetime.now(),
+            [CPFinder.quantity(), CPFinder.npv()],
+        ).to_pandas()
+        assert len(result) == 1
+        assert result.iloc[0]["Quantity"] == 100.0
+
+    def test_different_business_date_excluded(self, finders):
+        CPFinder = finders["ContractualPosition"]
+        # business_date=2023-01-15 should not return the row for 2023-01-16
+        result = CPFinder.find_all(
+            "2023-01-15",
+            datetime.datetime.now(),
+            [CPFinder.quantity()],
+        ).to_pandas()
+        quantities = result["Quantity"].tolist()
+        assert 200.0 not in quantities
+
+    def test_processing_expired_row_excluded(self, finders):
+        CPFinder = finders["ContractualPosition"]
+        # Row 2 (quantity=90) was superseded at 2023-01-15; should not appear at processing_valid_at=now
+        result = CPFinder.find_all(
+            "2023-01-15",
+            datetime.datetime.now(),
+            [CPFinder.quantity()],
+        ).to_pandas()
+        quantities = result["Quantity"].tolist()
+        assert 90.0 not in quantities
+
+    def test_processing_expired_row_visible_before_expiry(self, finders):
+        CPFinder = finders["ContractualPosition"]
+        # Row 2 (quantity=90) was active before 2023-01-15; should appear at processing_valid_at=2023-01-12
+        result = CPFinder.find_all(
+            "2023-01-15",
+            "2023-01-12 12:00:00",
+            [CPFinder.quantity()],
+        ).to_pandas()
+        assert len(result) == 1
+        assert result.iloc[0]["Quantity"] == 90.0
