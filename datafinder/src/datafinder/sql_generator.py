@@ -350,7 +350,10 @@ class SQLQueryGenerator:
         join = node.join
         left = join.left
         src_key = node.parent if node.parent is not None else None
-        sc = TableAliasColumn(left, self.__table_alias_for_table(left.owner, key=src_key))
+        src_ta = self.__table_alias_for_table(left.owner, key=src_key)
+        if node.parent is None:
+            self._from.add(src_ta)
+        sc = TableAliasColumn(left, src_ta)
         right = join.right
         tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
         self._join.append(Join(sc, tc, join.filter))
