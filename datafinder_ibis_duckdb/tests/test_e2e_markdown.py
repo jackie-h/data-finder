@@ -195,6 +195,46 @@ class TestE2EMarkdownIbisDuckDb:
         assert len(result) == 1
         assert result.iloc[0]["Symbol"] == "AAPL"
 
+    # --- Bidirectional association traversal ---
+
+    def test_forward_trade_to_account(self, finders):
+        """Forward direction: Trade → Account via TradeFinder.account().
+        Root table is Trade; Account is the join so its columns are prefixed 'Account'.
+        """
+        TradeFinder = finders["Trade"]
+        result = TradeFinder.find_all(
+            datetime.datetime.now(),
+            [TradeFinder.symbol(), TradeFinder.account().name()],
+            TradeFinder.symbol().eq("AAPL"),
+        ).to_pandas()
+        assert len(result) == 1
+        assert result.iloc[0]["Symbol"] == "AAPL"
+        assert result.iloc[0]["Account Name"] == "Acme Corp"
+
+    def test_reverse_account_to_trades(self, finders):
+        """Reverse direction: Account → Trades via AccountFinder.trades().
+        Root table is Account; Trade is the join so its columns are prefixed 'Trade'.
+        No milestoning is applied to the trade join when querying from the account
+        side (AccountFinder passes no processing timestamp), so all trade rows are returned.
+        """
+        AccountFinder = finders["Account"]
+        result = AccountFinder.find_all(
+            [AccountFinder.name(), AccountFinder.trades().symbol()],
+        ).to_pandas()
+        assert set(result["Name"].tolist()) == {"Acme Corp"}
+        assert set(result["Trade Symbol"].tolist()) == {"AAPL", "GOOG"}
+
+    def test_reverse_account_to_trades_filter_by_symbol(self, finders):
+        """Reverse direction with filter applied on the joined trade column."""
+        AccountFinder = finders["Account"]
+        result = AccountFinder.find_all(
+            [AccountFinder.name(), AccountFinder.trades().symbol()],
+            AccountFinder.trades().symbol().eq("AAPL"),
+        ).to_pandas()
+        assert len(result) == 1
+        assert result.iloc[0]["Name"] == "Acme Corp"
+        assert result.iloc[0]["Trade Symbol"] == "AAPL"
+
 
 class TestE2EBusinessDateProcessingMilestoning:
 
