@@ -4,7 +4,7 @@ from datafinder import StringAttribute, to_sql
 from datafinder import IntegerAttribute
 from datafinder.sql_generator import SQLQueryGenerator
 from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute
-from model.relational import Table, Column, NoOperation, CountAllOperation
+from model.relational import Table, Column, NoOperation, CountAllOperation, JoinOperation, JoinTreeNodeOperation
 
 
 def _make_table_and_attr():
@@ -694,7 +694,6 @@ class TestMilestoningOnJoinedTable:
 
     def _make_account_to_trade_reverse_join(self):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
-        from model.relational import JoinOperation
 
         # Non-milestoned root: Account
         account_id_col = Column("ID", "INT", "account_master")
@@ -710,7 +709,8 @@ class TestMilestoningOnJoinedTable:
 
         # Reverse join: account_master.ID → trades.account_id
         join = JoinOperation("Trade", trade_table, account_id_col, fk_col)
-        sym_attr = StringAttribute("Trade Symbol", "sym", "VARCHAR", "trades", join)
+        node = JoinTreeNodeOperation(join)
+        sym_attr = StringAttribute("Trade Symbol", "sym", "VARCHAR", "trades", node)
         return account_table, sym_attr
 
     def test_milestoning_appears_in_join_on_clause_not_where(self):
@@ -748,7 +748,6 @@ class TestMilestoningOnJoinedTable:
         """When BOTH root and joined tables are milestoned, root milestoning is in WHERE
         and join milestoning is in the ON clause."""
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
-        from model.relational import JoinOperation
 
         # Milestoned root: Trade
         in_z_root = Column("in_z", "TIMESTAMP", "trades")
@@ -768,7 +767,7 @@ class TestMilestoningOnJoinedTable:
         sym_fk = Column("sym", "VARCHAR", "trades")
         sym_pk = Column("SYM", "VARCHAR", "price")
         join = JoinOperation("Instrument", price_table, sym_fk, sym_pk)
-        price_attr = StringAttribute("Price", "PRICE", "DOUBLE", "price", join)
+        price_attr = StringAttribute("Price", "PRICE", "DOUBLE", "price", JoinTreeNodeOperation(join))
 
         dt = datetime.datetime(2023, 1, 1, 12, 0, 0)
         sql = to_sql(None, dt, [sym_attr, price_attr], trade_table, NoOperation())
@@ -781,3 +780,117 @@ class TestMilestoningOnJoinedTable:
         # Join milestoning lands before WHERE (in the ON clause)
         on_clause = sql[join_pos:where_pos]
         assert "in_z" in on_clause
+
+
+class TestJoinOrdering:
+    """Joins must appear in a deterministic, insertion-order sequence."""
+
+    def test_two_joins_order_is_stable(self):
+        """Selecting columns from two different joined tables must always produce
+        the joins in the same order regardless of Python set iteration."""
+        account_id_col = Column("account_id", "INT", "trades")
+        sym_col = Column("sym", "VARCHAR", "trades")
+        trade_table = Table("trades", [account_id_col, sym_col])
+
+        acct_id = Column("ID", "INT", "accounts")
+        acct_table = Table("accounts", [acct_id])
+        acct_join = JoinOperation("account", acct_table, account_id_col, acct_id)
+        acct_node = JoinTreeNodeOperation(acct_join)
+
+        inst_sym = Column("SYM", "VARCHAR", "instruments")
+        inst_table = Table("instruments", [inst_sym])
+        inst_join = JoinOperation("instrument", inst_table, sym_col, inst_sym)
+        inst_node = JoinTreeNodeOperation(inst_join)
+
+        acct_name = StringAttribute("Account Id", "ID", "INT", "accounts", acct_node)
+        inst_sym_attr = StringAttribute("Symbol", "SYM", "VARCHAR", "instruments", inst_node)
+
+        sqls = [
+            to_sql(None, None, [acct_name, inst_sym_attr], trade_table, NoOperation()),
+            to_sql(None, None, [acct_name, inst_sym_attr], trade_table, NoOperation()),
+            to_sql(None, None, [acct_name, inst_sym_attr], trade_table, NoOperation()),
+        ]
+        assert sqls[0] == sqls[1] == sqls[2]
+        assert sqls[0].index("accounts") < sqls[0].index("instruments")
+
+
+class TestMultiHopJoins:
+    """When traversing A→B→C, the B join must be emitted before the C join
+    even when no columns from B are selected."""
+
+    def _make_two_hop_setup(self):
+        # Root: org table
+        org_id = Column("id", "INT", "org")
+        org_table = Table("org", [org_id])
+
+        # Intermediate: employees table
+        emp_id = Column("id", "INT", "employees")
+        emp_org_fk = Column("org_id", "INT", "employees")
+        emp_mgr_fk = Column("manager_id", "INT", "employees")
+        emp_name = Column("name", "VARCHAR", "employees")
+        emp_table = Table("employees", [emp_id, emp_org_fk, emp_mgr_fk, emp_name])
+
+        # Leaf: trades table (joined via employees.id → trades.employee_id)
+        trade_sym = Column("sym", "VARCHAR", "trades")
+        trade_emp_fk = Column("employee_id", "INT", "trades")
+        trade_table = Table("trades", [trade_sym, trade_emp_fk])
+
+        # Hop 1: org → employees
+        emp_join = JoinOperation("employees", emp_table, org_id, emp_org_fk)
+        emp_node = JoinTreeNodeOperation(emp_join)
+
+        # Hop 2: employees → trades (parent = emp_node)
+        trade_join = JoinOperation("trades", trade_table, emp_id, trade_emp_fk)
+        trade_node = JoinTreeNodeOperation(trade_join, parent=emp_node)
+
+        trade_sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trades", trade_node)
+        return org_table, emp_node, trade_node, trade_sym_attr
+
+    def test_ancestor_join_emitted_when_no_intermediate_column_selected(self):
+        """Selecting only a leaf-table column must still emit the intermediate join."""
+        org_table, emp_node, trade_node, trade_sym_attr = self._make_two_hop_setup()
+        sql = to_sql(None, None, [trade_sym_attr], org_table, NoOperation())
+
+        assert sql.count("LEFT OUTER JOIN") == 2
+
+    def test_ancestor_join_appears_before_leaf_join(self):
+        """The intermediate (employees) join must precede the leaf (trades) join."""
+        org_table, emp_node, trade_node, trade_sym_attr = self._make_two_hop_setup()
+        sql = to_sql(None, None, [trade_sym_attr], org_table, NoOperation())
+
+        emp_pos = sql.index("employees")
+        trades_pos = sql.index("trades", emp_pos + 1)
+        assert emp_pos < trades_pos
+
+    def test_three_join_chain_correct_order(self):
+        """A→B→C→D produces joins in B, C, D order."""
+        a_id = Column("id", "INT", "a")
+        a_table = Table("a", [a_id])
+
+        b_id = Column("id", "INT", "b")
+        b_fk = Column("a_id", "INT", "b")
+        b_table = Table("b", [b_id, b_fk])
+
+        c_id = Column("id", "INT", "c")
+        c_fk = Column("b_id", "INT", "c")
+        c_table = Table("c", [c_id, c_fk])
+
+        d_val = Column("val", "VARCHAR", "d")
+        d_fk = Column("c_id", "INT", "d")
+        d_table = Table("d", [d_val, d_fk])
+
+        b_join = JoinOperation("b", b_table, a_id, b_fk)
+        b_node = JoinTreeNodeOperation(b_join)
+        c_join = JoinOperation("c", c_table, b_id, c_fk)
+        c_node = JoinTreeNodeOperation(c_join, parent=b_node)
+        d_join = JoinOperation("d", d_table, c_id, d_fk)
+        d_node = JoinTreeNodeOperation(d_join, parent=c_node)
+
+        d_attr = StringAttribute("Val", "val", "VARCHAR", "d", d_node)
+        sql = to_sql(None, None, [d_attr], a_table, NoOperation())
+
+        assert sql.count("LEFT OUTER JOIN") == 3
+        b_pos = sql.index(" b ")
+        c_pos = sql.index(" c ")
+        d_pos = sql.index(" d ")
+        assert b_pos < c_pos < d_pos

@@ -9,7 +9,7 @@ from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColum
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
-    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, \
+    DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation
@@ -57,37 +57,37 @@ def _open_end_clause(end_attr, value, infinite_datetime: str) -> Operation:
 
 
 def build_milestoning_filter_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
-                               table:MilestonedTable) -> Operation:
+                               table:MilestonedTable, join_node:'JoinTreeNodeOperation' = None) -> Operation:
     op = None
     #TODO this should not reference attribute
     mc = table.milestoning_columns
     if isinstance(mc, BiTemporalColumns):
         ops = []
         if business_date is not None:
-            date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.table.qualified_name)
-            date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.table.qualified_name)
+            date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.table.qualified_name, join_node)
+            date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.table.qualified_name, join_node)
             ops.append(LogicalOperation(date_from <= business_date, LogicalOperator.AND, _open_end_clause(date_to, business_date, mc.infinite_datetime)))
         if processing_datetime is not None:
-            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
-            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
+            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name, join_node)
+            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name, join_node)
             ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime)))
         op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
     elif isinstance(mc, BusinessDateAndProcessingTemporalColumns):
         ops = []
         if business_date is not None:
-            business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name)
+            business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name, join_node)
             ops.append(business_att == business_date)
         if processing_datetime is not None:
-            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
-            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
+            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name, join_node)
+            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name, join_node)
             ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime)))
         op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
     elif isinstance(mc, ProcessingTemporalColumns) and processing_datetime is not None:
-        start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name)
-        end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name)
+        start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name, join_node)
+        end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name, join_node)
         op = LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime))
     elif isinstance(mc, SingleBusinessDateColumn) and business_date is not None:
-        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name)
+        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name, join_node)
         op = business_att == business_date
     return op
 
@@ -107,21 +107,23 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
         milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
         op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
-    required_joins = set()
+    required_joins: list[JoinTreeNodeOperation] = []
+    required_join_ids: set = set()
     for col in columns:
         if isinstance(col, CountAllOperation):
             continue
         if isinstance(col, Attribute):
-            parent: JoinOperation = col.parent()
+            node = col.parent()
         else:
-            parent: JoinOperation = find_column(col).parent
-        if parent is not None:
-            required_joins.add(parent)
+            node = find_column(col).parent
+        if node is not None and id(node) not in required_join_ids:
+            required_join_ids.add(id(node))
+            required_joins.append(node)
 
-    for j in required_joins:
-        if isinstance(j.target, MilestonedTable):
-            milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, j.target)
-            j.filter = milestoned_op
+    for node in required_joins:
+        if isinstance(node.join.target, MilestonedTable):
+            milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
+            node.join.filter = milestoned_op
 
     select = SelectOperation(columns, op, order_by or [], group_by or [], limit)
     return select
@@ -260,28 +262,26 @@ class SQLQueryGenerator:
         self._limit = select.limit
 
     def __attr_to_col_string(self, attr: Attribute) -> str:
-        ta = self.__table_alias_for_table(attr.owner())
+        node = attr.parent()
+        ta = self.__table_alias_for_table(attr.owner(), key=node)
         return ta.alias + '.' + attr.column().name
 
-    @staticmethod
-    def __is_self_join(parent: JoinOperation) -> bool:
-        return parent.left.owner == parent.right.owner
-
-    def __join_target_key(self, parent: JoinOperation):
-        """Cache key for the join target alias. Use join op identity only for self-joins
-        so the target gets a distinct alias from the source table."""
-        return parent if self.__is_self_join(parent) else None
-
     def select(self, cols: list[Attribute]):
-        required_joins = set()
+        required_joins: list[JoinTreeNodeOperation] = []
+        required_join_ids: set = set()
+
+        def _require(node: JoinTreeNodeOperation):
+            if node is not None and id(node) not in required_join_ids:
+                required_join_ids.add(id(node))
+                required_joins.append(node)
 
         for col in cols:
             if isinstance(col, Attribute):
                 table = col.owner()
-                parent: JoinOperation = col.parent()
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
+                node = col.parent()
+                if node is not None:
+                    _require(node)
+                    ta = self.__table_alias_for_table(table, key=node)
                 else:
                     ta = self.__table_alias_for_table(table)
                     self._from.add(ta)
@@ -290,10 +290,10 @@ class SQLQueryGenerator:
             elif isinstance(col, AggregateOperation):
                 col_nested = find_column(col)
                 table = col_nested.column.owner
-                parent: JoinOperation = col_nested.parent
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
+                node = col_nested.parent
+                if node is not None:
+                    _require(node)
+                    ta = self.__table_alias_for_table(table, key=node)
                 else:
                     ta = self.__table_alias_for_table(table)
                     self._from.add(ta)
@@ -303,10 +303,10 @@ class SQLQueryGenerator:
             elif isinstance(col, ScalarFunctionOperation):
                 col_nested = find_column(col)
                 table = col_nested.column.owner
-                parent: JoinOperation = col_nested.parent
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
+                node = col_nested.parent
+                if node is not None:
+                    _require(node)
+                    ta = self.__table_alias_for_table(table, key=node)
                 else:
                     ta = self.__table_alias_for_table(table)
                     self._from.add(ta)
@@ -317,10 +317,10 @@ class SQLQueryGenerator:
             elif isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
                 col_nested = find_column(col)
                 table = col_nested.column.owner
-                parent: JoinOperation = col_nested.parent
-                if parent is not None:
-                    required_joins.add(parent)
-                    ta = self.__table_alias_for_table(table, key=self.__join_target_key(parent))
+                node = col_nested.parent
+                if node is not None:
+                    _require(node)
+                    ta = self.__table_alias_for_table(table, key=node)
                 else:
                     ta = self.__table_alias_for_table(table)
                     self._from.add(ta)
@@ -337,18 +337,23 @@ class SQLQueryGenerator:
                 self._from.add(ta)
                 self._select.append(Alias(col, 'Count'))
 
-        for parent in required_joins:
-            self.__add_join(parent)
+        for node in required_joins:
+            self.__add_join(node)
 
-    def __add_join(self, parent: JoinOperation):
-        if id(parent) in self.__added_join_ids:
+    def __add_join(self, node: JoinTreeNodeOperation):
+        if id(node) in self.__added_join_ids:
             return
-        self.__added_join_ids.add(id(parent))
-        left = parent.left
-        sc = TableAliasColumn(left, self.__table_alias_for_table(left.owner))
-        right = parent.right
-        tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=self.__join_target_key(parent)))
-        self._join.append(Join(sc, tc, parent.filter))
+        # Add ancestor joins first so intermediate tables are available
+        if node.parent is not None:
+            self.__add_join(node.parent)
+        self.__added_join_ids.add(id(node))
+        join = node.join
+        left = join.left
+        src_key = node.parent if node.parent is not None else None
+        sc = TableAliasColumn(left, self.__table_alias_for_table(left.owner, key=src_key))
+        right = join.right
+        tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
+        self._join.append(Join(sc, tc, join.filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
@@ -368,10 +373,10 @@ class SQLQueryGenerator:
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
         elif isinstance(op, ColumnWithJoin):
-            parent = op.parent
-            if parent is not None:
-                ta = self.__table_alias_for_table(op.column.owner, key=self.__join_target_key(parent))
-                self.__add_join(parent)
+            node = op.parent
+            if node is not None:
+                ta = self.__table_alias_for_table(op.column.owner, key=node)
+                self.__add_join(node)
             else:
                 ta = self.__table_alias_for_table(op.column.owner)
             return ta.alias + '.' + op.column.name
