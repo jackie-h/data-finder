@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 from mapping_markdown.markdown_mapping import load
-from model.m3 import Property, String
+from model.m3 import Property, String, Class, Package, Association, Multiplicity
 from datafinder_generator.generator import to_python_name, generate, _class_package, _ensure_package_dirs
 
 
@@ -164,5 +164,93 @@ class TestGeneratePackageStructure:
             from finance.reference_data.account_finder import AccountFinder
             result = AccountFinder.trades()
             assert result is not None
+        finally:
+            sys.path.remove(self.tmp)
+
+
+class TestDualAssociationSameTarget:
+    """Two associations from the same source class to the same target class
+    (e.g. Contract.primary_owner and Contract.secondary_owner, both → Employee)
+    must generate two distinct reverse navigation methods on EmployeeFinder.
+    """
+
+    def _build_mapping(self):
+        from model.m3 import Integer
+        from model.mapping import Mapping
+        from model.relational import Database, Schema, Table, Column, ForeignKey
+        from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+
+        pkg = Package("org")
+        employee_cls = Class("Employee", [
+            Property("Id", "id", Integer),
+            Property("Name", "name", String),
+        ], pkg)
+        contract_cls = Class("Contract", [
+            Property("Id", "id", Integer),
+            Property("Primary Owner", "primary_owner", employee_cls),
+            Property("Secondary Owner", "secondary_owner", employee_cls),
+        ], pkg)
+        Association("ContractPrimaryOwner", "Contract", Multiplicity.MANY, "primary_owner_contracts",
+                    "Employee", Multiplicity.ONE, "primary_owner", pkg)
+        Association("ContractSecondaryOwner", "Contract", Multiplicity.MANY, "secondary_owner_contracts",
+                    "Employee", Multiplicity.ONE, "secondary_owner", pkg)
+
+        repo = Database("org_db", "duckdb://org.db")
+        schema = Schema("hr", repo)
+        emp_id_col = Column("id", "INT", primary_key=True)
+        emp_name_col = Column("name", "VARCHAR")
+        emp_table = Table("employees", [emp_id_col, emp_name_col], schema)
+
+        primary_fk_col = Column("primary_owner_id", "INT")
+        secondary_fk_col = Column("secondary_owner_id", "INT")
+        contract_id_col = Column("id", "INT", primary_key=True)
+        contract_table = Table("contracts", [contract_id_col, primary_fk_col, secondary_fk_col], schema)
+
+        emp_id_pm = RelationalPropertyMapping(employee_cls.property("id"), emp_id_col)
+        emp_name_pm = RelationalPropertyMapping(employee_cls.property("name"), emp_name_col)
+        emp_rcm = RelationalClassMapping(employee_cls, [emp_id_pm, emp_name_pm])
+
+        contract_id_pm = RelationalPropertyMapping(contract_cls.property("id"), contract_id_col)
+        primary_join = Join(primary_fk_col, emp_id_col)
+        primary_pm = RelationalPropertyMapping(contract_cls.property("primary_owner"), primary_join)
+        secondary_join = Join(secondary_fk_col, emp_id_col)
+        secondary_pm = RelationalPropertyMapping(contract_cls.property("secondary_owner"), secondary_join)
+        contract_rcm = RelationalClassMapping(contract_cls, [contract_id_pm, primary_pm, secondary_pm])
+
+        return Mapping("OrgMapping", [emp_rcm, contract_rcm])
+
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+        self.mapping = self._build_mapping()
+
+    def teardown_method(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        for mod in list(sys.modules.keys()):
+            if mod.startswith("org"):
+                sys.modules.pop(mod, None)
+
+    def test_employee_finder_has_both_reverse_methods(self):
+        generate(self.mapping, self.tmp)
+        content = open(os.path.join(self.tmp, "employee_finder.py")).read()
+        assert "def primary_owner_contracts(" in content
+        assert "def secondary_owner_contracts(" in content
+
+    def test_reverse_methods_are_distinct_not_shadowed(self):
+        generate(self.mapping, self.tmp)
+        content = open(os.path.join(self.tmp, "employee_finder.py")).read()
+        # Both FK columns must appear — if one were shadowed, only one would be present
+        assert "primary_owner_id" in content
+        assert "secondary_owner_id" in content
+
+    def test_both_reverse_methods_callable_and_independent(self):
+        generate(self.mapping, self.tmp)
+        sys.path.insert(0, self.tmp)
+        try:
+            from employee_finder import EmployeeFinder
+            primary = EmployeeFinder.primary_owner_contracts()
+            secondary = EmployeeFinder.secondary_owner_contracts()
+            assert primary is not None
+            assert secondary is not None
+            assert primary is not secondary
         finally:
             sys.path.remove(self.tmp)

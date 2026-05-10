@@ -63,6 +63,11 @@ class TestMarkdownLoad:
         assert assoc.source_multiplicity == Multiplicity.MANY
         assert assoc.target_multiplicity == Multiplicity.ONE
 
+    def test_association_properties(self):
+        assoc = self.associations[0]
+        assert assoc.source_property == "trades"
+        assert assoc.target_property == "account"
+
     def test_class_package(self):
         for cls in self.classes:
             assert cls.package is self.pkg
@@ -120,9 +125,9 @@ class TestMarkdownUnexpectedColumns:
 
 ### Association: TradeAccount
 
-| Name         | Source | Source Multiplicity | Target  | Target Multiplicity | Description | Cardinality |
-|--------------|--------|---------------------|---------|---------------------|-------------|-------------|
-| TradeAccount | Trade  | *                   | Account | 1                   | A link      | many-to-one |
+| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description | Cardinality |
+|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|-------------|-------------|
+| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   | A link      | many-to-one |
 """
         with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
             packages = loads(content)
@@ -176,6 +181,13 @@ class TestMarkdownSave:
         assert assocs2[0].source_multiplicity == Multiplicity.MANY
         assert assocs2[0].target_multiplicity == Multiplicity.ONE
 
+    def test_property_roundtrip(self):
+        content = to_markdown("Finance Model", self.packages)
+        packages2 = loads(content)
+        assocs2 = [a for a in packages2[0].children if isinstance(a, Association)]
+        assert assocs2[0].source_property == "trades"
+        assert assocs2[0].target_property == "account"
+
     def test_missing_multiplicity_raises(self):
         content = """
 ## Sub-Domain: finance
@@ -188,4 +200,18 @@ class TestMarkdownSave:
 """
         import pytest
         with pytest.raises(ValueError, match="Source Multiplicity"):
+            loads(content)
+
+    def test_missing_property_raises(self):
+        content = """
+## Sub-Domain: finance
+
+### Association: TradeAccount
+
+| Name         | Source | Source Multiplicity | Target  | Target Multiplicity | Description |
+|--------------|--------|---------------------|---------|---------------------|-------------|
+| TradeAccount | Trade  | *                   | Account | 1                   |             |
+"""
+        import pytest
+        with pytest.raises(ValueError, match="Source Property"):
             loads(content)

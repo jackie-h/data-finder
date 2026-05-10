@@ -37,6 +37,6 @@
 
 ### Association: EmployeeManager
 
-| Name            | Source   | Source Multiplicity | Target   | Target Multiplicity | Description                        |
-|-----------------|----------|---------------------|----------|---------------------|------------------------------------|
-| EmployeeManager | Employee | *                   | Employee | 1                   | Links an employee to their manager |
+| Name            | Source   | Source Property | Source Multiplicity | Target   | Target Property | Target Multiplicity | Description                        |
+|-----------------|----------|-----------------|---------------------|----------|-----------------|---------------------|------------------------------------|
+| EmployeeManager | Employee | employees       | *                   | Employee | manager         | 1                   | Links an employee to their manager |
