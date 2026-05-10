@@ -3,7 +3,7 @@ import os
 import tempfile
 
 from model_markdown.markdown_model import load, save, loads, to_markdown
-from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package
+from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance.md")
 
@@ -57,6 +57,11 @@ class TestMarkdownLoad:
     def test_association_description(self):
         assoc = self.associations[0]
         assert "Links a trade" in assoc.tagged_values[TaggedValue.DOC].value
+
+    def test_association_multiplicity(self):
+        assoc = self.associations[0]
+        assert assoc.source_multiplicity == Multiplicity.MANY
+        assert assoc.target_multiplicity == Multiplicity.ONE
 
     def test_class_package(self):
         for cls in self.classes:
@@ -115,9 +120,9 @@ class TestMarkdownUnexpectedColumns:
 
 ### Association: TradeAccount
 
-| Name         | Source | Target  | Description | Cardinality |
-|--------------|--------|---------|-------------|-------------|
-| TradeAccount | Trade  | Account | A link      | many-to-one |
+| Name         | Source | Source Multiplicity | Target  | Target Multiplicity | Description | Cardinality |
+|--------------|--------|---------------------|---------|---------------------|-------------|-------------|
+| TradeAccount | Trade  | *                   | Account | 1                   | A link      | many-to-one |
 """
         with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
             packages = loads(content)
@@ -163,3 +168,24 @@ class TestMarkdownSave:
     def test_generated_markdown_has_association(self):
         content = to_markdown("Finance Model", self.packages)
         assert "### Association: TradeAccount" in content
+
+    def test_multiplicity_roundtrip(self):
+        content = to_markdown("Finance Model", self.packages)
+        packages2 = loads(content)
+        assocs2 = [a for a in packages2[0].children if isinstance(a, Association)]
+        assert assocs2[0].source_multiplicity == Multiplicity.MANY
+        assert assocs2[0].target_multiplicity == Multiplicity.ONE
+
+    def test_missing_multiplicity_raises(self):
+        content = """
+## Sub-Domain: finance
+
+### Association: TradeAccount
+
+| Name         | Source | Target  | Description |
+|--------------|--------|---------|-------------|
+| TradeAccount | Trade  | Account |             |
+"""
+        import pytest
+        with pytest.raises(ValueError, match="Source Multiplicity"):
+            loads(content)

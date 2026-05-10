@@ -144,3 +144,25 @@ class TestGeneratePackageStructure:
             assert TradeFinder is not None
         finally:
             sys.path.remove(self.tmp)
+
+    def test_reverse_association_on_account_finder(self):
+        generate(self.mapping, self.tmp)
+        account_finder_path = os.path.join(self.tmp, "finance", "reference_data", "account_finder.py")
+        content = open(account_finder_path).read()
+        assert "def trades(" in content
+
+    def test_reverse_association_uses_lazy_import(self):
+        generate(self.mapping, self.tmp)
+        account_finder_path = os.path.join(self.tmp, "finance", "reference_data", "account_finder.py")
+        content = open(account_finder_path).read()
+        assert "from finance.trade.trade_finder import TradeRelatedFinder" in content
+
+    def test_reverse_association_is_callable(self):
+        generate(self.mapping, self.tmp)
+        sys.path.insert(0, self.tmp)
+        try:
+            from finance.reference_data.account_finder import AccountFinder
+            result = AccountFinder.trades()
+            assert result is not None
+        finally:
+            sys.path.remove(self.tmp)

@@ -7,7 +7,7 @@ from markdown_it.tree import SyntaxTreeNode
 
 import model.m3 as m3
 from model.m3 import (
-    Class, Package, Property, Association,
+    Class, Package, Property, Association, Multiplicity,
     String, TaggedValue, Type, PrimitiveType,
 )
 
@@ -16,7 +16,7 @@ _log = logging.getLogger(__name__)
 
 _CLASS_HEADER_COLUMNS = {"Name", "Description"}
 _PROPERTY_COLUMNS = {"Property", "Id", "Type", "Key", "Description"}
-_ASSOCIATION_COLUMNS = {"Name", "Source", "Target", "Description"}
+_ASSOCIATION_COLUMNS = {"Name", "Source", "Source Multiplicity", "Target", "Target Multiplicity", "Description"}
 _CLASS_HEADING_RE = re.compile(r"^(.+?)(?:\s+extends\s+(.+))?$")
 
 
@@ -142,9 +142,20 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                         row = rows[0]
                         source = row.get("Source", "")
                         target = row.get("Target", "")
+                        src_mult_str = row.get("Source Multiplicity", "").strip()
+                        tgt_mult_str = row.get("Target Multiplicity", "").strip()
+                        if src_mult_str not in (Multiplicity.ONE, Multiplicity.MANY):
+                            raise ValueError(
+                                f"Association '{assoc_name}' must specify Source Multiplicity ('1' or '*')"
+                            )
+                        if tgt_mult_str not in (Multiplicity.ONE, Multiplicity.MANY):
+                            raise ValueError(
+                                f"Association '{assoc_name}' must specify Target Multiplicity ('1' or '*')"
+                            )
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else None
-                        Association(assoc_name, source, target, current_package, tagged)
+                        Association(assoc_name, source, src_mult_str, target, tgt_mult_str,
+                                    current_package, tagged)
                     i += 1
                 continue
 
@@ -213,8 +224,9 @@ def to_markdown(title: str, packages: list[Package]) -> str:
                 lines.append("")
                 description = child.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
                 lines.append(_md_table(
-                    ["Name", "Source", "Target", "Description"],
-                    [[child.name, child.source, child.target, description]],
+                    ["Name", "Source", "Source Multiplicity", "Target", "Target Multiplicity", "Description"],
+                    [[child.name, child.source, child.source_multiplicity or "",
+                      child.target, child.target_multiplicity or "", description]],
                 ))
                 lines.append("")
 

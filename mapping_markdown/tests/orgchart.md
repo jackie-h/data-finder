@@ -16,6 +16,6 @@
 
 ### Association: EmployeeManager
 
-| Name            | Source   | Target   | Description                        |
-|-----------------|----------|----------|------------------------------------|
-| EmployeeManager | Employee | Employee | Links an employee to their manager |
+| Name            | Source   | Source Multiplicity | Target   | Target Multiplicity | Description                        |
+|-----------------|----------|---------------------|----------|---------------------|------------------------------------|
+| EmployeeManager | Employee | *                   | Employee | 1                   | Links an employee to their manager |

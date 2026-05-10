@@ -17,14 +17,14 @@ class TestPackageChildren:
 
     def test_association_registered_in_package(self):
         pkg = Package("finance")
-        assoc = Association("TradeAccount", "Trade", "Account", pkg)
+        assoc = Association("TradeAccount", "Trade", "*", "Account", "1", pkg)
         assert assoc in pkg.children
 
     def test_children_order_preserved(self):
         pkg = Package("finance")
         cls1 = Class("Account", [], pkg)
         cls2 = Class("Trade", [], pkg)
-        assoc = Association("TradeAccount", "Trade", "Account", pkg)
+        assoc = Association("TradeAccount", "Trade", "*", "Account", "1", pkg)
         assert pkg.children == [cls1, cls2, assoc]
 
     def test_empty_package_has_no_children(self):

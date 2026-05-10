@@ -46,6 +46,9 @@ class {{rcm.clazz.name}}RelatedFinder:
         self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'))
 {% endif %}
 {% endfor %}
+{% for source_rcm, rpm, assoc in reverse_assocs %}
+        self.__{{reverse_property_name(source_rcm.clazz, assoc)}} = None
+{% endfor %}
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
@@ -71,6 +74,15 @@ class {{rcm.clazz.name}}RelatedFinder:
         return self.__{{to_python_name(rpm.property)}}
 
 {% endif %}
+{% endfor %}
+{% for source_rcm, rpm, assoc in reverse_assocs %}
+    def {{reverse_property_name(source_rcm.clazz, assoc)}}(self) -> {{source_rcm.clazz.name}}RelatedFinder:
+        """{{source_rcm.clazz.name}}"""
+        if self.__{{reverse_property_name(source_rcm.clazz, assoc)}} is None:
+            from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
+            self.__{{reverse_property_name(source_rcm.clazz, assoc)}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'))
+        return self.__{{reverse_property_name(source_rcm.clazz, assoc)}}
+
 {% endfor %}
 
 class {{rcm.clazz.name}}Finder:
@@ -137,6 +149,17 @@ class {{rcm.clazz.name}}Finder:
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% endif %}
+{% endfor %}
+{% for source_rcm, rpm, assoc in reverse_assocs %}
+    __{{reverse_property_name(source_rcm.clazz, assoc)}} = None
+    @staticmethod
+    def {{reverse_property_name(source_rcm.clazz, assoc)}}() -> {{source_rcm.clazz.name}}RelatedFinder:
+        """{{source_rcm.clazz.name}}"""
+        if {{rcm.clazz.name}}Finder.__{{reverse_property_name(source_rcm.clazz, assoc)}} is None:
+            from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
+            {{rcm.clazz.name}}Finder.__{{reverse_property_name(source_rcm.clazz, assoc)}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'))
+        return {{rcm.clazz.name}}Finder.__{{reverse_property_name(source_rcm.clazz, assoc)}}
+
 {% endfor %}
     @staticmethod
     def count() -> CountAllOperation:
