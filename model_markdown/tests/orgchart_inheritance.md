@@ -30,10 +30,9 @@
 |----------|------------------------------|
 | Employee | An employee in the org chart |
 
-| Property   | Id         | Type     | Key | Description              |
-|------------|------------|----------|-----|--------------------------|
-| Department | department | String   |     |                          |
-| Manager    | manager    | Employee |     | Direct reporting manager |
+| Property   | Id         | Type   | Key | Description |
+|------------|------------|--------|-----|-------------|
+| Department | department | String |     |             |
 
 ### Association: EmployeeManager
 

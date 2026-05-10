@@ -126,6 +126,18 @@ def loads(content: str, packages: list, datastore: DataStore = None) -> Mapping:
     return _loads_from_nodes(nodes, packages, datastore)
 
 
+def _build_assoc_nav_lookup(packages: list) -> dict:
+    """Build (source_class_name, target_property_id) -> target_Class from all associations."""
+    result = {}
+    for pkg in packages:
+        for child in pkg.children:
+            if isinstance(child, Association):
+                target_cls_name = child.target
+                # resolved later; we store the name and resolve after classes_by_name is built
+                result[(child.source, child.target_property)] = child.target
+    return result
+
+
 def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Mapping:
 
     classes_by_name = {
@@ -139,6 +151,8 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
         for schema in repository.schemas
         for table in schema.tables
     }
+    # (source_class_name, target_property_id) -> target class name
+    assoc_nav_lookup = _build_assoc_nav_lookup(packages)
 
     title = "Mapping"
     class_mappings: list[RelationalClassMapping] = []
@@ -209,9 +223,16 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         prop = all_props.get(prop_name)
                         if prop is None:
                             prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name, repository)
-                            if prop is None:
-                                _log.warning("Property '%s' not found in class '%s'", prop_name, cls.name)
-                                continue
+                        if prop is None:
+                            target_cls_name = assoc_nav_lookup.get((cls.name, prop_name))
+                            if target_cls_name is not None:
+                                target_cls = classes_by_name.get(target_cls_name)
+                                if target_cls is not None:
+                                    from model.m3 import Property as _Property
+                                    prop = _Property(prop_name, prop_name, target_cls)
+                        if prop is None:
+                            _log.warning("Property '%s' not found in class '%s'", prop_name, cls.name)
+                            continue
                         if isinstance(prop.type, PrimitiveType):
                             property_mappings.append(RelationalPropertyMapping(prop, col))
                         else:

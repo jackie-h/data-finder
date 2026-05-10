@@ -13,8 +13,6 @@
 | Symbol     | symbol     | String     | Y   | The symbol of the instrument traded   |
 | Price      | price      | Double     |     | The price at which trade was executed |
 | Is Settled | is_settled | Boolean    |     |                                       |
-| Account    | account    | Account    |     | The trading account                   |
-| Instrument | instrument | Instrument |     |                                       |
 | Valid From | valid_from | DateTime   |     |                                       |
 | Valid To   | valid_to   | DateTime   |     |                                       |
 

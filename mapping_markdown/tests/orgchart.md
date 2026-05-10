@@ -12,7 +12,6 @@
 |----------|---------|----------|-----|-------------------------|
 | Id       | id      | Integer  | Y   |                         |
 | Name     | name    | String   |     | Full name of employee   |
-| Manager  | manager | Employee |     | Direct reporting manager |
 
 ### Association: EmployeeManager
 
