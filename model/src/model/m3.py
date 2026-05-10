@@ -77,9 +77,18 @@ class Class(PackagableElement, Type):
         return result
 
 
+class Multiplicity:
+    ONE = "1"
+    MANY = "*"
+
+
 class Association(PackagableElement):
-    def __init__(self, name: str, source: str, target: str, package: Package, tagged_values: list[TaggedValue] = None):
+    def __init__(self, name: str, source: str, source_multiplicity: str,
+                 target: str, target_multiplicity: str,
+                 package: Package, tagged_values: list[TaggedValue] = None):
         super().__init__(package, tagged_values)
         self.name = name
         self.source = source
+        self.source_multiplicity = source_multiplicity
         self.target = target
+        self.target_multiplicity = target_multiplicity
