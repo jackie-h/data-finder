@@ -83,12 +83,23 @@ class Multiplicity:
 
 
 class Association(PackagableElement):
-    def __init__(self, name: str, source: str, source_multiplicity: str,
-                 target: str, target_multiplicity: str,
+    def __init__(self, name: str,
+                 source: str, source_multiplicity: str, source_property: str,
+                 target: str, target_multiplicity: str, target_property: str,
                  package: Package, tagged_values: list[TaggedValue] = None):
+        if source_multiplicity not in (Multiplicity.ONE, Multiplicity.MANY):
+            raise ValueError(f"Association '{name}' must specify Source Multiplicity ('1' or '*')")
+        if target_multiplicity not in (Multiplicity.ONE, Multiplicity.MANY):
+            raise ValueError(f"Association '{name}' must specify Target Multiplicity ('1' or '*')")
+        if not source_property:
+            raise ValueError(f"Association '{name}' must specify Source Property")
+        if not target_property:
+            raise ValueError(f"Association '{name}' must specify Target Property")
         super().__init__(package, tagged_values)
         self.name = name
         self.source = source
         self.source_multiplicity = source_multiplicity
+        self.source_property = source_property
         self.target = target
         self.target_multiplicity = target_multiplicity
+        self.target_property = target_property

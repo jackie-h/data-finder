@@ -16,7 +16,7 @@ _log = logging.getLogger(__name__)
 
 _CLASS_HEADER_COLUMNS = {"Name", "Description"}
 _PROPERTY_COLUMNS = {"Property", "Id", "Type", "Key", "Description"}
-_ASSOCIATION_COLUMNS = {"Name", "Source", "Source Multiplicity", "Target", "Target Multiplicity", "Description"}
+_ASSOCIATION_COLUMNS = {"Name", "Source", "Source Property", "Source Multiplicity", "Target", "Target Property", "Target Multiplicity", "Description"}
 _CLASS_HEADING_RE = re.compile(r"^(.+?)(?:\s+extends\s+(.+))?$")
 
 
@@ -144,6 +144,8 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                         target = row.get("Target", "")
                         src_mult_str = row.get("Source Multiplicity", "").strip()
                         tgt_mult_str = row.get("Target Multiplicity", "").strip()
+                        src_property = row.get("Source Property", "").strip()
+                        tgt_property = row.get("Target Property", "").strip()
                         if src_mult_str not in (Multiplicity.ONE, Multiplicity.MANY):
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Source Multiplicity ('1' or '*')"
@@ -152,9 +154,18 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Target Multiplicity ('1' or '*')"
                             )
+                        if not src_property:
+                            raise ValueError(
+                                f"Association '{assoc_name}' must specify Source Property"
+                            )
+                        if not tgt_property:
+                            raise ValueError(
+                                f"Association '{assoc_name}' must specify Target Property"
+                            )
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else None
-                        Association(assoc_name, source, src_mult_str, target, tgt_mult_str,
+                        Association(assoc_name, source, src_mult_str, src_property,
+                                    target, tgt_mult_str, tgt_property,
                                     current_package, tagged)
                     i += 1
                 continue
@@ -224,9 +235,9 @@ def to_markdown(title: str, packages: list[Package]) -> str:
                 lines.append("")
                 description = child.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
                 lines.append(_md_table(
-                    ["Name", "Source", "Source Multiplicity", "Target", "Target Multiplicity", "Description"],
-                    [[child.name, child.source, child.source_multiplicity or "",
-                      child.target, child.target_multiplicity or "", description]],
+                    ["Name", "Source", "Source Property", "Source Multiplicity", "Target", "Target Property", "Target Multiplicity", "Description"],
+                    [[child.name, child.source, child.source_property or "", child.source_multiplicity or "",
+                      child.target, child.target_property or "", child.target_multiplicity or "", description]],
                 ))
                 lines.append("")
 

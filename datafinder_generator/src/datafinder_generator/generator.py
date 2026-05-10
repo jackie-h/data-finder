@@ -7,7 +7,7 @@ from model.m3 import PrimitiveType, Property
 _BUILTIN_NAMES = set(dir(builtins))
 from jinja2 import Environment, PackageLoader
 
-from model.m3 import Association, Multiplicity
+from model.m3 import Association
 from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
@@ -43,38 +43,30 @@ def table_qualified_name(table) -> str:
     return table.qualified_name
 
 
-def reverse_property_name(source_clazz, assoc) -> str:
-    """Derive the reverse navigation property name on the target class."""
-    name = source_clazz.name.lower()
-    if assoc and assoc.source_multiplicity == Multiplicity.MANY:
-        name += 's'
-    return name
-
-
 def _build_association_lookup(mapping: Mapping) -> dict:
-    """Build (source_name, target_name) -> Association from all packages in the mapping."""
-    result = {}
+    """Build (source_name, target_name, target_property) -> Association from all packages in the mapping."""
+    result: dict = {}
     for rcm in mapping.mappings:
         if rcm.clazz.package:
             for child in rcm.clazz.package.children:
                 if isinstance(child, Association):
-                    result[(child.source, child.target)] = child
+                    result[(child.source, child.target, child.target_property)] = child
     return result
 
 
 def _build_reverse_assoc_map(mapping: Mapping, assoc_lookup: dict) -> dict:
-    """Return target_class_name -> list of (source_rcm, rpm, assoc) for reverse navigation.
-
-    Only includes entries where the association has source_multiplicity explicitly set.
-    """
+    """Return target_class_name -> list of (source_rcm, rpm, assoc, reverse_name)."""
     reverse_map: dict = {}
     for rcm in mapping.mappings:
         for rpm in rcm.property_mappings:
             if is_primitive(rpm.property) or not isinstance(rpm.target, Join):
                 continue
             target_cls = rpm.property.type
-            assoc = assoc_lookup.get((rcm.clazz.name, target_cls.name))
-            reverse_map.setdefault(target_cls.name, []).append((rcm, rpm, assoc))
+            assoc = assoc_lookup.get((rcm.clazz.name, target_cls.name, rpm.property.id))
+            if assoc is None:
+                continue
+            reverse_name = assoc.source_property
+            reverse_map.setdefault(target_cls.name, []).append((rcm, rpm, assoc, reverse_name))
     return reverse_map
 
 
@@ -130,8 +122,7 @@ def generate(mapping: Mapping, output_directory):
                                   has_business_date_and_processing=has_business_date_and_processing,
                                   has_bitemporal=has_bitemporal,
                                   display_name=display_name, to_python_name=to_python_name,
-                                  table_qualified_name=table_qualified_name,
-                                  reverse_property_name=reverse_property_name)
+                                  table_qualified_name=table_qualified_name)
         with open(filepath, mode="w", encoding="utf-8") as message:
             message.write(content)
             print(f"... wrote {filename}")
