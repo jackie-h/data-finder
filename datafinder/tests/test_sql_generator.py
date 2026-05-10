@@ -686,3 +686,98 @@ class TestNullEndMilestoning:
         dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
         sql = to_sql(None, dt, [attr], table, NoOperation())
         assert "IS NULL" in sql
+
+
+class TestMilestoningOnJoinedTable:
+    """Verify that milestoning is applied as a JOIN ON condition, not a WHERE clause,
+    when the milestoned table is reached via a join rather than being the root table."""
+
+    def _make_account_to_trade_reverse_join(self):
+        from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+        from model.relational import JoinOperation
+
+        # Non-milestoned root: Account
+        account_id_col = Column("ID", "INT", "account_master")
+        account_table = Table("account_master", [account_id_col])
+
+        # Milestoned join target: Trade
+        in_z = Column("in_z", "TIMESTAMP", "trades")
+        out_z = Column("out_z", "TIMESTAMP", "trades")
+        sym_col = Column("sym", "VARCHAR", "trades")
+        fk_col = Column("account_id", "INT", "trades")
+        mc = ProcessingTemporalColumns(in_z, out_z)
+        trade_table = MilestonedTable("trades", [sym_col, fk_col, in_z, out_z], mc)
+
+        # Reverse join: account_master.ID → trades.account_id
+        join = JoinOperation("Trade", trade_table, account_id_col, fk_col)
+        sym_attr = StringAttribute("Trade Symbol", "sym", "VARCHAR", "trades", join)
+        return account_table, sym_attr
+
+    def test_milestoning_appears_in_join_on_clause_not_where(self):
+        """When the joined table is milestoned and processing_datetime is provided,
+        the milestoning filter must be in the JOIN ON clause, not the WHERE clause."""
+        account_table, sym_attr = self._make_account_to_trade_reverse_join()
+        dt = datetime.datetime(2023, 1, 1, 12, 0, 0)
+        sql = to_sql(None, dt, [sym_attr], account_table, NoOperation())
+
+        assert "LEFT OUTER JOIN" in sql
+        join_part = sql[sql.index("LEFT OUTER JOIN"):]
+        assert "in_z" in join_part
+        assert "out_z" in join_part
+        assert "WHERE" not in sql
+
+    def test_no_milestoning_on_join_when_no_processing_datetime(self):
+        """When processing_datetime is None, no milestoning filter is added to the join."""
+        account_table, sym_attr = self._make_account_to_trade_reverse_join()
+        sql = to_sql(None, None, [sym_attr], account_table, NoOperation())
+
+        assert "LEFT OUTER JOIN" in sql
+        assert "in_z" not in sql
+        assert "out_z" not in sql
+        assert "WHERE" not in sql
+
+    def test_milestoning_join_filter_uses_correct_processing_datetime(self):
+        """The processing_datetime value is embedded in the JOIN ON milestoning filter."""
+        account_table, sym_attr = self._make_account_to_trade_reverse_join()
+        dt = datetime.datetime(2023, 6, 15, 9, 0, 0)
+        sql = to_sql(None, dt, [sym_attr], account_table, NoOperation())
+
+        assert "'2023-06-15 09:00:00'" in sql
+
+    def test_root_milestoning_goes_to_where_joined_milestoning_goes_to_on(self):
+        """When BOTH root and joined tables are milestoned, root milestoning is in WHERE
+        and join milestoning is in the ON clause."""
+        from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+        from model.relational import JoinOperation
+
+        # Milestoned root: Trade
+        in_z_root = Column("in_z", "TIMESTAMP", "trades")
+        out_z_root = Column("out_z", "TIMESTAMP", "trades")
+        fk_col = Column("account_id", "INT", "trades")
+        sym_col = Column("sym", "VARCHAR", "trades")
+        mc_root = ProcessingTemporalColumns(in_z_root, out_z_root)
+        trade_table = MilestonedTable("trades", [sym_col, fk_col, in_z_root, out_z_root], mc_root)
+        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trades")
+
+        # Milestoned join target: Price
+        in_z_price = Column("in_z", "TIMESTAMP", "price")
+        out_z_price = Column("out_z", "TIMESTAMP", "price")
+        price_col = Column("PRICE", "DOUBLE", "price")
+        mc_price = ProcessingTemporalColumns(in_z_price, out_z_price)
+        price_table = MilestonedTable("price", [price_col, in_z_price, out_z_price], mc_price)
+        sym_fk = Column("sym", "VARCHAR", "trades")
+        sym_pk = Column("SYM", "VARCHAR", "price")
+        join = JoinOperation("Instrument", price_table, sym_fk, sym_pk)
+        price_attr = StringAttribute("Price", "PRICE", "DOUBLE", "price", join)
+
+        dt = datetime.datetime(2023, 1, 1, 12, 0, 0)
+        sql = to_sql(None, dt, [sym_attr, price_attr], trade_table, NoOperation())
+
+        where_pos = sql.index("WHERE")
+        join_pos = sql.index("LEFT OUTER JOIN")
+        # Root milestoning lands in WHERE
+        where_clause = sql[where_pos:]
+        assert "in_z" in where_clause
+        # Join milestoning lands before WHERE (in the ON clause)
+        on_clause = sql[join_pos:where_pos]
+        assert "in_z" in on_clause

@@ -197,6 +197,8 @@ class TestE2EMarkdownIbisDuckDb:
 
     # --- Bidirectional association traversal ---
 
+    # --- Bidirectional association traversal with milestoning ---
+
     def test_forward_trade_to_account(self, finders):
         """Forward direction: Trade → Account via TradeFinder.account().
         Root table is Trade; Account is the join so its columns are prefixed 'Account'.
@@ -211,17 +213,46 @@ class TestE2EMarkdownIbisDuckDb:
         assert result.iloc[0]["Symbol"] == "AAPL"
         assert result.iloc[0]["Account Name"] == "Acme Corp"
 
-    def test_reverse_account_to_trades(self, finders):
+    def test_forward_milestoning_on_root_filters_join_results(self, finders):
+        """Forward direction: Trade root milestoning is applied as a WHERE clause.
+        After GOOG expired (2022-01-01), only the AAPL trade survives, so only one
+        account row is produced by the join.
+        """
+        TradeFinder = finders["Trade"]
+        after_goog_expired = "2023-01-01 12:00:00"
+        result = TradeFinder.find_all(
+            after_goog_expired,
+            [TradeFinder.symbol(), TradeFinder.account().name()],
+        ).to_pandas()
+        assert len(result) == 1
+        assert result.iloc[0]["Symbol"] == "AAPL"
+        assert result.iloc[0]["Account Name"] == "Acme Corp"
+
+    def test_forward_milestoning_both_trades_visible_before_expiry(self, finders):
+        """Forward direction: before GOOG expired both trades are milestoning-active,
+        so both appear in the join result."""
+        TradeFinder = finders["Trade"]
+        before_goog_expired = "2021-06-01 12:00:00"
+        result = TradeFinder.find_all(
+            before_goog_expired,
+            [TradeFinder.symbol(), TradeFinder.account().name()],
+        ).to_pandas()
+        assert len(result) == 2
+        assert set(result["Symbol"].tolist()) == {"AAPL", "GOOG"}
+        assert set(result["Account Name"].tolist()) == {"Acme Corp"}
+
+    def test_reverse_account_to_trades_no_milestoning(self, finders):
         """Reverse direction: Account → Trades via AccountFinder.trades().
-        Root table is Account; Trade is the join so its columns are prefixed 'Trade'.
-        No milestoning is applied to the trade join when querying from the account
-        side (AccountFinder passes no processing timestamp), so all trade rows are returned.
+        Account is non-milestoned so find_all passes no processing timestamp.
+        The Trade join therefore carries no milestoning ON-clause filter,
+        and all trade rows (including expired GOOG) are returned.
         """
         AccountFinder = finders["Account"]
         result = AccountFinder.find_all(
             [AccountFinder.name(), AccountFinder.trades().symbol()],
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Acme Corp"}
+        # GOOG (expired 2022) is present because no milestoning filter is applied
         assert set(result["Trade Symbol"].tolist()) == {"AAPL", "GOOG"}
 
     def test_reverse_account_to_trades_filter_by_symbol(self, finders):
