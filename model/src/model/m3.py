@@ -62,17 +62,19 @@ class Class(PackagableElement, Type):
         self.name = name
         self.superclasses: list['Class'] = superclasses or []
         self.properties = {}
+        self.properties_from_associations: dict[str, 'Property'] = {}
         for prop in properties:
             self.properties[prop.id] = prop
 
     def property(self, id: str) -> Property:
-        return self.properties[id]
+        return self.all_properties()[id]
 
     def all_properties(self) -> dict[str, 'Property']:
-        """Return inherited properties (left-to-right) merged with own; own take precedence."""
+        """Return inherited then association-derived then own properties; own takes precedence."""
         result = {}
         for superclass in self.superclasses:
             result.update(superclass.all_properties())
+        result.update(self.properties_from_associations)
         result.update(self.properties)
         return result
 

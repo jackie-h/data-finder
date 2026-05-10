@@ -2,6 +2,8 @@ import logging
 import os
 import tempfile
 
+import pytest
+
 from model_markdown.markdown_model import load, save, loads, to_markdown
 from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity
 
@@ -67,6 +69,16 @@ class TestMarkdownLoad:
         assoc = self.associations[0]
         assert assoc.source_property == "trades"
         assert assoc.target_property == "account"
+
+    def test_association_adds_target_property_to_source_class(self):
+        trade = self.by_name["Trade"]
+        assert "account" in trade.all_properties()
+        assert trade.property("account").type is self.by_name["Account"]
+
+    def test_association_adds_source_property_to_target_class(self):
+        account = self.by_name["Account"]
+        assert "trades" in account.all_properties()
+        assert account.property("trades").type is self.by_name["Trade"]
 
     def test_class_package(self):
         for cls in self.classes:
@@ -198,7 +210,6 @@ class TestMarkdownSave:
 |--------------|--------|---------|-------------|
 | TradeAccount | Trade  | Account |             |
 """
-        import pytest
         with pytest.raises(ValueError, match="Source Multiplicity"):
             loads(content)
 
@@ -212,6 +223,76 @@ class TestMarkdownSave:
 |--------------|--------|---------------------|---------|---------------------|-------------|
 | TradeAccount | Trade  | *                   | Account | 1                   |             |
 """
-        import pytest
         with pytest.raises(ValueError, match="Source Property"):
+            loads(content)
+
+
+class TestAssociationPropertyConflictValidation:
+
+    def test_target_property_conflicts_with_class_property_raises(self):
+        content = """
+## Sub-Domain: finance
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Type    | Key | Description |
+|----------|---------|-----|-------------|
+| Id       | Integer | Y   |             |
+
+### Class: Trade
+
+| Name  | Description |
+|-------|-------------|
+| Trade |             |
+
+| Property | Id      | Type    | Key | Description      |
+|----------|---------|---------|-----|------------------|
+| Symbol   | symbol  | String  | Y   |                  |
+| Account  | account | Account |     | The trading account |
+
+### Association: TradeAccount
+
+| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description |
+|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|-------------|
+| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   |             |
+"""
+        with pytest.raises(ValueError, match="property 'account'.*conflicts.*Association 'TradeAccount'"):
+            loads(content)
+
+    def test_source_property_conflicts_with_class_property_raises(self):
+        content = """
+## Sub-Domain: finance
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Id     | Type  | Key | Description |
+|----------|--------|-------|-----|-------------|
+| Id       | id     | Integer | Y |             |
+| Trades   | trades | String  |   |             |
+
+### Class: Trade
+
+| Name  | Description |
+|-------|-------------|
+| Trade |             |
+
+| Property | Id     | Type   | Key | Description |
+|----------|--------|--------|-----|-------------|
+| Symbol   | symbol | String | Y   |             |
+
+### Association: TradeAccount
+
+| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description |
+|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|-------------|
+| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   |             |
+"""
+        with pytest.raises(ValueError, match="property 'trades'.*conflicts.*Association 'TradeAccount'"):
             loads(content)

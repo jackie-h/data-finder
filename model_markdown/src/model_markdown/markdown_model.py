@@ -190,7 +190,54 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
             else:
                 _log.warning("Superclass '%s' not found for class '%s'", super_name, cls_name)
 
+    # Fourth pass: validate that explicit class properties don't duplicate association navigation properties
+    _validate_no_association_property_conflicts(packages, classes_by_name)
+
+    # Fifth pass: register association-derived navigation properties on classes
+    _register_association_properties(packages, classes_by_name)
+
     return packages
+
+
+def _validate_no_association_property_conflicts(packages: list, classes_by_name: dict) -> None:
+    from model.m3 import Association as _Association
+    for pkg in packages:
+        for child in pkg.children:
+            if not isinstance(child, _Association):
+                continue
+            assoc = child
+            # target_property is a forward navigation on the source class (source → target)
+            # source_property is a reverse navigation on the target class (target → source)
+            _check_conflict(assoc.source, assoc.target_property, assoc.name, classes_by_name, "target_property")
+            _check_conflict(assoc.target, assoc.source_property, assoc.name, classes_by_name, "source_property")
+
+
+def _check_conflict(class_name: str, prop_id: str, assoc_name: str, classes_by_name: dict, field: str) -> None:
+    cls = classes_by_name.get(class_name)
+    if cls is not None and prop_id in cls.properties:
+        raise ValueError(
+            f"Class '{class_name}' has a property '{prop_id}' that conflicts with "
+            f"Association '{assoc_name}' {field}. Remove it from the class; "
+            f"the association defines this navigation."
+        )
+
+
+def _register_association_properties(packages: list, classes_by_name: dict) -> None:
+    from model.m3 import Association as _Association
+    for pkg in packages:
+        for child in pkg.children:
+            if not isinstance(child, _Association):
+                continue
+            assoc = child
+            source_cls = classes_by_name.get(assoc.source)
+            target_cls = classes_by_name.get(assoc.target)
+            if source_cls and target_cls:
+                source_cls.properties_from_associations[assoc.target_property] = Property(
+                    assoc.target_property, assoc.target_property, target_cls
+                )
+                target_cls.properties_from_associations[assoc.source_property] = Property(
+                    assoc.source_property, assoc.source_property, source_cls
+                )
 
 
 # ---------------------------------------------------------------------------
