@@ -339,8 +339,19 @@ class JoinOperation:
         self.filter = _filter
 
 
+class JoinTreeNodeOperation:
+    """Wraps a JoinOperation and links it to its parent node in the join tree.
+
+    Enables multi-hop traversal (e.g. Employee.manager.reports) by ensuring
+    intermediate joins are emitted before the joins that depend on them.
+    """
+    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation' = None):
+        self.join = join
+        self.parent = parent
+
+
 class ColumnWithJoin(RelationalOperationElement):
-    def __init__(self, column: Column, join: JoinOperation):
+    def __init__(self, column: Column, join: 'JoinTreeNodeOperation'):
         super().__init__()
         self.column = column
         self.parent = join

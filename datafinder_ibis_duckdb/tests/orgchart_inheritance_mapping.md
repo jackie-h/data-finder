@@ -22,3 +22,18 @@
 | Source Column | Target Table | Target Column |
 |---------------|--------------|---------------|
 | manager_id    | employees    | emp_id        |
+
+#### Table: projects → Project
+
+| Column      | Type    | Key | Property |
+|-------------|---------|-----|----------|
+| project_id  | INT     | PK  | id       |
+| name        | VARCHAR |     | name     |
+| code        | VARCHAR |     | code     |
+| assignee_id | INT     | FK  | assignee |
+
+#### Association: EmployeeProject
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| assignee_id   | employees    | emp_id        |

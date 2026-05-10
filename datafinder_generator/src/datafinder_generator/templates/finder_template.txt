@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select
-from model.relational import Column, Table, NoOperation, JoinOperation, CountAllOperation
+from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 
 {% for rpm in rcm.property_mappings %}
@@ -34,16 +34,17 @@ class {{rcm.clazz.name}}RelatedFinder:
     __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [])
 {% endif %}
 
-    def __init__(self, relation_name:str, source: Column, target: Column):
+    def __init__(self, relation_name:str, source: Column, target: Column, parent_join: JoinTreeNodeOperation = None):
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
+        self.__node = JoinTreeNodeOperation(join, parent_join)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', join)
+        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', self.__node)
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}
-        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'))
+        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node)
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
@@ -80,7 +81,7 @@ class {{rcm.clazz.name}}RelatedFinder:
         """{{source_rcm.clazz.name}}"""
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'))
+            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), self.__node)
         return self.__{{reverse_name}}
 
 {% endfor %}

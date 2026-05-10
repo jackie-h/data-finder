@@ -39,3 +39,21 @@
 | Name            | Source   | Source Property | Source Multiplicity | Target   | Target Property | Target Multiplicity | Description                        |
 |-----------------|----------|-----------------|---------------------|----------|-----------------|---------------------|------------------------------------|
 | EmployeeManager | Employee | employees       | *                   | Employee | manager         | 1                   | Links an employee to their manager |
+
+### Class: Project
+
+| Name    | Description                        |
+|---------|------------------------------------|
+| Project | A project that employees work on   |
+
+| Property | Id   | Type    | Key | Description     |
+|----------|------|---------|-----|-----------------|
+| Id       | id   | Integer | Y   |                 |
+| Name     | name | String  |     | Project name    |
+| Code     | code | String  |     | Short code      |
+
+### Association: EmployeeProject
+
+| Name            | Source  | Source Property | Source Multiplicity | Target   | Target Property | Target Multiplicity | Description                               |
+|-----------------|---------|-----------------|---------------------|----------|-----------------|---------------------|-------------------------------------------|
+| EmployeeProject | Project | projects        | *                   | Employee | assignee        | 1                   | Links a project to its assigned employee  |
