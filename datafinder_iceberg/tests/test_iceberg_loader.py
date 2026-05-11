@@ -7,7 +7,7 @@ from pyiceberg.types import (
     TimestampType, DecimalType, StructType, ListType, MapType,
 )
 
-from datafinder_iceberg.iceberg_loader import schema_to_table
+from datafinder_iceberg.iceberg_catalog_reader import schema_to_table
 
 
 def make_schema(*fields):

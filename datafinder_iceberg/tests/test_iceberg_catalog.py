@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 from pyiceberg.schema import Schema
 from pyiceberg.types import NestedField, StringType, IntegerType, DoubleType, DateType
 
-from datafinder_iceberg.iceberg_loader import load_schema_from_catalog
+from datafinder_iceberg.iceberg_catalog_reader import load_schema_from_catalog
 
 
 def _make_schema():
@@ -17,7 +17,7 @@ def _make_schema():
 
 class TestIcebergCatalogLoader:
 
-    @patch("datafinder_iceberg.iceberg_loader.RestCatalog")
+    @patch("datafinder_iceberg.iceberg_catalog_reader.RestCatalog")
     def test_loads_table_from_catalog(self, MockCatalog):
         mock_iceberg_table = MagicMock()
         mock_iceberg_table.schema.return_value = _make_schema()
@@ -38,7 +38,7 @@ class TestIcebergCatalogLoader:
         assert table.columns[2].type == "DOUBLE"
         assert table.columns[3].type == "DATE"
 
-    @patch("datafinder_iceberg.iceberg_loader.RestCatalog")
+    @patch("datafinder_iceberg.iceberg_catalog_reader.RestCatalog")
     def test_credentials_passed_to_catalog(self, MockCatalog):
         mock_iceberg_table = MagicMock()
         mock_iceberg_table.schema.return_value = _make_schema()
@@ -58,7 +58,7 @@ class TestIcebergCatalogLoader:
             token="my-secret-token",
         )
 
-    @patch("datafinder_iceberg.iceberg_loader.RestCatalog")
+    @patch("datafinder_iceberg.iceberg_catalog_reader.RestCatalog")
     def test_no_credentials_by_default(self, MockCatalog):
         mock_iceberg_table = MagicMock()
         mock_iceberg_table.schema.return_value = _make_schema()

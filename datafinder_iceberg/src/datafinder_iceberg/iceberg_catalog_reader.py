@@ -1,9 +1,9 @@
+import json
 import logging
 from typing import Optional
 
 from pyiceberg.catalog.rest import RestCatalog
-
-_log = logging.getLogger(__name__)
+from pyiceberg.schema import Schema
 from pyiceberg.types import (
     IcebergType, StructType,
     StringType, BooleanType,
@@ -16,7 +16,9 @@ from pyiceberg.types import (
     ListType, MapType,
 )
 
-from model.relational import DataCatalog, Schema, Table, Column
+from model.relational import DataCatalog, Schema as RelationalSchema, Table, Column
+
+_log = logging.getLogger(__name__)
 
 
 def _map_type(iceberg_type: IcebergType) -> str:
@@ -54,6 +56,45 @@ def _map_type(iceberg_type: IcebergType) -> str:
     return "VARCHAR"
 
 
+def schema_to_table(schema: Schema, table_name: str) -> Table:
+    """Convert a pyiceberg Schema to a relational Table."""
+    identifier_ids = set(schema.identifier_field_ids)
+    columns = [
+        Column(field.name, _map_type(field.field_type),
+               primary_key=field.field_id in identifier_ids)
+        for field in schema.fields
+    ]
+    return Table(table_name, columns)
+
+
+def load_schema_from_dict(schema_dict: dict, table_name: str) -> Table:
+    """Load a Table from an Iceberg schema represented as a dict."""
+    schema = Schema.from_dict(schema_dict)
+    return schema_to_table(schema, table_name)
+
+
+def load_schema_from_json(path: str, table_name: str) -> Table:
+    """Load a Table from an Iceberg schema JSON file."""
+    with open(path) as f:
+        schema_dict = json.load(f)
+    return load_schema_from_dict(schema_dict, table_name)
+
+
+def load_schema_from_catalog(
+    catalog_uri: str,
+    namespace: str,
+    table_name: str,
+    credentials: Optional[dict] = None,
+) -> Table:
+    """Load a Table by fetching its schema from an Iceberg REST catalog."""
+    properties = {"uri": catalog_uri}
+    if credentials:
+        properties.update(credentials)
+    catalog = RestCatalog("catalog", **properties)
+    iceberg_table = catalog.load_table((namespace, table_name))
+    return schema_to_table(iceberg_table.schema(), table_name)
+
+
 def read_repository_from_catalog(
     catalog,
     fail_on_error: bool = True,
@@ -63,19 +104,14 @@ def read_repository_from_catalog(
 
     for namespace in catalog.list_namespaces():
         namespace_name = ".".join(str(part) for part in namespace)
-        schema = Schema(namespace_name, repo)
+        schema = RelationalSchema(namespace_name, repo)
         for table_id in catalog.list_tables(namespace):
             table_name = table_id[-1]
             try:
                 iceberg_table = catalog.load_table(table_id)
-                iceberg_schema = iceberg_table.schema()
-                identifier_ids = set(iceberg_schema.identifier_field_ids)
-                columns = [
-                    Column(field.name, _map_type(field.field_type),
-                           primary_key=field.field_id in identifier_ids)
-                    for field in iceberg_schema.fields
-                ]
-                Table(table_name, columns, schema)
+                table = schema_to_table(iceberg_table.schema(), table_name)
+                table.schema = schema
+                schema.tables.append(table)
             except Exception as e:
                 if fail_on_error:
                     raise
