@@ -21,8 +21,13 @@ def _make_catalog_mock(namespaces, tables_by_namespace, schemas_by_table, name="
     return catalog
 
 
-def _make_schema(*fields):
-    return Schema(*[NestedField(i + 1, name, typ) for i, (name, typ) in enumerate(fields)])
+def _make_schema(*fields, identifier_field_ids=()):
+    id_set = set(identifier_field_ids)
+    return Schema(
+        *[NestedField(i + 1, name, typ, required=(i + 1) in id_set)
+          for i, (name, typ) in enumerate(fields)],
+        identifier_field_ids=identifier_field_ids,
+    )
 
 
 @patch("datafinder_iceberg.iceberg_catalog_reader.RestCatalog")
@@ -56,6 +61,43 @@ class TestIcebergReader:
         repo = read_repository_from_iceberg_catalog("https://catalog.example.com", "test_catalog")
         cols = {c.name: c.type for c in repo.schemas[0].tables[0].columns}
         assert cols == {"id": "INT", "name": "VARCHAR"}
+
+    def test_identifier_fields_marked_as_primary_key(self, MockCatalog):
+        # field_id=1 for "id", field_id=2 for "name"; mark field 1 as identifier
+        schema = _make_schema(("id", IntegerType()), ("name", StringType()),
+                              identifier_field_ids=(1,))
+        MockCatalog.return_value = _make_catalog_mock(
+            namespaces=[("finance",)],
+            tables_by_namespace={("finance",): [("finance", "accounts")]},
+            schemas_by_table={("finance", "accounts"): schema},
+        )
+        repo = read_repository_from_iceberg_catalog("https://catalog.example.com", "test_catalog")
+        cols = {c.name: c.primary_key for c in repo.schemas[0].tables[0].columns}
+        assert cols == {"id": True, "name": False}
+
+    def test_no_identifier_fields_all_false(self, MockCatalog):
+        schema = _make_schema(("id", IntegerType()), ("name", StringType()))
+        MockCatalog.return_value = _make_catalog_mock(
+            namespaces=[("finance",)],
+            tables_by_namespace={("finance",): [("finance", "accounts")]},
+            schemas_by_table={("finance", "accounts"): schema},
+        )
+        repo = read_repository_from_iceberg_catalog("https://catalog.example.com", "test_catalog")
+        assert all(not c.primary_key for c in repo.schemas[0].tables[0].columns)
+
+    def test_composite_primary_key(self, MockCatalog):
+        schema = _make_schema(
+            ("fund_id", IntegerType()), ("account_id", IntegerType()), ("name", StringType()),
+            identifier_field_ids=(1, 2),
+        )
+        MockCatalog.return_value = _make_catalog_mock(
+            namespaces=[("finance",)],
+            tables_by_namespace={("finance",): [("finance", "accounts")]},
+            schemas_by_table={("finance", "accounts"): schema},
+        )
+        repo = read_repository_from_iceberg_catalog("https://catalog.example.com", "test_catalog")
+        cols = {c.name: c.primary_key for c in repo.schemas[0].tables[0].columns}
+        assert cols == {"fund_id": True, "account_id": True, "name": False}
 
     def test_fail_on_error_true_raises(self, MockCatalog):
         catalog = MagicMock()
