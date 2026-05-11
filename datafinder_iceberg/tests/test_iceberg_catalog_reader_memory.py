@@ -63,3 +63,64 @@ class TestIcebergCatalogReaderMemory:
     def test_name_is_catalog_name(self, catalog):
         repo = read_repository_from_catalog(catalog)
         assert repo.name == "test"
+
+
+@pytest.fixture
+def multi_schema_catalog():
+    cat = InMemoryCatalog("test", **{})
+    _simple_schema = Schema(NestedField(1, "id", IntegerType()))
+    for ns in ("finance_trusted", "finance_raw", "hr_trusted", "hr_raw", "audit"):
+        cat.create_namespace(ns)
+        cat.create_table(f"{ns}.records", schema=_simple_schema)
+    return cat
+
+
+class TestSchemaFiltering:
+
+    def test_no_filter_loads_all(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(multi_schema_catalog)
+        assert {s.name for s in repo.schemas} == {
+            "finance_trusted", "finance_raw", "hr_trusted", "hr_raw", "audit"
+        }
+
+    def test_include_pattern(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(multi_schema_catalog, include_schemas=["*_trusted"])
+        assert {s.name for s in repo.schemas} == {"finance_trusted", "hr_trusted"}
+
+    def test_exclude_pattern(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(multi_schema_catalog, exclude_schemas=["*_raw"])
+        assert {s.name for s in repo.schemas} == {"finance_trusted", "hr_trusted", "audit"}
+
+    def test_include_and_exclude(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(
+            multi_schema_catalog,
+            include_schemas=["finance_*"],
+            exclude_schemas=["*_raw"],
+        )
+        assert {s.name for s in repo.schemas} == {"finance_trusted"}
+
+    def test_include_exact_name(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(multi_schema_catalog, include_schemas=["audit"])
+        assert {s.name for s in repo.schemas} == {"audit"}
+
+    def test_exclude_all_matches_empty(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(
+            multi_schema_catalog, exclude_schemas=["finance_*", "hr_*", "audit"]
+        )
+        assert repo.schemas == []
+
+    def test_include_no_match_empty(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(multi_schema_catalog, include_schemas=["nonexistent_*"])
+        assert repo.schemas == []
+
+    def test_multiple_include_patterns(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(
+            multi_schema_catalog, include_schemas=["finance_trusted", "hr_trusted"]
+        )
+        assert {s.name for s in repo.schemas} == {"finance_trusted", "hr_trusted"}
+
+    def test_tables_still_loaded_after_filter(self, multi_schema_catalog):
+        repo = read_repository_from_catalog(multi_schema_catalog, include_schemas=["*_trusted"])
+        for schema in repo.schemas:
+            assert len(schema.tables) == 1
+            assert schema.tables[0].name == "records"
