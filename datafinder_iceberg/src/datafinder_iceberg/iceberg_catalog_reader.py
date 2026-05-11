@@ -68,9 +68,12 @@ def read_repository_from_catalog(
             table_name = table_id[-1]
             try:
                 iceberg_table = catalog.load_table(table_id)
+                iceberg_schema = iceberg_table.schema()
+                identifier_ids = set(iceberg_schema.identifier_field_ids)
                 columns = [
-                    Column(field.name, _map_type(field.field_type))
-                    for field in iceberg_table.schema().fields
+                    Column(field.name, _map_type(field.field_type),
+                           primary_key=field.field_id in identifier_ids)
+                    for field in iceberg_schema.fields
                 ]
                 Table(table_name, columns, schema)
             except Exception as e:
