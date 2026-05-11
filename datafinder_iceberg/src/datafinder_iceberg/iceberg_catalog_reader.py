@@ -1,3 +1,4 @@
+import fnmatch
 import json
 import logging
 from typing import Optional
@@ -95,15 +96,35 @@ def load_schema_from_catalog(
     return schema_to_table(iceberg_table.schema(), table_name)
 
 
+def _schema_included(name: str, include: list[str], exclude: list[str]) -> bool:
+    if include and not any(fnmatch.fnmatch(name, p) for p in include):
+        return False
+    if any(fnmatch.fnmatch(name, p) for p in exclude):
+        return False
+    return True
+
+
 def read_repository_from_catalog(
     catalog,
     fail_on_error: bool = True,
+    include_schemas: list[str] = None,
+    exclude_schemas: list[str] = None,
 ) -> DataCatalog:
-    """Build a DataCatalog from an already-constructed pyiceberg Catalog instance."""
+    """Build a DataCatalog from an already-constructed pyiceberg Catalog instance.
+
+    include_schemas: glob patterns — only matching namespaces are loaded (e.g. ["*_trusted"])
+    exclude_schemas: glob patterns — matching namespaces are skipped  (e.g. ["*_raw"])
+    When both are supplied, include is tested first then exclude.
+    """
+    include = include_schemas or []
+    exclude = exclude_schemas or []
     repo = DataCatalog(catalog.name)
 
     for namespace in catalog.list_namespaces():
         namespace_name = ".".join(str(part) for part in namespace)
+        if not _schema_included(namespace_name, include, exclude):
+            _log.debug("Skipping namespace '%s' (filtered)", namespace_name)
+            continue
         schema = RelationalSchema(namespace_name, repo)
         for table_id in catalog.list_tables(namespace):
             table_name = table_id[-1]
@@ -125,10 +146,17 @@ def read_repository_from_iceberg_catalog(
     catalog_name: str,
     credentials: Optional[dict] = None,
     fail_on_error: bool = True,
+    include_schemas: list[str] = None,
+    exclude_schemas: list[str] = None,
 ) -> DataCatalog:
     """Build a DataCatalog by connecting to an Iceberg REST catalog by URI."""
     properties = {"uri": catalog_uri}
     if credentials:
         properties.update(credentials)
     catalog = RestCatalog(catalog_name, **properties)
-    return read_repository_from_catalog(catalog, fail_on_error=fail_on_error)
+    return read_repository_from_catalog(
+        catalog,
+        fail_on_error=fail_on_error,
+        include_schemas=include_schemas,
+        exclude_schemas=exclude_schemas,
+    )

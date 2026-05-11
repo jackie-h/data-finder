@@ -34,6 +34,8 @@ def main() -> None:
                         help="Credential property passed to the catalog (repeatable)")
     parser.add_argument("--skip-errors", dest="skip_errors", action="store_true",
                         help="Warn and skip tables that fail to load instead of aborting")
+    parser.add_argument("--existing-only", dest="existing_only", action="store_true",
+                        help="Only refresh schemas and tables already in the mapping; ignore new ones")
     args = parser.parse_args()
 
     credentials = {}
@@ -58,7 +60,8 @@ def main() -> None:
     print(f"  Found {len(schemas)} namespace(s), {len(tables)} table(s): {', '.join(tables)}")
 
     print(f"Refreshing {args.mapping_path} …")
-    refresh_mapping(args.mapping_path, repo, output_path=output_path)
+    refresh_mapping(args.mapping_path, repo, output_path=output_path,
+                    existing_only=args.existing_only)
     print(f"  Written to {output_path}")
 
 

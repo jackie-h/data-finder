@@ -9,7 +9,8 @@ _TABLE_HEADING_RE = re.compile(r"^####\s+Table:\s+(\S+)\s*→")
 _SCHEMA_HEADING_RE = re.compile(r"^###\s+Schema:\s+(.+)$")
 
 
-def refresh_mapping(mapping_path: str, new_repo: DataStore, output_path: str = None) -> str:
+def refresh_mapping(mapping_path: str, new_repo: DataStore, output_path: str = None,
+                    existing_only: bool = False) -> str:
     """
     Refresh an existing mapping markdown from a new repository schema snapshot.
 
@@ -20,19 +21,20 @@ def refresh_mapping(mapping_path: str, new_repo: DataStore, output_path: str = N
     - Tables in new_repo not yet in mapping are appended as draft sections
     - Tables in mapping not in new_repo are kept with a warning
 
+    existing_only: when True, schemas and tables not already in the mapping are ignored.
     If output_path is supplied the result is also written to that file.
     Returns the updated markdown string.
     """
     with open(mapping_path, encoding="utf-8") as f:
         content = f.read()
-    result = refresh_mapping_content(content, new_repo)
+    result = refresh_mapping_content(content, new_repo, existing_only=existing_only)
     if output_path:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(result)
     return result
 
 
-def refresh_mapping_content(content: str, new_repo: DataStore) -> str:
+def refresh_mapping_content(content: str, new_repo: DataStore, existing_only: bool = False) -> str:
     """Core logic — operates on strings (no file I/O)."""
     new_schema_tables: dict[str, dict[str, Table]] = {
         schema.name: {t.name: t for t in schema.tables}
@@ -51,27 +53,29 @@ def refresh_mapping_content(content: str, new_repo: DataStore) -> str:
         updated_lines, tables_processed = _process_schema_section(schema_lines, new_tables)
         all_tables_processed.update(tables_processed)
 
-        for table_name, table in new_tables.items():
-            if table_name not in tables_processed:
-                _log.info("Adding new table '%s' to schema '%s'", table_name, schema_name)
-                if updated_lines and updated_lines[-1].strip() != "":
-                    updated_lines.append("")
-                updated_lines.extend(_draft_table_lines(table))
-                all_tables_processed.add(table_name)
+        if not existing_only:
+            for table_name, table in new_tables.items():
+                if table_name not in tables_processed:
+                    _log.info("Adding new table '%s' to schema '%s'", table_name, schema_name)
+                    if updated_lines and updated_lines[-1].strip() != "":
+                        updated_lines.append("")
+                    updated_lines.extend(_draft_table_lines(table))
+                    all_tables_processed.add(table_name)
 
         result_lines.extend(updated_lines)
 
-    for schema in new_repo.schemas:
-        if schema.name in schemas_seen:
-            continue
-        new_in_schema = [t for t in schema.tables if t.name not in all_tables_processed]
-        if new_in_schema:
-            result_lines.append("")
-            result_lines.append(f"### Schema: {schema.name}")
-            result_lines.append("")
-            for table in new_in_schema:
-                result_lines.extend(_draft_table_lines(table))
-                all_tables_processed.add(table.name)
+    if not existing_only:
+        for schema in new_repo.schemas:
+            if schema.name in schemas_seen:
+                continue
+            new_in_schema = [t for t in schema.tables if t.name not in all_tables_processed]
+            if new_in_schema:
+                result_lines.append("")
+                result_lines.append(f"### Schema: {schema.name}")
+                result_lines.append("")
+                for table in new_in_schema:
+                    result_lines.extend(_draft_table_lines(table))
+                    all_tables_processed.add(table.name)
 
     return "\n".join(result_lines)
 
