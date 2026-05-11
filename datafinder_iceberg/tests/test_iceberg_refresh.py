@@ -253,3 +253,73 @@ class TestPrimaryKeyRefresh:
         repo = read_repository_from_catalog(cat)
         result = refresh_mapping_content(mapping, repo)
         assert _key_for_column(result, "id") == "PK"
+
+
+_MAPPING_WITH_ONE_SCHEMA = """\
+# Mapping
+
+## DataStore: db
+
+### Schema: ref_data
+
+#### Table: accounts → Account
+
+| Column | Type    | Key | Property |
+|--------|---------|-----|----------|
+| id     | INT     | PK  | id       |
+| name   | VARCHAR |     | name     |
+"""
+
+
+@pytest.fixture
+def catalog_with_new_schema():
+    cat = InMemoryCatalog("test", **{})
+    cat.create_namespace("ref_data")
+    cat.create_namespace("trading")
+    cat.create_table(
+        "ref_data.accounts",
+        schema=Schema(
+            NestedField(1, "id", IntegerType()),
+            NestedField(2, "name", StringType()),
+            NestedField(3, "email", StringType()),   # new column in existing table
+        ),
+    )
+    cat.create_table(
+        "ref_data.instruments",                      # new table in existing schema
+        schema=Schema(NestedField(1, "sym", StringType())),
+    )
+    cat.create_table(
+        "trading.trades",                            # entirely new schema + table
+        schema=Schema(NestedField(1, "price", DoubleType())),
+    )
+    return cat
+
+
+class TestExistingOnly:
+
+    def test_existing_only_suppresses_new_schema(self, catalog_with_new_schema):
+        repo = read_repository_from_catalog(catalog_with_new_schema)
+        result = refresh_mapping_content(_MAPPING_WITH_ONE_SCHEMA, repo, existing_only=True)
+        assert "trading" not in result
+        assert "trades" not in result
+
+    def test_existing_only_suppresses_new_table_in_existing_schema(self, catalog_with_new_schema):
+        repo = read_repository_from_catalog(catalog_with_new_schema)
+        result = refresh_mapping_content(_MAPPING_WITH_ONE_SCHEMA, repo, existing_only=True)
+        assert "instruments" not in result
+
+    def test_existing_only_still_updates_existing_columns(self, catalog_with_new_schema):
+        repo = read_repository_from_catalog(catalog_with_new_schema)
+        result = refresh_mapping_content(_MAPPING_WITH_ONE_SCHEMA, repo, existing_only=True)
+        assert "email" in result   # new column in existing table is still added
+
+    def test_without_existing_only_new_schema_appears(self, catalog_with_new_schema):
+        repo = read_repository_from_catalog(catalog_with_new_schema)
+        result = refresh_mapping_content(_MAPPING_WITH_ONE_SCHEMA, repo, existing_only=False)
+        assert "trading" in result
+        assert "trades" in result
+
+    def test_without_existing_only_new_table_appears(self, catalog_with_new_schema):
+        repo = read_repository_from_catalog(catalog_with_new_schema)
+        result = refresh_mapping_content(_MAPPING_WITH_ONE_SCHEMA, repo, existing_only=False)
+        assert "instruments" in result
