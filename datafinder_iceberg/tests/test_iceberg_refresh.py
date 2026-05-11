@@ -122,3 +122,134 @@ class TestIcebergRefresh:
                 break
         else:
             pytest.fail("price column not found")
+
+
+def _key_for_column(result: str, col_name: str) -> str:
+    """Extract the Key cell for a named column from a mapping markdown string."""
+    for line in result.splitlines():
+        if "|" not in line or "---" in line or "Column" in line:
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if cells and cells[0] == col_name:
+            return cells[2] if len(cells) > 2 else ""
+    return ""
+
+
+class TestPrimaryKeyRefresh:
+
+    def test_existing_pk_column_keeps_pk_key(self):
+        mapping = """\
+# Mapping
+
+## DataStore: db
+
+### Schema: main
+
+#### Table: trades → Trade
+
+| Column | Type    | Key | Property |
+|--------|---------|-----|----------|
+| id     | INT     | PK  | id       |
+| sym    | VARCHAR |     | symbol   |
+"""
+        cat = InMemoryCatalog("test", **{})
+        cat.create_namespace("main")
+        cat.create_table(
+            "main.trades",
+            schema=Schema(
+                NestedField(1, "id", IntegerType(), required=True),
+                NestedField(2, "sym", StringType()),
+                identifier_field_ids=[1],
+            ),
+        )
+        repo = read_repository_from_catalog(cat)
+        result = refresh_mapping_content(mapping, repo)
+        assert _key_for_column(result, "id") == "PK"
+        assert _key_for_column(result, "sym") == ""
+
+    def test_column_gains_pk_on_refresh(self):
+        """A column that was not PK in the mapping becomes PK when Iceberg marks it as identifier."""
+        mapping = """\
+# Mapping
+
+## DataStore: db
+
+### Schema: main
+
+#### Table: trades → Trade
+
+| Column | Type    | Key | Property |
+|--------|---------|-----|----------|
+| id     | INT     |     | id       |
+| sym    | VARCHAR |     | symbol   |
+"""
+        cat = InMemoryCatalog("test", **{})
+        cat.create_namespace("main")
+        cat.create_table(
+            "main.trades",
+            schema=Schema(
+                NestedField(1, "id", IntegerType(), required=True),
+                NestedField(2, "sym", StringType()),
+                identifier_field_ids=[1],
+            ),
+        )
+        repo = read_repository_from_catalog(cat)
+        result = refresh_mapping_content(mapping, repo)
+        assert _key_for_column(result, "id") == "PK"
+
+    def test_fk_column_not_overwritten_by_pk(self):
+        """A column marked FK in the mapping is never overwritten by PK detection."""
+        mapping = """\
+# Mapping
+
+## DataStore: db
+
+### Schema: main
+
+#### Table: trades → Trade
+
+| Column     | Type | Key | Property |
+|------------|------|-----|----------|
+| account_id | INT  | FK  | account  |
+"""
+        cat = InMemoryCatalog("test", **{})
+        cat.create_namespace("main")
+        cat.create_table(
+            "main.trades",
+            schema=Schema(
+                NestedField(1, "account_id", IntegerType(), required=True),
+                identifier_field_ids=[1],
+            ),
+        )
+        repo = read_repository_from_catalog(cat)
+        result = refresh_mapping_content(mapping, repo)
+        assert _key_for_column(result, "account_id") == "FK"
+
+    def test_new_column_with_pk_gets_pk_key(self):
+        """A brand-new column that is an identifier gets Key=PK in the draft row."""
+        mapping = """\
+# Mapping
+
+## DataStore: db
+
+### Schema: main
+
+#### Table: trades → Trade
+
+| Column | Type    | Key | Property |
+|--------|---------|-----|----------|
+| sym    | VARCHAR |     | symbol   |
+"""
+        cat = InMemoryCatalog("test", **{})
+        cat.create_namespace("main")
+        cat.create_table(
+            "main.trades",
+            schema=Schema(
+                NestedField(1, "sym", StringType()),
+                NestedField(2, "id", IntegerType(), required=True),
+                identifier_field_ids=[2],
+            ),
+        )
+        repo = read_repository_from_catalog(cat)
+        result = refresh_mapping_content(mapping, repo)
+        assert _key_for_column(result, "id") == "PK"

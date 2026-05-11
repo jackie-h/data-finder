@@ -175,6 +175,8 @@ def _update_column_table(table_lines: list[str], new_table: Table) -> str:
             updated = dict(row)
             if "Type" in updated:
                 updated["Type"] = new_cols[col_name].type or ""
+            if "Key" in updated and updated["Key"] != "FK":
+                updated["Key"] = "PK" if new_cols[col_name].primary_key else ""
             merged.append(updated)
         else:
             _log.info("Removing deleted column '%s' from table '%s'", col_name, new_table.name)
