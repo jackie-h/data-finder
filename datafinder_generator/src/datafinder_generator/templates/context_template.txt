@@ -1,0 +1,22 @@
+from __future__ import annotations
+
+{% for rcm in mapping.mappings %}
+from {{class_module_map[rcm.clazz.name]}} import {{rcm.clazz.name}}Finder
+from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase
+{% endfor %}
+
+
+class {{context_class_name}}:
+    """FinderContext for '{{mapping.name}}' mapping."""
+
+    def __init__(self):
+{% for rcm in mapping.mappings %}
+        self._{{to_snake_case(rcm.clazz.name)}} = {{rcm.clazz.name}}Finder()
+{% endfor %}
+
+{% for rcm in mapping.mappings %}
+    @property
+    def {{to_snake_case(rcm.clazz.name)}}(self) -> {{rcm.clazz.name}}FinderBase:
+        return self._{{to_snake_case(rcm.clazz.name)}}
+
+{% endfor %}

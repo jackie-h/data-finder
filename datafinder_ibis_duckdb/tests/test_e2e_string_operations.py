@@ -50,7 +50,7 @@ def CompanyFinder():
     _build_test_db()
 
     from company_finder import CompanyFinder as CF
-    yield CF
+    yield CF()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -62,14 +62,14 @@ class TestStringEq:
 
     def test_eq_returns_exact_match(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().eq("Acme Corp"),
         ).to_pandas()
         assert result["Name"].tolist() == ["Acme Corp"]
 
     def test_eq_returns_empty_when_no_match(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().eq("Nonexistent"),
         ).to_pandas()
         assert len(result) == 0
@@ -79,21 +79,21 @@ class TestStringNe:
 
     def test_ne_excludes_matching_row(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().ne("Acme Corp"),
         ).to_pandas()
         assert "Acme Corp" not in result["Name"].tolist()
 
     def test_ne_returns_all_other_rows(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().ne("Acme Corp"),
         ).to_pandas()
         assert len(result) == 4
 
     def test_ne_all_rows_when_value_absent(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().ne("Nonexistent"),
         ).to_pandas()
         assert len(result) == 5
@@ -103,21 +103,21 @@ class TestStringContains:
 
     def test_contains_matches_substring(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().contains("Corp"),
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Acme Corp", "Beta Corp"}
 
     def test_contains_returns_empty_when_no_match(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().contains("ZZZZZ"),
         ).to_pandas()
         assert len(result) == 0
 
     def test_contains_matches_multiple_with_common_substring(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().contains("Acme"),
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Acme Corp", "Acme Industries"}
@@ -127,21 +127,21 @@ class TestStringStartsWith:
 
     def test_starts_with_matches_prefix(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().starts_with("Acme"),
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Acme Corp", "Acme Industries"}
 
     def test_starts_with_returns_empty_when_no_match(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().starts_with("Zzz"),
         ).to_pandas()
         assert len(result) == 0
 
     def test_starts_with_single_result(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().starts_with("Beta"),
         ).to_pandas()
         assert result["Name"].tolist() == ["Beta Corp"]
@@ -151,28 +151,28 @@ class TestStringEndsWith:
 
     def test_ends_with_matches_suffix(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().ends_with("Corp"),
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Acme Corp", "Beta Corp"}
 
     def test_ends_with_returns_empty_when_no_match(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().ends_with("Zzz"),
         ).to_pandas()
         assert len(result) == 0
 
     def test_ends_with_single_result(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().ends_with("LLC"),
         ).to_pandas()
         assert result["Name"].tolist() == ["Gamma LLC"]
 
     def test_ends_with_ltd(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.name().ends_with("Ltd"),
         ).to_pandas()
         assert result["Name"].tolist() == ["Delta Ltd"]
@@ -182,21 +182,21 @@ class TestStringOperationsOnNonKeyColumn:
 
     def test_filter_on_category_contains(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
             CompanyFinder.category().contains("nology"),
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Acme Corp", "Beta Corp"}
 
     def test_filter_on_category_starts_with(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
             CompanyFinder.category().starts_with("Fin"),
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Gamma LLC", "Delta Ltd"}
 
     def test_filter_on_category_ne(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
             CompanyFinder.category().ne("Technology"),
         ).to_pandas()
         names = set(result["Name"].tolist())

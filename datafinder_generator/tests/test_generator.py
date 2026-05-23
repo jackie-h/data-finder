@@ -6,7 +6,8 @@ import tempfile
 import pytest
 from mapping_markdown.markdown_mapping import load
 from model.m3 import Property, String, Class, Package, Association, Multiplicity
-from datafinder_generator.generator import to_python_name, generate, _class_package, _ensure_package_dirs
+from datafinder_generator.generator import to_python_name, generate, _class_package, _ensure_package_dirs, \
+    to_snake_case, _mapping_to_class_name, _mapping_to_filename
 
 
 def _prop(label: str, id: str = None) -> Property:
@@ -48,6 +49,39 @@ class TestToPythonName:
     def test_uses_label_not_id(self):
         prop = Property("Valid From", "valid_from", String)
         assert to_python_name(prop) == "valid_from"
+
+
+class TestToSnakeCase:
+
+    def test_single_word(self):
+        assert to_snake_case("Account") == "account"
+
+    def test_pascal_case(self):
+        assert to_snake_case("ContractualPosition") == "contractual_position"
+
+    def test_already_lower(self):
+        assert to_snake_case("trade") == "trade"
+
+
+class TestMappingNaming:
+
+    def test_class_name_from_spaced_name(self):
+        assert _mapping_to_class_name("Finance Mapping") == "FinanceMappingContext"
+
+    def test_class_name_from_numbered_name(self):
+        assert _mapping_to_class_name("Test Mapping 1") == "TestMapping1Context"
+
+    def test_class_name_from_single_word(self):
+        assert _mapping_to_class_name("OrgMapping") == "OrgMappingContext"
+
+    def test_filename_from_spaced_name(self):
+        assert _mapping_to_filename("Finance Mapping") == "finance_mapping_context.py"
+
+    def test_filename_from_numbered_name(self):
+        assert _mapping_to_filename("Test Mapping 1") == "test_mapping_1_context.py"
+
+    def test_filename_from_single_word(self):
+        assert _mapping_to_filename("OrgMapping") == "orgmapping_context.py"
 
 
 _FINANCE_MAPPING = os.path.normpath(
@@ -124,6 +158,16 @@ class TestGeneratePackageStructure:
         assert os.path.isfile(os.path.join(self.tmp, "finance", "reference_data", "instrument_finder.py"))
         assert os.path.isfile(os.path.join(self.tmp, "finance", "trade", "trade_finder.py"))
 
+    def test_base_files_written_to_package_directories(self):
+        generate(self.mapping, self.tmp)
+        assert os.path.isfile(os.path.join(self.tmp, "finance", "reference_data", "account_finder_base.py"))
+        assert os.path.isfile(os.path.join(self.tmp, "finance", "reference_data", "instrument_finder_base.py"))
+        assert os.path.isfile(os.path.join(self.tmp, "finance", "trade", "trade_finder_base.py"))
+
+    def test_context_file_written_to_output_root(self):
+        generate(self.mapping, self.tmp)
+        assert os.path.isfile(os.path.join(self.tmp, "finance_mapping_context.py"))
+
     def test_init_files_created_at_every_level(self):
         generate(self.mapping, self.tmp)
         assert os.path.isfile(os.path.join(self.tmp, "finance", "__init__.py"))
@@ -136,12 +180,29 @@ class TestGeneratePackageStructure:
         content = open(trade_finder_path).read()
         assert "from finance.reference_data.account_finder import AccountRelatedFinder" in content
 
+    def test_generated_finder_imports_own_base(self):
+        generate(self.mapping, self.tmp)
+        trade_finder_path = os.path.join(self.tmp, "finance", "trade", "trade_finder.py")
+        content = open(trade_finder_path).read()
+        assert "from finance.trade.trade_finder_base import TradeFinderBase, TradeRelatedFinderBase" in content
+
     def test_generated_finder_is_importable(self):
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
             from finance.trade.trade_finder import TradeFinder
             assert TradeFinder is not None
+        finally:
+            sys.path.remove(self.tmp)
+
+    def test_finder_is_instance_based(self):
+        generate(self.mapping, self.tmp)
+        sys.path.insert(0, self.tmp)
+        try:
+            from finance.reference_data.account_finder import AccountFinder
+            finder = AccountFinder()
+            assert finder.id_() is not None
+            assert finder.name() is not None
         finally:
             sys.path.remove(self.tmp)
 
@@ -162,10 +223,46 @@ class TestGeneratePackageStructure:
         sys.path.insert(0, self.tmp)
         try:
             from finance.reference_data.account_finder import AccountFinder
-            result = AccountFinder.trades()
+            result = AccountFinder().trades()
             assert result is not None
         finally:
             sys.path.remove(self.tmp)
+
+    def test_context_is_importable(self):
+        generate(self.mapping, self.tmp)
+        sys.path.insert(0, self.tmp)
+        try:
+            from finance_mapping_context import FinanceMappingContext
+            ctx = FinanceMappingContext()
+            assert ctx is not None
+        finally:
+            sys.path.remove(self.tmp)
+
+    def test_context_exposes_all_finders(self):
+        generate(self.mapping, self.tmp)
+        sys.path.insert(0, self.tmp)
+        try:
+            from finance_mapping_context import FinanceMappingContext
+            from finance.reference_data.account_finder_base import AccountFinderBase
+            from finance.trade.trade_finder_base import TradeFinderBase
+            ctx = FinanceMappingContext()
+            assert isinstance(ctx.account, AccountFinderBase)
+            assert isinstance(ctx.trade, TradeFinderBase)
+        finally:
+            sys.path.remove(self.tmp)
+
+    def test_find_all_has_uniform_signature(self):
+        generate(self.mapping, self.tmp)
+        trade_finder_path = os.path.join(self.tmp, "finance", "trade", "trade_finder.py")
+        content = open(trade_finder_path).read()
+        assert "def find_all(self," in content
+        assert "business_date" in content
+        assert "processing_valid_at" in content
+        account_finder_path = os.path.join(self.tmp, "finance", "reference_data", "account_finder.py")
+        content = open(account_finder_path).read()
+        assert "def find_all(self," in content
+        assert "business_date" in content
+        assert "processing_valid_at" in content
 
 
 class TestDualAssociationSameTarget:
@@ -238,7 +335,6 @@ class TestDualAssociationSameTarget:
     def test_reverse_methods_are_distinct_not_shadowed(self):
         generate(self.mapping, self.tmp)
         content = open(os.path.join(self.tmp, "employee_finder.py")).read()
-        # Both FK columns must appear — if one were shadowed, only one would be present
         assert "primary_owner_id" in content
         assert "secondary_owner_id" in content
 
@@ -247,8 +343,9 @@ class TestDualAssociationSameTarget:
         sys.path.insert(0, self.tmp)
         try:
             from employee_finder import EmployeeFinder
-            primary = EmployeeFinder.primary_owner_contracts()
-            secondary = EmployeeFinder.secondary_owner_contracts()
+            emp = EmployeeFinder()
+            primary = emp.primary_owner_contracts()
+            secondary = emp.secondary_owner_contracts()
             assert primary is not None
             assert secondary is not None
             assert primary is not secondary

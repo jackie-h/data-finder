@@ -74,7 +74,7 @@ def finders():
 
     from prices.market.price_finder import PriceFinder
 
-    yield {"Price": PriceFinder}
+    yield {"Price": PriceFinder()}
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -93,24 +93,24 @@ class TestNullEndMilestoningE2E:
     def test_null_end_rows_returned_as_active(self, finders):
         PriceFinder = finders["Price"]
         dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
-        result = PriceFinder.find_all(dt, [PriceFinder.symbol(), PriceFinder.price()]).to_pandas()
+        result = PriceFinder.find_all(None, dt, [PriceFinder.symbol(), PriceFinder.price()]).to_pandas()
         assert set(result["Symbol"].tolist()) == {"AAPL", "MSFT"}
 
     def test_expired_row_excluded(self, finders):
         PriceFinder = finders["Price"]
         dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
-        result = PriceFinder.find_all(dt, [PriceFinder.symbol(), PriceFinder.price()]).to_pandas()
+        result = PriceFinder.find_all(None, dt, [PriceFinder.symbol(), PriceFinder.price()]).to_pandas()
         assert "GOOG" not in result["Symbol"].tolist()
 
     def test_expired_row_visible_before_expiry(self, finders):
         PriceFinder = finders["Price"]
         dt = datetime.datetime(2021, 6, 1, 12, 0, 0)
-        result = PriceFinder.find_all(dt, [PriceFinder.symbol(), PriceFinder.price()]).to_pandas()
+        result = PriceFinder.find_all(None, dt, [PriceFinder.symbol(), PriceFinder.price()]).to_pandas()
         assert set(result["Symbol"].tolist()) == {"AAPL", "MSFT", "GOOG"}
 
     def test_null_end_row_visible_across_time(self, finders):
         PriceFinder = finders["Price"]
         for year in [2021, 2023, 2099]:
             dt = datetime.datetime(year, 1, 1, 0, 0, 0)
-            result = PriceFinder.find_all(dt, [PriceFinder.symbol()]).to_pandas()
+            result = PriceFinder.find_all(None, dt, [PriceFinder.symbol()]).to_pandas()
             assert "AAPL" in result["Symbol"].tolist(), f"AAPL should be active in {year}"

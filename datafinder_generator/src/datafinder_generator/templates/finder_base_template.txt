@@ -1,0 +1,64 @@
+from __future__ import annotations
+import datetime
+from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Union
+from datafinder.typed_attributes import *
+from datafinder import FinderResult
+from model.relational import NoOperation, CountAllOperation
+
+{% for rpm in rcm.property_mappings %}
+{% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}
+if TYPE_CHECKING:
+    from {{class_module_map_base[rpm.property.type.name]}} import {{rpm.property.type.name}}RelatedFinderBase
+{% endif %}
+{% endfor %}
+{% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
+if TYPE_CHECKING:
+    from {{class_module_map_base[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinderBase
+{% endfor %}
+
+
+class {{rcm.clazz.name}}RelatedFinderBase(ABC):
+{% for rpm in rcm.property_mappings %}
+{% if is_primitive(rpm.property) %}
+    @abstractmethod
+    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}Attribute: ...
+
+{% elif rpm.property.type.name != rcm.clazz.name %}
+    @abstractmethod
+    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinderBase: ...
+
+{% endif %}
+{% endfor %}
+{% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
+    @abstractmethod
+    def {{reverse_name}}(self) -> {{source_rcm.clazz.name}}RelatedFinderBase: ...
+
+{% endfor %}
+
+class {{rcm.clazz.name}}FinderBase(ABC):
+{% for rpm in rcm.property_mappings %}
+{% if is_primitive(rpm.property) %}
+    @abstractmethod
+    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}Attribute: ...
+
+{% elif rpm.property.type.name != rcm.clazz.name %}
+    @abstractmethod
+    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinderBase: ...
+
+{% endif %}
+{% endfor %}
+{% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
+    @abstractmethod
+    def {{reverse_name}}(self) -> {{source_rcm.clazz.name}}RelatedFinderBase: ...
+
+{% endfor %}
+    @abstractmethod
+    def count(self) -> CountAllOperation: ...
+
+    @abstractmethod
+    def find_all(self,
+                 business_date: Union[datetime.date, str],
+                 processing_valid_at: Union[datetime.datetime, str],
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> FinderResult: ...

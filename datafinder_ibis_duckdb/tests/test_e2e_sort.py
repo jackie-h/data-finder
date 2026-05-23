@@ -50,7 +50,7 @@ def CompanyFinder():
     _build_test_db()
 
     from company_finder import CompanyFinder as CF
-    yield CF
+    yield CF()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -61,16 +61,16 @@ def CompanyFinder():
 class TestFinderResultIsReturned:
 
     def test_find_all_returns_finder_result(self, CompanyFinder):
-        result = CompanyFinder.find_all([CompanyFinder.name()])
+        result = CompanyFinder.find_all(None, None, [CompanyFinder.name()])
         assert isinstance(result, FinderResult)
 
     def test_order_by_returns_same_finder_result(self, CompanyFinder):
-        result = CompanyFinder.find_all([CompanyFinder.name()])
+        result = CompanyFinder.find_all(None, None, [CompanyFinder.name()])
         chained = result.order_by(CompanyFinder.name().ascending())
         assert chained is result
 
     def test_find_all_without_order_by_still_works(self, CompanyFinder):
-        df = CompanyFinder.find_all([CompanyFinder.name()]).to_pandas()
+        df = CompanyFinder.find_all(None, None, [CompanyFinder.name()]).to_pandas()
         assert len(df) == 5
 
 
@@ -78,21 +78,21 @@ class TestSortAscending:
 
     def test_sort_by_name_asc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
         ).order_by(CompanyFinder.name().ascending()).to_pandas()
         names = result["Name"].tolist()
         assert names == sorted(names)
 
     def test_sort_by_id_asc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.id_()],
+            None, None, [CompanyFinder.id_()],
         ).order_by(CompanyFinder.id_().ascending()).to_pandas()
         ids = result["Id"].tolist()
         assert ids == sorted(ids)
 
     def test_sort_by_category_asc_first_row(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
         ).order_by(CompanyFinder.category().ascending()).to_pandas()
         assert result.iloc[0]["Category"] == "Finance"
 
@@ -101,27 +101,27 @@ class TestSortDescending:
 
     def test_sort_by_name_desc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
         ).order_by(CompanyFinder.name().descending()).to_pandas()
         names = result["Name"].tolist()
         assert names == sorted(names, reverse=True)
 
     def test_sort_by_id_desc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.id_()],
+            None, None, [CompanyFinder.id_()],
         ).order_by(CompanyFinder.id_().descending()).to_pandas()
         ids = result["Id"].tolist()
         assert ids == sorted(ids, reverse=True)
 
     def test_sort_by_id_desc_first_row_is_highest(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.id_()],
+            None, None, [CompanyFinder.id_()],
         ).order_by(CompanyFinder.id_().descending()).to_pandas()
         assert result.iloc[0]["Id"] == 5
 
     def test_sort_by_category_desc_first_row(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
         ).order_by(CompanyFinder.category().descending()).to_pandas()
         assert result.iloc[0]["Category"] == "Technology"
 
@@ -130,7 +130,7 @@ class TestMultiColumnSort:
 
     def test_sort_by_category_asc_then_name_asc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
         ).order_by(CompanyFinder.category().ascending(), CompanyFinder.name().ascending()).to_pandas()
         # Finance comes first (alphabetically before Manufacturing and Technology)
         assert result.iloc[0]["Category"] == "Finance"
@@ -141,7 +141,7 @@ class TestMultiColumnSort:
 
     def test_sort_by_category_asc_then_name_desc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
         ).order_by(CompanyFinder.category().ascending(), CompanyFinder.name().descending()).to_pandas()
         # Within Finance (first category): Gamma LLC before Delta Ltd (desc)
         finance_rows = result[result["Category"] == "Finance"]
@@ -153,7 +153,7 @@ class TestSortWithFilter:
 
     def test_sort_filtered_results(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
             CompanyFinder.category().eq("Technology"),
         ).order_by(CompanyFinder.name().ascending()).to_pandas()
         assert len(result) == 2
@@ -162,7 +162,7 @@ class TestSortWithFilter:
 
     def test_sort_filtered_results_desc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name(), CompanyFinder.category()],
+            None, None, [CompanyFinder.name(), CompanyFinder.category()],
             CompanyFinder.category().eq("Technology"),
         ).order_by(CompanyFinder.name().descending()).to_pandas()
         assert result.iloc[0]["Name"] == "Beta Corp"
@@ -170,7 +170,7 @@ class TestSortWithFilter:
 
     def test_sort_with_single_result(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.category().eq("Manufacturing"),
         ).order_by(CompanyFinder.name().ascending()).to_pandas()
         assert len(result) == 1

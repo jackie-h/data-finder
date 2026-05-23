@@ -50,7 +50,7 @@ def CompanyFinder():
     _build_test_db()
 
     from company_finder import CompanyFinder as CF
-    yield CF
+    yield CF()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -62,41 +62,41 @@ class TestCountAll:
 
     def test_count_all_returns_total_row_count(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.count()],
+            None, None, [CompanyFinder.count()],
         ).to_pandas()
         assert result.iloc[0]["Count"] == 5
 
     def test_count_all_with_filter_counts_matching_rows(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.count()],
+            None, None, [CompanyFinder.count()],
             CompanyFinder.category().eq("Technology"),
         ).to_pandas()
         assert result.iloc[0]["Count"] == 2
 
     def test_count_all_with_filter_no_matches_returns_zero(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.count()],
+            None, None, [CompanyFinder.count()],
             CompanyFinder.category().eq("Nonexistent"),
         ).to_pandas()
         assert result.iloc[0]["Count"] == 0
 
     def test_count_all_with_contains_filter(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.count()],
+            None, None, [CompanyFinder.count()],
             CompanyFinder.name().contains("Corp"),
         ).to_pandas()
         assert result.iloc[0]["Count"] == 2
 
     def test_count_all_finance_category(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.count()],
+            None, None, [CompanyFinder.count()],
             CompanyFinder.category().eq("Finance"),
         ).to_pandas()
         assert result.iloc[0]["Count"] == 2
 
     def test_count_all_result_has_count_column(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.count()],
+            None, None, [CompanyFinder.count()],
         ).to_pandas()
         assert "Count" in result.columns
         assert len(result) == 1
@@ -106,26 +106,26 @@ class TestAttributeCount:
 
     def test_count_name_returns_non_null_count(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name().count()],
+            None, None, [CompanyFinder.name().count()],
         ).to_pandas()
         assert result.iloc[0]["Name Count"] == 5
 
     def test_count_id_returns_total(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.id_().count()],
+            None, None, [CompanyFinder.id_().count()],
         ).to_pandas()
         assert result.iloc[0]["Id Count"] == 5
 
     def test_count_attribute_with_filter(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name().count()],
+            None, None, [CompanyFinder.name().count()],
             CompanyFinder.category().eq("Technology"),
         ).to_pandas()
         assert result.iloc[0]["Name Count"] == 2
 
     def test_count_attribute_with_ne_filter(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name().count()],
+            None, None, [CompanyFinder.name().count()],
             CompanyFinder.category().ne("Technology"),
         ).to_pandas()
         assert result.iloc[0]["Name Count"] == 3
