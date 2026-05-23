@@ -13,6 +13,9 @@ from model.graphql_mapping import (
     GraphQLField,
     GraphQLPropertyMapping,
     GraphQLClassMapping,
+    GraphQLBusinessDateMilestone,
+    GraphQLProcessingMilestone,
+    GraphQLBiTemporalMilestone,
 )
 from model.m3 import Class, Property, String, Float, Integer, Package
 
@@ -75,10 +78,11 @@ class TestGraphQLEngine:
             dtype="object",
         ))
 
-    def test_query_with_business_date(self, graphql_server):
+    def test_query_with_business_date_milestone(self, graphql_server):
         endpoint = _endpoint(graphql_server)
-        gql_query = GraphQLQuery("instruments", endpoint)
-
+        # Milestone wires business_date to the "businessDate" argument
+        gql_query = GraphQLQuery("instruments", endpoint,
+                                  milestone=GraphQLBusinessDateMilestone("businessDate"))
         sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
 
         bd = datetime.date(2024, 1, 10)
@@ -87,6 +91,30 @@ class TestGraphQLEngine:
 
         assert data.shape == (3, 1)
         assert list(data[:, 0]) == ["AAPL", "MSFT", "GOOG"]
+
+    def test_query_with_processing_milestone(self, graphql_server):
+        endpoint = _endpoint(graphql_server)
+        gql_query = GraphQLQuery("instruments", endpoint,
+                                  milestone=GraphQLProcessingMilestone("asOf"))
+        sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
+
+        pdt = datetime.datetime(2020, 1, 1, 9, 0, 0)
+        result = FinderResult(None, pdt, [sym_attr], gql_query, None)
+        data = result.to_numpy()
+
+        assert data.shape == (3, 1)
+
+    def test_no_milestone_ignores_dates(self, graphql_server):
+        endpoint = _endpoint(graphql_server)
+        gql_query = GraphQLQuery("instruments", endpoint)  # no milestone
+        sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
+
+        # Dates present but no milestone — no arguments added, still returns all rows
+        result = FinderResult(datetime.date(2024, 1, 10),
+                               datetime.datetime(2020, 1, 1, 9, 0, 0),
+                               [sym_attr], gql_query, None)
+        data = result.to_numpy()
+        assert data.shape == (3, 1)
 
     def test_query_accounts(self, graphql_server):
         endpoint = _endpoint(graphql_server)

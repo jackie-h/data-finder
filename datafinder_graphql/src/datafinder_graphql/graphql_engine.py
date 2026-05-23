@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 
 from datafinder import Attribute, Operation, DataFrame, QueryRunnerBase
-from model.graphql_mapping import GraphQLQuery
+from model.graphql_mapping import (
+    GraphQLQuery,
+    GraphQLProcessingMilestone,
+    GraphQLBusinessDateMilestone,
+    GraphQLBiTemporalMilestone,
+)
 
 
 class GraphQLOutput(DataFrame):
@@ -24,6 +29,27 @@ class GraphQLOutput(DataFrame):
         return pd.DataFrame(self._rows, columns=self._field_names)
 
 
+def _build_temporal_args(business_date: datetime.date,
+                         processing_datetime: datetime.datetime,
+                         milestone) -> list[str]:
+    """Translate temporal parameters into GraphQL argument strings based on milestone config."""
+    if milestone is None:
+        return []
+    args = []
+    if isinstance(milestone, GraphQLBiTemporalMilestone):
+        if business_date is not None:
+            args.append(f'{milestone.business_date_argument}: "{business_date}"')
+        if processing_datetime is not None:
+            args.append(f'{milestone.processing_argument}: "{processing_datetime.isoformat()}"')
+    elif isinstance(milestone, GraphQLBusinessDateMilestone):
+        if business_date is not None:
+            args.append(f'{milestone.argument_name}: "{business_date}"')
+    elif isinstance(milestone, GraphQLProcessingMilestone):
+        if processing_datetime is not None:
+            args.append(f'{milestone.argument_name}: "{processing_datetime.isoformat()}"')
+    return args
+
+
 class GraphQLConnect(QueryRunnerBase):
 
     @staticmethod
@@ -33,10 +59,9 @@ class GraphQLConnect(QueryRunnerBase):
         field_names = [col.column().name for col in columns]
         fields_str = " ".join(field_names)
 
-        args_parts = []
-        if business_date is not None:
-            args_parts.append(f'businessDate: "{business_date}"')
-        args = f"({', '.join(args_parts)})" if args_parts else ""
+        arg_parts = _build_temporal_args(business_date, processing_datetime,
+                                         getattr(table, 'milestone', None))
+        args = f"({', '.join(arg_parts)})" if arg_parts else ""
 
         query_str = f"{{ {table.name}{args} {{ {fields_str} }} }}"
 
