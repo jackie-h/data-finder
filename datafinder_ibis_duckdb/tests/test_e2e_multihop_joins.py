@@ -25,7 +25,7 @@ _MAPPING_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "orgchart_inheritance_mapping.md")
 )
 
-_FINDER_MODULES = ["employee_finder", "project_finder"]
+_FINDER_MODULES = ["employee_finder", "employee_finder_base", "project_finder", "project_finder_base"]
 
 _EMPLOYEES = [
     # (emp_id, first_name, last_name, email, department, manager_id)
@@ -91,7 +91,7 @@ def finders():
     from employee_finder import EmployeeFinder
     from project_finder import ProjectFinder
 
-    yield {"Employee": EmployeeFinder, "Project": ProjectFinder}
+    yield {"Employee": EmployeeFinder(), "Project": ProjectFinder()}
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -105,7 +105,7 @@ class TestDirectEmployeeProjectJoin:
     def test_project_names_for_each_employee(self, finders):
         EF = finders["Employee"]
         result = EF.find_all(
-            [EF.first_name(), EF.projects().name()],
+            None, None, [EF.first_name(), EF.projects().name()],
         ).to_pandas()
         by_employee = {}
         for _, row in result.iterrows():
@@ -118,7 +118,7 @@ class TestDirectEmployeeProjectJoin:
     def test_project_code_filtered_by_employee(self, finders):
         EF = finders["Employee"]
         result = EF.find_all(
-            [EF.first_name(), EF.projects().code()],
+            None, None, [EF.first_name(), EF.projects().code()],
             EF.first_name().eq("Bob"),
         ).to_pandas()
         assert set(result["Project Code"].tolist()) == {"ALPHA", "BETA"}
@@ -126,7 +126,7 @@ class TestDirectEmployeeProjectJoin:
     def test_filter_by_project_name(self, finders):
         EF = finders["Employee"]
         result = EF.find_all(
-            [EF.first_name(), EF.projects().name()],
+            None, None, [EF.first_name(), EF.projects().name()],
             EF.projects().name().eq("Delta Ops"),
         ).to_pandas()
         assert result.iloc[0]["First Name"] == "Dave"
@@ -145,7 +145,7 @@ class TestMultiHopManagerProjects:
         """Standard multi-hop: employee name + manager's project name."""
         EF = finders["Employee"]
         result = EF.find_all(
-            [EF.first_name(), EF.manager().projects().name()],
+            None, None, [EF.first_name(), EF.manager().projects().name()],
         ).to_pandas()
         by_employee = {}
         for _, row in result.iterrows():
@@ -165,7 +165,7 @@ class TestMultiHopManagerProjects:
         """
         EF = finders["Employee"]
         result = EF.find_all(
-            [EF.manager().projects().name()],
+            None, None, [EF.manager().projects().name()],
             EF.first_name().eq("Dave"),
         ).to_pandas()
         # Dave's manager is Bob; Bob is assigned Alpha and Beta
@@ -179,7 +179,7 @@ class TestMultiHopManagerProjects:
         """
         EF = finders["Employee"]
         result = EF.find_all(
-            [EF.first_name()],
+            None, None, [EF.first_name()],
             EF.manager().projects().code().eq("ALPHA"),
         ).to_pandas()
         # ALPHA is assigned to Bob. Employees whose manager is Bob: Dave
@@ -190,7 +190,7 @@ class TestMultiHopManagerProjects:
         EF = finders["Employee"]
         for _ in range(3):
             result = EF.find_all(
-                [EF.first_name(), EF.manager().projects().name()],
+                None, None, [EF.first_name(), EF.manager().projects().name()],
             ).to_pandas()
             counts = result.groupby("First Name")["Project Name"].count().to_dict()
             # Bob and Carol report to Alice (1 project: Epsilon Research)
@@ -203,7 +203,7 @@ class TestMultiHopManagerProjects:
         """Filter on manager column; select manager's project — exercises both joins."""
         EF = finders["Employee"]
         result = EF.find_all(
-            [EF.manager().projects().name()],
+            None, None, [EF.manager().projects().name()],
             EF.manager().first_name().eq("Alice"),
         ).to_pandas()
         # Bob and Carol report to Alice; Alice has Epsilon Research
@@ -216,7 +216,7 @@ class TestProjectFinderReverse:
     def test_project_with_assignee_name(self, finders):
         PF = finders["Project"]
         result = PF.find_all(
-            [PF.name(), PF.assignee().first_name()],
+            None, None, [PF.name(), PF.assignee().first_name()],
         ).to_pandas()
         by_project = dict(zip(result["Name"], result["Assignee First Name"]))
         assert by_project["Alpha Initiative"] == "Bob"
@@ -226,7 +226,7 @@ class TestProjectFinderReverse:
     def test_filter_project_by_assignee_department(self, finders):
         PF = finders["Project"]
         result = PF.find_all(
-            [PF.name(), PF.code()],
+            None, None, [PF.name(), PF.code()],
             PF.assignee().department().eq("Engineering"),
         ).to_pandas()
         assert set(result["Code"].tolist()) == {"ALPHA", "BETA", "GAMMA"}

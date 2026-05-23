@@ -4,6 +4,7 @@ from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
+from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase, {{rcm.clazz.name}}RelatedFinderBase
 
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}from {{class_module_map[rpm.property.type.name]}} import {{rpm.property.type.name}}RelatedFinder
@@ -11,7 +12,7 @@ from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColum
 {% endfor %}
 
 
-class {{rcm.clazz.name}}RelatedFinder:
+class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase):
 
 {% if rcm.milestone_mapping %}
 {% if has_bitemporal(rcm.milestone_mapping) %}
@@ -86,7 +87,7 @@ class {{rcm.clazz.name}}RelatedFinder:
 
 {% endfor %}
 
-class {{rcm.clazz.name}}Finder:
+class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% if rcm.clazz.tagged_values['doc'] %}
     """{{rcm.clazz.tagged_values['doc'].value}}
     """
@@ -123,11 +124,17 @@ class {{rcm.clazz.name}}Finder:
     __{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'))
 {% endif %}
 {% endfor %}
+{% if reverse_assocs %}
 
+    def __init__(self):
+{% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
+        self.__{{reverse_name}} = None
+{% endfor %}
+
+{% endif %}
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-    @staticmethod
-    def {{to_python_name(rpm.property)}}() -> {{rpm.property.type.name}}Attribute:
+    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}Attribute:
 {% if rpm.property.tagged_values['doc'] %}
         """{{display_name(rpm.property)}}
         {{rpm.property.tagged_values['doc'].value}}
@@ -138,8 +145,7 @@ class {{rcm.clazz.name}}Finder:
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% else %}
-    @staticmethod
-    def {{to_python_name(rpm.property)}}() -> {{rpm.property.type.name}}RelatedFinder:
+    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
         """{{display_name(rpm.property)}}
         {{rpm.property.tagged_values['doc'].value}}
@@ -152,54 +158,34 @@ class {{rcm.clazz.name}}Finder:
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
-    __{{reverse_name}} = None
-    @staticmethod
-    def {{reverse_name}}() -> {{source_rcm.clazz.name}}RelatedFinder:
+    def {{reverse_name}}(self) -> {{source_rcm.clazz.name}}RelatedFinder:
         """{{source_rcm.clazz.name}}"""
-        if {{rcm.clazz.name}}Finder.__{{reverse_name}} is None:
+        if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            {{rcm.clazz.name}}Finder.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'))
-        return {{rcm.clazz.name}}Finder.__{{reverse_name}}
+            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'))
+        return self.__{{reverse_name}}
 
 {% endfor %}
-    @staticmethod
-    def count() -> CountAllOperation:
+    def count(self) -> CountAllOperation:
         """Count all rows in the underlying table."""
         return CountAllOperation('{{table_qualified_name(rcm.property_mappings[0].target.table)}}')
 
-    @staticmethod
+    def find_all(self,
+                 business_date: Union[datetime.date, str],
+                 processing_valid_at: Union[datetime.datetime, str],
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data matching the optional filter."""
 {% if rcm.milestone_mapping %}
 {% if has_bitemporal(rcm.milestone_mapping) %}
-    def find_all(business_date: Union[datetime.date,str],
-                 processing_valid_at: Union[datetime.datetime,str],
-                 display_columns: list[Attribute],
-                 filter_op: Operation = NoOperation()) -> FinderResult:
-        """Returns data for the requested business date and processing timestamp."""
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_business_date_and_processing(rcm.milestone_mapping) %}
-    def find_all(business_date: Union[datetime.date,str],
-                 processing_valid_at: Union[datetime.datetime,str],
-                 display_columns: list[Attribute],
-                 filter_op: Operation = NoOperation()) -> FinderResult:
-        """Returns data for the requested business date and processing timestamp."""
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_processing_temporal(rcm.milestone_mapping) %}
-    def find_all(processing_valid_at: Union[datetime.datetime,str],
-                 display_columns: list[Attribute],
-                 filter_op: Operation = NoOperation()) -> FinderResult:
-        """Returns data for the requested processing timestamp."""
         return convert_inputs_and_select(None, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
-    def find_all(business_date: Union[datetime.date,str],
-                 processing_valid_at: Union[datetime.datetime,str],
-                 display_columns: list[Attribute],
-                 filter_op: Operation = NoOperation()) -> FinderResult:
-        """Returns data for the requested business date and processing timestamp."""
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}
 {% else %}
-    def find_all(display_columns: list[Attribute],
-                 filter_op: Operation = NoOperation()) -> FinderResult:
-        """Returns data matching the optional filter."""
         return convert_inputs_and_select(None, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}

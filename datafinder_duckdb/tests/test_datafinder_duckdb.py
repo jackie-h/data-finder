@@ -26,20 +26,22 @@ class TestDataFinderDuckDb:
         self.setup()
         # Import after generation, so we get the latest version
         from trade_finder import TradeFinder
-        queries.find_trades(TradeFinder)
+        tf = TradeFinder()
+        queries.find_trades(tf)
         from account_finder import AccountFinder
-        np_accts = AccountFinder \
-            .find_all([AccountFinder.id_(), AccountFinder.name()],
-                      AccountFinder.id_().eq(211978)) \
+        af = AccountFinder()
+        np_accts = af \
+            .find_all(None, None, [af.id_(), af.name()],
+                      af.id_().eq(211978)) \
             .to_numpy()
         print(np_accts)
         assert_array_equal(np_accts, np.array([[211978, 'Trading Account 1']],dtype=object))
 
 
-        trades_with_account = TradeFinder.find_all(datetime.datetime.now(),
-                                                   [TradeFinder.account().name(), TradeFinder.symbol(),
-                                                    TradeFinder.price()],
-                                                   TradeFinder.symbol().eq("AAPL"))
+        trades_with_account = tf.find_all(None, datetime.datetime.now(),
+                                          [tf.account().name(), tf.symbol(),
+                                           tf.price()],
+                                          tf.symbol().eq("AAPL"))
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 'AAPL', 84.11]], dtype=object))

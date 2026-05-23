@@ -25,8 +25,11 @@ _CATALOG_MAPPING_FILE = os.path.normpath(
 _FINDER_MODULES = [
     "finance", "finance.reference_data", "finance.trade",
     "finance.reference_data.account_finder",
+    "finance.reference_data.account_finder_base",
     "finance.reference_data.instrument_finder",
+    "finance.reference_data.instrument_finder_base",
     "finance.trade.trade_finder",
+    "finance.trade.trade_finder_base",
 ]
 
 
@@ -112,7 +115,7 @@ def finders():
     from finance.reference_data.instrument_finder import InstrumentFinder
     from finance.trade.trade_finder import TradeFinder
 
-    yield {"Account": AccountFinder, "Instrument": InstrumentFinder, "Trade": TradeFinder}
+    yield {"Account": AccountFinder(), "Instrument": InstrumentFinder(), "Trade": TradeFinder()}
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -124,25 +127,23 @@ class TestIcebergCatalogPrefixInSQL:
     """E2E: catalog prefix flows from DataCatalog through mapping into generated SQL."""
 
     def test_account_sql_contains_catalog_prefix(self, finders):
-        AccountFinder = finders["Account"]
-        sql = AccountFinder.find_all(
-            [AccountFinder.id_(), AccountFinder.name()],
+        account = finders["Account"]
+        sql = account.find_all(
+            None, None, [account.id_(), account.name()],
         ).to_sql()
         assert "my_catalog.ref_data.account_master" in sql
 
     def test_instrument_sql_contains_catalog_prefix(self, finders):
-        InstrumentFinder = finders["Instrument"]
-        sql = InstrumentFinder.find_all(
-            "2024-01-01 00:00:00",
-            [InstrumentFinder.symbol(), InstrumentFinder.price()],
+        instrument = finders["Instrument"]
+        sql = instrument.find_all(
+            None, "2024-01-01 00:00:00", [instrument.symbol(), instrument.price()],
         ).to_sql()
         assert "my_catalog.ref_data.price" in sql
 
     def test_trade_sql_contains_catalog_prefix(self, finders):
-        TradeFinder = finders["Trade"]
-        sql = TradeFinder.find_all(
-            "2024-01-01 00:00:00",
-            [TradeFinder.symbol(), TradeFinder.price()],
+        trade = finders["Trade"]
+        sql = trade.find_all(
+            None, "2024-01-01 00:00:00", [trade.symbol(), trade.price()],
         ).to_sql()
         assert "my_catalog.trading.trades" in sql
 
@@ -150,7 +151,9 @@ class TestIcebergCatalogPrefixInSQL:
 _CATALOG_MAPPING_MODULES = [
     "finance", "finance.reference_data", "finance.trade",
     "finance.reference_data.account_finder",
+    "finance.reference_data.account_finder_base",
     "finance.trade.trade_finder",
+    "finance.trade.trade_finder_base",
 ]
 
 
@@ -172,7 +175,7 @@ def catalog_mapping_finders():
     from finance.reference_data.account_finder import AccountFinder
     from finance.trade.trade_finder import TradeFinder
 
-    yield {"Account": AccountFinder, "Trade": TradeFinder}
+    yield {"Account": AccountFinder(), "Trade": TradeFinder()}
 
     sys.path.remove(temp_dir)
     for mod in _CATALOG_MAPPING_MODULES:
@@ -193,16 +196,15 @@ class TestCatalogMappingFileSQL:
         assert table.schema.datastore.name == "my_catalog"
 
     def test_account_sql_contains_catalog_prefix(self, catalog_mapping_finders):
-        AccountFinder = catalog_mapping_finders["Account"]
-        sql = AccountFinder.find_all(
-            [AccountFinder.id_(), AccountFinder.name()],
+        account = catalog_mapping_finders["Account"]
+        sql = account.find_all(
+            None, None, [account.id_(), account.name()],
         ).to_sql()
         assert "my_catalog.ref_data.account_master" in sql
 
     def test_trade_sql_contains_catalog_prefix(self, catalog_mapping_finders):
-        TradeFinder = catalog_mapping_finders["Trade"]
-        sql = TradeFinder.find_all(
-            "2024-01-01 00:00:00",
-            [TradeFinder.symbol(), TradeFinder.price()],
+        trade = catalog_mapping_finders["Trade"]
+        sql = trade.find_all(
+            None, "2024-01-01 00:00:00", [trade.symbol(), trade.price()],
         ).to_sql()
         assert "my_catalog.trading.trades" in sql

@@ -88,7 +88,7 @@ def TradeFinder():
     _seed_test_db()
 
     from finance.trade.trade_finder import TradeFinder as TF
-    yield TF
+    yield TF()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -100,7 +100,7 @@ class TestGroupByAccountAveragePrice:
 
     def test_average_price_per_account(self, TradeFinder):
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.account().name(), TradeFinder.price().average()],
         ).group_by(TradeFinder.account().name()).to_pandas()
         avgs = dict(zip(result["Account Name"], result["Average Price"]))
@@ -110,14 +110,14 @@ class TestGroupByAccountAveragePrice:
 
     def test_average_price_returns_one_row_per_account(self, TradeFinder):
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.account().name(), TradeFinder.price().average()],
         ).group_by(TradeFinder.account().name()).to_pandas()
         assert len(result) == 3
 
     def test_average_price_with_filter(self, TradeFinder):
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.account().name(), TradeFinder.price().average()],
             TradeFinder.is_settled().is_true(),
         ).group_by(TradeFinder.account().name()).to_pandas()
@@ -128,7 +128,7 @@ class TestGroupByAccountAveragePrice:
 
     def test_average_price_ordered_by_account(self, TradeFinder):
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.account().name(), TradeFinder.price().average()],
         ).group_by(TradeFinder.account().name()).order_by(
             TradeFinder.account().name().ascending()

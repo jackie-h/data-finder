@@ -95,8 +95,8 @@ def finders():
     from finance.reference_data.instrument_finder import InstrumentFinder
     from finance.trade.contractualposition_finder import ContractualPositionFinder
 
-    yield {"Account": AccountFinder, "Trade": TradeFinder, "Instrument": InstrumentFinder,
-           "ContractualPosition": ContractualPositionFinder}
+    yield {"Account": AccountFinder(), "Trade": TradeFinder(), "Instrument": InstrumentFinder(),
+           "ContractualPosition": ContractualPositionFinder()}
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -109,7 +109,7 @@ class TestE2EMarkdownIbisDuckDb:
     def test_account_query(self, finders):
         AccountFinder = finders["Account"]
         result = AccountFinder.find_all(
-            [AccountFinder.id_(), AccountFinder.name()],
+            None, None, [AccountFinder.id_(), AccountFinder.name()],
             AccountFinder.id_().eq(1),
         ).to_numpy()
         assert_array_equal(result, np.array([[1, "Acme Corp"]], dtype=object))
@@ -117,7 +117,7 @@ class TestE2EMarkdownIbisDuckDb:
     def test_account_to_pandas_no_filter(self, finders):
         AccountFinder = finders["Account"]
         df = AccountFinder.find_all(
-            [AccountFinder.id_(), AccountFinder.name()],
+            None, None, [AccountFinder.id_(), AccountFinder.name()],
         ).to_pandas()
         assert list(df.columns) == ["Id", "Name"]
         assert df.iloc[0]["Name"] == "Acme Corp"
@@ -126,7 +126,7 @@ class TestE2EMarkdownIbisDuckDb:
         TradeFinder = finders["Trade"]
         # Both AAPL and GOOG are active in 2021
         result = TradeFinder.find_all(
-            "2021-06-01 12:00:00",
+            None, "2021-06-01 12:00:00",
             [TradeFinder.symbol(), TradeFinder.price()],
         ).to_pandas()
         assert len(result) == 2
@@ -136,7 +136,7 @@ class TestE2EMarkdownIbisDuckDb:
         TradeFinder = finders["Trade"]
         # After 2022-01-01, GOOG record expired — only AAPL visible
         result = TradeFinder.find_all(
-            "2023-01-01 12:00:00",
+            None, "2023-01-01 12:00:00",
             [TradeFinder.symbol(), TradeFinder.price()],
         ).to_numpy()
         assert_array_equal(result, np.array([["AAPL", 84.11]], dtype=object))
@@ -144,7 +144,7 @@ class TestE2EMarkdownIbisDuckDb:
     def test_trade_query_with_account_join(self, finders):
         TradeFinder = finders["Trade"]
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.account().name(), TradeFinder.symbol(), TradeFinder.price()],
             TradeFinder.symbol().eq("AAPL"),
         ).to_numpy()
@@ -153,7 +153,7 @@ class TestE2EMarkdownIbisDuckDb:
     def test_trade_filter_by_symbol(self, finders):
         TradeFinder = finders["Trade"]
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price()],
             TradeFinder.symbol().eq("AAPL"),
         ).to_pandas()
@@ -164,7 +164,7 @@ class TestE2EMarkdownIbisDuckDb:
         InstrumentFinder = finders["Instrument"]
         # Both AAPL and GOOG active in 2021
         result = InstrumentFinder.find_all(
-            "2021-06-01 12:00:00",
+            None, "2021-06-01 12:00:00",
             [InstrumentFinder.symbol(), InstrumentFinder.price()],
         ).to_pandas()
         assert set(result["Symbol"].tolist()) == {"AAPL", "GOOG"}
@@ -173,7 +173,7 @@ class TestE2EMarkdownIbisDuckDb:
         InstrumentFinder = finders["Instrument"]
         # GOOG record expired before 2023 — only AAPL visible
         result = InstrumentFinder.find_all(
-            "2023-01-01 12:00:00",
+            None, "2023-01-01 12:00:00",
             [InstrumentFinder.symbol(), InstrumentFinder.price()],
         ).to_pandas()
         assert result["Symbol"].tolist() == ["AAPL"]
@@ -188,7 +188,7 @@ class TestE2EMarkdownIbisDuckDb:
     def test_trade_filter_by_boolean(self, finders):
         TradeFinder = finders["Trade"]
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.is_settled()],
             TradeFinder.is_settled().is_true(),
         ).to_pandas()
@@ -205,7 +205,7 @@ class TestE2EMarkdownIbisDuckDb:
         """
         TradeFinder = finders["Trade"]
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.account().name()],
             TradeFinder.symbol().eq("AAPL"),
         ).to_pandas()
@@ -221,7 +221,7 @@ class TestE2EMarkdownIbisDuckDb:
         TradeFinder = finders["Trade"]
         after_goog_expired = "2023-01-01 12:00:00"
         result = TradeFinder.find_all(
-            after_goog_expired,
+            None, after_goog_expired,
             [TradeFinder.symbol(), TradeFinder.account().name()],
         ).to_pandas()
         assert len(result) == 1
@@ -234,7 +234,7 @@ class TestE2EMarkdownIbisDuckDb:
         TradeFinder = finders["Trade"]
         before_goog_expired = "2021-06-01 12:00:00"
         result = TradeFinder.find_all(
-            before_goog_expired,
+            None, before_goog_expired,
             [TradeFinder.symbol(), TradeFinder.account().name()],
         ).to_pandas()
         assert len(result) == 2
@@ -249,7 +249,7 @@ class TestE2EMarkdownIbisDuckDb:
         """
         AccountFinder = finders["Account"]
         result = AccountFinder.find_all(
-            [AccountFinder.name(), AccountFinder.trades().symbol()],
+            None, None, [AccountFinder.name(), AccountFinder.trades().symbol()],
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Acme Corp"}
         # GOOG (expired 2022) is present because no milestoning filter is applied
@@ -259,7 +259,7 @@ class TestE2EMarkdownIbisDuckDb:
         """Reverse direction with filter applied on the joined trade column."""
         AccountFinder = finders["Account"]
         result = AccountFinder.find_all(
-            [AccountFinder.name(), AccountFinder.trades().symbol()],
+            None, None, [AccountFinder.name(), AccountFinder.trades().symbol()],
             AccountFinder.trades().symbol().eq("AAPL"),
         ).to_pandas()
         assert len(result) == 1

@@ -27,22 +27,24 @@ class TestDataFinderIbisDuckDb:
         self.setup()
         # Import after generation, so we get the latest version
         from trade_finder import TradeFinder
-        queries.find_trades(TradeFinder)
+        tf = TradeFinder()
+        queries.find_trades(tf)
         from account_finder import AccountFinder
-        np_accts = AccountFinder \
-            .find_all([AccountFinder.id_(), AccountFinder.name()],
-                      AccountFinder.id_().eq(211978)) \
+        af = AccountFinder()
+        np_accts = af \
+            .find_all(None, None, [af.id_(), af.name()],
+                      af.id_().eq(211978)) \
             .to_numpy()
         print(np_accts)
         assert_array_equal(np_accts, np.array([[211978, 'Trading Account 1']],dtype=object))
 
 
-        trades_with_account = TradeFinder.find_all(datetime.datetime.now(),
-                                                   [TradeFinder.account().name(),
-                                                    TradeFinder.account().id_(),
-                                                    TradeFinder.symbol(),
-                                                    TradeFinder.price()],
-                                                    TradeFinder.symbol().eq("AAPL"))
+        trades_with_account = tf.find_all(None, datetime.datetime.now(),
+                                          [tf.account().name(),
+                                           tf.account().id_(),
+                                           tf.symbol(),
+                                           tf.price()],
+                                           tf.symbol().eq("AAPL"))
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 211978, 'AAPL', 84.11]], dtype=object))
@@ -51,11 +53,13 @@ class TestDataFinderIbisDuckDb:
         self.setup()
         # Import after generation, so we get the latest version
         from trade_finder import TradeFinder
-        queries.find_trades(TradeFinder)
+        tf = TradeFinder()
+        queries.find_trades(tf)
         from account_finder import AccountFinder
-        df = AccountFinder \
-            .find_all([AccountFinder.id_(), AccountFinder.name()],
-                      AccountFinder.id_().eq(211978)) \
+        af = AccountFinder()
+        df = af \
+            .find_all(None, None, [af.id_(), af.name()],
+                      af.id_().eq(211978)) \
             .to_pandas()
         print(df)
 
@@ -63,12 +67,12 @@ class TestDataFinderIbisDuckDb:
         assert df.values[0][0] == 211978
         assert df.values[0][1] == 'Trading Account 1'
 
-        trades_with_account = TradeFinder.find_all(datetime.datetime.now(),
-                                                   [TradeFinder.account().name(),
-                                                    TradeFinder.account().id_(),
-                                                    TradeFinder.symbol(),
-                                                    TradeFinder.price()],
-                                                    TradeFinder.symbol().eq("AAPL"))
+        trades_with_account = tf.find_all(None, datetime.datetime.now(),
+                                          [tf.account().name(),
+                                           tf.account().id_(),
+                                           tf.symbol(),
+                                           tf.price()],
+                                           tf.symbol().eq("AAPL"))
         df2 = trades_with_account.to_pandas()
         assert_array_equal(df2.columns, ['Account Name', 'Account Id', 'Symbol', 'Price'])
         assert_array_equal(df2.values, np.array([['Trading Account 1', 211978, 'AAPL', 84.11]], dtype=object))
@@ -77,37 +81,39 @@ class TestDataFinderIbisDuckDb:
     def test_milestoning_queries(self):
         self.setup()
         from trade_finder import TradeFinder
-        trades_with_account = TradeFinder.find_all('2020-01-01 09:00:00',
-                                                   [TradeFinder.account().name(),
-                                                    TradeFinder.instrument().symbol(),
-                                                    TradeFinder.price()],
-                                                    TradeFinder.symbol().eq("IBM"))
+        tf = TradeFinder()
+        trades_with_account = tf.find_all(None, '2020-01-01 09:00:00',
+                                          [tf.account().name(),
+                                           tf.instrument().symbol(),
+                                           tf.price()],
+                                           tf.symbol().eq("IBM"))
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 'IBM', 1203.5]], dtype=object))
 
-        trades_with_account = TradeFinder.find_all('2022-01-01 10:00:00',
-            [TradeFinder.account().name(), TradeFinder.symbol(), TradeFinder.price()],
-            TradeFinder.symbol().eq("IBM"))
+        trades_with_account = tf.find_all(None, '2022-01-01 10:00:00',
+            [tf.account().name(), tf.symbol(), tf.price()],
+            tf.symbol().eq("IBM"))
         np_trades = trades_with_account.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([['Trading Account 1', 'IBM', 3000.5]], dtype=object))
 
     def test_milestoning_single_business_date_operations(self):
         from contractualposition_finder import ContractualPositionFinder
-        positions = ContractualPositionFinder.find_all(datetime.date(2024,1,11),
-                                                       '2022-01-01 10:00:00',
-                                                       [ContractualPositionFinder.instrument().symbol(),
-                                                        ContractualPositionFinder.instrument().price(),
-                                                        ContractualPositionFinder.quantity()])
+        cpf = ContractualPositionFinder()
+        positions = cpf.find_all(datetime.date(2024,1,11),
+                                 '2022-01-01 10:00:00',
+                                 [cpf.instrument().symbol(),
+                                  cpf.instrument().price(),
+                                  cpf.quantity()])
         np_pos = positions.to_numpy()
         print(np_pos)
         assert_array_equal(np_pos, np.array([['GS', 45.7, 1000.0]], dtype=object))
 
-        positions = ContractualPositionFinder.find_all('2024-01-10',
-                                                       '2022-01-01 10:00:00',
-                                                       [ContractualPositionFinder.instrument().symbol(),
-                                                        ContractualPositionFinder.quantity()])
+        positions = cpf.find_all('2024-01-10',
+                                 '2022-01-01 10:00:00',
+                                 [cpf.instrument().symbol(),
+                                  cpf.quantity()])
         np_pos = positions.to_numpy()
         print(np_pos)
         assert_array_equal(np_pos, np.array([['IBM', 200.0]], dtype=object))
@@ -116,8 +122,9 @@ class TestDataFinderIbisDuckDb:
         self.setup()
         # Import after generation, so we get the latest version
         from trade_finder import TradeFinder
-        trades_sum = TradeFinder.find_all(datetime.datetime.now(),
-                                                   [TradeFinder.price().sum()])
+        tf = TradeFinder()
+        trades_sum = tf.find_all(None, datetime.datetime.now(),
+                                 [tf.price().sum()])
         np_trades = trades_sum.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([[3130.31]], dtype=object))

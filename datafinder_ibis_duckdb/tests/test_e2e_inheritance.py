@@ -17,8 +17,8 @@ _DIAMOND_MAPPING_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "diamond_mapping.md")
 )
 
-_FINDER_MODULES = ["employee_finder"]
-_DIAMOND_FINDER_MODULES = ["record_finder"]
+_FINDER_MODULES = ["employee_finder", "employee_finder_base"]
+_DIAMOND_FINDER_MODULES = ["record_finder", "record_finder_base"]
 
 #
 # employees table columns:
@@ -73,7 +73,7 @@ def finders():
 
     from employee_finder import EmployeeFinder
 
-    yield EmployeeFinder
+    yield EmployeeFinder()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -108,13 +108,13 @@ class TestQueryInheritedProperties:
 
     def test_all_employees_returned(self, finders):
         result = finders.find_all(
-            [finders.first_name(), finders.last_name()],
+            None, None, [finders.first_name(), finders.last_name()],
         ).to_pandas()
         assert len(result) == 4
 
     def test_filter_by_inherited_first_name(self, finders):
         result = finders.find_all(
-            [finders.first_name(), finders.department()],
+            None, None, [finders.first_name(), finders.department()],
             finders.first_name().eq("Alice"),
         ).to_pandas()
         assert len(result) == 1
@@ -122,14 +122,14 @@ class TestQueryInheritedProperties:
 
     def test_filter_by_inherited_last_name(self, finders):
         result = finders.find_all(
-            [finders.first_name()],
+            None, None, [finders.first_name()],
             finders.last_name().eq("Jones"),
         ).to_pandas()
         assert result.iloc[0]["First Name"] == "Bob"
 
     def test_filter_by_email_from_contactable(self, finders):
         result = finders.find_all(
-            [finders.first_name(), finders.email()],
+            None, None, [finders.first_name(), finders.email()],
             finders.email().eq("carol@example.com"),
         ).to_pandas()
         assert len(result) == 1
@@ -137,14 +137,14 @@ class TestQueryInheritedProperties:
 
     def test_filter_by_own_property_department(self, finders):
         result = finders.find_all(
-            [finders.first_name(), finders.department()],
+            None, None, [finders.first_name(), finders.department()],
             finders.department().eq("Engineering"),
         ).to_pandas()
         assert set(result["First Name"].tolist()) == {"Bob", "Carol"}
 
     def test_project_all_inherited_and_own_columns(self, finders):
         result = finders.find_all(
-            [finders.id_(), finders.first_name(), finders.last_name(),
+            None, None, [finders.id_(), finders.first_name(), finders.last_name(),
              finders.email(), finders.department()],
             finders.first_name().eq("Dave"),
         ).to_pandas()
@@ -161,7 +161,7 @@ class TestSelfReferentialJoin:
 
     def test_manager_name_via_join(self, finders):
         result = finders.find_all(
-            [finders.first_name(), finders.manager().first_name()],
+            None, None, [finders.first_name(), finders.manager().first_name()],
         ).to_pandas()
         by_name = {row["First Name"]: row["Manager First Name"]
                    for _, row in result.iterrows()}
@@ -171,14 +171,14 @@ class TestSelfReferentialJoin:
 
     def test_filter_by_manager_inherited_property(self, finders):
         result = finders.find_all(
-            [finders.first_name()],
+            None, None, [finders.first_name()],
             finders.manager().first_name().eq("Alice"),
         ).to_pandas()
         assert set(result["First Name"].tolist()) == {"Bob", "Carol"}
 
     def test_manager_email_via_join(self, finders):
         result = finders.find_all(
-            [finders.first_name(), finders.manager().email()],
+            None, None, [finders.first_name(), finders.manager().email()],
             finders.first_name().eq("Bob"),
         ).to_pandas()
         assert result.iloc[0]["Manager Email"] == "alice@example.com"
@@ -229,7 +229,7 @@ def diamond_finder():
 
     from record_finder import RecordFinder
 
-    yield RecordFinder
+    yield RecordFinder()
 
     sys.path.remove(temp_dir)
     for mod in _DIAMOND_FINDER_MODULES:
@@ -275,41 +275,41 @@ class TestDiamondQueries:
 
     def test_all_items_returned(self, diamond_finder):
         result = diamond_finder.find_all(
-            [diamond_finder.id_(), diamond_finder.record_name()],
+            None, None, [diamond_finder.id_(), diamond_finder.record_name()],
         ).to_pandas()
         assert len(result) == 3
 
     def test_filter_by_auditable_id(self, diamond_finder):
         result = diamond_finder.find_all(
-            [diamond_finder.record_name()],
+            None, None, [diamond_finder.record_name()],
             diamond_finder.id_().eq(2),
         ).to_pandas()
         assert result.iloc[0]["Record Name"] == "Beta"
 
     def test_filter_by_auditable_created_at(self, diamond_finder):
         result = diamond_finder.find_all(
-            [diamond_finder.record_name()],
+            None, None, [diamond_finder.record_name()],
             diamond_finder.created_at().eq("2024-03-01"),
         ).to_pandas()
         assert result.iloc[0]["Record Name"] == "Gamma"
 
     def test_filter_by_trackable_updated_at(self, diamond_finder):
         result = diamond_finder.find_all(
-            [diamond_finder.record_name()],
+            None, None, [diamond_finder.record_name()],
             diamond_finder.updated_at().eq("2024-06-01"),
         ).to_pandas()
         assert result.iloc[0]["Record Name"] == "Alpha"
 
     def test_filter_by_versioned_version(self, diamond_finder):
         result = diamond_finder.find_all(
-            [diamond_finder.record_name(), diamond_finder.version()],
+            None, None, [diamond_finder.record_name(), diamond_finder.version()],
             diamond_finder.version().eq(1),
         ).to_pandas()
         assert result.iloc[0]["Record Name"] == "Beta"
 
     def test_project_all_columns_from_full_hierarchy(self, diamond_finder):
         result = diamond_finder.find_all(
-            [diamond_finder.id_(), diamond_finder.created_at(), diamond_finder.updated_at(),
+            None, None, [diamond_finder.id_(), diamond_finder.created_at(), diamond_finder.updated_at(),
              diamond_finder.version(), diamond_finder.record_name()],
             diamond_finder.record_name().eq("Alpha"),
         ).to_pandas()

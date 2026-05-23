@@ -50,7 +50,7 @@ def CompanyFinder():
     _build_test_db()
 
     from company_finder import CompanyFinder as CF
-    yield CF
+    yield CF()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -62,30 +62,30 @@ class TestLimit:
 
     def test_limit_returns_correct_number_of_rows(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
         ).limit(3).to_pandas()
         assert len(result) == 3
 
     def test_limit_one_returns_single_row(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
         ).limit(1).to_pandas()
         assert len(result) == 1
 
     def test_no_limit_returns_all_rows(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
         ).to_pandas()
         assert len(result) == 5
 
     def test_limit_returns_same_finder_result(self, CompanyFinder):
-        result = CompanyFinder.find_all([CompanyFinder.name()])
+        result = CompanyFinder.find_all(None, None, [CompanyFinder.name()])
         chained = result.limit(3)
         assert chained is result
 
     def test_limit_with_order_by(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
         ).order_by(CompanyFinder.name().ascending()).limit(2).to_pandas()
         names = result["Name"].tolist()
         assert len(names) == 2
@@ -93,7 +93,7 @@ class TestLimit:
 
     def test_limit_with_filter(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.name()],
+            None, None, [CompanyFinder.name()],
             CompanyFinder.category().eq("Technology"),
         ).limit(1).to_pandas()
         assert len(result) == 1

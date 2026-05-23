@@ -50,7 +50,7 @@ def CompanyFinder():
     _build_test_db()
 
     from company_finder import CompanyFinder as CF
-    yield CF
+    yield CF()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -61,12 +61,12 @@ def CompanyFinder():
 class TestFinderResultGroupBy:
 
     def test_group_by_returns_same_finder_result(self, CompanyFinder):
-        result = CompanyFinder.find_all([CompanyFinder.category(), CompanyFinder.count()])
+        result = CompanyFinder.find_all(None, None, [CompanyFinder.category(), CompanyFinder.count()])
         chained = result.group_by(CompanyFinder.category())
         assert chained is result
 
     def test_group_by_without_group_by_returns_all_rows(self, CompanyFinder):
-        result = CompanyFinder.find_all([CompanyFinder.name()]).to_pandas()
+        result = CompanyFinder.find_all(None, None, [CompanyFinder.name()]).to_pandas()
         assert len(result) == 5
 
 
@@ -74,7 +74,7 @@ class TestGroupByCountAll:
 
     def test_count_per_category(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.category(), CompanyFinder.count()],
+            None, None, [CompanyFinder.category(), CompanyFinder.count()],
         ).group_by(CompanyFinder.category()).to_pandas()
         counts = dict(zip(result["Category"], result["Count"]))
         assert counts["Technology"] == 2
@@ -83,13 +83,13 @@ class TestGroupByCountAll:
 
     def test_group_by_returns_one_row_per_group(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.category(), CompanyFinder.count()],
+            None, None, [CompanyFinder.category(), CompanyFinder.count()],
         ).group_by(CompanyFinder.category()).to_pandas()
         assert len(result) == 3
 
     def test_group_by_with_filter(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.category(), CompanyFinder.count()],
+            None, None, [CompanyFinder.category(), CompanyFinder.count()],
             CompanyFinder.category().ne("Manufacturing"),
         ).group_by(CompanyFinder.category()).to_pandas()
         assert len(result) == 2
@@ -102,7 +102,7 @@ class TestGroupByAttributeCount:
 
     def test_count_attribute_per_category(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.category(), CompanyFinder.name().count()],
+            None, None, [CompanyFinder.category(), CompanyFinder.name().count()],
         ).group_by(CompanyFinder.category()).to_pandas()
         counts = dict(zip(result["Category"], result["Name Count"]))
         assert counts["Technology"] == 2
@@ -114,7 +114,7 @@ class TestGroupByWithOrderBy:
 
     def test_group_by_with_order_by(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.category(), CompanyFinder.count()],
+            None, None, [CompanyFinder.category(), CompanyFinder.count()],
         ).group_by(CompanyFinder.category()).order_by(
             CompanyFinder.category().ascending()
         ).to_pandas()
@@ -123,7 +123,7 @@ class TestGroupByWithOrderBy:
 
     def test_group_by_with_order_by_desc(self, CompanyFinder):
         result = CompanyFinder.find_all(
-            [CompanyFinder.category(), CompanyFinder.count()],
+            None, None, [CompanyFinder.category(), CompanyFinder.count()],
         ).group_by(CompanyFinder.category()).order_by(
             CompanyFinder.category().descending()
         ).to_pandas()

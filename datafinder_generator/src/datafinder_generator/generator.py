@@ -1,6 +1,7 @@
 import builtins
 import keyword
 import os
+import re
 
 from model.m3 import PrimitiveType, Property
 
@@ -41,6 +42,22 @@ def to_python_name(prop: Property) -> str:
 
 def table_qualified_name(table) -> str:
     return table.qualified_name
+
+
+def to_snake_case(name: str) -> str:
+    s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', name)
+    s = re.sub(r'([a-z\d])([A-Z])', r'\1_\2', s)
+    return s.lower()
+
+
+def _mapping_to_class_name(name: str) -> str:
+    parts = re.split(r'[\s_]+', name)
+    return ''.join(p[0].upper() + p[1:] for p in parts if p) + 'Context'
+
+
+def _mapping_to_filename(name: str) -> str:
+    parts = re.split(r'[\s_]+', name)
+    return '_'.join(p.lower() for p in parts if p) + '_context.py'
 
 
 def _build_association_lookup(mapping: Mapping) -> dict:
@@ -94,37 +111,58 @@ def _ensure_package_dirs(base_dir: str, package_name: str) -> str:
 
 def generate(mapping: Mapping, output_directory):
     environment = Environment(loader=PackageLoader("datafinder_generator"), trim_blocks=True, lstrip_blocks=True)
-    template = environment.get_template("finder_template.txt")
+    finder_template = environment.get_template("finder_template.txt")
+    base_template = environment.get_template("finder_base_template.txt")
+    context_template = environment.get_template("context_template.txt")
 
-    # Build a map from class name → importable module path for cross-package imports.
     class_module_map = {}
+    class_module_map_base = {}
     for rcm in mapping.mappings:
         pkg = _class_package(rcm.clazz)
-        module_name = f"{rcm.clazz.name.lower()}_finder"
-        class_module_map[rcm.clazz.name] = f"{pkg}.{module_name}" if pkg else module_name
+        impl_module = f"{rcm.clazz.name.lower()}_finder"
+        base_module = f"{rcm.clazz.name.lower()}_finder_base"
+        class_module_map[rcm.clazz.name] = f"{pkg}.{impl_module}" if pkg else impl_module
+        class_module_map_base[rcm.clazz.name] = f"{pkg}.{base_module}" if pkg else base_module
 
     assoc_lookup = _build_association_lookup(mapping)
     reverse_assoc_map = _build_reverse_assoc_map(mapping, assoc_lookup)
 
+    shared_context = dict(
+        class_module_map=class_module_map,
+        class_module_map_base=class_module_map_base,
+        is_primitive=is_primitive,
+        has_processing_temporal=has_processing_temporal,
+        has_uni_business_temporal=has_uni_business_temporal,
+        has_business_date_and_processing=has_business_date_and_processing,
+        has_bitemporal=has_bitemporal,
+        display_name=display_name,
+        to_python_name=to_python_name,
+        table_qualified_name=table_qualified_name,
+        to_snake_case=to_snake_case,
+    )
+
     for rcm in mapping.mappings:
         pkg = _class_package(rcm.clazz)
         out_dir = _ensure_package_dirs(output_directory, pkg) if pkg else output_directory
-
-        filename = f"{rcm.clazz.name.lower()}_finder.py"
-        filepath = os.path.join(out_dir, filename)
         reverse_assocs = reverse_assoc_map.get(rcm.clazz.name, [])
-        content = template.render(rcm=rcm,
-                                  reverse_assocs=reverse_assocs,
-                                  class_module_map=class_module_map,
-                                  is_primitive=is_primitive,
-                                  has_processing_temporal=has_processing_temporal,
-                                  has_uni_business_temporal=has_uni_business_temporal,
-                                  has_business_date_and_processing=has_business_date_and_processing,
-                                  has_bitemporal=has_bitemporal,
-                                  display_name=display_name, to_python_name=to_python_name,
-                                  table_qualified_name=table_qualified_name)
-        with open(filepath, mode="w", encoding="utf-8") as message:
-            message.write(content)
-            print(f"... wrote {filename}")
+        render_ctx = dict(shared_context, rcm=rcm, reverse_assocs=reverse_assocs)
 
+        base_filename = f"{rcm.clazz.name.lower()}_finder_base.py"
+        base_filepath = os.path.join(out_dir, base_filename)
+        with open(base_filepath, mode="w", encoding="utf-8") as f:
+            f.write(base_template.render(**render_ctx))
+            print(f"... wrote {base_filename}")
 
+        impl_filename = f"{rcm.clazz.name.lower()}_finder.py"
+        impl_filepath = os.path.join(out_dir, impl_filename)
+        with open(impl_filepath, mode="w", encoding="utf-8") as f:
+            f.write(finder_template.render(**render_ctx))
+            print(f"... wrote {impl_filename}")
+
+    context_filename = _mapping_to_filename(mapping.name)
+    context_filepath = os.path.join(output_directory, context_filename)
+    context_class_name = _mapping_to_class_name(mapping.name)
+    with open(context_filepath, mode="w", encoding="utf-8") as f:
+        f.write(context_template.render(**shared_context, mapping=mapping,
+                                        context_class_name=context_class_name))
+        print(f"... wrote {context_filename}")

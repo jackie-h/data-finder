@@ -84,7 +84,7 @@ def TradeFinder():
     _seed_test_db()
 
     from finance.trade.trade_finder import TradeFinder as TF
-    yield TF
+    yield TF()
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -98,7 +98,7 @@ class TestAbs:
         import datetime
         price = -25.5
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().abs()],
             TradeFinder.symbol().eq("AAPL"),
         ).to_pandas()
@@ -107,7 +107,7 @@ class TestAbs:
     def test_abs_column_name(self, TradeFinder):
         import datetime
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.price().abs()],
         ).to_pandas()
         assert "Abs Price" in result.columns
@@ -119,7 +119,7 @@ class TestCeil:
         import datetime
         price = 36.0
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().ceil()],
             TradeFinder.symbol().eq("GOOG"),
         ).to_pandas()
@@ -128,7 +128,7 @@ class TestCeil:
     def test_ceil_column_name(self, TradeFinder):
         import datetime
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.price().ceil()],
         ).to_pandas()
         assert "Ceil Price" in result.columns
@@ -140,7 +140,7 @@ class TestFloor:
         import datetime
         price = 100.4
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().floor()],
             TradeFinder.symbol().eq("MSFT"),
         ).to_pandas()
@@ -149,7 +149,7 @@ class TestFloor:
     def test_floor_column_name(self, TradeFinder):
         import datetime
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.price().floor()],
         ).to_pandas()
         assert "Floor Price" in result.columns
@@ -161,7 +161,7 @@ class TestSqrt:
         import datetime
         price = 9.0
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().sqrt()],
             TradeFinder.symbol().eq("TSLA"),
         ).to_pandas()
@@ -174,7 +174,7 @@ class TestMod:
         import datetime
         price, divisor = 36.0, 10
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().mod(divisor)],
             TradeFinder.symbol().eq("GOOG"),
         ).to_pandas()
@@ -184,7 +184,7 @@ class TestMod:
         import datetime
         price, divisor = 36.0, 10
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price() % divisor],
             TradeFinder.symbol().eq("GOOG"),
         ).to_pandas()
@@ -197,7 +197,7 @@ class TestPower:
         import datetime
         price, exp = 9.0, 2
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().power(exp)],
             TradeFinder.symbol().eq("TSLA"),
         ).to_pandas()
@@ -207,7 +207,7 @@ class TestPower:
         import datetime
         price, exp = 9.0, 2
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price() ** exp],
             TradeFinder.symbol().eq("TSLA"),
         ).to_pandas()
@@ -220,7 +220,7 @@ class TestRound:
         import datetime
         price = 100.4
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().round()],
             TradeFinder.symbol().eq("MSFT"),
         ).to_pandas()
@@ -230,7 +230,7 @@ class TestRound:
         import datetime
         price, d = -25.5, 1
         result = TradeFinder.find_all(
-            datetime.datetime.now(),
+            None, datetime.datetime.now(),
             [TradeFinder.symbol(), TradeFinder.price().round(d)],
             TradeFinder.symbol().eq("AAPL"),
         ).to_pandas()

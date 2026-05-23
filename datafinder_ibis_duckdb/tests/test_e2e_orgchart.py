@@ -16,7 +16,7 @@ _MAPPING_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "mapping_markdown", "tests", "orgchart_mapping.md")
 )
 
-_FINDER_MODULES = ["employee_finder"]
+_FINDER_MODULES = ["employee_finder", "employee_finder_base"]
 
 
 def _build_test_db():
@@ -47,7 +47,7 @@ def finders():
 
     from employee_finder import EmployeeFinder
 
-    yield {"Employee": EmployeeFinder}
+    yield {"Employee": EmployeeFinder()}
 
     sys.path.remove(temp_dir)
     for mod in _FINDER_MODULES:
@@ -60,7 +60,7 @@ class TestE2EOrgChart:
     def test_all_employees_returned(self, finders):
         EmployeeFinder = finders["Employee"]
         result = EmployeeFinder.find_all(
-            [EmployeeFinder.id_(), EmployeeFinder.name()],
+            None, None, [EmployeeFinder.id_(), EmployeeFinder.name()],
         ).to_pandas()
         assert len(result) == 4
         assert set(result["Name"].tolist()) == {"Alice", "Bob", "Carol", "Dave"}
@@ -68,7 +68,7 @@ class TestE2EOrgChart:
     def test_self_join_manager_name(self, finders):
         EmployeeFinder = finders["Employee"]
         result = EmployeeFinder.find_all(
-            [EmployeeFinder.name(), EmployeeFinder.manager().name()],
+            None, None, [EmployeeFinder.name(), EmployeeFinder.manager().name()],
         ).to_pandas()
         # Only employees with a manager are returned (inner-like left join drops NULLs in display)
         by_name = {row["Name"]: row["Manager Name"] for _, row in result.iterrows()
@@ -80,7 +80,7 @@ class TestE2EOrgChart:
     def test_filter_by_manager(self, finders):
         EmployeeFinder = finders["Employee"]
         result = EmployeeFinder.find_all(
-            [EmployeeFinder.name()],
+            None, None, [EmployeeFinder.name()],
             EmployeeFinder.manager().name().eq("Alice"),
         ).to_pandas()
         assert set(result["Name"].tolist()) == {"Bob", "Carol"}
@@ -88,7 +88,7 @@ class TestE2EOrgChart:
     def test_filter_direct_report_of_bob(self, finders):
         EmployeeFinder = finders["Employee"]
         result = EmployeeFinder.find_all(
-            [EmployeeFinder.name(), EmployeeFinder.manager().name()],
+            None, None, [EmployeeFinder.name(), EmployeeFinder.manager().name()],
             EmployeeFinder.manager().name().eq("Bob"),
         ).to_pandas()
         assert result["Name"].tolist() == ["Dave"]
