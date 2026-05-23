@@ -121,7 +121,8 @@ def generate_mappings():
     rcms = create_mappings_normalized()
     import sys
     mn = sys.modules[__name__]
-    directory = os.path.dirname(mn.__file__)
+    directory = os.path.join(os.path.dirname(mn.__file__), 'generated')
+    os.makedirs(directory, exist_ok=True)
     generate(rcms, directory)
 
 
