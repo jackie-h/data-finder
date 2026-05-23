@@ -6,6 +6,4 @@ rust/
 *.db
 *.egg-info/
 todo.txt
-example/*_finder.py
-example/*_finder_base.py
-example/*_context.py
+example/generated/
