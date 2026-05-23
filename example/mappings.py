@@ -118,12 +118,14 @@ def create_mappings_normalized() -> Mapping:
 
 
 def generate_mappings():
-    rcms = create_mappings_normalized()
+    import importlib
     import sys
+    rcms = create_mappings_normalized()
     mn = sys.modules[__name__]
     directory = os.path.join(os.path.dirname(mn.__file__), 'generated')
     os.makedirs(directory, exist_ok=True)
     generate(rcms, directory)
+    importlib.invalidate_caches()
 
 
 if __name__ == '__main__':
