@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select
+from datafinder.finder import RelatedFinder
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase, {{rcm.clazz.name}}RelatedFinderBase
@@ -12,7 +13,7 @@ from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBa
 {% endfor %}
 
 
-class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase):
+class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, RelatedFinder):
 
 {% if rcm.milestone_mapping %}
 {% if has_bitemporal(rcm.milestone_mapping) %}
@@ -38,6 +39,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase):
     def __init__(self, relation_name:str, source: Column, target: Column, parent_join: JoinTreeNodeOperation = None):
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
         self.__node = JoinTreeNodeOperation(join, parent_join)
+        RelatedFinder.__init__(self, self.__node)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
         self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', self.__node)

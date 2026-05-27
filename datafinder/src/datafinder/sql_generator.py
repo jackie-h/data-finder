@@ -5,6 +5,7 @@ import sqlglot.errors
 
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
+from datafinder.finder import ExistsOperation, NotExistsOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
@@ -361,6 +362,12 @@ class SQLQueryGenerator:
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
             return ''
+        elif isinstance(op, ExistsOperation):
+            col = op.node.join.right
+            return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NOT NULL'
+        elif isinstance(op, NotExistsOperation):
+            col = op.node.join.right
+            return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NULL'
         elif isinstance(op, IsNotNullOperation):
             return self.build_filter(op.element) + ' IS NOT NULL'
         elif isinstance(op, IsNullOperation):
