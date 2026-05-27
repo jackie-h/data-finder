@@ -951,3 +951,49 @@ class TestIsNoneIsNotNone:
         sql = to_sql(None, None, [attr], table2, combined)
         assert "IS NOT NULL" in sql
         assert ">" in sql
+
+
+class TestExistsNotExists:
+
+    def _make_trade_with_account_join(self):
+        from datafinder.finder import RelatedFinder
+        trade_table = Table("trading.trades", [Column("sym", "VARCHAR", "trading.trades"),
+                                               Column("account_id", "INT", "trading.trades")])
+        account_table = Table("ref_data.account_master", [])
+        account_join = JoinOperation(
+            "Account", account_table,
+            Column("account_id", "INT", "trading.trades"),
+            Column("ID", "INT", "ref_data.account_master"),
+        )
+        account_node = JoinTreeNodeOperation(account_join)
+        account_finder = RelatedFinder(account_node)
+        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trading.trades")
+        return trade_table, sym_attr, account_finder, account_node
+
+    def test_exists_generates_is_not_null_on_join_key(self):
+        trade_table, sym_attr, account_finder, _ = self._make_trade_with_account_join()
+        sql = to_sql(None, None, [sym_attr], trade_table, account_finder.exists())
+        assert "IS NOT NULL" in sql
+
+    def test_not_exists_generates_is_null_on_join_key(self):
+        trade_table, sym_attr, account_finder, _ = self._make_trade_with_account_join()
+        sql = to_sql(None, None, [sym_attr], trade_table, account_finder.not_exists())
+        assert "IS NULL" in sql
+        assert "IS NOT NULL" not in sql
+
+    def test_exists_references_join_target_column(self):
+        trade_table, sym_attr, account_finder, _ = self._make_trade_with_account_join()
+        sql = to_sql(None, None, [sym_attr], trade_table, account_finder.exists())
+        assert "ID" in sql
+
+    def test_exists_includes_left_outer_join(self):
+        trade_table, sym_attr, account_finder, _ = self._make_trade_with_account_join()
+        sql = to_sql(None, None, [sym_attr], trade_table, account_finder.exists())
+        assert "LEFT OUTER JOIN" in sql
+
+    def test_not_exists_can_be_combined_with_other_filter(self):
+        trade_table, sym_attr, account_finder, _ = self._make_trade_with_account_join()
+        combined = account_finder.not_exists().and_op(sym_attr.eq("AAPL"))
+        sql = to_sql(None, None, [sym_attr], trade_table, combined)
+        assert "IS NULL" in sql
+        assert "AAPL" in sql
