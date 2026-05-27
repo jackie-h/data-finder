@@ -96,6 +96,10 @@ class IsNullOperation(UnaryOperation):
     pass
 
 
+class IsNotNullOperation(UnaryOperation):
+    pass
+
+
 class BooleanOperation:
     def __init__(self):
         pass
