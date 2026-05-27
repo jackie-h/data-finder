@@ -1,7 +1,7 @@
 from typing import Any
 
 from model.relational import Column, Operation, ComparisonOperation, ComparisonOperator, RelationalOperationElement, \
-    ColumnWithJoin, SortOperation, SortDirection, AggregateOperation, AggregateOperator
+    ColumnWithJoin, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation
 
 
 class Attribute:
@@ -46,3 +46,11 @@ class Attribute:
     def descending(self) -> SortOperation:
         """Return a descending sort operation for this Attribute."""
         return SortOperation(ColumnWithJoin(self.__column, self.__parent), SortDirection.DESC)
+
+    def is_none(self) -> Operation:
+        """Return a filter that matches rows where this column is NULL. Equivalent to ``is None`` in Python."""
+        return IsNullOperation(ColumnWithJoin(self.__column, self.__parent))
+
+    def is_not_none(self) -> Operation:
+        """Return a filter that matches rows where this column is not NULL. Equivalent to ``is not None`` in Python."""
+        return IsNotNullOperation(ColumnWithJoin(self.__column, self.__parent))

@@ -894,3 +894,60 @@ class TestMultiHopJoins:
         c_pos = sql.index(" c ")
         d_pos = sql.index(" d ")
         assert b_pos < c_pos < d_pos
+
+
+class TestIsNoneIsNotNone:
+
+    def _make_table_and_string_attr(self):
+        col = Column("NOTES", "VARCHAR")
+        table = Table("orders", [col])
+        attr = StringAttribute("Notes", "NOTES", "VARCHAR", "orders")
+        return table, attr
+
+    def _make_table_and_int_attr(self):
+        col = Column("QUANTITY", "INT")
+        table = Table("orders", [col])
+        attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
+        return table, attr
+
+    def test_is_none_string_produces_is_null(self):
+        table, attr = self._make_table_and_string_attr()
+        sql = to_sql(None, None, [attr], table, attr.is_none())
+        assert "IS NULL" in sql
+        assert "IS NOT NULL" not in sql
+
+    def test_is_not_none_string_produces_is_not_null(self):
+        table, attr = self._make_table_and_string_attr()
+        sql = to_sql(None, None, [attr], table, attr.is_not_none())
+        assert "IS NOT NULL" in sql
+
+    def test_is_none_integer_produces_is_null(self):
+        table, attr = self._make_table_and_int_attr()
+        sql = to_sql(None, None, [attr], table, attr.is_none())
+        assert "IS NULL" in sql
+        assert "IS NOT NULL" not in sql
+
+    def test_is_not_none_integer_produces_is_not_null(self):
+        table, attr = self._make_table_and_int_attr()
+        sql = to_sql(None, None, [attr], table, attr.is_not_none())
+        assert "IS NOT NULL" in sql
+
+    def test_is_none_combined_with_other_filter(self):
+        table, attr = self._make_table_and_string_attr()
+        qty_col = Column("QUANTITY", "INT")
+        table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
+        qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
+        combined = attr.is_none().and_op(qty_attr > 0)
+        sql = to_sql(None, None, [attr], table2, combined)
+        assert "IS NULL" in sql
+        assert ">" in sql
+
+    def test_is_not_none_combined_with_other_filter(self):
+        table, attr = self._make_table_and_string_attr()
+        qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
+        combined = attr.is_not_none().and_op(qty_attr > 0)
+        qty_col = Column("QUANTITY", "INT")
+        table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
+        sql = to_sql(None, None, [attr], table2, combined)
+        assert "IS NOT NULL" in sql
+        assert ">" in sql

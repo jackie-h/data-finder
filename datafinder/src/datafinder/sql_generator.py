@@ -12,7 +12,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
-    IsNullOperation
+    IsNullOperation, IsNotNullOperation
 
 class Alias:
     def __init__(self, element: RelationalOperationElement, name: str):
@@ -361,6 +361,8 @@ class SQLQueryGenerator:
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
             return ''
+        elif isinstance(op, IsNotNullOperation):
+            return self.build_filter(op.element) + ' IS NOT NULL'
         elif isinstance(op, IsNullOperation):
             return self.build_filter(op.element) + ' IS NULL'
         elif isinstance(op, LogicalOperation):
