@@ -156,8 +156,10 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
     title = "Mapping"
     class_mappings: list[RelationalClassMapping] = []
-    # (table_name, col_name) -> (property_mappings_list, prop, lhs_col)
-    deferred_joins: dict = {}
+
+    # class_name → (property_mappings, cols_by_name) built as Table sections are processed.
+    # Association sections use this to resolve joins without relying on ordering.
+    class_context: dict[str, tuple] = {}
 
     i = 0
     while i < len(nodes):
@@ -235,34 +237,85 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             continue
                         if isinstance(prop.type, PrimitiveType):
                             property_mappings.append(RelationalPropertyMapping(prop, col))
-                        else:
-                            deferred_joins[(table_name, col_name)] = (property_mappings, prop, col)
+                        # non-primitive (association) properties are resolved in the Association section
                     i += 1
 
                 milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository)
                 class_mappings.append(
                     RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping)
                 )
+                class_context[cls.name] = (property_mappings, cols_by_name)
                 continue
 
             elif level == "h4" and text.startswith("Association:"):
                 assoc_name = text[len("Association:"):].strip()
                 i += 1
+
+                # Find the Association in the model to determine source class and nav property.
+                assoc_def = None
+                for pkg in packages:
+                    for child in pkg.children:
+                        if isinstance(child, Association) and child.name == assoc_name:
+                            assoc_def = child
+                            break
+                    if assoc_def:
+                        break
+
+                if assoc_def is None:
+                    _log.warning("Association '%s': not found in model packages", assoc_name)
+                    if i < len(nodes) and nodes[i].type == "table":
+                        i += 1
+                    continue
+
+                src_cls_name = assoc_def.source
+                nav_prop_id = assoc_def.target_property
+                pm_list, cols_by_name = class_context.get(src_cls_name, (None, {}))
+                target_cls_name = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
+                target_cls = classes_by_name.get(target_cls_name) if target_cls_name else None
+
+                if pm_list is None:
+                    _log.warning(
+                        "Association '%s': source class '%s' has no processed Table section",
+                        assoc_name, src_cls_name,
+                    )
+                    if i < len(nodes) and nodes[i].type == "table":
+                        i += 1
+                    continue
+
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i]):
                         src_col = row.get("Source Column", "").strip()
                         tgt_table_name = row.get("Target Table", "").strip()
                         tgt_col_name = row.get("Target Column", "").strip()
-                        for key in list(deferred_joins.keys()):
-                            if key[1] == src_col:
-                                pm_list, prop, lhs_col = deferred_joins.pop(key)
-                                tgt_table = tables_by_name.get(tgt_table_name)
-                                if tgt_table:
-                                    tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
-                                    if tgt_col:
-                                        pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col)))
-                                        lhs_col.table.foreign_keys.append(ForeignKey(lhs_col, tgt_col))
-                                break
+
+                        lhs_col = cols_by_name.get(src_col)
+                        tgt_table = tables_by_name.get(tgt_table_name)
+
+                        if lhs_col is None:
+                            _log.warning(
+                                "Association '%s': source column '%s' not found in table for class '%s'",
+                                assoc_name, src_col, src_cls_name,
+                            )
+                            continue
+                        if tgt_table is None:
+                            _log.warning(
+                                "Association '%s': target table '%s' not found",
+                                assoc_name, tgt_table_name,
+                            )
+                            continue
+
+                        tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
+
+                        if tgt_col and nav_prop_id and target_cls:
+                            prop = Property(nav_prop_id, nav_prop_id, target_cls)
+                            pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col)))
+                            lhs_col.table.foreign_keys.append(ForeignKey(lhs_col, tgt_col))
+                        else:
+                            _log.warning(
+                                "Association '%s': could not resolve navigation property "
+                                "for source class '%s'",
+                                assoc_name, src_cls_name,
+                            )
                     i += 1
                 continue
 

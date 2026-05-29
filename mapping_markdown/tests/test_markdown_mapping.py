@@ -314,6 +314,96 @@ class TestMarkdownMappingLoadNoRepository:
         assert isinstance(by_prop["account"].target, Join)
 
 
+class TestAssociationWithoutFkInTableSection:
+    """Association mapping must work even when the FK column is not listed as a property
+    in the Table section. Previously, omitting account_id from the Trade table properties
+    caused the association to be silently dropped."""
+
+    _MAPPING = """\
+# Finance Mapping
+
+## Model: finance.md
+## Model: finance_trade.md
+
+## DataStore: finance_db (Database)
+
+### Schema: ref_data
+
+#### Table: account_master → Account
+
+| Column    | Type    | Key | Property |
+|-----------|---------|-----|----------|
+| ID        | INT     | PK  | id       |
+| ACCT_NAME | VARCHAR |     | name     |
+
+### Schema: trading
+
+#### Table: trades → Trade
+
+| Column     | Type    | Key | Property   |
+|------------|---------|-----|------------|
+| sym        | VARCHAR |     | symbol     |
+| price      | DOUBLE  |     | price      |
+| is_settled | BOOLEAN |     | is_settled |
+
+#### Association: TradeAccount
+
+| Source Column | Target Table   | Target Column |
+|---------------|----------------|---------------|
+| account_id    | account_master | ID            |
+"""
+
+    def setup_method(self):
+        repo = Database("finance_db", "duckdb://test.db")
+        ref_data = Schema("ref_data", repo)
+        trading = Schema("trading", repo)
+        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+        Table(
+            "trades",
+            [
+                Column("sym", "VARCHAR"),
+                Column("price", "DOUBLE"),
+                Column("is_settled", "BOOLEAN"),
+                Column("account_id", "INT"),
+            ],
+            trading,
+        )
+        known = {}
+        packages1 = load_model(MODEL_FILE, known_classes=known)
+        known.update({c.name: c for pkg in packages1 for c in pkg.children if isinstance(c, Class)})
+        packages2 = load_model(TRADE_MODEL_FILE, known_classes=known)
+        packages = packages1 + packages2
+        mapping = loads(self._MAPPING, packages, repo)
+        self.by_class = {rcm.clazz.name: rcm for rcm in mapping.mappings}
+
+    def test_trade_class_mapped(self):
+        assert "Trade" in self.by_class
+
+    def test_association_property_resolved(self):
+        """account property must appear in Trade's property mappings despite account_id being absent
+        from the Table section."""
+        by_prop = {pm.property.id: pm for pm in self.by_class["Trade"].property_mappings}
+        assert "account" in by_prop, (
+            "account navigation property missing — association was not resolved "
+            "when FK column was absent from the Table property list"
+        )
+
+    def test_association_join_target(self):
+        by_prop = {pm.property.id: pm for pm in self.by_class["Trade"].property_mappings}
+        join = by_prop["account"].target
+        assert isinstance(join, Join)
+        assert join.lhs.name == "account_id"
+        assert join.rhs.name == "ID"
+
+    def test_foreign_key_added(self):
+        by_prop = {pm.property.id: pm for pm in self.by_class["Trade"].property_mappings}
+        trades_table = by_prop["symbol"].target.table
+        assert len(trades_table.foreign_keys) == 1
+        fk = trades_table.foreign_keys[0]
+        assert fk.column.name == "account_id"
+        assert fk.references.name == "ID"
+
+
 class TestInfiniteDatetimeMarkdownParsing:
 
     _MAPPING_WITH_INFINITE = """\
