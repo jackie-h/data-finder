@@ -46,5 +46,11 @@ class ClassMapping:
 
 class Mapping:
     def __init__(self, name: str, mappings: list[ClassMapping]):
+        seen = {}
+        for cm in mappings:
+            cls_name = cm.clazz.name
+            if cls_name in seen:
+                raise ValueError(f"Class '{cls_name}' is mapped more than once in mapping '{name}'")
+            seen[cls_name] = True
         self.name = name
         self.mappings = mappings
