@@ -85,7 +85,7 @@ def _build_reverse_assoc_map(mapping: Mapping, assoc_lookup: dict) -> dict:
             assoc = assoc_lookup.get((rcm.clazz.name, target_cls.name, rpm.property.id))
             if assoc is None:
                 continue
-            reverse_name = assoc.source_property
+            reverse_name = to_snake_case(assoc.source_property)
             reverse_map.setdefault(target_cls.name, []).append((rcm, rpm, assoc, reverse_name))
     return reverse_map
 
