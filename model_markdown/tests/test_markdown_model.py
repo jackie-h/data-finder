@@ -67,8 +67,10 @@ class TestMarkdownLoad:
 
     def test_association_properties(self):
         assoc = self.associations[0]
-        assert assoc.source_property == "trades"
-        assert assoc.target_property == "account"
+        assert assoc.source_property.id == "trades"
+        assert assoc.source_property.name == "Trades"
+        assert assoc.target_property.id == "account"
+        assert assoc.target_property.name == "Account"
 
     def test_association_adds_target_property_to_source_class(self):
         trade = self.by_name["Trade"]
@@ -137,9 +139,9 @@ class TestMarkdownUnexpectedColumns:
 
 ### Association: TradeAccount
 
-| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description | Cardinality |
-|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|-------------|-------------|
-| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   | A link      | many-to-one |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description | Cardinality |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|-------------|
+| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   | A link      | many-to-one |
 """
         with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
             packages = loads(content)
@@ -197,8 +199,8 @@ class TestMarkdownSave:
         content = to_markdown("Finance Model", self.packages)
         packages2 = loads(content)
         assocs2 = [a for a in packages2[0].children if isinstance(a, Association)]
-        assert assocs2[0].source_property == "trades"
-        assert assocs2[0].target_property == "account"
+        assert assocs2[0].source_property.id == "trades"
+        assert assocs2[0].target_property.id == "account"
 
     def test_missing_multiplicity_raises(self):
         content = """
@@ -256,9 +258,9 @@ class TestAssociationPropertyConflictValidation:
 
 ### Association: TradeAccount
 
-| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description |
-|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|-------------|
-| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   |             |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   |             |
 """
         with pytest.raises(ValueError, match="property 'account'.*conflicts.*Association 'TradeAccount'"):
             loads(content)
@@ -290,9 +292,9 @@ class TestAssociationPropertyConflictValidation:
 
 ### Association: TradeAccount
 
-| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description |
-|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|-------------|
-| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   |             |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   |             |
 """
         with pytest.raises(ValueError, match="property 'trades'.*conflicts.*Association 'TradeAccount'"):
             loads(content)

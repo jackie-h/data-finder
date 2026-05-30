@@ -37,6 +37,6 @@
 
 ### Association: TradeAccount
 
-| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description                  |
-|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|------------------------------|
-| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   | Links a trade to its account |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description                  |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|------------------------------|
+| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   | Links a trade to its account |
