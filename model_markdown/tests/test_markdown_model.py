@@ -239,9 +239,9 @@ class TestAssociationPropertyConflictValidation:
 |---------|-------------|
 | Account |             |
 
-| Property | Type    | Key | Description |
-|----------|---------|-----|-------------|
-| Id       | Integer | Y   |             |
+| Property | Id | Type    | Key | Description |
+|----------|----|---------|-----|-------------|
+| Id       | id | Integer | Y   |             |
 
 ### Class: Trade
 

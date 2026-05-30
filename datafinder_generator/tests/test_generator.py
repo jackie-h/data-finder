@@ -5,13 +5,13 @@ import tempfile
 
 import pytest
 from mapping_markdown.markdown_mapping import load
-from model.m3 import Property, String, Class, Package, Association, Multiplicity
+from model.m3 import Property, String, Class, Package, Association, Multiplicity, _name_to_camel_id
 from datafinder_generator.generator import to_python_name, generate, _class_package, _ensure_package_dirs, \
     to_snake_case, _mapping_to_class_name, _mapping_to_filename
 
 
 def _prop(label: str, id: str = None) -> Property:
-    return Property(label, id or label.lower().replace(' ', '_'), String)
+    return Property(label, id or _name_to_camel_id(label), String)
 
 
 class TestToPythonName:
@@ -47,7 +47,7 @@ class TestToPythonName:
         assert to_python_name(_prop("Account")) == "account"
 
     def test_uses_label_not_id(self):
-        prop = Property("Valid From", "valid_from", String)
+        prop = Property("Valid From", "validFrom", String)
         assert to_python_name(prop) == "valid_from"
 
 
@@ -284,13 +284,13 @@ class TestDualAssociationSameTarget:
         ], pkg)
         contract_cls = Class("Contract", [
             Property("Id", "id", Integer),
-            Property("Primary Owner", "primary_owner", employee_cls),
-            Property("Secondary Owner", "secondary_owner", employee_cls),
+            Property("Primary Owner", "primaryOwner", employee_cls),
+            Property("Secondary Owner", "secondaryOwner", employee_cls),
         ], pkg)
         Association("ContractPrimaryOwner", "Contract", Multiplicity.MANY, "primary_owner_contracts",
-                    "Employee", Multiplicity.ONE, "primary_owner", pkg)
+                    "Employee", Multiplicity.ONE, "primaryOwner", pkg)
         Association("ContractSecondaryOwner", "Contract", Multiplicity.MANY, "secondary_owner_contracts",
-                    "Employee", Multiplicity.ONE, "secondary_owner", pkg)
+                    "Employee", Multiplicity.ONE, "secondaryOwner", pkg)
 
         repo = Database("org_db", "duckdb://org.db")
         schema = Schema("hr", repo)
@@ -309,9 +309,9 @@ class TestDualAssociationSameTarget:
 
         contract_id_pm = RelationalPropertyMapping(contract_cls.property("id"), contract_id_col)
         primary_join = Join(primary_fk_col, emp_id_col)
-        primary_pm = RelationalPropertyMapping(contract_cls.property("primary_owner"), primary_join)
+        primary_pm = RelationalPropertyMapping(contract_cls.property("primaryOwner"), primary_join)
         secondary_join = Join(secondary_fk_col, emp_id_col)
-        secondary_pm = RelationalPropertyMapping(contract_cls.property("secondary_owner"), secondary_join)
+        secondary_pm = RelationalPropertyMapping(contract_cls.property("secondaryOwner"), secondary_join)
         contract_rcm = RelationalClassMapping(contract_cls, [contract_id_pm, primary_pm, secondary_pm])
 
         return Mapping("OrgMapping", [emp_rcm, contract_rcm])

@@ -62,7 +62,7 @@ def _make_trade_class(account: Class, instrument: Class) -> Class:
 
 def _make_contractual_position_class(instrument: Class) -> Class:
     return Class('ContractualPosition', [
-        Property('Business Date', 'business_date', Date),
+        Property('Business Date', 'businessDate', Date),
         Property('Quantity', 'quantity', Float),
         Property('Counterparty', 'counterparty', Integer),
         Property('Instrument', 'instrument', instrument),
@@ -154,7 +154,7 @@ def _build_graphql_mappings(endpoint: GraphQLEndpoint):
 
     position_query = GraphQLQuery("contractualPositions", endpoint)
     position_cm = GraphQLClassMapping(position_c, [
-        GraphQLPropertyMapping(position_c.property('business_date'), GraphQLField("businessDate")),
+        GraphQLPropertyMapping(position_c.property('businessDate'), GraphQLField("businessDate")),
         GraphQLPropertyMapping(position_c.property('quantity'),      GraphQLField("quantity")),
         GraphQLPropertyMapping(position_c.property('counterparty'),  GraphQLField("counterparty")),
     ], position_query)

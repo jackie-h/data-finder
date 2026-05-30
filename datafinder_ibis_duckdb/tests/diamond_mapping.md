@@ -11,7 +11,7 @@
 | Column      | Type    | Key | Property    |
 |-------------|---------|-----|-------------|
 | item_id     | INT     | PK  | id          |
-| created_at  | VARCHAR |     | created_at  |
-| updated_at  | VARCHAR |     | updated_at  |
+| created_at  | VARCHAR |     | createdAt   |
+| updated_at  | VARCHAR |     | updatedAt   |
 | version     | INT     |     | version     |
-| record_name | VARCHAR |     | record_name |
+| record_name | VARCHAR |     | recordName  |

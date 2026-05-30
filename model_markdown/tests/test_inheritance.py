@@ -52,8 +52,8 @@ class TestAllProperties:
         employee = self.by_name["Employee"]
         all_props = employee.all_properties()
         assert "id" in all_props
-        assert "first_name" in all_props
-        assert "last_name" in all_props
+        assert "firstName" in all_props
+        assert "lastName" in all_props
 
     def test_subclass_inherits_from_all_parents(self):
         employee = self.by_name["Employee"]
@@ -162,12 +162,12 @@ class TestForwardReference:
 
 | Property | Id       | Type    | Key | Description |
 |----------|----------|---------|-----|-------------|
-| Base Id  | base_id  | Integer | Y   |             |
+| Base Id  | baseId   | Integer | Y   |             |
 """
         pkgs = loads(content)
         by_name = {c.name: c for c in pkgs[0].children if isinstance(c, Class)}
         assert by_name["Child"].superclasses[0] is by_name["Parent"]
-        assert "base_id" in by_name["Child"].all_properties()
+        assert "baseId" in by_name["Child"].all_properties()
 
 
 class TestDiamondInheritance:
@@ -178,7 +178,7 @@ class TestDiamondInheritance:
         self.by_name = {c.name: c for c in packages[0].children if isinstance(c, Class)}
 
     def test_diamond_base_has_expected_properties(self):
-        assert set(self.by_name["Auditable"].properties) == {"id", "created_at"}
+        assert set(self.by_name["Auditable"].properties) == {"id", "createdAt"}
 
     def test_trackable_inherits_from_auditable(self):
         assert self.by_name["Trackable"].superclasses[0] is self.by_name["Auditable"]
@@ -193,7 +193,7 @@ class TestDiamondInheritance:
     def test_diamond_base_properties_appear_exactly_once(self):
         all_props = self.by_name["Record"].all_properties()
         assert list(all_props.keys()).count("id") == 1
-        assert list(all_props.keys()).count("created_at") == 1
+        assert list(all_props.keys()).count("createdAt") == 1
 
     def test_all_properties_count_is_correct(self):
         # id, created_at (from Auditable) + updated_at (Trackable) + version (Versioned) + record_name (own) = 5
@@ -201,7 +201,7 @@ class TestDiamondInheritance:
 
     def test_all_expected_properties_present(self):
         all_props = self.by_name["Record"].all_properties()
-        assert set(all_props) == {"id", "created_at", "updated_at", "version", "record_name"}
+        assert set(all_props) == {"id", "createdAt", "updatedAt", "version", "recordName"}
 
     def test_diamond_property_identity_is_auditable_instance(self):
         # The 'id' property in Record should be the same object as the one in Auditable
@@ -215,7 +215,7 @@ class TestDiamondInheritance:
         packages2 = loads(content)
         by_name2 = {c.name: c for c in packages2[0].children if isinstance(c, Class)}
         assert len(by_name2["Record"].all_properties()) == 5
-        assert set(by_name2["Record"].all_properties()) == {"id", "created_at", "updated_at", "version", "record_name"}
+        assert set(by_name2["Record"].all_properties()) == {"id", "createdAt", "updatedAt", "version", "recordName"}
 
 
 class TestRoundtrip:

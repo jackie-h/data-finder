@@ -35,7 +35,10 @@ def display_name(prop: Property) -> str:
 
 
 def to_python_name(prop: Property) -> str:
-    name = prop.name.lower().replace(' ', '_')
+    if ' ' in prop.name:
+        name = prop.name.lower().replace(' ', '_')
+    else:
+        name = to_snake_case(prop.name)
     if keyword.iskeyword(name) or name in _BUILTIN_NAMES:
         name += '_'
     return name
