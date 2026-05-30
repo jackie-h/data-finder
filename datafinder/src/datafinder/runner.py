@@ -55,6 +55,9 @@ def convert_date(maybe_date) -> datetime.date:
         raise TypeError("Input must be a string or a date object.")
 
 
+_DEFAULT_TIMEOUT_MS = 60_000
+
+
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: Optional[datetime.date],
@@ -68,6 +71,7 @@ class FinderResult(DataFrame):
         self._order_by: list[SortOperation] = []
         self._group_by: list = []
         self._limit: int = None
+        self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
 
     def group_by(self, *attrs) -> 'FinderResult':
         self._group_by = list(attrs)
@@ -81,10 +85,15 @@ class FinderResult(DataFrame):
         self._limit = n
         return self
 
+    def timeout(self, milliseconds: int) -> 'FinderResult':
+        self._timeout_ms = milliseconds
+        return self
+
     def _execute(self) -> DataFrame:
         return QueryRunnerBase.get_runner().select(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
+            self._timeout_ms,
         )
 
     def to_sql(self) -> str:
@@ -115,7 +124,7 @@ class QueryRunnerBase(metaclass=RegistryBase):
     def select(business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: Table, op: Operation,
                order_by: list[SortOperation] = None, group_by: list = None,
-               limit: int = None) -> DataFrame:
+               limit: int = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> DataFrame:
         pass
 
     @staticmethod

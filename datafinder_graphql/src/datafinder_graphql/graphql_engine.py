@@ -55,7 +55,8 @@ class GraphQLConnect(QueryRunnerBase):
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: GraphQLQuery, op: Operation,
-               order_by: list = None, group_by: list = None, limit: int = None) -> DataFrame:
+               order_by: list = None, group_by: list = None, limit: int = None,
+               timeout_ms: int = 60_000) -> DataFrame:
         field_names = [col.column().name for col in columns]
         fields_str = " ".join(field_names)
 
@@ -72,8 +73,11 @@ class GraphQLConnect(QueryRunnerBase):
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req) as response:
-            result = json.loads(response.read())
+        try:
+            with urllib.request.urlopen(req, timeout=timeout_ms / 1000) as response:
+                result = json.loads(response.read())
+        except TimeoutError:
+            raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
 
         rows = result["data"][table.name]
         return GraphQLOutput(rows, field_names)

@@ -1,4 +1,5 @@
 import datetime
+import threading
 
 import sqlglot
 
@@ -28,19 +29,34 @@ class DatabricksConnect(QueryRunnerBase):
     def select(self, business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: Table, op: Operation,
                order_by: list = None, group_by: list = None,
-               limit: int = None) -> DataFrame:
+               limit: int = None, timeout_ms: int = 60_000) -> DataFrame:
         query = _to_databricks_sql(business_date, processing_datetime, columns, table, op,
                                    order_by, group_by, limit)
-        from databricks import sql as databricks_sql
-        with databricks_sql.connect(
-            server_hostname=self._server_hostname,
-            http_path=self._http_path,
-            access_token=self._access_token,
-        ) as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query)
-                rows = cursor.fetchall()
-                columns_meta = [desc[0] for desc in cursor.description]
+        result: list = [None]
+        error: list = [None]
+
+        def run():
+            try:
+                from databricks import sql as databricks_sql
+                with databricks_sql.connect(
+                    server_hostname=self._server_hostname,
+                    http_path=self._http_path,
+                    access_token=self._access_token,
+                ) as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute(query)
+                        result[0] = (cursor.fetchall(), [desc[0] for desc in cursor.description])
+            except Exception as e:
+                error[0] = e
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        thread.join(timeout=timeout_ms / 1000)
+        if thread.is_alive():
+            raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
+        if error[0] is not None:
+            raise error[0]
+        rows, columns_meta = result[0]
         return DatabricksOutput(rows, columns_meta)
 
 
