@@ -359,7 +359,7 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
     return None
 
 
-def _build_milestone_mapping(scheme_name, property_mappings, repository, table_name=None, class_name=None):
+def _build_milestone_mapping(scheme_name, property_mappings, repository, table_name: str, class_name: str):
     if not scheme_name:
         return None
     scheme = next((s for s in repository.milestoning_schemes if s.name == scheme_name), None)
