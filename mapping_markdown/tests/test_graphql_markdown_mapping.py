@@ -1,7 +1,8 @@
 import os
 import tempfile
 
-from mapping_markdown.graphql_mapping_markdown import load, save, to_markdown
+import pytest
+from mapping_markdown.graphql_mapping_markdown import load, loads, save, to_markdown
 from model.graphql_mapping import (
     GraphQLClassMapping,
     GraphQLProcessingMilestone,
@@ -152,3 +153,49 @@ class TestGraphQLMarkdownRoundTrip:
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
+
+
+class TestGraphQLFieldMappingHeaderValidation:
+
+    def _make_pkg(self):
+        from model.m3 import Package, Class, Property, Integer
+        pkg = Package("test")
+        Class("Account", [Property("Id", "id", Integer)], pkg)
+        return pkg
+
+    def _mapping_with_headers(self, header_row: str, separator_row: str) -> str:
+        return f"""\
+# Test GraphQL Mapping
+
+## Endpoint: http://localhost/graphql
+
+### Query: accounts → Account
+
+{header_row}
+{separator_row}
+| id | id |
+"""
+
+    def test_property_column_raises(self):
+        content = self._mapping_with_headers(
+            "| Field | Property |",
+            "|-------|----------|",
+        )
+        with pytest.raises(ValueError, match="unexpected headers.*'Property'.*expected.*'Property ID'"):
+            loads(content, packages=[self._make_pkg()])
+
+    def test_wrong_order_raises(self):
+        content = self._mapping_with_headers(
+            "| Property ID | Field |",
+            "|-------------|-------|",
+        )
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content, packages=[self._make_pkg()])
+
+    def test_missing_property_id_raises(self):
+        content = self._mapping_with_headers(
+            "| Field |",
+            "|-------|",
+        )
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content, packages=[self._make_pkg()])

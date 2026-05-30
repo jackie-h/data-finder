@@ -1,6 +1,7 @@
 import os
 import tempfile
 
+import pytest
 from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
 from model_markdown.markdown_model import load as load_model
 from model.m3 import Class
@@ -498,3 +499,66 @@ class TestDuplicateClassMappingValidation:
 
         with pytest.raises(ValueError, match="Class 'Account' is mapped more than once"):
             loads(self._DUPLICATE_MAPPING, packages=[pkg], datastore=db)
+
+
+class TestColumnMappingHeaderValidation:
+
+    def _mapping_with_headers(self, header_row: str, separator_row: str) -> str:
+        return f"""\
+# Test Mapping
+
+## DataStore: test_db (Database)
+
+### Schema: hr
+
+#### Table: accounts → Account
+
+{header_row}
+{separator_row}
+| id     | INT | PK  | id   |
+"""
+
+    def _make_repo_and_pkg(self):
+        from model.m3 import Package, Class, Property, Integer
+        from model.relational import Database, Schema, Table, Column
+        pkg = Package("test")
+        Class("Account", [Property("Id", "id", Integer)], pkg)
+        db = Database("test_db", "duckdb://test.db")
+        Table("accounts", [Column("id", "INT")], Schema("hr", db))
+        return pkg, db
+
+    def test_property_column_raises(self):
+        content = self._mapping_with_headers(
+            "| Column | Type | Key | Property |",
+            "|--------|------|-----|----------|",
+        )
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="unexpected headers.*'Property'.*expected.*'Property ID'"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_wrong_order_raises(self):
+        content = self._mapping_with_headers(
+            "| Type | Column | Key | Property ID |",
+            "|------|--------|-----|-------------|",
+        )
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_missing_property_id_raises(self):
+        content = self._mapping_with_headers(
+            "| Column | Type | Key |",
+            "|--------|------|-----|",
+        )
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_correct_headers_accepted(self):
+        content = self._mapping_with_headers(
+            "| Column | Type | Key | Property ID |",
+            "|--------|------|-----|-------------|",
+        )
+        pkg, db = self._make_repo_and_pkg()
+        mapping = loads(content, packages=[pkg], datastore=db)
+        assert len(mapping.mappings) == 1
