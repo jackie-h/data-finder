@@ -14,21 +14,22 @@ from model.m3 import (
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
 
-_CLASS_HEADER_COLUMNS = {"Name", "Description"}
-_PROPERTY_COLUMNS = {"Property", "Id", "Type", "Key", "Description"}
-_ASSOCIATION_COLUMNS = {"Name", "Source", "Source Property Name", "Source Property ID", "Source Multiplicity", "Target", "Target Property Name", "Target Property ID", "Target Multiplicity", "Description"}
+_CLASS_HEADER_COLUMNS = ["Name", "Description"]
+_PROPERTY_COLUMNS = ["Property", "Id", "Type", "Key", "Description"]
+_ASSOCIATION_COLUMNS = [
+    "Name", "Source", "Source Property Name", "Source Property ID", "Source Multiplicity",
+    "Target", "Target Property Name", "Target Property ID", "Target Multiplicity", "Description",
+]
 _CLASS_HEADING_RE = re.compile(r"^(.+?)(?:\s+extends\s+(.+))?$")
 
 
-def _warn_unexpected_columns(found: list[str], expected: set[str], context: str) -> None:
-    unexpected = set(found) - expected
-    if unexpected:
-        _log.warning("Unexpected columns in %s table (will be ignored): %s", context, sorted(unexpected))
-
-
-def _parse_ast_table(node: SyntaxTreeNode) -> list[dict[str, str]]:
+def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str]) -> list[dict[str, str]]:
     thead, tbody = node.children[0], node.children[1]
     headers = [c.children[0].content for c in thead.children[0].children]
+    if headers != expected_headers:
+        raise ValueError(
+            f"Model table has unexpected headers {headers!r} — expected {expected_headers!r}"
+        )
     rows = []
     for tr in tbody.children:
         cells = [c.children[0].content if c.children else "" for c in tr.children]
@@ -91,9 +92,8 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                 # first table: class header
                 description = ""
                 if i < len(nodes) and nodes[i].type == "table":
-                    rows = _parse_ast_table(nodes[i])
+                    rows = _parse_ast_table(nodes[i], _CLASS_HEADER_COLUMNS)
                     if rows:
-                        _warn_unexpected_columns(list(rows[0].keys()), _CLASS_HEADER_COLUMNS, f"Class '{class_name}' header")
                         description = rows[0].get("Description", "")
                     i += 1
 
@@ -108,9 +108,7 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
 
                 # second table: properties
                 if i < len(nodes) and nodes[i].type == "table":
-                    prop_rows = _parse_ast_table(nodes[i])
-                    if prop_rows:
-                        _warn_unexpected_columns(list(prop_rows[0].keys()), _PROPERTY_COLUMNS, f"Class '{class_name}' properties")
+                    prop_rows = _parse_ast_table(nodes[i], _PROPERTY_COLUMNS)
                     for row in prop_rows:
                         label = row.get("Property", "").strip()
                         prop_id = row.get("Id", "").strip()
@@ -136,9 +134,8 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                 assoc_name = text[len("Association:"):].strip()
                 i += 1
                 if i < len(nodes) and nodes[i].type == "table":
-                    rows = _parse_ast_table(nodes[i])
+                    rows = _parse_ast_table(nodes[i], _ASSOCIATION_COLUMNS)
                     if rows:
-                        _warn_unexpected_columns(list(rows[0].keys()), _ASSOCIATION_COLUMNS, f"Association '{assoc_name}'")
                         row = rows[0]
                         source = row.get("Source", "")
                         target = row.get("Target", "")

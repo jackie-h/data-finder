@@ -1,4 +1,3 @@
-import logging
 import os
 import tempfile
 
@@ -87,9 +86,9 @@ class TestMarkdownLoad:
             assert cls.package is self.pkg
 
 
-class TestMarkdownUnexpectedColumns:
+class TestMarkdownColumnValidation:
 
-    def test_extra_property_column_ignored(self, caplog):
+    def test_extra_property_column_raises(self):
         content = """
 ## Sub-Domain: finance
 
@@ -99,20 +98,31 @@ class TestMarkdownUnexpectedColumns:
 |---------|-------------|
 | Account |             |
 
-| Property | Type    | Key | Description | Notes         |
-|----------|---------|-----|-------------|---------------|
-| id       | Integer | Y   |             | internal only |
-| name     | String  |     |             |               |
+| Property | Id | Type    | Key | Description | Notes         |
+|----------|----|---------|-----|-------------|---------------|
+| id       | id | Integer | Y   |             | internal only |
 """
-        with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
-            packages = loads(content)
-        account = [c for c in packages[0].children if isinstance(c, Class)][0]
-        assert account.property("id").type == Integer
-        assert account.property("name").type == String
-        assert TaggedValue.KEY in account.property("id").tagged_values
-        assert any("Notes" in m for m in caplog.messages)
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content)
 
-    def test_extra_class_header_column_ignored(self, caplog):
+    def test_missing_property_column_raises(self):
+        content = """
+## Sub-Domain: finance
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Type    | Key | Description |
+|----------|---------|-----|-------------|
+| id       | Integer | Y   |             |
+"""
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content)
+
+    def test_extra_class_header_column_raises(self):
         content = """
 ## Sub-Domain: finance
 
@@ -122,18 +132,14 @@ class TestMarkdownUnexpectedColumns:
 |---------|-----------------|---------|
 | Account | Trading account | finance |
 
-| Property | Type    | Key | Description |
-|----------|---------|-----|-------------|
-| id       | Integer | Y   |             |
+| Property | Id | Type    | Key | Description |
+|----------|----|---------|-----|-------------|
+| id       | id | Integer | Y   |             |
 """
-        with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
-            packages = loads(content)
-        account = [c for c in packages[0].children if isinstance(c, Class)][0]
-        assert account.name == "Account"
-        assert "Trading account" in account.tagged_values[TaggedValue.DOC].value
-        assert any("Owner" in m for m in caplog.messages)
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content)
 
-    def test_extra_association_column_ignored(self, caplog):
+    def test_extra_association_column_raises(self):
         content = """
 ## Sub-Domain: finance
 
@@ -143,12 +149,21 @@ class TestMarkdownUnexpectedColumns:
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|-------------|
 | TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   | A link      | many-to-one |
 """
-        with caplog.at_level(logging.WARNING, logger="model_markdown.markdown_model"):
-            packages = loads(content)
-        assoc = [a for a in packages[0].children if isinstance(a, Association)][0]
-        assert assoc.source == "Trade"
-        assert assoc.target == "Account"
-        assert any("Cardinality" in m for m in caplog.messages)
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content)
+
+    def test_missing_association_column_raises(self):
+        content = """
+## Sub-Domain: finance
+
+### Association: TradeAccount
+
+| Name         | Source | Source Property Name | Source Multiplicity | Target  | Target Property Name | Target Multiplicity | Description |
+|--------------|--------|----------------------|---------------------|---------|----------------------|---------------------|-------------|
+| TradeAccount | Trade  | Trades               | *                   | Account | Account              | 1                   |             |
+"""
+        with pytest.raises(ValueError, match="unexpected headers"):
+            loads(content)
 
 
 class TestMarkdownSave:
