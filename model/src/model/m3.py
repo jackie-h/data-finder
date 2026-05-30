@@ -31,7 +31,8 @@ def _name_to_camel_id(name: str) -> str:
     if not words:
         return name
     if len(words) == 1:
-        return words[0][0].lower() + words[0][1:]
+        word = words[0]
+        return word.lower() if word.isupper() else word[0].lower() + word[1:]
     return words[0].lower() + ''.join(w.capitalize() for w in words[1:])
 
 
