@@ -264,6 +264,23 @@ class TestGeneratePackageStructure:
         assert "business_date" in content
         assert "processing_valid_at" in content
 
+    def test_synthetic_milestoning_property_docstring_uses_display_name(self):
+        generate(self.mapping, self.tmp)
+        instrument_finder_path = os.path.join(self.tmp, "finance", "reference_data", "instrument_finder.py")
+        content = open(instrument_finder_path).read()
+        assert '"""Valid From"""' in content
+        assert '"""Valid To"""' in content
+        assert '"""validFrom"""' not in content
+        assert '"""validTo"""' not in content
+
+    def test_synthetic_milestoning_attribute_label_uses_display_name(self):
+        generate(self.mapping, self.tmp)
+        instrument_finder_path = os.path.join(self.tmp, "finance", "reference_data", "instrument_finder.py")
+        content = open(instrument_finder_path).read()
+        assert "' Valid From'" in content or "' Valid From'" in content
+        assert "' validFrom'" not in content
+        assert "' validTo'" not in content
+
 
 class TestDualAssociationSameTarget:
     """Two associations from the same source class to the same target class
