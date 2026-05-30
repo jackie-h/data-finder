@@ -343,6 +343,13 @@ def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str] = None) -
     return rows
 
 
+def _camel_to_display_name(s: str) -> str:
+    """Convert a camelCase identifier to a friendly display name: 'validFrom' → 'Valid From'."""
+    result = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1 \2', s)
+    result = re.sub(r'([a-z\d])([A-Z])', r'\1 \2', result)
+    return result[0].upper() + result[1:]
+
+
 def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: str, repository) -> Property:
     """Return a synthetic Property for a milestoning column not defined in the model, or None."""
     if not scheme_name or repository is None:
@@ -355,7 +362,7 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
         scheme.business_date, scheme.business_date_from, scheme.business_date_to,
     } - {None}
     if col_name in milestoning_cols:
-        return Property(prop_name, prop_name, DateTime)
+        return Property(_camel_to_display_name(prop_name), prop_name, DateTime)
     return None
 
 
