@@ -8,7 +8,7 @@
 
 #### Table: employees → Employee
 
-| Column     | Type    | Key | Property   |
+| Column     | Type    | Key | Property ID |
 |------------|---------|-----|------------|
 | emp_id     | INT     | PK  | id         |
 | first_name | VARCHAR |     | firstName  |
@@ -25,7 +25,7 @@
 
 #### Table: projects → Project
 
-| Column      | Type    | Key | Property |
+| Column      | Type    | Key | Property ID |
 |-------------|---------|-----|----------|
 | project_id  | INT     | PK  | id       |
 | name        | VARCHAR |     | name     |

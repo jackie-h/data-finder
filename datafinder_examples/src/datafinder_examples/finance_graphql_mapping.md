@@ -7,21 +7,21 @@
 
 ### Query: accounts → Account
 
-| Field | Property |
+| Field | Property ID |
 |-------|----------|
 | id    | id       |
 | name  | name     |
 
 ### Query: instruments → Instrument (milestone: processing, asOf)
 
-| Field  | Property |
+| Field  | Property ID |
 |--------|----------|
 | symbol | symbol   |
 | price  | price    |
 
 ### Query: contractualPositions → ContractualPosition (milestone: business_date, businessDate)
 
-| Field         | Property      |
+| Field         | Property ID   |
 |---------------|---------------|
 | businessDate  | businessDate  |
 | quantity      | quantity      |
@@ -29,7 +29,7 @@
 
 ### Query: trades → Trade (milestone: bitemporal, businessDate, asOf)
 
-| Field      | Property   |
+| Field      | Property ID |
 |------------|------------|
 | symbol     | symbol     |
 | price      | price      |

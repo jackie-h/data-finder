@@ -205,7 +205,7 @@ def _draft_table_lines(table: Table) -> list[str]:
         for col in table.columns
     ]
     lines = [f"#### Table: {table.name} → ?", ""]
-    lines.extend(_md_table(["Column", "Type", "Key", "Property"], col_rows).splitlines())
+    lines.extend(_md_table(["Column", "Type", "Key", "Property ID"], col_rows).splitlines())
     lines.append("")
     return lines
 

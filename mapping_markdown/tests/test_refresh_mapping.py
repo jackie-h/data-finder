@@ -30,7 +30,7 @@ SIMPLE_MAPPING = """\
 
 #### Table: my_table → MyClass
 
-| Column | Type    | Key | Property |
+| Column | Type    | Key | Property ID |
 |--------|---------|-----|----------|
 | id     | INT     | PK  | id       |
 | name   | VARCHAR |     | name     |
@@ -237,7 +237,7 @@ class TestAssociationsPreserved:
 
 #### Table: trades → Trade
 
-| Column     | Type | Key | Property   |
+| Column     | Type | Key | Property ID   |
 |------------|------|-----|------------|
 | account_id | INT  | FK  | account    |
 
@@ -282,7 +282,7 @@ class TestMilestoningPreserved:
 
 #### Table: price → Instrument (milestoning: processing_only)
 
-| Column | Type      | Key | Property   |
+| Column | Type      | Key | Property ID   |
 |--------|-----------|-----|------------|
 | SYM    | VARCHAR   | PK  | symbol     |
 | in_z   | TIMESTAMP |     | validFrom  |
@@ -316,7 +316,7 @@ class TestMultipleSchemas:
 
 #### Table: table_a → ClassA
 
-| Column | Type    | Key | Property |
+| Column | Type    | Key | Property ID |
 |--------|---------|-----|----------|
 | id     | INT     | PK  | id       |
 | col_a  | VARCHAR |     | col_a    |
@@ -325,7 +325,7 @@ class TestMultipleSchemas:
 
 #### Table: table_b → ClassB
 
-| Column | Type   | Key | Property |
+| Column | Type   | Key | Property ID |
 |--------|--------|-----|----------|
 | id     | INT    | PK  | id       |
 | col_b  | DOUBLE |     | col_b    |

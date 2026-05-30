@@ -13,7 +13,7 @@
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property |
+| Column    | Type    | Key | Property ID |
 |-----------|---------|-----|----------|
 | ID        | INT     | PK  | id       |
 | ACCT_NAME | VARCHAR |     | name     |
@@ -22,7 +22,7 @@
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Type      | Key | Property   |
+| Column     | Type      | Key | Property ID |
 |------------|-----------|-----|------------|
 | sym        | VARCHAR   |     | symbol     |
 | price      | DOUBLE    |     | price      |
