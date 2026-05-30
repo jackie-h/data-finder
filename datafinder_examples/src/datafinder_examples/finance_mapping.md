@@ -15,14 +15,14 @@
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property |
+| Column    | Type    | Key | Property ID |
 |-----------|---------|-----|----------|
 | ID        | INT     | PK  | id       |
 | ACCT_NAME | VARCHAR |     | name     |
 
 #### Table: price → Instrument (milestoning: processing_only)
 
-| Column | Type      | Key | Property   |
+| Column | Type      | Key | Property ID |
 |--------|-----------|-----|------------|
 | SYM    | VARCHAR   | PK  | symbol     |
 | PRICE  | DOUBLE    |     | price      |
@@ -33,7 +33,7 @@
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Type      | Key | Property   |
+| Column     | Type      | Key | Property ID |
 |------------|-----------|-----|------------|
 | sym        | VARCHAR   |     | symbol     |
 | price      | DOUBLE    |     | price      |
@@ -50,7 +50,7 @@
 
 #### Table: contractualposition → ContractualPosition (milestoning: business_date_processing)
 
-| Column   | Type      | Key | Property      |
+| Column   | Type      | Key | Property ID   |
 |----------|-----------|-----|---------------|
 | DATE     | DATE      |     | businessDate  |
 | QUANTITY | DOUBLE    |     | quantity      |

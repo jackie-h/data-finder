@@ -8,7 +8,7 @@
 
 #### Table: items → Record
 
-| Column      | Type    | Key | Property    |
+| Column      | Type    | Key | Property ID |
 |-------------|---------|-----|-------------|
 | item_id     | INT     | PK  | id          |
 | created_at  | VARCHAR |     | createdAt   |

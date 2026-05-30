@@ -2,8 +2,8 @@
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Type      | Key | Property   |
-|------------|-----------|-----|------------|
+| Column     | Type      | Key | Property ID |
+|------------|-----------|-----|-------------|
 | sym        | VARCHAR   |     | symbol     |
 | price      | DOUBLE    |     | price      |
 | is_settled | BOOLEAN   |     | isSettled  |

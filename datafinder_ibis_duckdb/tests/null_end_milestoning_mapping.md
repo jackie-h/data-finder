@@ -12,7 +12,7 @@
 
 #### Table: prices → Price (milestoning: processing_only)
 
-| Column | Type      | Key | Property   |
+| Column | Type      | Key | Property ID |
 |--------|-----------|-----|------------|
 | sym    | VARCHAR   | PK  | symbol     |
 | price  | DOUBLE    |     | price      |

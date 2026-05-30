@@ -8,7 +8,7 @@
 
 #### Table: positions → Position
 
-| Column     | Type   | Key | Property   |
+| Column     | Type   | Key | Property ID |
 |------------|--------|-----|------------|
 | id         | INT    | PK  | id         |
 | trade_date | DATE   |     | tradeDate  |

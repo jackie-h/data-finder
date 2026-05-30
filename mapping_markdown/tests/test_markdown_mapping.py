@@ -209,7 +209,7 @@ class TestMarkdownMappingSave:
 
     def test_generated_markdown_has_pk_column(self):
         content = to_markdown("Finance Mapping", self.mapping)
-        assert "| ID        | INT     | PK  | id       |" in content
+        assert "| ID        | INT     | PK  | id          |" in content
 
     def test_generated_markdown_has_fk_column(self):
         content = to_markdown("Finance Mapping", self.mapping)
@@ -331,7 +331,7 @@ class TestAssociationWithoutFkInTableSection:
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property |
+| Column    | Type    | Key | Property ID |
 |-----------|---------|-----|----------|
 | ID        | INT     | PK  | id       |
 | ACCT_NAME | VARCHAR |     | name     |
@@ -340,7 +340,7 @@ class TestAssociationWithoutFkInTableSection:
 
 #### Table: trades → Trade
 
-| Column     | Type    | Key | Property   |
+| Column     | Type    | Key | Property ID   |
 |------------|---------|-----|------------|
 | sym        | VARCHAR |     | symbol     |
 | price      | DOUBLE  |     | price      |
@@ -420,7 +420,7 @@ class TestInfiniteDatetimeMarkdownParsing:
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column | Type      | Key | Property |
+| Column | Type      | Key | Property ID |
 |--------|-----------|-----|----------|
 | in_z   | TIMESTAMP |     | validFrom  |
 | out_z  | TIMESTAMP |     | validTo    |

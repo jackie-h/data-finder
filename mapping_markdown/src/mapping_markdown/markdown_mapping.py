@@ -212,7 +212,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i]):
                         col_name = row.get("Column", "").strip()
-                        prop_name = row.get("Property", "").strip()
+                        prop_name = row.get("Property ID", "").strip()
                         if not col_name or not prop_name:
                             continue
                         col = cols_by_name.get(col_name)
@@ -516,7 +516,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
                         lhs = pm.target.lhs
                         key = "FK" if lhs.name in fk_cols else ""
                         col_rows.append([lhs.name, lhs.type or "", key, pm.property.id])
-                lines.append(_md_table(["Column", "Type", "Key", "Property"], col_rows))
+                lines.append(_md_table(["Column", "Type", "Key", "Property ID"], col_rows))
                 lines.append("")
 
             for rcm in rcms:
@@ -566,7 +566,7 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
                 [col.name, col.type or "", "PK" if col.primary_key else "", ""]
                 for col in table.columns
             ]
-            lines.append(_md_table(["Column", "Type", "Key", "Property"], col_rows))
+            lines.append(_md_table(["Column", "Type", "Key", "Property ID"], col_rows))
             lines.append("")
 
     return "\n".join(lines)

@@ -121,7 +121,7 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                     all_props = cls.all_properties()
                     for row in _parse_table(nodes[i]):
                         field_name = row.get("Field", "").strip()
-                        prop_name = row.get("Property", "").strip()
+                        prop_name = row.get("Property ID", "").strip()
                         if not field_name or not prop_name:
                             continue
                         prop = all_props.get(prop_name)
@@ -212,7 +212,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
                 for pm in cm.property_mappings
                 if isinstance(pm.target, GraphQLField)
             ]
-            lines.append(_md_table(["Field", "Property"], field_rows))
+            lines.append(_md_table(["Field", "Property ID"], field_rows))
             lines.append("")
 
     return "\n".join(lines)

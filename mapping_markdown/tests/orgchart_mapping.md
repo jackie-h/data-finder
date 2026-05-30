@@ -8,7 +8,7 @@
 
 #### Table: employees → Employee
 
-| Column     | Type    | Key | Property |
+| Column     | Type    | Key | Property ID |
 |------------|---------|-----|----------|
 | id         | INT     | PK  | id       |
 | name       | VARCHAR |     | name     |
