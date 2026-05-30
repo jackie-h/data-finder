@@ -104,7 +104,7 @@ def _build_repository_from_content(nodes: list) -> DataStore:
                     i += 1
                     columns = []
                     if i < len(nodes) and nodes[i].type == "table":
-                        for row in _parse_ast_table(nodes[i]):
+                        for row in _parse_ast_table(nodes[i], _COLUMN_MAPPING_HEADERS):
                             col_name = row.get("Column", "").strip()
                             col_type = row.get("Type", "").strip()
                             key = row.get("Key", "").strip().upper()
@@ -210,7 +210,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 i += 1
 
                 if i < len(nodes) and nodes[i].type == "table":
-                    for row in _parse_ast_table(nodes[i]):
+                    for row in _parse_ast_table(nodes[i], _COLUMN_MAPPING_HEADERS):
                         col_name = row.get("Column", "").strip()
                         prop_name = row.get("Property ID", "").strip()
                         if not col_name or not prop_name:
@@ -283,7 +283,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     continue
 
                 if i < len(nodes) and nodes[i].type == "table":
-                    for row in _parse_ast_table(nodes[i]):
+                    for row in _parse_ast_table(nodes[i], _ASSOCIATION_HEADERS):
                         src_col = row.get("Source Column", "").strip()
                         tgt_table_name = row.get("Target Table", "").strip()
                         tgt_col_name = row.get("Target Column", "").strip()
@@ -324,9 +324,17 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     return Mapping(title, class_mappings)
 
 
-def _parse_ast_table(node: SyntaxTreeNode) -> list[dict]:
+_COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Property ID"]
+_ASSOCIATION_HEADERS = ["Source Column", "Target Table", "Target Column"]
+
+
+def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str] = None) -> list[dict]:
     thead, tbody = node.children[0], node.children[1]
     headers = [c.children[0].content for c in thead.children[0].children]
+    if expected_headers is not None and headers != expected_headers:
+        raise ValueError(
+            f"Mapping table has unexpected headers {headers!r} — expected {expected_headers!r}"
+        )
     rows = []
     for tr in tbody.children:
         cells = [c.children[0].content if c.children else "" for c in tr.children]

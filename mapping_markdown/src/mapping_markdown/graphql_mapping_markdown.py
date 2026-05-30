@@ -155,9 +155,16 @@ def _parse_milestone(milestone_type: str, arg1: str, arg2: str):
     return None
 
 
+_FIELD_MAPPING_HEADERS = ["Field", "Property ID"]
+
+
 def _parse_table(node: SyntaxTreeNode) -> list[dict]:
     thead, tbody = node.children[0], node.children[1]
     headers = [c.children[0].content for c in thead.children[0].children]
+    if headers != _FIELD_MAPPING_HEADERS:
+        raise ValueError(
+            f"GraphQL mapping table has unexpected headers {headers!r} — expected {_FIELD_MAPPING_HEADERS!r}"
+        )
     rows = []
     for tr in tbody.children:
         cells = [c.children[0].content if c.children else "" for c in tr.children]
