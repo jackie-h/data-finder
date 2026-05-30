@@ -3,6 +3,7 @@ import threading
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
 
+import duckdb
 import ibis
 import numpy as np
 import pandas as pd
@@ -20,23 +21,15 @@ class IbisConnect(QueryRunnerBase):
         conn = ibis.connect('duckdb://test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit)
         print(query)
-        result: list = [None]
-        error: list = [None]
-
-        def run():
-            try:
-                result[0] = conn.sql(query)
-            except Exception as e:
-                error[0] = e
-
-        thread = threading.Thread(target=run, daemon=True)
-        thread.start()
-        thread.join(timeout=timeout_ms / 1000)
-        if thread.is_alive():
+        timer = threading.Timer(timeout_ms / 1000, conn.con.interrupt)
+        timer.start()
+        try:
+            result = conn.sql(query)
+        except duckdb.InterruptException:
             raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
-        if error[0] is not None:
-            raise error[0]
-        return IbisOutput(result[0])
+        finally:
+            timer.cancel()
+        return IbisOutput(result)
 
 
 class IbisOutput(DataFrame):
