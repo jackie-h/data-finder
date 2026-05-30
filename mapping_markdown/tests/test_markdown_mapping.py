@@ -562,3 +562,114 @@ class TestColumnMappingHeaderValidation:
         pkg, db = self._make_repo_and_pkg()
         mapping = loads(content, packages=[pkg], datastore=db)
         assert len(mapping.mappings) == 1
+
+
+class TestMilestonedWithMissingColumns:
+
+    _BASE = """\
+# Test Mapping
+
+## DataStore: test_db (Database)
+
+| Scheme          | processing_start | processing_end | business_date | business_date_from | business_date_to |
+|-----------------|------------------|----------------|---------------|--------------------|------------------|
+| processing_only | in_z             | out_z          |               |                    |                  |
+| biz_date        | in_z             | out_z          | biz_date      |                    |                  |
+
+### Schema: hr
+
+"""
+
+    def _make_repo_and_pkg(self):
+        from model.m3 import Package, Class, Property, String
+        pkg = Package("test")
+        Class("Trade", [
+            Property("Symbol", "symbol", String),
+            Property("Valid From", "validFrom", String),
+            Property("Valid To", "validTo", String),
+        ], pkg)
+        db = Database("test_db", "duckdb://test.db")
+        Table("trades", [
+            Column("sym", "VARCHAR"),
+            Column("in_z", "TIMESTAMP"),
+            Column("out_z", "TIMESTAMP"),
+        ], Schema("hr", db))
+        return pkg, db
+
+    def test_missing_processing_start_raises(self):
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type      | Key | Property ID |
+|--------|-----------|-----|-------------|
+| sym    | VARCHAR   |     | symbol      |
+| out_z  | TIMESTAMP |     | validTo     |
+"""
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="missing required column 'in_z'"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_missing_processing_end_raises(self):
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type      | Key | Property ID |
+|--------|-----------|-----|-------------|
+| sym    | VARCHAR   |     | symbol      |
+| in_z   | TIMESTAMP |     | validFrom   |
+"""
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="missing required column 'out_z'"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_missing_both_processing_columns_raises(self):
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type    | Key | Property ID |
+|--------|---------|-----|-------------|
+| sym    | VARCHAR |     | symbol      |
+"""
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="missing required column"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_unknown_scheme_raises(self):
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: no_such_scheme)
+
+| Column | Type      | Key | Property ID |
+|--------|-----------|-----|-------------|
+| sym    | VARCHAR   |     | symbol      |
+| in_z   | TIMESTAMP |     | validFrom   |
+| out_z  | TIMESTAMP |     | validTo     |
+"""
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="milestoning scheme 'no_such_scheme' not found"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_error_message_includes_table_and_class(self):
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type    | Key | Property ID |
+|--------|---------|-----|-------------|
+| sym    | VARCHAR |     | symbol      |
+"""
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="Table 'trades'.*'Trade'"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_all_columns_present_succeeds(self):
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type      | Key | Property ID |
+|--------|-----------|-----|-------------|
+| sym    | VARCHAR   |     | symbol      |
+| in_z   | TIMESTAMP |     | validFrom   |
+| out_z  | TIMESTAMP |     | validTo     |
+"""
+        pkg, db = self._make_repo_and_pkg()
+        mapping = loads(content, packages=[pkg], datastore=db)
+        assert isinstance(mapping.mappings[0].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
