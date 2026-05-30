@@ -1,4 +1,5 @@
 import datetime
+import threading
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
 
@@ -14,12 +15,19 @@ class DuckDbConnect(QueryRunnerBase):
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
                table: Table, op: Operation, order_by: list = None, group_by: list = None,
-               limit: int = None) -> DataFrame:
+               limit: int = None, timeout_ms: int = 60_000) -> DataFrame:
         conn = duckdb.connect('test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit)
         print(query)
-        # TODO this is inefficient, could convert straight to desired output - such as numpy, instead of list
-        return DuckDbOutput(conn.sql(query).fetchall())
+        timer = threading.Timer(timeout_ms / 1000, conn.interrupt)
+        timer.start()
+        try:
+            result = conn.sql(query).fetchall()
+        except duckdb.InterruptException:
+            raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
+        finally:
+            timer.cancel()
+        return DuckDbOutput(result)
 
 
 class DuckDbOutput(DataFrame):

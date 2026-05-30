@@ -1,7 +1,9 @@
 import datetime
+import threading
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
 
+import duckdb
 import ibis
 import numpy as np
 import pandas as pd
@@ -15,11 +17,19 @@ class IbisConnect(QueryRunnerBase):
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
                table: Table, op: Operation, order_by: list = None, group_by: list = None,
-               limit: int = None) -> DataFrame:
+               limit: int = None, timeout_ms: int = 60_000) -> DataFrame:
         conn = ibis.connect('duckdb://test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit)
         print(query)
-        return IbisOutput(conn.sql(query))
+        timer = threading.Timer(timeout_ms / 1000, conn.con.interrupt)
+        timer.start()
+        try:
+            result = conn.sql(query)
+        except duckdb.InterruptException:
+            raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
+        finally:
+            timer.cancel()
+        return IbisOutput(result)
 
 
 class IbisOutput(DataFrame):
