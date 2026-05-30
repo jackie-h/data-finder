@@ -16,7 +16,7 @@ _log = logging.getLogger(__name__)
 
 _CLASS_HEADER_COLUMNS = {"Name", "Description"}
 _PROPERTY_COLUMNS = {"Property", "Id", "Type", "Key", "Description"}
-_ASSOCIATION_COLUMNS = {"Name", "Source", "Source Property", "Source Multiplicity", "Target", "Target Property", "Target Multiplicity", "Description"}
+_ASSOCIATION_COLUMNS = {"Name", "Source", "Source Property Name", "Source Property ID", "Source Multiplicity", "Target", "Target Property Name", "Target Property ID", "Target Multiplicity", "Description"}
 _CLASS_HEADING_RE = re.compile(r"^(.+?)(?:\s+extends\s+(.+))?$")
 
 
@@ -144,8 +144,10 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                         target = row.get("Target", "")
                         src_mult_str = row.get("Source Multiplicity", "").strip()
                         tgt_mult_str = row.get("Target Multiplicity", "").strip()
-                        src_property = row.get("Source Property", "").strip()
-                        tgt_property = row.get("Target Property", "").strip()
+                        src_prop_name = row.get("Source Property Name", "").strip()
+                        src_prop_id = row.get("Source Property ID", "").strip()
+                        tgt_prop_name = row.get("Target Property Name", "").strip()
+                        tgt_prop_id = row.get("Target Property ID", "").strip()
                         if src_mult_str not in (Multiplicity.ONE, Multiplicity.MANY):
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Source Multiplicity ('1' or '*')"
@@ -154,18 +156,20 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Target Multiplicity ('1' or '*')"
                             )
-                        if not src_property:
+                        if not src_prop_id:
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Source Property"
                             )
-                        if not tgt_property:
+                        if not tgt_prop_id:
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Target Property"
                             )
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else None
-                        Association(assoc_name, source, src_mult_str, src_property,
-                                    target, tgt_mult_str, tgt_property,
+                        Association(assoc_name, source, src_mult_str,
+                                    src_prop_name, src_prop_id,
+                                    target, tgt_mult_str,
+                                    tgt_prop_name, tgt_prop_id,
                                     current_package, tagged)
                     i += 1
                 continue
@@ -208,8 +212,8 @@ def _validate_no_association_property_conflicts(packages: list, classes_by_name:
             assoc = child
             # target_property is a forward navigation on the source class (source → target)
             # source_property is a reverse navigation on the target class (target → source)
-            _check_conflict(assoc.source, assoc.target_property, assoc.name, classes_by_name, "target_property")
-            _check_conflict(assoc.target, assoc.source_property, assoc.name, classes_by_name, "source_property")
+            _check_conflict(assoc.source, assoc.target_property.id, assoc.name, classes_by_name, "target_property")
+            _check_conflict(assoc.target, assoc.source_property.id, assoc.name, classes_by_name, "source_property")
 
 
 def _check_conflict(class_name: str, prop_id: str, assoc_name: str, classes_by_name: dict, field: str) -> None:
@@ -232,11 +236,11 @@ def _register_association_properties(packages: list, classes_by_name: dict) -> N
             source_cls = classes_by_name.get(assoc.source)
             target_cls = classes_by_name.get(assoc.target)
             if source_cls and target_cls:
-                source_cls.properties_from_associations[assoc.target_property] = Property(
-                    assoc.target_property, assoc.target_property, target_cls
+                source_cls.properties_from_associations[assoc.target_property.id] = Property(
+                    assoc.target_property.name, assoc.target_property.id, target_cls
                 )
-                target_cls.properties_from_associations[assoc.source_property] = Property(
-                    assoc.source_property, assoc.source_property, source_cls
+                target_cls.properties_from_associations[assoc.source_property.id] = Property(
+                    assoc.source_property.name, assoc.source_property.id, source_cls
                 )
 
 
@@ -282,9 +286,13 @@ def to_markdown(title: str, packages: list[Package]) -> str:
                 lines.append("")
                 description = child.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
                 lines.append(_md_table(
-                    ["Name", "Source", "Source Property", "Source Multiplicity", "Target", "Target Property", "Target Multiplicity", "Description"],
-                    [[child.name, child.source, child.source_property or "", child.source_multiplicity or "",
-                      child.target, child.target_property or "", child.target_multiplicity or "", description]],
+                    ["Name", "Source", "Source Property Name", "Source Property ID", "Source Multiplicity",
+                     "Target", "Target Property Name", "Target Property ID", "Target Multiplicity", "Description"],
+                    [[child.name, child.source,
+                      child.source_property.name, child.source_property.id, child.source_multiplicity or "",
+                      child.target,
+                      child.target_property.name, child.target_property.id, child.target_multiplicity or "",
+                      description]],
                 ))
                 lines.append("")
 

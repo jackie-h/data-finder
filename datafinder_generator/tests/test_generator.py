@@ -304,10 +304,14 @@ class TestDualAssociationSameTarget:
             Property("Primary Owner", "primaryOwner", employee_cls),
             Property("Secondary Owner", "secondaryOwner", employee_cls),
         ], pkg)
-        Association("ContractPrimaryOwner", "Contract", Multiplicity.MANY, "primary_owner_contracts",
-                    "Employee", Multiplicity.ONE, "primaryOwner", pkg)
-        Association("ContractSecondaryOwner", "Contract", Multiplicity.MANY, "secondary_owner_contracts",
-                    "Employee", Multiplicity.ONE, "secondaryOwner", pkg)
+        Association("ContractPrimaryOwner", "Contract", Multiplicity.MANY,
+                    "Primary Owner Contracts", "primaryOwnerContracts",
+                    "Employee", Multiplicity.ONE,
+                    "Primary Owner", "primaryOwner", pkg)
+        Association("ContractSecondaryOwner", "Contract", Multiplicity.MANY,
+                    "Secondary Owner Contracts", "secondaryOwnerContracts",
+                    "Employee", Multiplicity.ONE,
+                    "Secondary Owner", "secondaryOwner", pkg)
 
         repo = Database("org_db", "duckdb://org.db")
         schema = Schema("hr", repo)
@@ -390,9 +394,10 @@ class TestCamelCaseReverseAssocMethodName:
             Property("Id", "id", Integer),
             Property("Related Entity", "relatedEntity", entity_cls),
         ], pkg)
-        # source_property is camelCase: "relatedEntities"
-        Association("TagEntity", "Tag", Multiplicity.MANY, "relatedEntities",
-                    "Entity", Multiplicity.ONE, "relatedEntity", pkg)
+        Association("TagEntity", "Tag", Multiplicity.MANY,
+                    "Related Entities", "relatedEntities",
+                    "Entity", Multiplicity.ONE,
+                    "Related Entity", "relatedEntity", pkg)
 
         repo = Database("org_db", "duckdb://org.db")
         schema = Schema("data", repo)
@@ -443,3 +448,57 @@ class TestCamelCaseReverseAssocMethodName:
             assert result is not None
         finally:
             sys.path.remove(self.tmp)
+
+
+class TestAssociationPropertyDocstring:
+    """The docstring on a forward navigation property should use the Property display name,
+    not the camelCase id (e.g. 'Account' not 'account')."""
+
+    def _build_mapping(self):
+        from model.m3 import Integer
+        from model.mapping import Mapping
+        from model.relational import Database, Schema, Table, Column
+        from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+
+        pkg = Package("finance")
+        account_cls = Class("Account", [Property("Id", "id", Integer)], pkg)
+        trade_cls = Class("Trade", [
+            Property("Id", "id", Integer),
+            Property("Account", "account", account_cls),
+        ], pkg)
+        Association("TradeAccount", "Trade", "*", "Trades", "trades",
+                    "Account", "1", "Account", "account", pkg)
+
+        repo = Database("finance_db", "duckdb://finance.db")
+        schema = __import__("model.relational", fromlist=["Schema"]).Schema("ref", repo)
+        acct_id_col = Column("id", "INT", primary_key=True)
+        acct_table = Table("accounts", [acct_id_col], schema)
+        trade_id_col = Column("id", "INT", primary_key=True)
+        fk_col = Column("account_id", "INT")
+        trade_table = Table("trades", [trade_id_col, fk_col], schema)
+
+        acct_id_pm = RelationalPropertyMapping(account_cls.property("id"), acct_id_col)
+        acct_rcm = RelationalClassMapping(account_cls, [acct_id_pm])
+
+        trade_id_pm = RelationalPropertyMapping(trade_cls.property("id"), trade_id_col)
+        join = Join(fk_col, acct_id_col)
+        trade_acct_pm = RelationalPropertyMapping(trade_cls.property("account"), join)
+        trade_rcm = RelationalClassMapping(trade_cls, [trade_id_pm, trade_acct_pm])
+
+        return Mapping("FinanceMapping", [acct_rcm, trade_rcm])
+
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+        self.mapping = self._build_mapping()
+
+    def teardown_method(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        for mod in list(sys.modules.keys()):
+            if mod in ("trade_finder", "trade_finder_base", "account_finder", "account_finder_base"):
+                sys.modules.pop(mod, None)
+
+    def test_forward_nav_docstring_uses_display_name(self):
+        generate(self.mapping, self.tmp)
+        content = open(os.path.join(self.tmp, "trade_finder.py")).read()
+        assert '"""Account"""' in content
+        assert '"""account"""' not in content

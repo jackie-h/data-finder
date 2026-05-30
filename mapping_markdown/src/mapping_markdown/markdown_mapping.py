@@ -134,7 +134,7 @@ def _build_assoc_nav_lookup(packages: list) -> dict:
             if isinstance(child, Association):
                 target_cls_name = child.target
                 # resolved later; we store the name and resolve after classes_by_name is built
-                result[(child.source, child.target_property)] = child.target
+                result[(child.source, child.target_property.id)] = child.target
     return result
 
 
@@ -269,7 +269,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     continue
 
                 src_cls_name = assoc_def.source
-                nav_prop_id = assoc_def.target_property
+                nav_prop_id = assoc_def.target_property.id
                 pm_list, cols_by_name = class_context.get(src_cls_name, (None, {}))
                 target_cls_name = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
                 target_cls = classes_by_name.get(target_cls_name) if target_cls_name else None
@@ -308,7 +308,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
 
                         if tgt_col and nav_prop_id and target_cls:
-                            prop = Property(nav_prop_id, nav_prop_id, target_cls)
+                            prop = Property(assoc_def.target_property.name, nav_prop_id, target_cls)
                             pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col)))
                             lhs_col.table.foreign_keys.append(ForeignKey(lhs_col, tgt_col))
                         else:
