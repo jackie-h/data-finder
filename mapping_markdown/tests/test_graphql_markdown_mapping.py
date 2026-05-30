@@ -66,7 +66,7 @@ class TestGraphQLMarkdownLoad:
     def test_position_field_mappings(self):
         cm = self.by_class["ContractualPosition"]
         by_prop = {pm.property.id: pm for pm in cm.property_mappings}
-        assert by_prop["business_date"].target.name == "businessDate"
+        assert by_prop["businessDate"].target.name == "businessDate"
         assert by_prop["quantity"].target.name == "quantity"
         assert by_prop["npv"].target.name == "npv"
 
@@ -84,7 +84,7 @@ class TestGraphQLMarkdownLoad:
         by_prop = {pm.property.id: pm for pm in cm.property_mappings}
         assert by_prop["symbol"].target.name == "symbol"
         assert by_prop["price"].target.name == "price"
-        assert by_prop["is_settled"].target.name == "isSettled"
+        assert by_prop["isSettled"].target.name == "isSettled"
 
     def test_all_mappings_are_graphql_class_mappings(self):
         for cm in self.mapping.mappings:

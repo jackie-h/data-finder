@@ -11,8 +11,8 @@
 | Property   | Id         | Type    | Key | Description        |
 |------------|------------|---------|-----|--------------------|
 | Id         | id         | Integer | Y   |                    |
-| First Name | first_name | String  |     |                    |
-| Last Name  | last_name  | String  |     |                    |
+| First Name | firstName  | String  |     |                    |
+| Last Name  | lastName   | String  |     |                    |
 
 ### Class: Contactable
 

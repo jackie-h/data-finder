@@ -285,8 +285,8 @@ class TestMilestoningPreserved:
 | Column | Type      | Key | Property   |
 |--------|-----------|-----|------------|
 | SYM    | VARCHAR   | PK  | symbol     |
-| in_z   | TIMESTAMP |     | valid_from |
-| out_z  | TIMESTAMP |     | valid_to   |
+| in_z   | TIMESTAMP |     | validFrom  |
+| out_z  | TIMESTAMP |     | validTo    |
 """
 
     def test_milestoning_heading_preserved(self):

@@ -11,8 +11,8 @@
 | Column     | Type    | Key | Property   |
 |------------|---------|-----|------------|
 | emp_id     | INT     | PK  | id         |
-| first_name | VARCHAR |     | first_name |
-| last_name  | VARCHAR |     | last_name  |
+| first_name | VARCHAR |     | firstName  |
+| last_name  | VARCHAR |     | lastName   |
 | email      | VARCHAR |     | email      |
 | department | VARCHAR |     | department |
 | manager_id | INT     | FK  | manager    |

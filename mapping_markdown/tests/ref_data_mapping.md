@@ -13,5 +13,5 @@
 |--------|-----------|-----|------------|
 | SYM    | VARCHAR   | PK  | symbol     |
 | PRICE  | DOUBLE    |     | price      |
-| in_z   | TIMESTAMP |     | valid_from |
-| out_z  | TIMESTAMP |     | valid_to   |
+| in_z   | TIMESTAMP |     | validFrom  |
+| out_z  | TIMESTAMP |     | validTo    |

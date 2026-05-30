@@ -23,7 +23,7 @@
 
 | Field         | Property      |
 |---------------|---------------|
-| businessDate  | business_date |
+| businessDate  | businessDate  |
 | quantity      | quantity      |
 | npv           | npv           |
 
@@ -33,4 +33,4 @@
 |------------|------------|
 | symbol     | symbol     |
 | price      | price      |
-| isSettled  | is_settled |
+| isSettled  | isSettled  |

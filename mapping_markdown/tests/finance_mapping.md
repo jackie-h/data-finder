@@ -26,8 +26,8 @@
 |--------|-----------|-----|------------|
 | SYM    | VARCHAR   | PK  | symbol     |
 | PRICE  | DOUBLE    |     | price      |
-| in_z   | TIMESTAMP |     | valid_from |
-| out_z  | TIMESTAMP |     | valid_to   |
+| in_z   | TIMESTAMP |     | validFrom  |
+| out_z  | TIMESTAMP |     | validTo    |
 
 ### Schema: trading
 
@@ -37,10 +37,10 @@
 |------------|-----------|-----|------------|
 | sym        | VARCHAR   |     | symbol     |
 | price      | DOUBLE    |     | price      |
-| is_settled | BOOLEAN   |     | is_settled |
+| is_settled | BOOLEAN   |     | isSettled  |
 | account_id | INT       | FK  | account    |
-| in_z       | TIMESTAMP |     | valid_from |
-| out_z      | TIMESTAMP |     | valid_to   |
+| in_z       | TIMESTAMP |     | validFrom  |
+| out_z      | TIMESTAMP |     | validTo    |
 
 #### Association: TradeAccount
 
@@ -52,8 +52,8 @@
 
 | Column   | Type      | Key | Property      |
 |----------|-----------|-----|---------------|
-| DATE     | DATE      |     | business_date |
+| DATE     | DATE      |     | businessDate  |
 | QUANTITY | DOUBLE    |     | quantity      |
 | NPV      | DOUBLE    |     | npv           |
-| in_z     | TIMESTAMP |     | valid_from    |
-| out_z    | TIMESTAMP |     | valid_to      |
+| in_z     | TIMESTAMP |     | validFrom     |
+| out_z    | TIMESTAMP |     | validTo       |

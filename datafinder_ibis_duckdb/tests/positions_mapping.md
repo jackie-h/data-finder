@@ -11,5 +11,5 @@
 | Column     | Type   | Key | Property   |
 |------------|--------|-----|------------|
 | id         | INT    | PK  | id         |
-| trade_date | DATE   |     | trade_date |
+| trade_date | DATE   |     | tradeDate  |
 | npv        | DOUBLE |     | npv        |

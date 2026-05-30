@@ -105,8 +105,8 @@ class TestMarkdownMappingLoad:
 
     def test_instrument_milestoning_columns_not_in_model(self):
         instrument_cls = self.by_class["Instrument"].clazz
-        assert "valid_from" not in instrument_cls.properties
-        assert "valid_to" not in instrument_cls.properties
+        assert "validFrom" not in instrument_cls.properties
+        assert "validTo" not in instrument_cls.properties
 
     def test_instrument_milestone_mapping_built_from_synthetic_properties(self):
         mm = self.by_class["Instrument"].milestone_mapping
@@ -117,10 +117,10 @@ class TestMarkdownMappingLoad:
     def test_instrument_synthetic_milestoning_properties_in_mappings(self):
         rcm = self.by_class["Instrument"]
         by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
-        assert "valid_from" in by_prop
-        assert "valid_to" in by_prop
-        assert by_prop["valid_from"].target.name == "in_z"
-        assert by_prop["valid_to"].target.name == "out_z"
+        assert "validFrom" in by_prop
+        assert "validTo" in by_prop
+        assert by_prop["validFrom"].target.name == "in_z"
+        assert by_prop["validTo"].target.name == "out_z"
 
     def test_primary_key_set_on_column(self):
         rcm = self.by_class["Account"]
@@ -344,7 +344,7 @@ class TestAssociationWithoutFkInTableSection:
 |------------|---------|-----|------------|
 | sym        | VARCHAR |     | symbol     |
 | price      | DOUBLE  |     | price      |
-| is_settled | BOOLEAN |     | is_settled |
+| is_settled | BOOLEAN |     | isSettled  |
 
 #### Association: TradeAccount
 
@@ -422,8 +422,8 @@ class TestInfiniteDatetimeMarkdownParsing:
 
 | Column | Type      | Key | Property |
 |--------|-----------|-----|----------|
-| in_z   | TIMESTAMP |     | valid_from |
-| out_z  | TIMESTAMP |     | valid_to   |
+| in_z   | TIMESTAMP |     | validFrom  |
+| out_z  | TIMESTAMP |     | validTo    |
 """
 
     def setup_method(self):

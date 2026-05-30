@@ -26,6 +26,15 @@ class PackagableElement(AnnotatedElement):
             package.children.append(self)
 
 
+def _name_to_camel_id(name: str) -> str:
+    words = name.split()
+    if not words:
+        return name
+    if len(words) == 1:
+        return words[0][0].lower() + words[0][1:]
+    return words[0].lower() + ''.join(w.capitalize() for w in words[1:])
+
+
 class Type:
     def __init__(self):
         pass
@@ -50,9 +59,16 @@ Boolean = PrimitiveType("Boolean")
 class Property(AnnotatedElement):
     def __init__(self, name: str, id: str, type: Type, tagged_values: list[TaggedValue] = None):
         super().__init__(tagged_values)
-        self.name = name   # human-readable label, e.g. "Valid From"
-        self.id = id       # machine identifier, e.g. "valid_from"
+        self.name = name
+        self._id = id
         self.type = type
+        assert _name_to_camel_id(name) == id, (
+            f"Property id must be camelCase of name: '{name}' → expected '{_name_to_camel_id(name)}', got '{id}'"
+        )
+
+    @property
+    def id(self) -> str:
+        return self._id
 
 
 class Class(PackagableElement, Type):

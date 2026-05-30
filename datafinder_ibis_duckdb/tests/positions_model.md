@@ -11,5 +11,5 @@
 | Property      | Id            | Type    | Key | Description |
 |---------------|---------------|---------|-----|-------------|
 | Id            | id            | Integer | Y   |             |
-| Trade Date    | trade_date    | Date    |     |             |
+| Trade Date    | tradeDate     | Date    |     |             |
 | Npv           | npv           | Double  |     |             |

@@ -12,9 +12,9 @@
 |------------|------------|------------|-----|---------------------------------------|
 | Symbol     | symbol     | String     | Y   | The symbol of the instrument traded   |
 | Price      | price      | Double     |     | The price at which trade was executed |
-| Is Settled | is_settled | Boolean    |     |                                       |
-| Valid From | valid_from | DateTime   |     |                                       |
-| Valid To   | valid_to   | DateTime   |     |                                       |
+| Is Settled | isSettled  | Boolean    |     |                                       |
+| Valid From | validFrom  | DateTime   |     |                                       |
+| Valid To   | validTo    | DateTime   |     |                                       |
 
 ### Class: ContractualPosition
 
@@ -24,11 +24,11 @@
 
 | Property      | Id            | Type     | Key | Description              |
 |---------------|---------------|----------|-----|--------------------------|
-| Business Date | business_date | Date     |     | The business date        |
+| Business Date | businessDate  | Date     |     | The business date        |
 | Quantity      | quantity      | Double   |     | Net quantity of position |
 | Npv           | npv           | Double   |     | Net present value        |
-| Valid From    | valid_from    | DateTime |     |                          |
-| Valid To      | valid_to      | DateTime |     |                          |
+| Valid From    | validFrom     | DateTime |     |                          |
+| Valid To      | validTo       | DateTime |     |                          |
 
 ### Association: TradeAccount
 

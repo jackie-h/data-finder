@@ -11,7 +11,7 @@
 | Property   | Id         | Type    | Key | Description |
 |------------|------------|---------|-----|-------------|
 | Id         | id         | Integer | Y   |             |
-| Created At | created_at | String  |     |             |
+| Created At | createdAt  | String  |     |             |
 
 ### Class: Trackable extends Auditable
 
@@ -21,7 +21,7 @@
 
 | Property   | Id         | Type   | Key | Description |
 |------------|------------|--------|-----|-------------|
-| Updated At | updated_at | String |     |             |
+| Updated At | updatedAt  | String |     |             |
 
 ### Class: Versioned extends Auditable
 
@@ -41,4 +41,4 @@
 
 | Property    | Id          | Type   | Key | Description |
 |-------------|-------------|--------|-----|-------------|
-| Record Name | record_name | String |     |             |
+| Record Name | recordName  | String |     |             |
