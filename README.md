@@ -84,21 +84,23 @@ An **Association** declares a named relationship between two classes. Both ends 
 ```markdown
 ### Association: TradeAccount
 
-| Name         | Source | Source Property | Source Multiplicity | Target  | Target Property | Target Multiplicity | Description                  |
-|--------------|--------|-----------------|---------------------|---------|-----------------|---------------------|------------------------------|
-| TradeAccount | Trade  | trades          | *                   | Account | account         | 1                   | Links a trade to its account |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description                  |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|------------------------------|
+| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   | Links a trade to its account |
 ```
 
 | Column | Meaning |
 |--------|---------|
 | Source | Name of the source class |
-| Source Property | Property name added to the **target** class for the reverse navigation (`Account.trades`) |
+| Source Property Name | Display name of the reverse navigation property added to the **target** class (`Account.trades`) |
+| Source Property ID | camelCase id of the reverse navigation property (`trades`) |
 | Source Multiplicity | `*` (many) or `1` (one) — multiplicity on the source side |
 | Target | Name of the target class |
-| Target Property | Property name added to the **source** class for the forward navigation (`Trade.account`) |
+| Target Property Name | Display name of the forward navigation property added to the **source** class (`Trade.account`) |
+| Target Property ID | camelCase id of the forward navigation property (`account`) |
 | Target Multiplicity | `*` (many) or `1` (one) — multiplicity on the target side |
 
-All four fields (both properties and both multiplicities) are mandatory. The association is the single source of truth for cross-class navigation — do not also declare the same property explicitly on the class.
+All eight fields (name and id for both properties, both multiplicities) are mandatory. The association is the single source of truth for cross-class navigation — do not also declare the same property explicitly on the class.
 
 When an association is loaded, both navigation properties are automatically available via `all_properties()` on the relevant classes and generate methods in the finder.
 
@@ -127,22 +129,22 @@ A **Mapping** file connects the logical model to the physical relational schema.
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property |
-|-----------|---------|-----|----------|
-| ID        | INT     | PK  | id       |
-| ACCT_NAME | VARCHAR |     | name     |
+| Column    | Type    | Key | Property ID |
+|-----------|---------|-----|-------------|
+| ID        | INT     | PK  | id          |
+| ACCT_NAME | VARCHAR |     | name        |
 
 ### Schema: trading
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Type      | Key | Property   |
-|------------|-----------|-----|------------|
-| sym        | VARCHAR   |     | symbol     |
-| price      | DOUBLE    |     | price      |
-| account_id | INT       | FK  | account    |
-| in_z       | TIMESTAMP |     | valid_from |
-| out_z      | TIMESTAMP |     | valid_to   |
+| Column     | Type      | Key | Property ID |
+|------------|-----------|-----|-------------|
+| sym        | VARCHAR   |     | symbol      |
+| price      | DOUBLE    |     | price       |
+| account_id | INT       | FK  | account     |
+| in_z       | TIMESTAMP |     | validFrom   |
+| out_z      | TIMESTAMP |     | validTo     |
 
 #### Association: TradeAccount
 
@@ -153,9 +155,9 @@ A **Mapping** file connects the logical model to the physical relational schema.
 
 ### Table mapping
 
-`#### Table: <table_name> → <ClassName>` maps a database table to a class. The property column references the property `Id` defined in the model.
+`#### Table: <table_name> → <ClassName>` maps a database table to a class. The `Property ID` column references the property `Id` defined in the model.
 
-For foreign-key columns that represent association navigations, set `Key` to `FK` and use the association's `Target Property` id as the property name. Follow the table block immediately with an `#### Association:` block that provides the join target.
+For foreign-key columns that represent association navigations, set `Key` to `FK` and use the association's `Target Property ID` as the property name. Follow the table block immediately with an `#### Association:` block that provides the join target.
 
 ### Association mapping
 
@@ -269,7 +271,7 @@ result = TradeFinder.find_all(
 )
 ```
 
-Reverse navigation — from Account to all its Trades (generated from `Source Property: trades`):
+Reverse navigation — from Account to all its Trades (generated from `Source Property ID: trades`):
 
 ```python
 result = AccountFinder.find_all(
