@@ -351,3 +351,78 @@ class TestDualAssociationSameTarget:
             assert primary is not secondary
         finally:
             sys.path.remove(self.tmp)
+
+
+class TestCamelCaseReverseAssocMethodName:
+    """When an association's source_property is camelCase (e.g. 'relatedEntities'),
+    the generated reverse navigation method on the target finder must be snake_case
+    ('related_entities'), not the raw camelCase string.
+    """
+
+    def _build_mapping(self):
+        from model.m3 import Integer
+        from model.mapping import Mapping
+        from model.relational import Database, Schema, Table, Column
+        from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+
+        pkg = Package("org")
+        entity_cls = Class("Entity", [
+            Property("Id", "id", Integer),
+        ], pkg)
+        tag_cls = Class("Tag", [
+            Property("Id", "id", Integer),
+            Property("Related Entity", "relatedEntity", entity_cls),
+        ], pkg)
+        # source_property is camelCase: "relatedEntities"
+        Association("TagEntity", "Tag", Multiplicity.MANY, "relatedEntities",
+                    "Entity", Multiplicity.ONE, "relatedEntity", pkg)
+
+        repo = Database("org_db", "duckdb://org.db")
+        schema = Schema("data", repo)
+        entity_id_col = Column("id", "INT", primary_key=True)
+        entity_table = Table("entities", [entity_id_col], schema)
+
+        tag_id_col = Column("id", "INT", primary_key=True)
+        fk_col = Column("entity_id", "INT")
+        tag_table = Table("tags", [tag_id_col, fk_col], schema)
+
+        entity_id_pm = RelationalPropertyMapping(entity_cls.property("id"), entity_id_col)
+        entity_rcm = RelationalClassMapping(entity_cls, [entity_id_pm])
+
+        tag_id_pm = RelationalPropertyMapping(tag_cls.property("id"), tag_id_col)
+        join = Join(fk_col, entity_id_col)
+        tag_entity_pm = RelationalPropertyMapping(tag_cls.property("relatedEntity"), join)
+        tag_rcm = RelationalClassMapping(tag_cls, [tag_id_pm, tag_entity_pm])
+
+        return Mapping("OrgMapping", [entity_rcm, tag_rcm])
+
+    def setup_method(self):
+        self.tmp = tempfile.mkdtemp()
+        self.mapping = self._build_mapping()
+
+    def teardown_method(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        for mod in list(sys.modules.keys()):
+            if mod.startswith("org") or mod in ("entity_finder", "tag_finder",
+                                                 "entity_finder_base", "tag_finder_base"):
+                sys.modules.pop(mod, None)
+
+    def test_reverse_method_is_snake_case(self):
+        generate(self.mapping, self.tmp)
+        content = open(os.path.join(self.tmp, "entity_finder.py")).read()
+        assert "def related_entities(" in content
+
+    def test_camel_case_method_not_generated(self):
+        generate(self.mapping, self.tmp)
+        content = open(os.path.join(self.tmp, "entity_finder.py")).read()
+        assert "def relatedEntities(" not in content
+
+    def test_reverse_method_is_callable(self):
+        generate(self.mapping, self.tmp)
+        sys.path.insert(0, self.tmp)
+        try:
+            from entity_finder import EntityFinder
+            result = EntityFinder().related_entities()
+            assert result is not None
+        finally:
+            sys.path.remove(self.tmp)
