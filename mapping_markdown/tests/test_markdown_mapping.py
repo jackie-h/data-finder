@@ -454,3 +454,47 @@ class TestInfiniteDatetimeMarkdownParsing:
         schemes = {s.name: s for s in repo.milestoning_schemes}
         assert schemes["processing_only"].infinite_datetime == "9999-12-31 23:59:59"
         assert schemes["open_ended"].infinite_datetime is None
+
+
+class TestDuplicateClassMappingValidation:
+
+    _DUPLICATE_MAPPING = """\
+# Duplicate Mapping
+
+## DataStore: test_db (Database)
+
+### Schema: hr
+
+#### Table: accounts → Account
+
+| Column | Type    | Key | Property ID |
+|--------|---------|-----|-------------|
+| id     | INT     | PK  | id          |
+| name   | VARCHAR |     | name        |
+
+#### Table: accounts_copy → Account
+
+| Column | Type    | Key | Property ID |
+|--------|---------|-----|-------------|
+| id     | INT     | PK  | id          |
+| name   | VARCHAR |     | name        |
+"""
+
+    def test_duplicate_class_in_markdown_raises(self):
+        import pytest
+        from model.m3 import Package, Class, Property, Integer, String
+        from model.relational import Database, Schema, Table, Column
+
+        pkg = Package("test")
+        account_cls = Class("Account", [
+            Property("Id", "id", Integer),
+            Property("Name", "name", String),
+        ], pkg)
+
+        db = Database("test_db", "duckdb://test.db")
+        schema = Schema("hr", db)
+        Table("accounts", [Column("id", "INT"), Column("name", "VARCHAR")], schema)
+        Table("accounts_copy", [Column("id", "INT"), Column("name", "VARCHAR")], schema)
+
+        with pytest.raises(ValueError, match="Class 'Account' is mapped more than once"):
+            loads(self._DUPLICATE_MAPPING, packages=[pkg], datastore=db)
