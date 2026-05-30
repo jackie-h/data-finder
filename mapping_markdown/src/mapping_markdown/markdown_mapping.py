@@ -240,7 +240,8 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         # non-primitive (association) properties are resolved in the Association section
                     i += 1
 
-                milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository)
+                milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository,
+                                                              table_name=table_name, class_name=class_name)
                 class_mappings.append(
                     RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping)
                 )
@@ -358,42 +359,49 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
     return None
 
 
-def _build_milestone_mapping(scheme_name, property_mappings, repository):
+def _build_milestone_mapping(scheme_name, property_mappings, repository, table_name=None, class_name=None):
     if not scheme_name:
         return None
     scheme = next((s for s in repository.milestoning_schemes if s.name == scheme_name), None)
     if scheme is None:
-        return None
+        raise ValueError(
+            f"Table '{table_name}' → '{class_name}': "
+            f"milestoning scheme '{scheme_name}' not found in DataStore"
+        )
     pm_by_col = {pm.target.name: pm for pm in property_mappings if isinstance(pm.target, Column)}
+
+    def _require(col_name):
+        pm = pm_by_col.get(col_name)
+        if pm is None:
+            raise ValueError(
+                f"Table '{table_name}' → '{class_name}' uses milestoning scheme '{scheme_name}' "
+                f"but is missing required column '{col_name}' in its property mappings"
+            )
+        return pm
 
     has_processing = scheme.processing_start and scheme.processing_end
     has_single_date = scheme.business_date and not scheme.business_date_from
     has_range_date = scheme.business_date_from and scheme.business_date_to
 
     if has_range_date and has_processing:
-        _date_from = pm_by_col.get(scheme.business_date_from)
-        _date_to = pm_by_col.get(scheme.business_date_to)
-        _in = pm_by_col.get(scheme.processing_start)
-        _out = pm_by_col.get(scheme.processing_end)
-        if _date_from and _date_to and _in and _out:
-            return BiTemporalMilestonePropertyMapping(_date_from, _date_to, _in, _out,
-                                                      infinite_datetime=scheme.infinite_datetime)
+        return BiTemporalMilestonePropertyMapping(
+            _require(scheme.business_date_from), _require(scheme.business_date_to),
+            _require(scheme.processing_start), _require(scheme.processing_end),
+            infinite_datetime=scheme.infinite_datetime,
+        )
     elif has_single_date and has_processing:
-        _date = pm_by_col.get(scheme.business_date)
-        _in = pm_by_col.get(scheme.processing_start)
-        _out = pm_by_col.get(scheme.processing_end)
-        if _date and _in and _out:
-            return BusinessDateAndProcessingMilestonePropertyMapping(_date, _in, _out,
-                                                                     infinite_datetime=scheme.infinite_datetime)
+        return BusinessDateAndProcessingMilestonePropertyMapping(
+            _require(scheme.business_date),
+            _require(scheme.processing_start), _require(scheme.processing_end),
+            infinite_datetime=scheme.infinite_datetime,
+        )
     elif has_processing:
-        _in = pm_by_col.get(scheme.processing_start)
-        _out = pm_by_col.get(scheme.processing_end)
-        if _in and _out:
-            return ProcessingDateMilestonesPropertyMapping(_in, _out, infinite_datetime=scheme.infinite_datetime)
+        return ProcessingDateMilestonesPropertyMapping(
+            _require(scheme.processing_start), _require(scheme.processing_end),
+            infinite_datetime=scheme.infinite_datetime,
+        )
     elif has_single_date:
-        _date = pm_by_col.get(scheme.business_date)
-        if _date:
-            return SingleBusinessDateMilestonePropertyMapping(_date)
+        return SingleBusinessDateMilestonePropertyMapping(_require(scheme.business_date))
     return None
 
 
