@@ -1,6 +1,6 @@
 import datetime
 
-from datafinder import StringAttribute, to_sql, build_query_operation, select_sql_to_string
+from datafinder import StringAttribute, to_sql
 from datafinder import IntegerAttribute
 from datafinder.sql_generator import SQLQueryGenerator
 from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute
@@ -210,10 +210,7 @@ class TestWindowFunctions:
 
     def test_row_number_with_order_by(self):
         table, name_attr, id_attr = _make_multi_col_table()
-        select_op = build_query_operation(
-            None, None, [id_attr.row_number(order_by=[id_attr.ascending()])], table, NoOperation()
-        )
-        sql = select_sql_to_string(select_op)
+        sql = to_sql(None, None, [id_attr.row_number(order_by=[id_attr.ascending()])], table, NoOperation())
         assert "ROW_NUMBER()" in sql
         assert "OVER (" in sql
         assert "ORDER BY" in sql
@@ -221,14 +218,11 @@ class TestWindowFunctions:
 
     def test_rank_with_partition_and_order_by(self):
         table, name_attr, id_attr = _make_multi_col_table()
-        select_op = build_query_operation(
-            None,
-            None,
+        sql = to_sql(
+            None, None,
             [id_attr.rank(partition_by=[name_attr], order_by=[id_attr.descending()])],
-            table,
-            NoOperation(),
+            table, NoOperation(),
         )
-        sql = select_sql_to_string(select_op)
         assert "RANK()" in sql
         assert "PARTITION BY" in sql
         assert "NAME" in sql
@@ -236,14 +230,11 @@ class TestWindowFunctions:
 
     def test_sum_over_partition_and_order_by(self):
         table, name_attr, id_attr = _make_multi_col_table()
-        select_op = build_query_operation(
-            None,
-            None,
+        sql = to_sql(
+            None, None,
             [id_attr.sum().over(partition_by=[name_attr], order_by=[id_attr.ascending()])],
-            table,
-            NoOperation(),
+            table, NoOperation(),
         )
-        sql = select_sql_to_string(select_op)
         assert "SUM(" in sql
         assert "OVER (" in sql
         assert "PARTITION BY" in sql
