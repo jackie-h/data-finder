@@ -48,6 +48,22 @@ class Attribute:
 
     def rank(self, method: str = 'min', ascending: bool = True, pct: bool = False,
              partition_by=None, order_by=None):
+        """Assign a rank to each row within the window, following pandas ``Series.rank`` conventions.
+
+        ``method`` controls tie-breaking:
+
+        - ``'min'``   — tied rows share the lowest rank; the next rank skips.
+        - ``'dense'`` — like ``'min'`` but ranks are contiguous (no gaps).
+        - ``'first'`` — rows are numbered by order of appearance; no ties.
+
+        When ``pct=True`` the result is a relative rank between 0 and 1:
+
+        - default (``method!='max'``) — cumulative proportion using ``PERCENT_RANK`` semantics.
+        - ``method='max'``            — cumulative proportion using ``CUME_DIST`` semantics.
+
+        ``ascending`` is accepted for API symmetry with pandas but does not affect ranking;
+        control sort direction through ``order_by`` instead.
+        """
         if pct:
             if method == 'max':
                 func, name = WindowFunction.CUME_DIST, 'Cume Dist'
@@ -62,10 +78,20 @@ class Attribute:
         return WindowFunctionOperation(None, func, name, window=self._window_spec(partition_by, order_by))
 
     def qcut(self, buckets: int, partition_by=None, order_by=None):
+        """Divide rows into ``buckets`` equal-sized groups and return each row's bucket number (1-based).
+
+        Named after ``pandas.qcut``, which splits a series into quantile-based bins.
+        """
         return WindowFunctionOperation(None, WindowFunction.NTILE, 'Quantile',
                                        second_arg=buckets, window=self._window_spec(partition_by, order_by))
 
     def shift(self, periods: int = 1, fill_value=None, partition_by=None, order_by=None):
+        """Return the column value offset by ``periods`` rows within the window, following pandas ``Series.shift``.
+
+        - Positive ``periods`` look *back*: returns the value from ``periods`` rows before the current row.
+        - Negative ``periods`` look *ahead*: returns the value from ``abs(periods)`` rows after the current row.
+        - ``fill_value`` is returned when the offset row does not exist (at the start or end of the partition).
+        """
         extra_args = [] if fill_value is None else [fill_value]
         func = WindowFunction.LAG if periods >= 0 else WindowFunction.LEAD
         label = 'Lag' if periods >= 0 else 'Lead'
@@ -79,6 +105,7 @@ class Attribute:
         )
 
     def first(self, partition_by=None, order_by=None):
+        """Return the first value of this column in the window frame."""
         return WindowFunctionOperation(
             ColumnWithJoin(self.__column, self.__parent),
             WindowFunction.FIRST_VALUE,
@@ -87,6 +114,7 @@ class Attribute:
         )
 
     def last(self, partition_by=None, order_by=None):
+        """Return the last value of this column in the window frame."""
         return WindowFunctionOperation(
             ColumnWithJoin(self.__column, self.__parent),
             WindowFunction.LAST_VALUE,
