@@ -78,19 +78,19 @@ class Attribute:
             window=self._window_spec(partition_by, order_by),
         )
 
-    def first_value(self, partition_by=None, order_by=None):
+    def first(self, partition_by=None, order_by=None):
         return WindowFunctionOperation(
             ColumnWithJoin(self.__column, self.__parent),
             WindowFunction.FIRST_VALUE,
-            'First Value ' + self.__display_name,
+            'First ' + self.__display_name,
             window=self._window_spec(partition_by, order_by),
         )
 
-    def last_value(self, partition_by=None, order_by=None):
+    def last(self, partition_by=None, order_by=None):
         return WindowFunctionOperation(
             ColumnWithJoin(self.__column, self.__parent),
             WindowFunction.LAST_VALUE,
-            'Last Value ' + self.__display_name,
+            'Last ' + self.__display_name,
             window=self._window_spec(partition_by, order_by),
         )
 
