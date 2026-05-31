@@ -62,7 +62,8 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         self.__{{reverse_name}} = None
 {% endfor %}
         if kwargs:
-            join.filter = self._build_kwargs_filter(self.__node, kwargs, {{rcm.clazz.name}}RelatedFinder._column_map)
+            join.filter_kwargs = kwargs
+            join.filter_column_map = {{rcm.clazz.name}}RelatedFinder._column_map
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
