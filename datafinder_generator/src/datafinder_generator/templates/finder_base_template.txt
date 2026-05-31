@@ -26,13 +26,13 @@ class {{rcm.clazz.name}}RelatedFinderBase(ABC):
 
 {% elif rpm.property.type.name != rcm.clazz.name %}
     @abstractmethod
-    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinderBase: ...
+    def {{to_python_name(rpm.property)}}(self, **kwargs) -> {{rpm.property.type.name}}RelatedFinderBase: ...
 
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
     @abstractmethod
-    def {{reverse_name}}(self) -> {{source_rcm.clazz.name}}RelatedFinderBase: ...
+    def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinderBase: ...
 
 {% endfor %}
 
@@ -44,13 +44,13 @@ class {{rcm.clazz.name}}FinderBase(ABC):
 
 {% elif rpm.property.type.name != rcm.clazz.name %}
     @abstractmethod
-    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinderBase: ...
+    def {{to_python_name(rpm.property)}}(self, **kwargs) -> {{rpm.property.type.name}}RelatedFinderBase: ...
 
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
     @abstractmethod
-    def {{reverse_name}}(self) -> {{source_rcm.clazz.name}}RelatedFinderBase: ...
+    def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinderBase: ...
 
 {% endfor %}
     @abstractmethod

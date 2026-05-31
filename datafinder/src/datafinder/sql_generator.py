@@ -163,7 +163,10 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
     for node in required_joins.values():
         if isinstance(node.join.target, MilestonedTable):
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
-            node.join.filter = milestoned_op
+            if node.join.filter is not None:
+                node.join.filter = LogicalOperation(node.join.filter, LogicalOperator.AND, milestoned_op)
+            else:
+                node.join.filter = milestoned_op
 
     select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table)
     return select

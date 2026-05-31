@@ -36,7 +36,15 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
     __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [])
 {% endif %}
 
-    def __init__(self, relation_name:str, source: Column, target: Column, parent_join: JoinTreeNodeOperation = None):
+    _column_map = {
+{% for rpm in rcm.property_mappings %}
+{% if is_primitive(rpm.property) %}
+        '{{rpm.property.id}}': ('{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}'),
+{% endif %}
+{% endfor %}
+    }
+
+    def __init__(self, relation_name: str, source: Column, target: Column, parent_join: JoinTreeNodeOperation = None, **kwargs):
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
         self.__node = JoinTreeNodeOperation(join, parent_join)
         RelatedFinder.__init__(self, self.__node)
@@ -53,6 +61,8 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
         self.__{{reverse_name}} = None
 {% endfor %}
+        if kwargs:
+            join.filter = self._build_kwargs_filter(self.__node, kwargs, {{rcm.clazz.name}}RelatedFinder._column_map)
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
@@ -67,7 +77,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         return self.__{{to_python_name(rpm.property)}}
 
 {% elif rpm.property.type.name != rcm.clazz.name %}
-    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinder:
+    def {{to_python_name(rpm.property)}}(self, **kwargs) -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
         """{{display_name(rpm.property)}}
         {{rpm.property.tagged_values['doc'].value}}
@@ -75,13 +85,18 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% else %}
         """{{display_name(rpm.property)}}"""
 {% endif %}
+        if kwargs:
+            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node, **kwargs)
         return self.__{{to_python_name(rpm.property)}}
 
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
-    def {{reverse_name}}(self) -> {{source_rcm.clazz.name}}RelatedFinder:
+    def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
         """{{source_rcm.clazz.name}}"""
+        if kwargs:
+            from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
+            return {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), self.__node, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
             self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), self.__node)
@@ -147,7 +162,7 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% else %}
-    def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}RelatedFinder:
+    def {{to_python_name(rpm.property)}}(self, **kwargs) -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
         """{{display_name(rpm.property)}}
         {{rpm.property.tagged_values['doc'].value}}
@@ -155,13 +170,18 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% else %}
         """{{display_name(rpm.property)}}"""
 {% endif %}
+        if kwargs:
+            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), None, **kwargs)
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
-    def {{reverse_name}}(self) -> {{source_rcm.clazz.name}}RelatedFinder:
+    def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
         """{{source_rcm.clazz.name}}"""
+        if kwargs:
+            from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
+            return {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), None, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
             self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'))
