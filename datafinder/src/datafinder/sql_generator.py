@@ -102,6 +102,40 @@ def find_column(operation: RelationalOperationElement) -> ColumnWithJoin:
     else:
         raise TypeError(operation)
 
+def _build_join_kwargs_filter(node, filter_kwargs: dict, filter_column_map: dict):
+    """Translate raw property-equality kwargs into a relational filter for a join node.
+
+    ``filter_column_map`` maps property IDs to ``(col_name, col_type, table)`` tuples.
+    Multiple kwargs are combined with AND.  Raises ``ValueError`` for unknown keys.
+    """
+    import decimal
+    ops = []
+    for key, value in filter_kwargs.items():
+        if key not in filter_column_map:
+            raise ValueError(f"Unknown property '{key}' — valid properties are: {sorted(filter_column_map)}")
+        col_name, col_type, table = filter_column_map[key]
+        col = ColumnWithJoin(Column(col_name, col_type, table), node)
+        if isinstance(value, bool):
+            const = BooleanConstantOperation(value)
+        elif isinstance(value, int):
+            const = IntegerConstantOperation(value)
+        elif isinstance(value, float):
+            const = FloatConstantOperation(value)
+        elif isinstance(value, decimal.Decimal):
+            const = DecimalConstantOperation(value)
+        elif isinstance(value, datetime.datetime):
+            const = DateTimeConstantOperation(value)
+        elif isinstance(value, datetime.date):
+            const = DateConstantOperation(value)
+        else:
+            const = StringConstantOperation(str(value))
+        ops.append(ComparisonOperation(col, ComparisonOperator.EQUAL, const))
+    result = ops[0]
+    for op in ops[1:]:
+        result = LogicalOperation(result, LogicalOperator.AND, op)
+    return result
+
+
 def collect_required_joins(op: RelationalOperationElement, required_joins: dict):
     if op is None:
         return
@@ -161,9 +195,13 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
     collect_required_joins(op, required_joins)
 
     for node in required_joins.values():
+        combined = None
+        if node.join.filter_kwargs:
+            combined = _build_join_kwargs_filter(node, node.join.filter_kwargs, node.join.filter_column_map)
         if isinstance(node.join.target, MilestonedTable):
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
-            node.join.filter = milestoned_op
+            combined = milestoned_op if combined is None else LogicalOperation(combined, LogicalOperator.AND, milestoned_op)
+        node.join.filter = combined
 
     select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table)
     return select

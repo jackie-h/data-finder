@@ -382,6 +382,8 @@ class JoinOperation:
         self.left = lhs
         self.right = rhs
         self.filter = _filter
+        self.filter_kwargs: dict = {}
+        self.filter_column_map: dict = {}
 
 
 class JoinTreeNodeOperation:

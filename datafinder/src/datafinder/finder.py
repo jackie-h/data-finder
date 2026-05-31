@@ -37,3 +37,4 @@ class RelatedFinder:
     def not_exists(self) -> NotExistsOperation:
         """Return a filter matching rows where the association has no match."""
         return NotExistsOperation(self._node)
+
