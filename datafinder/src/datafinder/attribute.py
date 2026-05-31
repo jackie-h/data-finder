@@ -61,8 +61,8 @@ class Attribute:
             func, name = WindowFunction.RANK, 'Rank'
         return WindowFunctionOperation(None, func, name, window=self._window_spec(partition_by, order_by))
 
-    def ntile(self, buckets: int, partition_by=None, order_by=None):
-        return WindowFunctionOperation(None, WindowFunction.NTILE, 'Ntile',
+    def qcut(self, buckets: int, partition_by=None, order_by=None):
+        return WindowFunctionOperation(None, WindowFunction.NTILE, 'Quantile',
                                        second_arg=buckets, window=self._window_spec(partition_by, order_by))
 
     def shift(self, periods: int = 1, fill_value=None, partition_by=None, order_by=None):
