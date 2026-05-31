@@ -206,6 +206,70 @@ class TestAttributeCount:
         assert "ID" in sql
 
 
+class TestWindowFunctions:
+
+    def test_rank_method_first_produces_row_number(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [id_attr.rank(method='first', order_by=[id_attr.ascending()])], table, NoOperation())
+        assert "ROW_NUMBER()" in sql
+        assert "OVER (" in sql
+        assert "ORDER BY" in sql
+
+    def test_rank_method_min_with_partition_and_order(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(
+            None, None,
+            [id_attr.rank(method='min', partition_by=[name_attr], order_by=[id_attr.descending()])],
+            table, NoOperation(),
+        )
+        assert "RANK()" in sql
+        assert "PARTITION BY" in sql
+        assert "NAME" in sql
+        assert "DESC" in sql
+
+    def test_rank_method_dense(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [id_attr.rank(method='dense', order_by=[id_attr.ascending()])], table, NoOperation())
+        assert "DENSE_RANK()" in sql
+
+    def test_rank_pct_true_produces_percent_rank(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [id_attr.rank(pct=True, order_by=[id_attr.ascending()])], table, NoOperation())
+        assert "PERCENT_RANK()" in sql
+
+    def test_rank_pct_true_method_max_produces_cume_dist(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [id_attr.rank(pct=True, method='max', order_by=[id_attr.ascending()])], table, NoOperation())
+        assert "CUME_DIST()" in sql
+
+    def test_shift_positive_periods_produces_lag(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [id_attr.shift(1, order_by=[id_attr.ascending()])], table, NoOperation())
+        assert "LAG(" in sql
+
+    def test_shift_negative_periods_produces_lead(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [id_attr.shift(-1, order_by=[id_attr.ascending()])], table, NoOperation())
+        assert "LEAD(" in sql
+
+    def test_shift_default_is_lag_by_one(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [id_attr.shift(order_by=[id_attr.ascending()])], table, NoOperation())
+        assert "LAG(t0.ID, 1)" in sql
+
+    def test_sum_over_partition_and_order_by(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(
+            None, None,
+            [id_attr.sum().over(partition_by=[name_attr], order_by=[id_attr.ascending()])],
+            table, NoOperation(),
+        )
+        assert "SUM(" in sql
+        assert "OVER (" in sql
+        assert "PARTITION BY" in sql
+        assert "ORDER BY" in sql
+
+
 class TestGroupBy:
 
     def test_no_group_by_produces_no_group_clause(self):
