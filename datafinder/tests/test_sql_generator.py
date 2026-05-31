@@ -1,6 +1,6 @@
 import datetime
 
-from datafinder import StringAttribute, to_sql
+from datafinder import StringAttribute, to_sql, build_query_operation, select_sql_to_string
 from datafinder import IntegerAttribute
 from datafinder.sql_generator import SQLQueryGenerator
 from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute

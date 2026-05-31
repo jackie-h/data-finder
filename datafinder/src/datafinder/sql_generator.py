@@ -102,16 +102,16 @@ def find_column(operation: RelationalOperationElement) -> ColumnWithJoin:
     else:
         raise TypeError(operation)
 
-def collect_required_joins(op: RelationalOperationElement, required_joins: set):
+def collect_required_joins(op: RelationalOperationElement, required_joins: dict):
     if op is None:
         return
     if isinstance(op, Attribute):
         parent = op.parent()
         if parent is not None:
-            required_joins.add(parent)
+            required_joins[id(parent)] = parent
     elif isinstance(op, ColumnWithJoin):
         if op.parent is not None:
-            required_joins.add(op.parent)
+            required_joins[id(op.parent)] = op.parent
     elif isinstance(op, AggregateOperation):
         collect_required_joins(op.element, required_joins)
         collect_required_joins(op.window, required_joins)
@@ -151,8 +151,7 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
         milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
         op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
-    required_joins: list[JoinTreeNodeOperation] = []
-    required_join_ids: set = set()
+    required_joins: dict = {}
     for col in columns:
         collect_required_joins(col, required_joins)
     for group_by_expr in group_by or []:
@@ -161,7 +160,7 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
         collect_required_joins(sort_op.column, required_joins)
     collect_required_joins(op, required_joins)
 
-    for node in required_joins:
+    for node in required_joins.values():
         if isinstance(node.join.target, MilestonedTable):
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
             node.join.filter = milestoned_op
@@ -334,12 +333,12 @@ class SQLQueryGenerator:
         self._root_table = select.table
         self.select(select.display)
         self._where = self.build_filter(select.filter)
-        required_joins = set()
+        required_joins: dict = {}
         for group_by_expr in select.group_by:
             self.__collect_required_joins(group_by_expr, required_joins)
         for sort_op in select.order_by:
             self.__collect_required_joins(sort_op.column, required_joins)
-        for parent in required_joins:
+        for parent in required_joins.values():
             self.__add_join(parent)
         self._group_by_parts = [
             self.__attr_to_col_string(a) for a in select.group_by
@@ -356,15 +355,15 @@ class SQLQueryGenerator:
         return ta.alias + '.' + attr.column().name
 
     @staticmethod
-    def __is_self_join(parent: JoinOperation) -> bool:
-        return parent.left.owner == parent.right.owner
+    def __is_self_join(parent: JoinTreeNodeOperation) -> bool:
+        return parent.join.left.owner == parent.join.right.owner
 
-    def __join_target_key(self, parent: JoinOperation):
-        """Cache key for the join target alias. Use join op identity only for self-joins
-        so the target gets a distinct alias from the source table."""
-        return parent if self.__is_self_join(parent) else None
+    def __join_target_key(self, parent: JoinTreeNodeOperation):
+        """Cache key for the join target alias. Always keyed by node identity so the
+        alias in SELECT matches the alias registered in __add_join."""
+        return parent
 
-    def __table_alias_for_column(self, column: Column, parent: JoinOperation = None) -> TableAlias:
+    def __table_alias_for_column(self, column: Column, parent: JoinTreeNodeOperation = None) -> TableAlias:
         key = self.__join_target_key(parent) if parent is not None else None
         return self.__table_alias_for_table(column.owner, key=key)
 
@@ -404,16 +403,16 @@ class SQLQueryGenerator:
             return Alias(self.__rewrite_operation(op.element), op.name)
         return op
 
-    def __collect_required_joins(self, op: RelationalOperationElement, required_joins: set):
+    def __collect_required_joins(self, op: RelationalOperationElement, required_joins: dict):
         if op is None:
             return
         if isinstance(op, Attribute):
             parent = op.parent()
             if parent is not None:
-                required_joins.add(parent)
+                required_joins[id(parent)] = parent
         elif isinstance(op, ColumnWithJoin):
             if op.parent is not None:
-                required_joins.add(op.parent)
+                required_joins[id(op.parent)] = op.parent
         elif isinstance(op, AggregateOperation):
             self.__collect_required_joins(op.element, required_joins)
             self.__collect_required_joins(op.window, required_joins)
@@ -446,7 +445,7 @@ class SQLQueryGenerator:
             self.__collect_required_joins(op.right, required_joins)
 
     def select(self, cols: list[Attribute]):
-        required_joins = set()
+        required_joins: dict = {}
         if self._root_table is not None:
             self._from.add(self.__table_alias_for_table(self._root_table.name))
 
@@ -481,7 +480,7 @@ class SQLQueryGenerator:
             else:
                 self._select.append(Alias(rewritten, str(col)))
 
-        for node in required_joins:
+        for node in required_joins.values():
             self.__add_join(node)
 
     def __add_join(self, node: JoinTreeNodeOperation):
