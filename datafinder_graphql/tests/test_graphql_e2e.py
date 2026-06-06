@@ -25,6 +25,7 @@ from model.graphql_mapping import (
     GraphQLQuery,
     GraphQLField,
     GraphQLPropertyMapping,
+    GraphQLAssociationMapping,
     GraphQLClassMapping,
     GraphQLProcessingMilestone,
     GraphQLBusinessDateMilestone,
@@ -582,3 +583,125 @@ class TestGraphQLBiTemporalMilestoneE2E:
 
         assert q.milestone.business_date_argument == "businessDate"
         assert q.milestone.processing_argument == "asOf"
+
+
+# ===========================================================================
+# Association mapping E2E tests
+# ===========================================================================
+
+_MOCK_TRADES_WITH_ACCOUNTS = [
+    {"symbol": "IBM",  "price": 3000.5, "account": {"id": 211978, "name": "Trading Account 1"}},
+    {"symbol": "GS",   "price": 45.7,   "account": {"id": 211978, "name": "Trading Account 1"}},
+]
+
+
+class _TradesWithAccountsHandler(BaseHTTPRequestHandler):
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length))
+        self._captured_query = body.get("query", "")
+        payload = json.dumps({"data": {"trades": _MOCK_TRADES_WITH_ACCOUNTS}}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, *args):
+        pass
+
+
+_last_association_query: list[str] = []
+
+
+class _CapturingTradesHandler(BaseHTTPRequestHandler):
+    """Captures the raw GraphQL query string for assertion."""
+
+    def do_POST(self):
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length))
+        _last_association_query.clear()
+        _last_association_query.append(body.get("query", ""))
+        payload = json.dumps({"data": {"trades": _MOCK_TRADES_WITH_ACCOUNTS}}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def log_message(self, *args):
+        pass
+
+
+@pytest.fixture(scope="module")
+def association_server():
+    server = HTTPServer(("127.0.0.1", 0), _TradesWithAccountsHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server
+    server.shutdown()
+
+
+@pytest.fixture(scope="module")
+def capturing_server():
+    server = HTTPServer(("127.0.0.1", 0), _CapturingTradesHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    yield server
+    server.shutdown()
+
+
+class TestGraphQLAssociationE2E:
+
+    def test_association_mapping_metadata(self):
+        """GraphQLAssociationMapping correctly wires the nav property into a class mapping."""
+        account_c = _make_account_class()
+        trade_c = _make_trade_class(account_c, _make_instrument_class())
+        endpoint = GraphQLEndpoint("http://example.com/graphql")
+        query = GraphQLQuery("trades", endpoint)
+
+        trade_cm = GraphQLClassMapping(trade_c, [
+            GraphQLPropertyMapping(trade_c.property('symbol'), GraphQLField("symbol")),
+            GraphQLPropertyMapping(trade_c.property('price'),  GraphQLField("price")),
+            GraphQLAssociationMapping(trade_c.property('account'), GraphQLField("account"), "TradeAccount"),
+        ], query)
+
+        assoc_pms = [pm for pm in trade_cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+        assert len(assoc_pms) == 1
+        pm = assoc_pms[0]
+        assert pm.association_name == "TradeAccount"
+        assert pm.target.name == "account"
+        assert pm.property.id == "account"
+        assert pm.property.type.name == "Account"
+
+    def test_nested_account_object_returned_in_results(self, association_server):
+        """When the GraphQL response contains a nested account object the engine returns it as-is."""
+        host, port = association_server.server_address
+        endpoint = GraphQLEndpoint(f"http://{host}:{port}/graphql")
+        query = GraphQLQuery("trades", endpoint)
+
+        sym = StringAttribute("Symbol", "symbol", "STRING", "trades")
+        account_attr = StringAttribute("Account", "account", "STRING", "trades")
+
+        data = FinderResult(None, None, [sym, account_attr], query, None).to_numpy()
+
+        assert data.shape == (2, 2)
+        assert data[0][0] == "IBM"
+        assert data[0][1] == {"id": 211978, "name": "Trading Account 1"}
+        assert data[1][0] == "GS"
+
+    def test_association_field_included_in_outgoing_query(self, capturing_server):
+        """The association field name 'account' is present in the GraphQL query string sent."""
+        host, port = capturing_server.server_address
+        endpoint = GraphQLEndpoint(f"http://{host}:{port}/graphql")
+        query = GraphQLQuery("trades", endpoint)
+
+        sym = StringAttribute("Symbol", "symbol", "STRING", "trades")
+        account_attr = StringAttribute("Account", "account", "STRING", "trades")
+
+        FinderResult(None, None, [sym, account_attr], query, None).to_numpy()
+
+        assert len(_last_association_query) == 1
+        sent = _last_association_query[0]
+        assert "trades" in sent
+        assert "symbol" in sent
+        assert "account" in sent

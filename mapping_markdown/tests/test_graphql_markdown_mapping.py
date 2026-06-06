@@ -5,6 +5,7 @@ import pytest
 from mapping_markdown.graphql_mapping_markdown import load, loads, save, to_markdown
 from model.graphql_mapping import (
     GraphQLClassMapping,
+    GraphQLAssociationMapping,
     GraphQLProcessingMilestone,
     GraphQLBusinessDateMilestone,
     GraphQLBiTemporalMilestone,
@@ -153,6 +154,72 @@ class TestGraphQLMarkdownRoundTrip:
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
+
+
+class TestGraphQLAssociationMapping:
+
+    def setup_method(self):
+        self.mapping = load(FIXTURE)
+        self.by_class = {cm.clazz.name: cm for cm in self.mapping.mappings}
+
+    def test_trade_has_account_association(self):
+        cm = self.by_class["Trade"]
+        assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+        assert len(assoc_mappings) == 1
+        assert assoc_mappings[0].association_name == "TradeAccount"
+
+    def test_trade_account_association_graphql_field(self):
+        cm = self.by_class["Trade"]
+        assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+        assert assoc_mappings[0].target.name == "account"
+
+    def test_trade_account_association_nav_property(self):
+        cm = self.by_class["Trade"]
+        assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+        assert assoc_mappings[0].property.id == "account"
+
+    def test_trade_account_association_target_class(self):
+        cm = self.by_class["Trade"]
+        assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+        assert assoc_mappings[0].property.type.name == "Account"
+
+    def test_non_association_classes_have_no_association_mappings(self):
+        for name in ("Account", "Instrument", "ContractualPosition"):
+            cm = self.by_class[name]
+            assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+            assert assoc_mappings == [], f"{name} should have no association mappings"
+
+    def test_round_trip_preserves_association(self):
+        mapping = load(FIXTURE)
+        md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
+        tmp = os.path.join(TEST_DIR, "_tmp_graphql_assoc_rt.md")
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(md)
+            reloaded = load(tmp)
+            by_class = {cm.clazz.name: cm for cm in reloaded.mappings}
+            assoc_mappings = [pm for pm in by_class["Trade"].property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+            assert len(assoc_mappings) == 1
+            assert assoc_mappings[0].association_name == "TradeAccount"
+            assert assoc_mappings[0].target.name == "account"
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+
+    def test_to_markdown_contains_association_section(self):
+        mapping = load(FIXTURE)
+        md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
+        assert "#### Association: TradeAccount" in md
+        assert "account" in md
+
+    def test_to_markdown_association_not_in_field_table(self):
+        mapping = load(FIXTURE)
+        md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
+        # The account field should appear in the association section, not in the Field/Property ID table
+        trade_section = md[md.index("### Query: trades"):]
+        field_table_end = trade_section.index("#### Association:")
+        field_table_section = trade_section[:field_table_end]
+        assert "account" not in field_table_section
 
 
 class TestGraphQLFieldMappingHeaderValidation:

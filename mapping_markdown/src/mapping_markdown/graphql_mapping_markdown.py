@@ -6,13 +6,14 @@ from typing import Optional
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
-from model.m3 import Class, PrimitiveType
+from model.m3 import Class, Property, PrimitiveType, Association
 from model.mapping import Mapping
 from model.graphql_mapping import (
     GraphQLEndpoint,
     GraphQLQuery,
     GraphQLField,
     GraphQLPropertyMapping,
+    GraphQLAssociationMapping,
     GraphQLClassMapping,
     GraphQLProcessingMilestone,
     GraphQLBusinessDateMilestone,
@@ -75,10 +76,18 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
         for child in pkg.children
         if isinstance(child, Class)
     }
+    associations_by_name = {
+        child.name: child
+        for pkg in packages
+        for child in pkg.children
+        if isinstance(child, Association)
+    }
 
     title = "Mapping"
     current_endpoint: Optional[GraphQLEndpoint] = None
     class_mappings: list[GraphQLClassMapping] = []
+    # class name → (property_mappings list, Class) for association sections to append to
+    class_context: dict[str, tuple[list, Class]] = {}
 
     i = 0
     while i < len(nodes):
@@ -132,6 +141,57 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                     i += 1
 
                 class_mappings.append(GraphQLClassMapping(cls, property_mappings, query))
+                class_context[class_name] = (property_mappings, cls)
+                continue
+
+            elif level == "h4" and text.startswith("Association:"):
+                assoc_name = text[len("Association:"):].strip()
+                i += 1
+
+                assoc_def = associations_by_name.get(assoc_name)
+                if assoc_def is None:
+                    _log.warning("Association '%s': not found in model", assoc_name)
+                    if i < len(nodes) and nodes[i].type == "table":
+                        i += 1
+                    continue
+
+                # Determine which side of the association applies to the most-recently mapped class
+                last_class_name = next(reversed(class_context), None)
+                pm_list, src_cls = class_context.get(last_class_name, (None, None))
+
+                if pm_list is None:
+                    _log.warning("Association '%s': no Query section found before this Association", assoc_name)
+                    if i < len(nodes) and nodes[i].type == "table":
+                        i += 1
+                    continue
+
+                if assoc_def.source == src_cls.name:
+                    nav_prop_name = assoc_def.target_property.name
+                    nav_prop_id = assoc_def.target_property.id
+                    target_class_name = assoc_def.target
+                elif assoc_def.target == src_cls.name:
+                    nav_prop_name = assoc_def.source_property.name
+                    nav_prop_id = assoc_def.source_property.id
+                    target_class_name = assoc_def.source
+                else:
+                    _log.warning(
+                        "Association '%s' does not involve class '%s'",
+                        assoc_name, src_cls.name,
+                    )
+                    if i < len(nodes) and nodes[i].type == "table":
+                        i += 1
+                    continue
+
+                target_cls = classes_by_name.get(target_class_name)
+
+                if i < len(nodes) and nodes[i].type == "table":
+                    for row in _parse_association_table(nodes[i]):
+                        graphql_field = row.get("GraphQL Field", "").strip()
+                        if not graphql_field:
+                            continue
+                        prop = Property(nav_prop_name, nav_prop_id, target_cls)
+                        pm_list.append(GraphQLAssociationMapping(prop, GraphQLField(graphql_field), assoc_name))
+                    i += 1
                 continue
 
         i += 1
@@ -156,6 +216,7 @@ def _parse_milestone(milestone_type: str, arg1: str, arg2: str):
 
 
 _FIELD_MAPPING_HEADERS = ["Field", "Property ID"]
+_ASSOCIATION_HEADERS = ["GraphQL Field"]
 
 
 def _parse_table(node: SyntaxTreeNode) -> list[dict]:
@@ -164,6 +225,20 @@ def _parse_table(node: SyntaxTreeNode) -> list[dict]:
     if headers != _FIELD_MAPPING_HEADERS:
         raise ValueError(
             f"GraphQL mapping table has unexpected headers {headers!r} — expected {_FIELD_MAPPING_HEADERS!r}"
+        )
+    rows = []
+    for tr in tbody.children:
+        cells = [c.children[0].content if c.children else "" for c in tr.children]
+        rows.append({headers[j]: cells[j] if j < len(cells) else "" for j in range(len(headers))})
+    return rows
+
+
+def _parse_association_table(node: SyntaxTreeNode) -> list[dict]:
+    thead, tbody = node.children[0], node.children[1]
+    headers = [c.children[0].content for c in thead.children[0].children]
+    if headers != _ASSOCIATION_HEADERS:
+        raise ValueError(
+            f"GraphQL association table has unexpected headers {headers!r} — expected {_ASSOCIATION_HEADERS!r}"
         )
     rows = []
     for tr in tbody.children:
@@ -217,10 +292,20 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
             field_rows = [
                 [pm.target.name, pm.property.id]
                 for pm in cm.property_mappings
-                if isinstance(pm.target, GraphQLField)
+                if isinstance(pm.target, GraphQLField) and not isinstance(pm, GraphQLAssociationMapping)
             ]
             lines.append(_md_table(["Field", "Property ID"], field_rows))
             lines.append("")
+
+            seen_assocs: dict[str, list[GraphQLAssociationMapping]] = {}
+            for pm in cm.property_mappings:
+                if isinstance(pm, GraphQLAssociationMapping):
+                    seen_assocs.setdefault(pm.association_name, []).append(pm)
+            for assoc_name, pms in seen_assocs.items():
+                lines.append(f"#### Association: {assoc_name}")
+                lines.append("")
+                lines.append(_md_table(["GraphQL Field"], [[pm.target.name] for pm in pms]))
+                lines.append("")
 
     return "\n".join(lines)
 
