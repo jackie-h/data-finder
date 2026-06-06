@@ -1,0 +1,85 @@
+from __future__ import annotations
+import datetime
+from typing import Union
+from datafinder.typed_attributes import *
+from datafinder import FinderResult, convert_inputs_and_select
+{% if milestone_class(cm.query.milestone) %}
+from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint, {{milestone_class(cm.query.milestone)}}
+{% else %}
+from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint
+{% endif %}
+from model.relational import NoOperation
+
+{% set seen = namespace(targets=[]) %}
+{% for pm in cm.property_mappings %}
+{% if is_association_mapping(pm) and pm.property.type.name not in seen.targets %}
+{% set seen.targets = seen.targets + [pm.property.type.name] %}
+{% set target_cm = class_mappings_by_name.get(pm.property.type.name) %}
+{% if target_cm %}
+
+class _{{pm.property.type.name}}RelatedFinder:
+
+    def __init__(self, parent_field: str):
+{% for tpm in target_cm.property_mappings %}
+{% if is_primitive_mapping(tpm) %}
+        self.__{{to_python_name(tpm.property)}} = {{tpm.property.type.name}}Attribute('{{display_name(tpm.property)}}', parent_field + '.{{tpm.target.name}}', '{{type_str(tpm.property.type)}}', '{{cm.query.name}}')
+{% endif %}
+{% endfor %}
+
+{% for tpm in target_cm.property_mappings %}
+{% if is_primitive_mapping(tpm) %}
+    def {{to_python_name(tpm.property)}}(self) -> {{tpm.property.type.name}}Attribute:
+        """{{display_name(tpm.property)}}"""
+        return self.__{{to_python_name(tpm.property)}}
+
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+class {{cm.clazz.name}}Finder:
+{% if cm.clazz.tagged_values['doc'] %}
+    """{{cm.clazz.tagged_values['doc'].value}}"""
+{% endif %}
+
+    def __init__(self, endpoint: GraphQLEndpoint):
+{% if cm.query.milestone %}
+        self._query = GraphQLQuery("{{cm.query.name}}", endpoint, {{milestone_expr(cm.query.milestone)}})
+{% else %}
+        self._query = GraphQLQuery("{{cm.query.name}}", endpoint)
+{% endif %}
+{% for pm in cm.property_mappings %}
+{% if is_primitive_mapping(pm) %}
+        self.__{{to_python_name(pm.property)}} = {{pm.property.type.name}}Attribute('{{display_name(pm.property)}}', '{{pm.target.name}}', '{{type_str(pm.property.type)}}', '{{cm.query.name}}')
+{% elif is_association_mapping(pm) %}
+{% set target_cm = class_mappings_by_name.get(pm.property.type.name) %}
+{% if target_cm %}
+        self.__{{to_python_name(pm.property)}} = _{{pm.property.type.name}}RelatedFinder('{{pm.target.name}}')
+{% endif %}
+{% endif %}
+{% endfor %}
+
+{% for pm in cm.property_mappings %}
+{% if is_primitive_mapping(pm) %}
+    def {{to_python_name(pm.property)}}(self) -> {{pm.property.type.name}}Attribute:
+        """{{display_name(pm.property)}}"""
+        return self.__{{to_python_name(pm.property)}}
+
+{% elif is_association_mapping(pm) %}
+{% set target_cm = class_mappings_by_name.get(pm.property.type.name) %}
+{% if target_cm %}
+    def {{to_python_name(pm.property)}}(self) -> _{{pm.property.type.name}}RelatedFinder:
+        """{{display_name(pm.property)}}"""
+        return self.__{{to_python_name(pm.property)}}
+
+{% endif %}
+{% endif %}
+{% endfor %}
+    def find_all(self,
+                 business_date: Union[datetime.date, str],
+                 processing_valid_at: Union[datetime.datetime, str],
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data matching the optional filter."""
+        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, self._query, filter_op)

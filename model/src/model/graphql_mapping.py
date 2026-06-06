@@ -51,6 +51,13 @@ class GraphQLPropertyMapping(PropertyMapping):
         super().__init__(property, field)
 
 
+class GraphQLAssociationMapping(GraphQLPropertyMapping):
+    """A navigation property resolved via a GraphQL nested field rather than a primitive field."""
+    def __init__(self, property: Property, field: GraphQLField, association_name: str):
+        super().__init__(property, field)
+        self.association_name = association_name
+
+
 class GraphQLClassMapping(ClassMapping):
     def __init__(self, clazz: Class, property_mappings: list[GraphQLPropertyMapping],
                  query: GraphQLQuery, milestone_mapping: MilestonePropertyMapping = None):
