@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Union
 from datafinder.typed_attributes import *
-from datafinder import FinderResult, convert_inputs_and_select
+from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from datafinder.finder import RelatedFinder
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
@@ -211,4 +211,21 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% endif %}
 {% else %}
         return convert_inputs_and_select(None, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+{% endif %}
+{% if rcm.milestone_mapping and (has_bitemporal(rcm.milestone_mapping) or has_business_date_and_processing(rcm.milestone_mapping) or has_uni_business_temporal(rcm.milestone_mapping)) %}
+
+    def find_for_date_range(self,
+                            business_date_from: Union[datetime.date, str],
+                            business_date_to: Union[datetime.date, str],
+                            processing_valid_at: Union[datetime.datetime, str],
+                            display_columns: list[Attribute],
+                            filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data for all records whose business date overlaps the given range.
+
+        For bitemporal tables the range uses interval overlap:
+            business_date_from_col <= business_date_to AND business_date_to_col > business_date_from
+        For single-date tables:
+            business_date >= business_date_from AND business_date <= business_date_to
+        """
+        return convert_inputs_and_select_for_date_range(business_date_from, business_date_to, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
 {% endif %}

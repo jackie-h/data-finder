@@ -1061,3 +1061,112 @@ class TestExistsNotExists:
         sql = to_sql(None, None, [sym_attr], trade_table, combined)
         assert "IS NULL" in sql
         assert "AAPL" in sql
+
+
+class TestFindForDateRange:
+
+    def _make_bitemporal_table(self):
+        from model.milestoning import BiTemporalColumns, MilestonedTable
+        biz_from = Column("biz_from", "DATE")
+        biz_to = Column("biz_to", "DATE")
+        in_z = Column("in_z", "TIMESTAMP")
+        out_z = Column("out_z", "TIMESTAMP")
+        mc = BiTemporalColumns(biz_from, biz_to, in_z, out_z, infinite_datetime="9999-12-31 23:59:59")
+        return MilestonedTable("trades", [], mc)
+
+    def _make_single_biz_date_table(self):
+        from model.milestoning import SingleBusinessDateColumn, MilestonedTable
+        biz_date = Column("biz_date", "DATE")
+        mc = SingleBusinessDateColumn(biz_date)
+        return MilestonedTable("positions", [], mc)
+
+    def _make_biz_date_and_processing_table(self):
+        from model.milestoning import BusinessDateAndProcessingTemporalColumns, MilestonedTable
+        biz_date = Column("biz_date", "DATE")
+        in_z = Column("in_z", "TIMESTAMP")
+        out_z = Column("out_z", "TIMESTAMP")
+        mc = BusinessDateAndProcessingTemporalColumns(biz_date, in_z, out_z, infinite_datetime="9999-12-31 23:59:59")
+        return MilestonedTable("positions", [], mc)
+
+    def test_bitemporal_range_uses_overlap_semantics(self):
+        """business_date_from_col <= range_end AND business_date_to_col > range_start"""
+        from datafinder.sql_generator import build_milestoning_filter_operation_for_date_range
+        table = self._make_bitemporal_table()
+        date_from = datetime.date(2024, 1, 1)
+        date_to = datetime.date(2024, 12, 31)
+        op = build_milestoning_filter_operation_for_date_range(date_from, date_to, None, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        assert "biz_from" in sql
+        assert "biz_to" in sql
+        assert "'2024-12-31'" in sql
+        assert "'2024-01-01'" in sql
+
+    def test_bitemporal_range_overlap_order(self):
+        """biz_from <= range_end comes before biz_to > range_start"""
+        from datafinder.sql_generator import build_milestoning_filter_operation_for_date_range
+        table = self._make_bitemporal_table()
+        op = build_milestoning_filter_operation_for_date_range(
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), None, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        from_pos = sql.index("biz_from")
+        to_pos = sql.index("biz_to")
+        assert from_pos < to_pos
+
+    def test_bitemporal_range_includes_processing_filter(self):
+        table = self._make_bitemporal_table()
+        pdt = datetime.datetime(2025, 6, 1, 0, 0, 0)
+        from datafinder.sql_generator import build_milestoning_filter_operation_for_date_range
+        op = build_milestoning_filter_operation_for_date_range(
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), pdt, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        assert "in_z" in sql
+        assert "out_z" in sql
+
+    def test_single_biz_date_range_uses_gte_lte(self):
+        """business_date >= range_start AND business_date <= range_end"""
+        from datafinder.sql_generator import build_milestoning_filter_operation_for_date_range
+        table = self._make_single_biz_date_table()
+        op = build_milestoning_filter_operation_for_date_range(
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), None, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        assert ">=" in sql
+        assert "<=" in sql
+        assert "'2024-01-01'" in sql
+        assert "'2024-12-31'" in sql
+
+    def test_biz_date_and_processing_range_filters_both(self):
+        table = self._make_biz_date_and_processing_table()
+        pdt = datetime.datetime(2025, 6, 1, 0, 0, 0)
+        from datafinder.sql_generator import build_milestoning_filter_operation_for_date_range
+        op = build_milestoning_filter_operation_for_date_range(
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), pdt, table)
+        gen = SQLQueryGenerator()
+        sql = gen.build_filter(op)
+        assert "biz_date" in sql
+        assert "in_z" in sql
+
+    def test_to_sql_with_business_date_to_generates_range_sql(self):
+        table = self._make_bitemporal_table()
+        attr = DateAttribute("Biz From", "biz_from", "DATE", "trades")
+        pdt = datetime.datetime(2025, 6, 1, 0, 0, 0)
+        sql = to_sql(
+            datetime.date(2024, 1, 1), pdt, [attr], table, NoOperation(),
+            business_date_to=datetime.date(2024, 12, 31),
+        )
+        assert "'2024-12-31'" in sql
+        assert "'2024-01-01'" in sql
+        assert "in_z" in sql
+
+    def test_to_sql_without_business_date_to_unchanged(self):
+        """Passing business_date_to=None must not change existing point-in-time behaviour."""
+        table = self._make_bitemporal_table()
+        attr = DateAttribute("Biz From", "biz_from", "DATE", "trades")
+        pdt = datetime.datetime(2025, 6, 1, 0, 0, 0)
+        bd = datetime.date(2024, 6, 15)
+        sql_point = to_sql(bd, pdt, [attr], table, NoOperation())
+        sql_none = to_sql(bd, pdt, [attr], table, NoOperation(), business_date_to=None)
+        assert sql_point == sql_none

@@ -15,9 +15,9 @@ class DuckDbConnect(QueryRunnerBase):
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
                table: Table, op: Operation, order_by: list = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = 60_000) -> DataFrame:
+               limit: int = None, timeout_ms: int = 60_000, business_date_to: datetime.date = None) -> DataFrame:
         conn = duckdb.connect('test.db')
-        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit)
+        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to)
         print(query)
         timer = threading.Timer(timeout_ms / 1000, conn.interrupt)
         timer.start()

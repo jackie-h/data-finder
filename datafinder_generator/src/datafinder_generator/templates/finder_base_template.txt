@@ -62,3 +62,13 @@ class {{rcm.clazz.name}}FinderBase(ABC):
                  processing_valid_at: Union[datetime.datetime, str],
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> FinderResult: ...
+{% if rcm.milestone_mapping and (has_bitemporal(rcm.milestone_mapping) or has_business_date_and_processing(rcm.milestone_mapping) or has_uni_business_temporal(rcm.milestone_mapping)) %}
+
+    @abstractmethod
+    def find_for_date_range(self,
+                            business_date_from: Union[datetime.date, str],
+                            business_date_to: Union[datetime.date, str],
+                            processing_valid_at: Union[datetime.datetime, str],
+                            display_columns: list[Attribute],
+                            filter_op: Operation = NoOperation()) -> FinderResult: ...
+{% endif %}
