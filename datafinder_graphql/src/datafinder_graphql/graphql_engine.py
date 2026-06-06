@@ -23,16 +23,52 @@ class GraphQLOutput(DataFrame):
     def to_numpy(self) -> np.ndarray:
         if not self._rows:
             return np.array([], dtype='object')
-        return np.array([[row[f] for f in self._field_names] for row in self._rows], dtype='object')
+        return np.array(
+            [[_extract_value(row, f) for f in self._field_names] for row in self._rows],
+            dtype='object',
+        )
 
     def to_pandas(self) -> pd.DataFrame:
-        return pd.DataFrame(self._rows, columns=self._field_names)
+        if not self._rows:
+            return pd.DataFrame(columns=self._field_names)
+        return pd.DataFrame(
+            [[_extract_value(row, f) for f in self._field_names] for row in self._rows],
+            columns=self._field_names,
+        )
+
+
+def _extract_value(row: dict, field_name: str):
+    """Extract a value from a row, supporting dot-separated nested paths."""
+    if "." in field_name:
+        parent, child = field_name.split(".", 1)
+        return _extract_value(row.get(parent) or {}, child)
+    return row.get(field_name)
+
+
+def _build_fields_str(columns: list[Attribute]) -> str:
+    """Build the GraphQL field selection string, grouping nested dot-path fields.
+
+    e.g. columns with names ["symbol", "account.name", "account.id"] produce
+    "symbol account { name id }"
+    """
+    nested: dict[str, list[str]] = {}
+    flat: list[str] = []
+    for col in columns:
+        name = col.column().name
+        if "." in name:
+            parent, child = name.split(".", 1)
+            nested.setdefault(parent, []).append(child)
+        else:
+            flat.append(name)
+    parts = list(flat)
+    for parent, children in nested.items():
+        parts.append(f"{parent} {{ {' '.join(children)} }}")
+    return " ".join(parts)
 
 
 def _build_temporal_args(business_date: datetime.date,
                          processing_datetime: datetime.datetime,
                          milestone) -> list[str]:
-    """Translate temporal parameters into GraphQL argument strings based on milestone config."""
     if milestone is None:
         return []
     args = []
@@ -58,7 +94,7 @@ class GraphQLConnect(QueryRunnerBase):
                order_by: list = None, group_by: list = None, limit: int = None,
                timeout_ms: int = 60_000) -> DataFrame:
         field_names = [col.column().name for col in columns]
-        fields_str = " ".join(field_names)
+        fields_str = _build_fields_str(columns)
 
         arg_parts = _build_temporal_args(business_date, processing_datetime,
                                          getattr(table, 'milestone', None))
