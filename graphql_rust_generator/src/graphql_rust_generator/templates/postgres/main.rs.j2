@@ -1,0 +1,35 @@
+mod schema;
+
+use async_graphql::{EmptyMutation, EmptySubscription, Schema};
+use async_graphql_axum::{GraphQL, GraphiQL};
+use axum::{routing::get, Router};
+use sqlx::postgres::PgPoolOptions;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
+    let database_url = std::env::var("DATABASE_URL")
+        .expect("DATABASE_URL must be set");
+
+    let pool = PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
+        .await?;
+
+    let schema = Schema::build(schema::QueryRoot, EmptyMutation, EmptySubscription)
+        .data(pool)
+        .finish();
+
+    let app = Router::new()
+        // GraphiQL browser playground
+        .route("/", get(GraphiQL::new("/graphql", None)))
+        // GraphQL endpoint
+        .route("/graphql", get(GraphQL::new(schema.clone())).post(GraphQL::new(schema)));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await?;
+    tracing::info!("GraphQL server running — playground: http://localhost:8000/");
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}

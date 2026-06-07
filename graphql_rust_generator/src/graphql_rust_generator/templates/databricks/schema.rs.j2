@@ -1,0 +1,333 @@
+//! Generated GraphQL schema — {{mapping_name}}
+//! Do not edit. Regenerate from the mapping markdown instead.
+//!
+//! Backend: Databricks SQL Statement Execution API (reqwest)
+
+use async_graphql::{Context, Object, Result, SimpleObject};
+use serde_json::Value;
+
+// ── FromRow trait ─────────────────────────────────────────────────────────────
+
+/// Deserialise a row from the Databricks JSON_ARRAY result format.
+trait FromRow: Sized {
+    fn from_row(row: &[Value]) -> Result<Self>;
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+{% for cls in classes %}
+{% if cls.has_assoc %}
+#[derive(Debug, Clone, SimpleObject)]
+#[graphql(complex)]
+pub struct {{cls.struct_name}} {
+{% for f in cls.fields %}
+    pub {{f.rust_name}}: {{f.rust_type}},
+{% endfor %}
+{% for f in cls.fk_fields %}
+    #[graphql(skip)]
+    pub {{f.rust_name}}: {{f.rust_type}},
+{% endfor %}
+}
+
+impl FromRow for {{cls.struct_name}} {
+    fn from_row(row: &[Value]) -> Result<Self> {
+        Ok(Self {
+{% for f in cls.fields %}
+            {{f.rust_name}}: {{f.deser_fn}}(&row[{{loop.index0}}])?,
+{% endfor %}
+{% set nf = cls.fields | length %}
+{% for f in cls.fk_fields %}
+            {{f.rust_name}}: {{f.deser_fn}}(&row[{{loop.index0 + nf}}])?,
+{% endfor %}
+        })
+    }
+}
+
+#[async_graphql::ComplexObject]
+impl {{cls.struct_name}} {
+{% for assoc in cls.associations %}
+    /// Navigates to {{assoc.target_struct}} via {{assoc.fk_rust_name}}.
+    async fn {{assoc.nav_name}}(&self, ctx: &Context<'_>) -> Result<{{assoc.target_struct}}> {
+        let client = ctx.data::<crate::DatabricksClient>()?;
+        let params = vec![db_param("pk", &self.{{assoc.fk_rust_name}}.to_string(), "INTEGER")];
+        let rows = databricks_sql(client, "{{assoc.assoc_sql_db}}", params).await?;
+        rows.first()
+            .map(|r| {{assoc.target_struct}}::from_row(r))
+            .ok_or_else(|| async_graphql::Error::new("{{assoc.target_struct}} not found"))?
+    }
+
+{% endfor %}
+}
+
+{% else %}
+#[derive(Debug, Clone, SimpleObject)]
+pub struct {{cls.struct_name}} {
+{% for f in cls.fields %}
+    pub {{f.rust_name}}: {{f.rust_type}},
+{% endfor %}
+}
+
+impl FromRow for {{cls.struct_name}} {
+    fn from_row(row: &[Value]) -> Result<Self> {
+        Ok(Self {
+{% for f in cls.fields %}
+            {{f.rust_name}}: {{f.deser_fn}}(&row[{{loop.index0}}])?,
+{% endfor %}
+        })
+    }
+}
+
+{% endif %}
+{% endfor %}
+
+// ── Query root ────────────────────────────────────────────────────────────────
+
+pub struct QueryRoot;
+
+#[Object]
+impl QueryRoot {
+{% for cls in classes %}
+{% set mi = cls.milestone %}
+    async fn {{cls.resolver_name}}(
+        &self,
+        ctx: &Context<'_>,
+{% if cls.has_processing %}
+        /// ISO-8601 timestamp; returns records valid at this processing time.
+        as_of: Option<String>,
+{% endif %}
+{% if cls.has_bd %}
+        /// YYYY-MM-DD; returns records for this business date.
+        business_date: Option<String>,
+{% endif %}
+    ) -> Result<Vec<{{cls.struct_name}}>> {
+        let client = ctx.data::<crate::DatabricksClient>()?;
+{% if mi.kind == "processing" %}
+        query_processing::<{{cls.struct_name}}>(client,
+            "{{cls.select_sql}}",
+            as_of.as_deref(), "{{mi.in_col}}", "{{mi.out_col}}").await
+{% elif mi.kind == "business_date" %}
+        query_business_date::<{{cls.struct_name}}>(client,
+            "{{cls.select_sql}}",
+            business_date.as_deref(), "{{mi.date_col}}").await
+{% elif mi.kind in ("business_date_processing", "bitemporal") %}
+        query_bitemporal::<{{cls.struct_name}}>(client,
+            "{{cls.select_sql}}",
+            business_date.as_deref(), "{{mi.date_col}}",
+            as_of.as_deref(), "{{mi.in_col}}", "{{mi.out_col}}").await
+{% else %}
+        run_query::<{{cls.struct_name}}>(client, "{{cls.select_sql}}", vec![]).await
+{% endif %}
+    }
+
+{% endfor %}
+}
+
+// ── Databricks SQL execution ───────────────────────────────────────────────────
+
+/// Build a Databricks named parameter object.
+fn db_param(name: &str, value: &str, type_: &str) -> Value {
+    serde_json::json!({ "name": name, "value": value, "type": type_ })
+}
+
+/// POST to /api/2.0/sql/statements and return rows as JSON_ARRAY.
+async fn databricks_sql(
+    client: &crate::DatabricksClient,
+    sql: &str,
+    params: Vec<Value>,
+) -> Result<Vec<Vec<Value>>> {
+    let url = format!("{}/api/2.0/sql/statements", client.host);
+
+    let mut body = serde_json::json!({
+        "warehouse_id": client.warehouse_id,
+        "statement":    sql,
+        "disposition":  "INLINE",
+        "format":       "JSON_ARRAY",
+        "wait_timeout": "30s"
+    });
+    if !params.is_empty() {
+        body["parameters"] = Value::Array(params);
+    }
+
+    let response: Value = client.http
+        .post(&url)
+        .bearer_auth(client.token())
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| async_graphql::Error::new(e.to_string()))?
+        .json()
+        .await
+        .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+
+    if let Some(state) = response.pointer("/status/state").and_then(|s| s.as_str()) {
+        if state != "SUCCEEDED" {
+            let msg = response
+                .pointer("/status/error/message")
+                .and_then(|m| m.as_str())
+                .unwrap_or("Databricks query failed");
+            return Err(async_graphql::Error::new(msg));
+        }
+    }
+
+    let rows = response
+        .pointer("/result/data_array")
+        .and_then(|d| d.as_array())
+        .map(|arr| arr.iter()
+            .filter_map(|row| row.as_array().cloned())
+            .collect())
+        .unwrap_or_default();
+
+    Ok(rows)
+}
+
+/// Execute a SQL query and deserialise each row into T.
+async fn run_query<T: FromRow>(
+    client: &crate::DatabricksClient,
+    sql: &str,
+    params: Vec<Value>,
+) -> Result<Vec<T>> {
+    databricks_sql(client, sql, params)
+        .await?
+        .iter()
+        .map(|row| T::from_row(row))
+        .collect()
+}
+
+// ── Milestoning helpers ───────────────────────────────────────────────────────
+{% if need_proc %}
+
+async fn query_processing<T: FromRow>(
+    client: &crate::DatabricksClient,
+    base: &str,
+    as_of: Option<&str>,
+    in_col: &str,
+    out_col: &str,
+) -> Result<Vec<T>> {
+    let (sql, params) = match as_of {
+        Some(ts) => (
+            format!("{base} WHERE {in_col} <= :as_of AND ({out_col} IS NULL OR {out_col} > :as_of)"),
+            vec![db_param("as_of", ts, "TIMESTAMP")],
+        ),
+        None => (base.to_string(), vec![]),
+    };
+    run_query::<T>(client, &sql, params).await
+}
+{% endif %}
+
+{% if need_bd %}
+async fn query_business_date<T: FromRow>(
+    client: &crate::DatabricksClient,
+    base: &str,
+    business_date: Option<&str>,
+    date_col: &str,
+) -> Result<Vec<T>> {
+    let (sql, params) = match business_date {
+        Some(bd) => (
+            format!("{base} WHERE {date_col} = :business_date"),
+            vec![db_param("business_date", bd, "DATE")],
+        ),
+        None => (base.to_string(), vec![]),
+    };
+    run_query::<T>(client, &sql, params).await
+}
+
+async fn query_bitemporal<T: FromRow>(
+    client: &crate::DatabricksClient,
+    base: &str,
+    business_date: Option<&str>,
+    date_col: &str,
+    as_of: Option<&str>,
+    in_col: &str,
+    out_col: &str,
+) -> Result<Vec<T>> {
+    let (sql, params) = match (business_date, as_of) {
+        (Some(bd), Some(ts)) => (
+            format!("{base} WHERE {date_col} = :business_date AND {in_col} <= :as_of AND ({out_col} IS NULL OR {out_col} > :as_of)"),
+            vec![db_param("business_date", bd, "DATE"), db_param("as_of", ts, "TIMESTAMP")],
+        ),
+        (Some(bd), None) => (
+            format!("{base} WHERE {date_col} = :business_date"),
+            vec![db_param("business_date", bd, "DATE")],
+        ),
+        (None, Some(ts)) => (
+            format!("{base} WHERE {in_col} <= :as_of AND ({out_col} IS NULL OR {out_col} > :as_of)"),
+            vec![db_param("as_of", ts, "TIMESTAMP")],
+        ),
+        (None, None) => (base.to_string(), vec![]),
+    };
+    run_query::<T>(client, &sql, params).await
+}
+{% endif %}
+
+// ── JSON value coercions ──────────────────────────────────────────────────────
+
+fn as_i32(v: &Value) -> Result<i32> {
+    match v {
+        Value::Number(n) => n.as_i64().map(|i| i as i32)
+            .ok_or_else(|| async_graphql::Error::new("expected i32")),
+        Value::String(s) => s.parse().map_err(|e: std::num::ParseIntError|
+            async_graphql::Error::new(e.to_string())),
+        Value::Null => Ok(0),
+        other => Err(async_graphql::Error::new(format!("expected i32, got {other}"))),
+    }
+}
+
+fn as_i64(v: &Value) -> Result<i64> {
+    match v {
+        Value::Number(n) => n.as_i64()
+            .ok_or_else(|| async_graphql::Error::new("expected i64")),
+        Value::String(s) => s.parse().map_err(|e: std::num::ParseIntError|
+            async_graphql::Error::new(e.to_string())),
+        Value::Null => Ok(0),
+        other => Err(async_graphql::Error::new(format!("expected i64, got {other}"))),
+    }
+}
+
+fn as_f64(v: &Value) -> Result<f64> {
+    match v {
+        Value::Number(n) => n.as_f64()
+            .ok_or_else(|| async_graphql::Error::new("expected f64")),
+        Value::String(s) => s.parse().map_err(|e: std::num::ParseFloatError|
+            async_graphql::Error::new(e.to_string())),
+        Value::Null => Ok(0.0),
+        other => Err(async_graphql::Error::new(format!("expected f64, got {other}"))),
+    }
+}
+
+fn as_bool(v: &Value) -> Result<bool> {
+    match v {
+        Value::Bool(b)   => Ok(*b),
+        Value::String(s) => Ok(s == "true" || s == "1"),
+        Value::Number(n) => Ok(n.as_i64().unwrap_or(0) != 0),
+        Value::Null      => Ok(false),
+        other => Err(async_graphql::Error::new(format!("expected bool, got {other}"))),
+    }
+}
+
+fn as_string(v: &Value) -> Result<String> {
+    Ok(match v {
+        Value::String(s) => s.clone(),
+        Value::Null      => String::new(),
+        other            => other.to_string(),
+    })
+}
+
+fn as_naive_date(v: &Value) -> Result<chrono::NaiveDate> {
+    let s = as_string(v)?;
+    chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d")
+        .map_err(|e| async_graphql::Error::new(e.to_string()))
+}
+
+fn as_naive_dt(v: &Value) -> Result<chrono::NaiveDateTime> {
+    let s = as_string(v)?;
+    chrono::DateTime::parse_from_rfc3339(&s)
+        .map(|dt| dt.naive_utc())
+        .or_else(|_| chrono::NaiveDateTime::parse_from_str(&s, "%Y-%m-%dT%H:%M:%S"))
+        .or_else(|_| chrono::NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S"))
+        .map_err(|e| async_graphql::Error::new(e.to_string()))
+}
+
+fn as_opt_naive_dt(v: &Value) -> Result<Option<chrono::NaiveDateTime>> {
+    if v.is_null() { return Ok(None); }
+    as_naive_dt(v).map(Some)
+}

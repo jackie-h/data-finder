@@ -1,0 +1,56 @@
+mod schema;
+
+use async_graphql::{EmptyMutation, EmptySubscription, Schema};
+use async_graphql_axum::{GraphQL, GraphiQL};
+use axum::{routing::get, Router};
+
+/// Databricks SQL Warehouse client shared across all resolvers via the GraphQL context.
+pub struct DatabricksClient {
+    pub host:         String,
+    pub warehouse_id: String,
+    pub http:         reqwest::Client,
+    token:            String,
+}
+
+impl DatabricksClient {
+    /// Construct from environment variables.
+    ///
+    /// Required:
+    ///   DATABRICKS_HOST          — e.g. https://adb-1234.azuredatabricks.net
+    ///   DATABRICKS_WAREHOUSE_ID  — SQL warehouse ID
+    ///   DATABRICKS_TOKEN         — Personal access token
+    pub fn from_env() -> anyhow::Result<Self> {
+        Ok(Self {
+            host: std::env::var("DATABRICKS_HOST")
+                .expect("DATABRICKS_HOST must be set"),
+            warehouse_id: std::env::var("DATABRICKS_WAREHOUSE_ID")
+                .expect("DATABRICKS_WAREHOUSE_ID must be set"),
+            token: std::env::var("DATABRICKS_TOKEN")
+                .expect("DATABRICKS_TOKEN must be set"),
+            http: reqwest::Client::new(),
+        })
+    }
+
+    pub fn token(&self) -> &str { &self.token }
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    tracing_subscriber::fmt::init();
+
+    let client = DatabricksClient::from_env()?;
+
+    let schema = Schema::build(schema::QueryRoot, EmptyMutation, EmptySubscription)
+        .data(client)
+        .finish();
+
+    let app = Router::new()
+        .route("/", get(GraphiQL::new("/graphql", None)))
+        .route("/graphql", get(GraphQL::new(schema.clone())).post(GraphQL::new(schema)));
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8000").await?;
+    tracing::info!("GraphQL server running — playground: http://localhost:8000/");
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
