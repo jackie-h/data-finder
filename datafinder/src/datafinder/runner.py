@@ -124,15 +124,17 @@ def convert_inputs_and_select(business_date: Optional[Union[datetime.date, str]]
 def convert_inputs_and_select_for_date_range(
         business_date_from: Union[datetime.date, str],
         business_date_to: Union[datetime.date, str],
-        processing_datetime: Optional[Union[datetime.datetime, str]],
+        processing_datetime: Union[datetime.datetime, str],
         columns: list[Attribute], table: Table, op: Operation) -> FinderResult:
     if business_date_from is None:
         raise ValueError("business_date_from is required for find_for_date_range")
     if business_date_to is None:
         raise ValueError("business_date_to is required for find_for_date_range")
+    if processing_datetime is None:
+        raise ValueError("processing_valid_at is required for find_for_date_range")
     bd_from = convert_date(business_date_from)
     bd_to = convert_date(business_date_to)
-    pdt = None if processing_datetime is None else convert_date_time(processing_datetime)
+    pdt = convert_date_time(processing_datetime)
     return FinderResult(bd_from, pdt, columns, table, op, business_date_to=bd_to)
 
 
