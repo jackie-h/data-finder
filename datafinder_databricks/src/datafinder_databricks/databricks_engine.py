@@ -13,9 +13,10 @@ import pandas as pd
 def _to_databricks_sql(business_date: datetime.date, processing_datetime: datetime.datetime,
                        columns: list, table: Table, op: Operation,
                        order_by: list = None, group_by: list = None,
-                       limit: int = None) -> str:
+                       limit: int = None, business_date_to: datetime.date = None) -> str:
     generic_sql = to_sql(business_date, processing_datetime, columns, table, op,
-                         order_by, group_by, limit, validate_sqlglot=False)
+                         order_by, group_by, limit, validate_sqlglot=False,
+                         business_date_to=business_date_to)
     return sqlglot.transpile(generic_sql, read='', write='databricks')[0]
 
 
@@ -29,9 +30,10 @@ class DatabricksConnect(QueryRunnerBase):
     def select(self, business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: Table, op: Operation,
                order_by: list = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = 60_000) -> DataFrame:
+               limit: int = None, timeout_ms: int = 60_000,
+               business_date_to: datetime.date = None) -> DataFrame:
         query = _to_databricks_sql(business_date, processing_datetime, columns, table, op,
-                                   order_by, group_by, limit)
+                                   order_by, group_by, limit, business_date_to=business_date_to)
         result: list = [None]
         error: list = [None]
 

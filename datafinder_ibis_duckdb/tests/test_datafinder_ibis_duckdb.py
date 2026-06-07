@@ -128,3 +128,36 @@ class TestDataFinderIbisDuckDb:
         np_trades = trades_sum.to_numpy()
         print(np_trades)
         assert_array_equal(np_trades, np.array([[3130.31]], dtype=object))
+    def test_find_for_date_range_single_business_date(self):
+        self.setup()
+        from contractualposition_finder import ContractualPositionFinder
+        cpf = ContractualPositionFinder()
+        # processing_valid_at milestones the joined instrument/price table to one row per symbol
+        processing_dt = '2022-01-01 10:00:00'
+
+        # Range covering both dates returns both positions
+        positions = cpf.find_for_date_range(
+            '2024-01-10', '2024-01-11', processing_dt,
+            [cpf.instrument().symbol(), cpf.quantity()])
+        instruments = sorted(positions.to_pandas()["Instrument Symbol"].tolist())
+        assert instruments == ['GS', 'IBM']
+
+        # Range covering only the first date returns only IBM
+        positions = cpf.find_for_date_range(
+            '2024-01-10', '2024-01-10', processing_dt,
+            [cpf.instrument().symbol(), cpf.quantity()])
+        np_pos = positions.to_numpy()
+        assert_array_equal(np_pos, np.array([['IBM', 200.0]], dtype=object))
+
+        # Range covering only the second date returns only GS
+        positions = cpf.find_for_date_range(
+            '2024-01-11', '2024-01-11', processing_dt,
+            [cpf.instrument().symbol(), cpf.quantity()])
+        np_pos = positions.to_numpy()
+        assert_array_equal(np_pos, np.array([['GS', 1000.0]], dtype=object))
+
+        # Range before any data returns nothing
+        positions = cpf.find_for_date_range(
+            '2024-01-01', '2024-01-09', processing_dt,
+            [cpf.instrument().symbol(), cpf.quantity()])
+        assert len(positions.to_pandas()) == 0

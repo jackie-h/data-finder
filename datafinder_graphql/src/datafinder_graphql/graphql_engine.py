@@ -92,7 +92,7 @@ class GraphQLConnect(QueryRunnerBase):
     def select(business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: GraphQLQuery, op: Operation,
                order_by: list = None, group_by: list = None, limit: int = None,
-               timeout_ms: int = 60_000) -> DataFrame:
+               timeout_ms: int = 60_000, business_date_to: datetime.date = None) -> DataFrame:
         field_names = [col.column().name for col in columns]
         fields_str = _build_fields_str(columns)
 

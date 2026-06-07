@@ -62,8 +62,10 @@ class FinderResult(DataFrame):
 
     def __init__(self, business_date: Optional[datetime.date],
                  processing_datetime: Optional[datetime.datetime],
-                 columns: list, table: Table, op: Operation):
+                 columns: list, table: Table, op: Operation,
+                 business_date_to: Optional[datetime.date] = None):
         self._business_date = business_date
+        self._business_date_to = business_date_to
         self._processing_datetime = processing_datetime
         self._columns = columns
         self._table = table
@@ -93,7 +95,7 @@ class FinderResult(DataFrame):
         return QueryRunnerBase.get_runner().select(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
-            self._timeout_ms,
+            self._timeout_ms, business_date_to=self._business_date_to,
         )
 
     def to_sql(self) -> str:
@@ -101,6 +103,7 @@ class FinderResult(DataFrame):
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op,
             self._order_by, self._group_by, self._limit,
+            business_date_to=self._business_date_to,
         )
 
     def to_pandas(self):
@@ -118,13 +121,31 @@ def convert_inputs_and_select(business_date: Optional[Union[datetime.date, str]]
     return FinderResult(bd, pdt, columns, table, op)
 
 
+def convert_inputs_and_select_for_date_range(
+        business_date_from: Union[datetime.date, str],
+        business_date_to: Union[datetime.date, str],
+        processing_datetime: Union[datetime.datetime, str],
+        columns: list[Attribute], table: Table, op: Operation) -> FinderResult:
+    if business_date_from is None:
+        raise ValueError("business_date_from is required for find_for_date_range")
+    if business_date_to is None:
+        raise ValueError("business_date_to is required for find_for_date_range")
+    if processing_datetime is None:
+        raise ValueError("processing_valid_at is required for find_for_date_range")
+    bd_from = convert_date(business_date_from)
+    bd_to = convert_date(business_date_to)
+    pdt = convert_date_time(processing_datetime)
+    return FinderResult(bd_from, pdt, columns, table, op, business_date_to=bd_to)
+
+
 class QueryRunnerBase(metaclass=RegistryBase):
 
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: Table, op: Operation,
                order_by: list[SortOperation] = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> DataFrame:
+               limit: int = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
+               business_date_to: datetime.date = None) -> DataFrame:
         pass
 
     @staticmethod

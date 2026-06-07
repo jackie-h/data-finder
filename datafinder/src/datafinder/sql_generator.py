@@ -59,6 +59,52 @@ def _open_end_clause(end_attr, value, infinite_datetime: str) -> Operation:
     return gt_op
 
 
+def build_milestoning_filter_operation_for_date_range(
+        business_date_from: datetime.date, business_date_to: datetime.date,
+        processing_datetime: datetime.datetime,
+        table: MilestonedTable, join_node: 'JoinTreeNodeOperation' = None) -> Operation:
+    """Like build_milestoning_filter_operation but applies a business-date range filter.
+
+    For BiTemporalColumns the range uses interval overlap:
+        business_date_from_col <= business_date_to AND business_date_to_col > business_date_from
+    For single-date columns:
+        business_date >= business_date_from AND business_date <= business_date_to
+    Processing-date filtering is point-in-time (unchanged from the normal path).
+    """
+    op = None
+    mc = table.milestoning_columns
+    if isinstance(mc, BiTemporalColumns):
+        ops = []
+        if business_date_from is not None and business_date_to is not None:
+            date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.table.qualified_name, join_node)
+            date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.table.qualified_name, join_node)
+            ops.append(LogicalOperation(date_from <= business_date_to, LogicalOperator.AND, _open_end_clause(date_to, business_date_from, mc.infinite_datetime)))
+        if processing_datetime is not None:
+            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name, join_node)
+            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name, join_node)
+            ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime)))
+        op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
+    elif isinstance(mc, BusinessDateAndProcessingTemporalColumns):
+        ops = []
+        if business_date_from is not None and business_date_to is not None:
+            business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name, join_node)
+            ops.append(LogicalOperation(business_att >= business_date_from, LogicalOperator.AND, business_att <= business_date_to))
+        if processing_datetime is not None:
+            start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name, join_node)
+            end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name, join_node)
+            ops.append(LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime)))
+        op = ops[0] if len(ops) == 1 else LogicalOperation(ops[0], LogicalOperator.AND, ops[1]) if ops else None
+    elif isinstance(mc, ProcessingTemporalColumns) and processing_datetime is not None:
+        start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.table.qualified_name, join_node)
+        end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.table.qualified_name, join_node)
+        op = LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime))
+    elif isinstance(mc, SingleBusinessDateColumn):
+        if business_date_from is not None and business_date_to is not None:
+            business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.table.qualified_name, join_node)
+            op = LogicalOperation(business_att >= business_date_from, LogicalOperator.AND, business_att <= business_date_to)
+    return op
+
+
 def build_milestoning_filter_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                                table:MilestonedTable, join_node:'JoinTreeNodeOperation' = None) -> Operation:
     op = None
@@ -180,9 +226,12 @@ def collect_required_joins(op: RelationalOperationElement, required_joins: dict)
 def build_query_operation(business_date:datetime.date, processing_datetime: datetime.datetime,
                          columns: list[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] = None, group_by: list = None,
-                         limit: int = None) -> SelectOperation:
+                         limit: int = None, business_date_to: datetime.date = None) -> SelectOperation:
     if isinstance(table, MilestonedTable):
-        milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
+        if business_date_to is not None:
+            milestoned_op = build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, table)
+        else:
+            milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
         op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
     required_joins: dict = {}
@@ -199,7 +248,10 @@ def build_query_operation(business_date:datetime.date, processing_datetime: date
         if node.join.filter_kwargs:
             combined = _build_join_kwargs_filter(node, node.join.filter_kwargs, node.join.filter_column_map)
         if isinstance(node.join.target, MilestonedTable):
-            milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
+            if business_date_to is not None:
+                milestoned_op = build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, node.join.target, node)
+            else:
+                milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
             combined = milestoned_op if combined is None else LogicalOperation(combined, LogicalOperator.AND, milestoned_op)
         node.join.filter = combined
 
@@ -627,9 +679,11 @@ class SQLQueryGenerator:
 def to_sql(business_date: datetime.date, processing_datetime: datetime.datetime,
            columns: list, table, op,
            order_by: list = None, group_by: list = None,
-           limit: int = None, validate_sqlglot: bool = True) -> str:
+           limit: int = None, validate_sqlglot: bool = True,
+           business_date_to: datetime.date = None) -> str:
     select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
-                                      order_by or [], group_by or [], limit)
+                                      order_by or [], group_by or [], limit,
+                                      business_date_to=business_date_to)
     return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
 
 

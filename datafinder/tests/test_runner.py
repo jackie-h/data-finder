@@ -1,7 +1,9 @@
+import datetime
+
 import pytest
 
-from datafinder.runner import FinderResult, _DEFAULT_TIMEOUT_MS
-from model.relational import NoOperation
+from datafinder.runner import FinderResult, _DEFAULT_TIMEOUT_MS, convert_inputs_and_select_for_date_range
+from model.relational import NoOperation, Table
 
 
 def _make_result() -> FinderResult:
@@ -28,6 +30,49 @@ class TestFinderResultTimeout:
     def test_timeout_accepts_sub_second_values(self):
         result = _make_result().timeout(100)
         assert result._timeout_ms == 100
+
+
+class TestFindForDateRangeValidation:
+
+    def _table(self):
+        return Table("trades", [])
+
+    _PDT = datetime.datetime(2024, 6, 1, 0, 0, 0)
+
+    def test_none_business_date_from_raises(self):
+        with pytest.raises(ValueError, match="business_date_from"):
+            convert_inputs_and_select_for_date_range(
+                None, datetime.date(2024, 12, 31), self._PDT, [], self._table(), NoOperation())
+
+    def test_none_business_date_to_raises(self):
+        with pytest.raises(ValueError, match="business_date_to"):
+            convert_inputs_and_select_for_date_range(
+                datetime.date(2024, 1, 1), None, self._PDT, [], self._table(), NoOperation())
+
+    def test_both_none_raises_on_from(self):
+        with pytest.raises(ValueError, match="business_date_from"):
+            convert_inputs_and_select_for_date_range(
+                None, None, self._PDT, [], self._table(), NoOperation())
+
+    def test_none_processing_datetime_raises(self):
+        with pytest.raises(ValueError, match="processing_valid_at"):
+            convert_inputs_and_select_for_date_range(
+                datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
+                None, [], self._table(), NoOperation())
+
+    def test_valid_dates_returns_finder_result(self):
+        result = convert_inputs_and_select_for_date_range(
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
+            self._PDT, [], self._table(), NoOperation())
+        assert isinstance(result, FinderResult)
+        assert result._business_date == datetime.date(2024, 1, 1)
+        assert result._business_date_to == datetime.date(2024, 12, 31)
+
+    def test_string_dates_are_converted(self):
+        result = convert_inputs_and_select_for_date_range(
+            "2024-01-01", "2024-12-31", "2024-06-01 00:00:00", [], self._table(), NoOperation())
+        assert result._business_date == datetime.date(2024, 1, 1)
+        assert result._business_date_to == datetime.date(2024, 12, 31)
 
 
 class TestDuckDbTimeout:
