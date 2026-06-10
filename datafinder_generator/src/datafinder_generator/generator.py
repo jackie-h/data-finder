@@ -3,7 +3,7 @@ import keyword
 import os
 import re
 
-from model.m3 import PrimitiveType, Property
+from model.m3 import Class, PrimitiveType, Property
 
 _BUILTIN_NAMES = set(dir(builtins))
 from jinja2 import Environment, PackageLoader
@@ -82,6 +82,8 @@ def _build_reverse_assoc_map(mapping: Mapping, assoc_lookup: dict) -> dict:
             if is_primitive(rpm.property) or not isinstance(rpm.target, Join):
                 continue
             target_cls = rpm.property.type
+            if not isinstance(target_cls, Class):
+                continue
             assoc = assoc_lookup.get((rcm.clazz.name, target_cls.name, rpm.property.id))
             if assoc is None:
                 continue

@@ -3,9 +3,9 @@ import json
 import logging
 from typing import Optional
 
-from pyiceberg.catalog.rest import RestCatalog
-from pyiceberg.schema import Schema
-from pyiceberg.types import (
+from pyiceberg.catalog.rest import RestCatalog  # type: ignore
+from pyiceberg.schema import Schema  # type: ignore
+from pyiceberg.types import (  # type: ignore
     IcebergType, StructType,
     StringType, BooleanType,
     IntegerType, LongType,
@@ -107,8 +107,8 @@ def _schema_included(name: str, include: list[str], exclude: list[str]) -> bool:
 def read_repository_from_catalog(
     catalog,
     fail_on_error: bool = True,
-    include_schemas: list[str] = None,
-    exclude_schemas: list[str] = None,
+    include_schemas: list[str] | None = None,
+    exclude_schemas: list[str] | None = None,
 ) -> DataCatalog:
     """Build a DataCatalog from an already-constructed pyiceberg Catalog instance.
 
@@ -146,8 +146,8 @@ def read_repository_from_iceberg_catalog(
     catalog_name: str,
     credentials: Optional[dict] = None,
     fail_on_error: bool = True,
-    include_schemas: list[str] = None,
-    exclude_schemas: list[str] = None,
+    include_schemas: list[str] | None = None,
+    exclude_schemas: list[str] | None = None,
 ) -> DataCatalog:
     """Build a DataCatalog by connecting to an Iceberg REST catalog by URI."""
     properties = {"uri": catalog_uri}

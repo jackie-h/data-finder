@@ -4,7 +4,7 @@ import threading
 from datafinder import Operation, DataFrame, Attribute, to_sql
 
 import duckdb
-import ibis
+import ibis  # type: ignore
 import numpy as np
 import pandas as pd
 
@@ -15,9 +15,9 @@ from model.relational import Table
 class IbisConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
-               table: Table, op: Operation, order_by: list = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = 60_000, business_date_to: datetime.date = None) -> DataFrame:
+    def select(business_date: datetime.date | None, processing_datetime: datetime.datetime | None, columns: list[Attribute],
+               table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
+               limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         conn = ibis.connect('duckdb://test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to)
         print(query)
@@ -37,7 +37,7 @@ class IbisOutput(DataFrame):
     def __init__(self, t: ibis.Table):
         self.__table = t
 
-    def to_numpy(self) -> np.array:
+    def to_numpy(self) -> np.ndarray:
         return self.__table.__array__()
 
     def to_pandas(self) -> pd.DataFrame:

@@ -11,7 +11,7 @@ class TaggedValue:
         self.value = value
 
 class AnnotatedElement:
-    def __init__(self, tagged_values: list[TaggedValue]):
+    def __init__(self, tagged_values: list[TaggedValue] | None):
         self.tagged_values = {}
         if tagged_values is None:
             tagged_values = []
@@ -19,7 +19,7 @@ class AnnotatedElement:
             self.tagged_values[tv.name] = tv
 
 class PackagableElement(AnnotatedElement):
-    def __init__(self, package: Package, tagged_values: list[TaggedValue]):
+    def __init__(self, package: Package | None, tagged_values: list[TaggedValue] | None):
         super().__init__(tagged_values)
         self.package = package
         if package is not None:
@@ -37,6 +37,8 @@ def _name_to_camel_id(name: str) -> str:
 
 
 class Type:
+    name: str
+
     def __init__(self):
         pass
 
@@ -58,7 +60,7 @@ Boolean = PrimitiveType("Boolean")
 
 
 class Property(AnnotatedElement):
-    def __init__(self, name: str, id: str, type: Type, tagged_values: list[TaggedValue] = None):
+    def __init__(self, name: str, id: str, type: Type | None, tagged_values: list[TaggedValue] | None = None):
         super().__init__(tagged_values)
         self.name = name
         self._id = id
@@ -73,8 +75,8 @@ class Property(AnnotatedElement):
 
 
 class Class(PackagableElement, Type):
-    def __init__(self, name: str, properties: list[Property], package: Package,
-                 superclasses: list['Class'] = None, tagged_values: list[TaggedValue] = None):
+    def __init__(self, name: str, properties: list[Property], package: Package | None,
+                 superclasses: list['Class'] | None = None, tagged_values: list[TaggedValue] | None = None):
         super().__init__(package, tagged_values)
         self.name = name
         self.superclasses: list['Class'] = superclasses or []
@@ -107,7 +109,7 @@ class Association(PackagableElement):
                  source_property_name: str, source_property_id: str,
                  target: str, target_multiplicity: str,
                  target_property_name: str, target_property_id: str,
-                 package: Package, tagged_values: list[TaggedValue] = None):
+                 package: Package | None, tagged_values: list[TaggedValue] | None = None):
         if source_multiplicity not in (Multiplicity.ONE, Multiplicity.MANY):
             raise ValueError(f"Association '{name}' must specify Source Multiplicity ('1' or '*')")
         if target_multiplicity not in (Multiplicity.ONE, Multiplicity.MANY):

@@ -51,7 +51,7 @@ def main() -> None:
     print(f"Connecting to Iceberg catalog at {args.catalog_uri} …")
     repo = read_repository_from_iceberg_catalog(
         catalog_uri=args.catalog_uri,
-        repo_name=args.repo_name,
+        catalog_name=args.repo_name or args.catalog_uri,
         credentials=credentials or None,
         fail_on_error=not args.skip_errors,
     )

@@ -48,7 +48,7 @@ def PositionFinder():
     generate(mapping, temp_dir)
     _build_test_db()
 
-    from position_finder import PositionFinder as PF
+    from position_finder import PositionFinder as PF  # type: ignore[import]
     yield PF()
 
     sys.path.remove(temp_dir)

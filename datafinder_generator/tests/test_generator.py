@@ -10,7 +10,7 @@ from datafinder_generator.generator import to_python_name, generate, _class_pack
     to_snake_case, _mapping_to_class_name, _mapping_to_filename
 
 
-def _prop(label: str, id: str = None) -> Property:
+def _prop(label: str, id: str | None = None) -> Property:
     return Property(label, id or _name_to_camel_id(label), String)
 
 
@@ -178,19 +178,19 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         trade_finder_path = os.path.join(self.tmp, "finance", "trade", "trade_finder.py")
         content = open(trade_finder_path).read()
-        assert "from finance.reference_data.account_finder import AccountRelatedFinder" in content
+        assert "from finance.reference_data.account_finder import AccountRelatedFinder" in content  # type: ignore[import]
 
     def test_generated_finder_imports_own_base(self):
         generate(self.mapping, self.tmp)
         trade_finder_path = os.path.join(self.tmp, "finance", "trade", "trade_finder.py")
         content = open(trade_finder_path).read()
-        assert "from finance.trade.trade_finder_base import TradeFinderBase, TradeRelatedFinderBase" in content
+        assert "from finance.trade.trade_finder_base import TradeFinderBase, TradeRelatedFinderBase" in content  # type: ignore[import]
 
     def test_generated_finder_is_importable(self):
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance.trade.trade_finder import TradeFinder
+            from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
             assert TradeFinder is not None
         finally:
             sys.path.remove(self.tmp)
@@ -199,7 +199,7 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance.reference_data.account_finder import AccountFinder
+            from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
             finder = AccountFinder()
             assert finder.id_() is not None
             assert finder.name() is not None
@@ -216,13 +216,13 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         account_finder_path = os.path.join(self.tmp, "finance", "reference_data", "account_finder.py")
         content = open(account_finder_path).read()
-        assert "from finance.trade.trade_finder import TradeRelatedFinder" in content
+        assert "from finance.trade.trade_finder import TradeRelatedFinder" in content  # type: ignore[import]
 
     def test_reverse_association_is_callable(self):
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance.reference_data.account_finder import AccountFinder
+            from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
             result = AccountFinder().trades()
             assert result is not None
         finally:
@@ -232,7 +232,7 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance_mapping_context import FinanceMappingContext
+            from finance_mapping_context import FinanceMappingContext  # type: ignore[import]
             ctx = FinanceMappingContext()
             assert ctx is not None
         finally:
@@ -242,9 +242,9 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance_mapping_context import FinanceMappingContext
-            from finance.reference_data.account_finder_base import AccountFinderBase
-            from finance.trade.trade_finder_base import TradeFinderBase
+            from finance_mapping_context import FinanceMappingContext  # type: ignore[import]
+            from finance.reference_data.account_finder_base import AccountFinderBase  # type: ignore[import]
+            from finance.trade.trade_finder_base import TradeFinderBase  # type: ignore[import]
             ctx = FinanceMappingContext()
             assert isinstance(ctx.account, AccountFinderBase)
             assert isinstance(ctx.trade, TradeFinderBase)
@@ -363,7 +363,7 @@ class TestDualAssociationSameTarget:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from employee_finder import EmployeeFinder
+            from employee_finder import EmployeeFinder  # type: ignore[import]
             emp = EmployeeFinder()
             primary = emp.primary_owner_contracts()
             secondary = emp.secondary_owner_contracts()
@@ -443,7 +443,7 @@ class TestCamelCaseReverseAssocMethodName:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from entity_finder import EntityFinder
+            from entity_finder import EntityFinder  # type: ignore[import]
             result = EntityFinder().related_entities()
             assert result is not None
         finally:

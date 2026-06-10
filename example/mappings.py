@@ -122,7 +122,7 @@ def generate_mappings():
     import sys
     rcms = create_mappings_normalized()
     mn = sys.modules[__name__]
-    directory = os.path.join(os.path.dirname(mn.__file__), 'generated')
+    directory = os.path.join(os.path.dirname(mn.__file__ or ""), 'generated')
     os.makedirs(directory, exist_ok=True)
     generate(rcms, directory)
     importlib.invalidate_caches()

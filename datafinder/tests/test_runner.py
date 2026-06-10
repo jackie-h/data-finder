@@ -7,7 +7,7 @@ from model.relational import NoOperation, Table
 
 
 def _make_result() -> FinderResult:
-    return FinderResult(None, None, [], None, NoOperation())
+    return FinderResult(None, None, [], None, NoOperation())  # type: ignore[arg-type]
 
 
 class TestFinderResultTimeout:
@@ -42,23 +42,23 @@ class TestFindForDateRangeValidation:
     def test_none_business_date_from_raises(self):
         with pytest.raises(ValueError, match="business_date_from"):
             convert_inputs_and_select_for_date_range(
-                None, datetime.date(2024, 12, 31), self._PDT, [], self._table(), NoOperation())
+                None, datetime.date(2024, 12, 31), self._PDT, [], self._table(), NoOperation())  # type: ignore[arg-type]
 
     def test_none_business_date_to_raises(self):
         with pytest.raises(ValueError, match="business_date_to"):
             convert_inputs_and_select_for_date_range(
-                datetime.date(2024, 1, 1), None, self._PDT, [], self._table(), NoOperation())
+                datetime.date(2024, 1, 1), None, self._PDT, [], self._table(), NoOperation())  # type: ignore[arg-type]
 
     def test_both_none_raises_on_from(self):
         with pytest.raises(ValueError, match="business_date_from"):
             convert_inputs_and_select_for_date_range(
-                None, None, self._PDT, [], self._table(), NoOperation())
+                None, None, self._PDT, [], self._table(), NoOperation())  # type: ignore[arg-type]
 
     def test_none_processing_datetime_raises(self):
         with pytest.raises(ValueError, match="processing_valid_at"):
             convert_inputs_and_select_for_date_range(
                 datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
-                None, [], self._table(), NoOperation())
+                None, [], self._table(), NoOperation())  # type: ignore[arg-type]
 
     def test_valid_dates_returns_finder_result(self):
         result = convert_inputs_and_select_for_date_range(
@@ -89,4 +89,4 @@ class TestDuckDbTimeout:
                             lambda *a, **kw: "SELECT sum(i) FROM range(1000000000) t(i)")
 
         with pytest.raises(TimeoutError, match="1ms"):
-            DuckDbConnect.select(None, None, [], None, None, timeout_ms=1)
+            DuckDbConnect.select(None, None, [], None, None, timeout_ms=1)  # type: ignore[arg-type]

@@ -72,7 +72,7 @@ def finders():
     generate(mapping, temp_dir)
     _seed_test_db()
 
-    from prices.market.price_finder import PriceFinder
+    from prices.market.price_finder import PriceFinder  # type: ignore[import]
 
     yield {"Price": PriceFinder()}
 

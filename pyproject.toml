@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "pyright>=1.1.410",
     "pytest>=9.0.0",
 ]
 ibis = [

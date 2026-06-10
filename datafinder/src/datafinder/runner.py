@@ -72,7 +72,7 @@ class FinderResult(DataFrame):
         self._op = op
         self._order_by: list[SortOperation] = []
         self._group_by: list = []
-        self._limit: int = None
+        self._limit: int | None = None
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
 
     def group_by(self, *attrs) -> 'FinderResult':
@@ -141,12 +141,12 @@ def convert_inputs_and_select_for_date_range(
 class QueryRunnerBase(metaclass=RegistryBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime,
+    def select(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
                columns: list[Attribute], table: Table, op: Operation,
-               order_by: list[SortOperation] = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
-               business_date_to: datetime.date = None) -> DataFrame:
-        pass
+               order_by: list[SortOperation] | None = None, group_by: list | None = None,
+               limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
+               business_date_to: datetime.date | None = None) -> DataFrame:
+        raise NotImplementedError()
 
     @staticmethod
     def get_runner():

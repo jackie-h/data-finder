@@ -23,6 +23,7 @@ from datafinder_graphql.graphql_engine import GraphQLConnect
 from datafinder_graphql.generator import generate as graphql_generate
 from mapping_markdown.graphql_mapping_markdown import load as load_graphql_mapping
 from model.graphql_mapping import (
+    GraphQLClassMapping,
     GraphQLEndpoint,
     GraphQLAssociationMapping,
     GraphQLProcessingMilestone,
@@ -136,7 +137,7 @@ class _FinanceGraphQLHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def log_message(self, *args):
+    def log_message(self, *args):  # type: ignore[override]
         pass
 
 
@@ -255,7 +256,7 @@ class TestGraphQLFinanceE2E:
     def test_graphql_mapping_wires_model_to_endpoint(self):
         """Verify the mapping file correctly defines all four class queries."""
         mapping = load_graphql_mapping(FIXTURE)
-        by_class = {cm.clazz.name: cm for cm in mapping.mappings}
+        by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in mapping.mappings}  # type: ignore[dict-item]
 
         account_cm = by_class["Account"]
         assert account_cm.query.name == "accounts"
@@ -380,6 +381,7 @@ class TestGraphQLAssociationE2E:
         assert pm.association_name == "TradeAccount"
         assert pm.target.name == "account"
         assert pm.property.id == "account"
+        assert pm.property.type is not None
         assert pm.property.type.name == "Account"
 
     def test_traverse_account_name(self, finders):

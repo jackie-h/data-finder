@@ -9,7 +9,7 @@ _TABLE_HEADING_RE = re.compile(r"^####\s+Table:\s+(\S+)\s*→")
 _SCHEMA_HEADING_RE = re.compile(r"^###\s+Schema:\s+(.+)$")
 
 
-def refresh_mapping(mapping_path: str, new_repo: DataStore, output_path: str = None,
+def refresh_mapping(mapping_path: str, new_repo: DataStore, output_path: str | None = None,
                     existing_only: bool = False) -> str:
     """
     Refresh an existing mapping markdown from a new repository schema snapshot.

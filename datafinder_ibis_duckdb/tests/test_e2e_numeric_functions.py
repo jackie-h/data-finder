@@ -83,7 +83,7 @@ def TradeFinder():
     generate(mapping, temp_dir)
     _seed_test_db()
 
-    from finance.trade.trade_finder import TradeFinder as TF
+    from finance.trade.trade_finder import TradeFinder as TF  # type: ignore[import]
     yield TF()
 
     sys.path.remove(temp_dir)

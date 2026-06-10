@@ -39,7 +39,7 @@ class _GraphQLHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def log_message(self, *args):
+    def log_message(self, *args):  # type: ignore[override]
         pass
 
 

@@ -1,7 +1,7 @@
 import pytest
-from pyiceberg.catalog.memory import InMemoryCatalog
-from pyiceberg.schema import Schema
-from pyiceberg.types import (
+from pyiceberg.catalog.memory import InMemoryCatalog  # type: ignore[import-untyped]
+from pyiceberg.schema import Schema  # type: ignore[import-untyped]
+from pyiceberg.types import (  # type: ignore[import-untyped]
     NestedField, StringType, IntegerType, DoubleType, TimestampType,
 )
 

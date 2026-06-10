@@ -19,7 +19,7 @@ class TestGraphQLMarkdownLoad:
 
     def setup_method(self):
         self.mapping = load(FIXTURE)
-        self.by_class = {cm.clazz.name: cm for cm in self.mapping.mappings}
+        self.by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in self.mapping.mappings}  # type: ignore[dict-item]
 
     def test_mapping_title(self):
         assert self.mapping.name == "Finance GraphQL Mapping"
@@ -40,7 +40,7 @@ class TestGraphQLMarkdownLoad:
         assert self.by_class["Account"].query.endpoint.url == "http://localhost:4000/graphql"
 
     def test_all_queries_share_same_endpoint(self):
-        urls = {cm.query.endpoint.url for cm in self.mapping.mappings}
+        urls = {cm.query.endpoint.url for cm in self.mapping.mappings if isinstance(cm, GraphQLClassMapping)}
         assert urls == {"http://localhost:4000/graphql"}
 
     def test_account_has_no_milestone(self):
@@ -135,7 +135,7 @@ class TestGraphQLMarkdownRoundTrip:
             with open(tmp, "w", encoding="utf-8") as f:
                 f.write(md)
             reloaded = load(tmp)
-            by_class = {cm.clazz.name: cm for cm in reloaded.mappings}
+            by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in reloaded.mappings}  # type: ignore[dict-item]
             assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
             assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBusinessDateMilestone)
             assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)
@@ -181,7 +181,9 @@ class TestGraphQLAssociationMapping:
     def test_trade_account_association_target_class(self):
         cm = self.by_class["Trade"]
         assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
-        assert assoc_mappings[0].property.type.name == "Account"
+        prop_type = assoc_mappings[0].property.type
+        assert prop_type is not None
+        assert prop_type.name == "Account"
 
     def test_non_association_classes_have_no_association_mappings(self):
         for name in ("Account", "Instrument", "ContractualPosition"):

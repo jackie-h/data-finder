@@ -88,8 +88,8 @@ def finders():
     generate(mapping, temp_dir)
     _seed_db()
 
-    from employee_finder import EmployeeFinder
-    from project_finder import ProjectFinder
+    from employee_finder import EmployeeFinder  # type: ignore[import]
+    from project_finder import ProjectFinder  # type: ignore[import]
 
     yield {"Employee": EmployeeFinder(), "Project": ProjectFinder()}
 

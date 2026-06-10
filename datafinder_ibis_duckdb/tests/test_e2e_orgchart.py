@@ -45,7 +45,7 @@ def finders():
     generate(mapping, temp_dir)
     _build_test_db()
 
-    from employee_finder import EmployeeFinder
+    from employee_finder import EmployeeFinder  # type: ignore[import]
 
     yield {"Employee": EmployeeFinder()}
 

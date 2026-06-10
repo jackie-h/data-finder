@@ -1,10 +1,10 @@
 from calc.calc_protocol import DomainAwareCalc
 from contractualposition_finder import ContractualPositionFinder
 from datafinder import Attribute
-from numpy import array
+import numpy as np
 
 
-def npv(quantity: array, price: array):
+def npv(quantity: np.ndarray, price: np.ndarray):
     return quantity * price
 
 
@@ -20,7 +20,7 @@ class PositionNPVCalc(DomainAwareCalc):
         return [_position_finder.quantity(),
                 _position_finder.instrument().price()]
 
-    def calculate(self, inputs):
+    def calculate(self, inputs: np.ndarray) -> np.ndarray:  # type: ignore[override]
         return npv(inputs[0][0], inputs[0][1])
 
     def output_spec(self) -> Attribute:

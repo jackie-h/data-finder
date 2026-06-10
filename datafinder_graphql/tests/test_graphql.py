@@ -70,7 +70,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
         price_attr = Attribute("Price", "price", "FLOAT", "instruments")
 
-        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)
+        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # type: ignore[arg-type]
         data = result.to_numpy()
 
         assert_array_equal(data, np.array(
@@ -86,7 +86,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
 
         bd = datetime.date(2024, 1, 10)
-        result = FinderResult(bd, None, [sym_attr], gql_query, None)
+        result = FinderResult(bd, None, [sym_attr], gql_query, None)  # type: ignore[arg-type]
         data = result.to_numpy()
 
         assert data.shape == (3, 1)
@@ -99,7 +99,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
 
         pdt = datetime.datetime(2020, 1, 1, 9, 0, 0)
-        result = FinderResult(None, pdt, [sym_attr], gql_query, None)
+        result = FinderResult(None, pdt, [sym_attr], gql_query, None)  # type: ignore[arg-type]
         data = result.to_numpy()
 
         assert data.shape == (3, 1)
@@ -112,7 +112,7 @@ class TestGraphQLEngine:
         # Dates present but no milestone — no arguments added, still returns all rows
         result = FinderResult(datetime.date(2024, 1, 10),
                                datetime.datetime(2020, 1, 1, 9, 0, 0),
-                               [sym_attr], gql_query, None)
+                               [sym_attr], gql_query, None)  # type: ignore[arg-type]
         data = result.to_numpy()
         assert data.shape == (3, 1)
 
@@ -123,7 +123,7 @@ class TestGraphQLEngine:
         id_attr = Attribute("Id", "id", "INT", "accounts")
         name_attr = Attribute("Name", "name", "STRING", "accounts")
 
-        result = FinderResult(None, None, [id_attr, name_attr], gql_query, None)
+        result = FinderResult(None, None, [id_attr, name_attr], gql_query, None)  # type: ignore[arg-type]
         data = result.to_numpy()
 
         assert_array_equal(data, np.array(
@@ -138,7 +138,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
         price_attr = Attribute("Price", "price", "FLOAT", "instruments")
 
-        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)
+        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # type: ignore[arg-type]
         df = result.to_pandas()
 
         assert list(df.columns) == ["sym", "price"]

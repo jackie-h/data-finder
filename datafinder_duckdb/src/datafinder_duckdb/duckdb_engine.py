@@ -13,9 +13,9 @@ from model.relational import Table
 class DuckDbConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
-               table: Table, op: Operation, order_by: list = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = 60_000, business_date_to: datetime.date = None) -> DataFrame:
+    def select(business_date: datetime.date | None, processing_datetime: datetime.datetime | None, columns: list[Attribute],
+               table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
+               limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         conn = duckdb.connect('test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to)
         print(query)
@@ -36,7 +36,7 @@ class DuckDbOutput(DataFrame):
     def __init__(self, t: list):
         self.__table = t
 
-    def to_numpy(self) -> np.array:
+    def to_numpy(self) -> np.ndarray:
         #TODO - this could be a better dtype
         return np.array(self.__table, dtype='object')
 

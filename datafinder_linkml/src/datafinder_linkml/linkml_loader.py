@@ -1,7 +1,7 @@
 from typing import Optional
 
-from linkml_runtime.loaders import yaml_loader
-from linkml_runtime.linkml_model import SchemaDefinition
+from linkml_runtime.loaders import yaml_loader  # type: ignore
+from linkml_runtime.linkml_model import SchemaDefinition  # type: ignore
 
 from model.m3 import (
     Class, Package, Property,

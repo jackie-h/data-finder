@@ -3,8 +3,8 @@ import os
 import re
 from typing import Optional
 
-from markdown_it import MarkdownIt
-from markdown_it.tree import SyntaxTreeNode
+from markdown_it import MarkdownIt  # type: ignore
+from markdown_it.tree import SyntaxTreeNode  # type: ignore
 
 from model.m3 import Class, PrimitiveType, Association, Property, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
@@ -21,7 +21,7 @@ _TABLE_RE = re.compile(r'(\S+)\s*→\s*(\w+)(?:\s*\(milestoning:\s*(\w+)\))?')
 # Load: markdown → Mapping
 # ---------------------------------------------------------------------------
 
-def load(path: str, datastore: DataStore = None) -> Mapping:
+def load(path: str, datastore: DataStore | None = None) -> Mapping:
     with open(path, encoding="utf-8") as f:
         content = f.read()
     base_dir = os.path.dirname(os.path.abspath(path))
@@ -73,7 +73,7 @@ def _load_model_reference(content: str, base_dir: str) -> list:
     return packages
 
 
-def _build_repository_from_content(nodes: list) -> DataStore:
+def _build_repository_from_content(nodes: list) -> DataStore | None:
     repo = None
     current_schema = None
     i = 0
@@ -109,14 +109,14 @@ def _build_repository_from_content(nodes: list) -> DataStore:
                             col_type = row.get("Type", "").strip()
                             key = row.get("Key", "").strip().upper()
                             if col_name:
-                                columns.append(Column(col_name, col_type or None, primary_key=(key == "PK")))
+                                columns.append(Column(col_name, col_type, primary_key=(key == "PK")))
                     Table(table_name, columns, current_schema)
                     continue
         i += 1
     return repo
 
 
-def loads(content: str, packages: list, datastore: DataStore = None) -> Mapping:
+def loads(content: str, packages: list, datastore: DataStore | None = None) -> Mapping:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
     if datastore is None:
@@ -155,7 +155,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     assoc_nav_lookup = _build_assoc_nav_lookup(packages)
 
     title = "Mapping"
-    class_mappings: list[RelationalClassMapping] = []
+    class_mappings: list = []
 
     # class_name → (property_mappings, cols_by_name) built as Table sections are processed.
     # Association sections use this to resolve joins without relying on ordering.
@@ -329,7 +329,7 @@ _COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Property ID"]
 _ASSOCIATION_HEADERS = ["Source Column", "Target Table", "Target Column"]
 
 
-def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str] = None) -> list[dict]:
+def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str] | None = None) -> list[dict]:
     thead, tbody = node.children[0], node.children[1]
     headers = [c.children[0].content for c in thead.children[0].children]
     if expected_headers is not None and headers != expected_headers:
@@ -350,7 +350,7 @@ def _camel_to_display_name(s: str) -> str:
     return result[0].upper() + result[1:]
 
 
-def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: str, repository) -> Property:
+def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: str, repository) -> Property | None:
     """Return a synthetic Property for a milestoning column not defined in the model, or None."""
     if not scheme_name or repository is None:
         return None
@@ -461,12 +461,12 @@ def _find_association_name(source_cls: Class, target_cls: Class) -> str:
     return f"{source_cls.name}{target_cls.name}"
 
 
-def save(path: str, title: str, mapping: Mapping, model_paths: list[str] = None) -> None:
+def save(path: str, title: str, mapping: Mapping, model_paths: list[str] | None = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
         f.write(to_markdown(title, mapping, model_paths))
 
 
-def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> str:
+def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = None) -> str:
     lines: list[str] = [f"# {title}", ""]
     for mp in (model_paths or []):
         lines.append(f"## Model: {mp}")
@@ -478,6 +478,8 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
     repo_schema_map: dict = {}
 
     for rcm in mapping.mappings:
+        if not isinstance(rcm, RelationalClassMapping):
+            continue
         table = _primary_table(rcm)
         if table is None:
             continue
@@ -522,6 +524,8 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
 
             for rcm in rcms:
                 table = _primary_table(rcm)
+                if table is None:
+                    continue
                 heading = f"#### Table: {table.name} → {rcm.clazz.name}"
                 scheme_name = _milestone_scheme_name(rcm, repo)
                 if scheme_name:
@@ -550,7 +554,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> 
                         lines.append("")
                         lines.append(_md_table(
                             ["Source Column", "Target Table", "Target Column"],
-                            [[pm.target.lhs.name, pm.target.rhs.table.name, pm.target.rhs.name]],
+                            [[pm.target.lhs.name, pm.target.rhs.table.name if pm.target.rhs.table else "", pm.target.rhs.name]],
                         ))
                         lines.append("")
 
@@ -595,7 +599,7 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
     return "\n".join(lines)
 
 
-def _primary_table(rcm: RelationalClassMapping) -> Optional[Column]:
+def _primary_table(rcm: RelationalClassMapping) -> Optional[Table]:
     for pm in rcm.property_mappings:
         if isinstance(pm.target, Column) and pm.target.table is not None:
             return pm.target.table

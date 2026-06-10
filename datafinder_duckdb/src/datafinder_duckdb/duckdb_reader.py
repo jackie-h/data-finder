@@ -5,7 +5,7 @@ from model.relational import Database, Schema, Table, Column
 _SYSTEM_SCHEMAS = {"information_schema", "pg_catalog"}
 
 
-def read_repository_from_duckdb(db_path: str, repo_name: str = None) -> Database:
+def read_repository_from_duckdb(db_path: str, repo_name: str | None = None) -> Database:
     """Build a Database by introspecting a DuckDB database schema."""
     name = repo_name or db_path
     repo = Database(name, f"duckdb://{db_path}")

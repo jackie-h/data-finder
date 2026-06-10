@@ -2,8 +2,8 @@ import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pyiceberg.schema import Schema
-from pyiceberg.types import NestedField, StringType, IntegerType
+from pyiceberg.schema import Schema  # type: ignore[import-untyped]
+from pyiceberg.types import NestedField, StringType, IntegerType  # type: ignore[import-untyped]
 
 from datafinder_iceberg.iceberg_catalog_reader import read_repository_from_iceberg_catalog
 
