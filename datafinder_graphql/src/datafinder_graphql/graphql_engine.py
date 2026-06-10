@@ -30,10 +30,10 @@ class GraphQLOutput(DataFrame):
 
     def to_pandas(self) -> pd.DataFrame:
         if not self._rows:
-            return pd.DataFrame(columns=self._field_names)
+            return pd.DataFrame(columns=self._field_names)  # type: ignore[arg-type]
         return pd.DataFrame(
             [[_extract_value(row, f) for f in self._field_names] for row in self._rows],
-            columns=self._field_names,
+            columns=self._field_names,  # type: ignore[arg-type]
         )
 
 
@@ -66,8 +66,8 @@ def _build_fields_str(columns: list[Attribute]) -> str:
     return " ".join(parts)
 
 
-def _build_temporal_args(business_date: datetime.date,
-                         processing_datetime: datetime.datetime,
+def _build_temporal_args(business_date: datetime.date | None,
+                         processing_datetime: datetime.datetime | None,
                          milestone) -> list[str]:
     if milestone is None:
         return []
@@ -89,10 +89,10 @@ def _build_temporal_args(business_date: datetime.date,
 class GraphQLConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime,
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime,  # type: ignore[override]
                columns: list[Attribute], table: GraphQLQuery, op: Operation,
-               order_by: list = None, group_by: list = None, limit: int = None,
-               timeout_ms: int = 60_000, business_date_to: datetime.date = None) -> DataFrame:
+               order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
+               timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         field_names = [col.column().name for col in columns]
         fields_str = _build_fields_str(columns)
 

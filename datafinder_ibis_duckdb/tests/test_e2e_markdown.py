@@ -90,10 +90,10 @@ def finders():
     generate(mapping, temp_dir)
     _seed_test_db()
 
-    from finance.reference_data.account_finder import AccountFinder
-    from finance.trade.trade_finder import TradeFinder
-    from finance.reference_data.instrument_finder import InstrumentFinder
-    from finance.trade.contractualposition_finder import ContractualPositionFinder
+    from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
+    from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
+    from finance.reference_data.instrument_finder import InstrumentFinder  # type: ignore[import]
+    from finance.trade.contractualposition_finder import ContractualPositionFinder  # type: ignore[import]
 
     yield {"Account": AccountFinder(), "Trade": TradeFinder(), "Instrument": InstrumentFinder(),
            "ContractualPosition": ContractualPositionFinder()}

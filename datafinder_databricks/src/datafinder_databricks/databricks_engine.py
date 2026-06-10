@@ -10,10 +10,10 @@ import numpy as np
 import pandas as pd
 
 
-def _to_databricks_sql(business_date: datetime.date, processing_datetime: datetime.datetime,
+def _to_databricks_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
                        columns: list, table: Table, op: Operation,
-                       order_by: list = None, group_by: list = None,
-                       limit: int = None, business_date_to: datetime.date = None) -> str:
+                       order_by: list | None = None, group_by: list | None = None,
+                       limit: int | None = None, business_date_to: datetime.date | None = None) -> str:
     generic_sql = to_sql(business_date, processing_datetime, columns, table, op,
                          order_by, group_by, limit, validate_sqlglot=False,
                          business_date_to=business_date_to)
@@ -27,11 +27,11 @@ class DatabricksConnect(QueryRunnerBase):
         self._http_path = http_path
         self._access_token = access_token
 
-    def select(self, business_date: datetime.date, processing_datetime: datetime.datetime,
+    def select(self, business_date: datetime.date, processing_datetime: datetime.datetime,  # type: ignore[override]
                columns: list[Attribute], table: Table, op: Operation,
-               order_by: list = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = 60_000,
-               business_date_to: datetime.date = None) -> DataFrame:
+               order_by: list | None = None, group_by: list | None = None,
+               limit: int | None = None, timeout_ms: int = 60_000,
+               business_date_to: datetime.date | None = None) -> DataFrame:
         query = _to_databricks_sql(business_date, processing_datetime, columns, table, op,
                                    order_by, group_by, limit, business_date_to=business_date_to)
         result: list = [None]
@@ -47,7 +47,7 @@ class DatabricksConnect(QueryRunnerBase):
                 ) as conn:
                     with conn.cursor() as cursor:
                         cursor.execute(query)
-                        result[0] = (cursor.fetchall(), [desc[0] for desc in cursor.description])
+                        result[0] = (cursor.fetchall(), [desc[0] for desc in (cursor.description or [])])
             except Exception as e:
                 error[0] = e
 
@@ -72,4 +72,4 @@ class DatabricksOutput(DataFrame):
         return np.array(self._rows, dtype='object')
 
     def to_pandas(self) -> pd.DataFrame:
-        return pd.DataFrame(self._rows, columns=self._columns)
+        return pd.DataFrame(self._rows, columns=self._columns)  # type: ignore[arg-type]

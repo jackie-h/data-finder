@@ -716,7 +716,7 @@ class TestNullEndMilestoning:
         from datafinder.sql_generator import build_milestoning_filter_operation
         op = build_milestoning_filter_operation(None, dt, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         assert "IS NULL" not in sql
         assert "out_z" in sql
 
@@ -726,7 +726,7 @@ class TestNullEndMilestoning:
         from datafinder.sql_generator import build_milestoning_filter_operation
         op = build_milestoning_filter_operation(None, dt, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         assert "IS NULL" in sql
         assert "out_z" in sql
 
@@ -736,7 +736,7 @@ class TestNullEndMilestoning:
         from datafinder.sql_generator import build_milestoning_filter_operation
         op = build_milestoning_filter_operation(None, dt, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         assert " OR " in sql
         gt_pos = sql.index("out_z >")
         or_pos = sql.index(" OR ")
@@ -1096,7 +1096,7 @@ class TestFindForDateRange:
         date_to = datetime.date(2024, 12, 31)
         op = build_milestoning_filter_operation_for_date_range(date_from, date_to, None, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         assert "biz_from" in sql
         assert "biz_to" in sql
         assert "'2024-12-31'" in sql
@@ -1109,7 +1109,7 @@ class TestFindForDateRange:
         op = build_milestoning_filter_operation_for_date_range(
             datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), None, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         from_pos = sql.index("biz_from")
         to_pos = sql.index("biz_to")
         assert from_pos < to_pos
@@ -1121,7 +1121,7 @@ class TestFindForDateRange:
         op = build_milestoning_filter_operation_for_date_range(
             datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), pdt, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         assert "in_z" in sql
         assert "out_z" in sql
 
@@ -1132,7 +1132,7 @@ class TestFindForDateRange:
         op = build_milestoning_filter_operation_for_date_range(
             datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), None, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         assert ">=" in sql
         assert "<=" in sql
         assert "'2024-01-01'" in sql
@@ -1145,7 +1145,7 @@ class TestFindForDateRange:
         op = build_milestoning_filter_operation_for_date_range(
             datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), pdt, table)
         gen = SQLQueryGenerator()
-        sql = gen.build_filter(op)
+        sql = gen.build_filter(op)  # type: ignore[arg-type]
         assert "biz_date" in sql
         assert "in_z" in sql
 

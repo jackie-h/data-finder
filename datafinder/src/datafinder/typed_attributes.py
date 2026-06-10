@@ -80,7 +80,7 @@ class StringAttribute(Attribute):
         """Replace all occurrences of ``from_str`` with ``to_str``. Equivalent to ``str.replace()``."""
         return ScalarFunctionOperation(self._cwj(), ScalarFunction.REPLACE, 'Replace ' + self.display_name(), extra_args=[from_str, to_str])
 
-    def substring(self, start: int, length: int = None):
+    def substring(self, start: int, length: int | None = None):
         """Return a substring using 0-based ``start`` index.
 
         ``substring(start)`` returns from ``start`` to end of string.
@@ -123,7 +123,7 @@ class StringAttribute(Attribute):
         """Return equality comparison with a string value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
-    def __eq__(self, value: str) -> Operation:
+    def __eq__(self, value: str) -> Operation:  # type: ignore[override]
         """Return equality comparison with a string value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
@@ -214,7 +214,7 @@ class NumericAttribute(Attribute):
         """Return the value raised to the power of ``n``. Equivalent to ``power(n)``."""
         return self.power(n)
 
-    def round(self, d: int = None):
+    def round(self, d: int | None = None):
         """Round to ``d`` decimal places. Equivalent to ``round(value, d)``.
 
         When ``d`` is omitted, rounds to the nearest integer.
@@ -233,7 +233,7 @@ class DoubleAttribute(NumericAttribute):
         """Return equality comparison with a floating-point value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
-    def __eq__(self, value: float) -> Operation:
+    def __eq__(self, value: float) -> Operation:  # type: ignore[override]
         """Return equality comparison with a floating-point value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
@@ -269,7 +269,7 @@ class DecimalAttribute(NumericAttribute):
         """Return equality comparison with a decimal value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DecimalConstantOperation(value))
 
-    def __eq__(self, value: decimal.Decimal) -> Operation:
+    def __eq__(self, value: decimal.Decimal) -> Operation:  # type: ignore[override]
         """Return equality comparison with a decimal value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DecimalConstantOperation(value))
 
@@ -301,7 +301,7 @@ class BooleanAttribute(Attribute):
         """Return equality comparison with a boolean value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, BooleanConstantOperation(value))
 
-    def __eq__(self, value: bool) -> Operation:
+    def __eq__(self, value: bool) -> Operation:  # type: ignore[override]
         """Return equality comparison with a boolean value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, BooleanConstantOperation(value))
 
@@ -325,7 +325,7 @@ class IntegerAttribute(NumericAttribute):
         """Return equality comparison with an integer value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
-    def __eq__(self, value: int) -> Operation:
+    def __eq__(self, value: int) -> Operation:  # type: ignore[override]
         """Return equality comparison with an integer value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
@@ -377,7 +377,7 @@ class DateAttribute(Attribute):
         """Return equality comparison with a date value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateConstantOperation(value))
 
-    def __eq__(self, value: datetime.date) -> Operation:
+    def __eq__(self, value: datetime.date) -> Operation:  # type: ignore[override]
         """Return equality comparison with a date value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateConstantOperation(value))
 
@@ -507,7 +507,7 @@ class DateTimeAttribute(Attribute):
         """Return equality comparison with a datetime value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
 
-    def __eq__(self, value: datetime.datetime) -> Operation:
+    def __eq__(self, value: datetime.datetime) -> Operation:  # type: ignore[override]
         """Return equality comparison with a datetime value."""
         return ComparisonOperation(ColumnWithJoin(self.column(), self.parent()),ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
 

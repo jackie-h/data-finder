@@ -5,6 +5,7 @@ from datafinder_examples import example_path
 from mapping_markdown.markdown_mapping import load as load_relational
 from mapping_markdown.graphql_mapping_markdown import load as load_graphql
 from model.graphql_mapping import (
+    GraphQLClassMapping,
     GraphQLProcessingMilestone,
     GraphQLBusinessDateMilestone,
     GraphQLBiTemporalMilestone,
@@ -81,7 +82,7 @@ class TestExampleMappingsLoadable:
 
     def test_graphql_mapping_milestones(self):
         mapping = load_graphql(str(example_path("finance_graphql_mapping.md")))
-        by_class = {cm.clazz.name: cm for cm in mapping.mappings}
+        by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in mapping.mappings}  # type: ignore[dict-item]
         assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
         assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBusinessDateMilestone)
         assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)
@@ -89,5 +90,5 @@ class TestExampleMappingsLoadable:
 
     def test_graphql_mapping_endpoint(self):
         mapping = load_graphql(str(example_path("finance_graphql_mapping.md")))
-        urls = {cm.query.endpoint.url for cm in mapping.mappings}
+        urls = {cm.query.endpoint.url for cm in mapping.mappings if isinstance(cm, GraphQLClassMapping)}
         assert urls == {"http://localhost:4000/graphql"}

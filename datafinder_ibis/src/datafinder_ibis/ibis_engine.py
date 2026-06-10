@@ -16,15 +16,15 @@ class IbisConnect(QueryRunnerBase):
 
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
-               table: Table, op: Operation, order_by: list = None, group_by: list = None,
-               limit: int = None, timeout_ms: int = 60_000, business_date_to: datetime.date = None) -> DataFrame:
+               table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
+               limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         conn = ibis.connect('duckdb://test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to)
         print(query)
-        timer = threading.Timer(timeout_ms / 1000, conn.con.interrupt)
+        timer = threading.Timer(timeout_ms / 1000, conn.con.interrupt)  # type: ignore[attr-defined]
         timer.start()
         try:
-            result = conn.sql(query)
+            result = conn.sql(query)  # type: ignore[attr-defined]
         except duckdb.InterruptException:
             raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
         finally:
@@ -37,7 +37,7 @@ class IbisOutput(DataFrame):
     def __init__(self, t: ibis.Table):
         self.__table = t
 
-    def to_numpy(self) -> np.array:
+    def to_numpy(self) -> np.ndarray:
         return self.__table.__array__()
 
     def to_pandas(self) -> pd.DataFrame:

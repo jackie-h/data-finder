@@ -111,9 +111,9 @@ def finders():
     mapping = load(_MAPPING_FILE, catalog_repo)
     generate(mapping, temp_dir)
 
-    from finance.reference_data.account_finder import AccountFinder
-    from finance.reference_data.instrument_finder import InstrumentFinder
-    from finance.trade.trade_finder import TradeFinder
+    from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
+    from finance.reference_data.instrument_finder import InstrumentFinder  # type: ignore[import]
+    from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
 
     yield {"Account": AccountFinder(), "Instrument": InstrumentFinder(), "Trade": TradeFinder()}
 
@@ -172,8 +172,8 @@ def catalog_mapping_finders():
     mapping = load(_CATALOG_MAPPING_FILE)
     generate(mapping, temp_dir)
 
-    from finance.reference_data.account_finder import AccountFinder
-    from finance.trade.trade_finder import TradeFinder
+    from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
+    from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
 
     yield {"Account": AccountFinder(), "Trade": TradeFinder()}
 
@@ -191,7 +191,12 @@ class TestCatalogMappingFileSQL:
         from mapping_markdown.markdown_mapping import load as md_load
         mapping = md_load(_CATALOG_MAPPING_FILE)
         from mapping_markdown.markdown_mapping import _primary_table
-        table = _primary_table(mapping.mappings[0])
+        from model.relational_mapping import RelationalClassMapping
+        rcm = mapping.mappings[0]
+        assert isinstance(rcm, RelationalClassMapping)
+        table = _primary_table(rcm)
+        assert table is not None
+        assert table.schema is not None
         assert isinstance(table.schema.datastore, DataCatalog)
         assert table.schema.datastore.name == "my_catalog"
 

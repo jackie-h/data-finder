@@ -35,7 +35,7 @@ GraphQLMilestone = GraphQLProcessingMilestone | GraphQLBusinessDateMilestone | G
 
 class GraphQLQuery:
     def __init__(self, name: str, endpoint: GraphQLEndpoint,
-                 milestone: GraphQLMilestone = None):
+                 milestone: GraphQLMilestone | None = None):
         self.name = name
         self.endpoint = endpoint
         self.milestone = milestone
@@ -60,6 +60,6 @@ class GraphQLAssociationMapping(GraphQLPropertyMapping):
 
 class GraphQLClassMapping(ClassMapping):
     def __init__(self, clazz: Class, property_mappings: list[GraphQLPropertyMapping],
-                 query: GraphQLQuery, milestone_mapping: MilestonePropertyMapping = None):
-        super().__init__(clazz, property_mappings, milestone_mapping)
+                 query: GraphQLQuery, milestone_mapping: MilestonePropertyMapping | None = None):
+        super().__init__(clazz, property_mappings, milestone_mapping)  # type: ignore[arg-type]
         self.query = query

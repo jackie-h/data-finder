@@ -49,7 +49,7 @@ def CompanyFinder():
     generate(mapping, temp_dir)
     _build_test_db()
 
-    from company_finder import CompanyFinder as CF
+    from company_finder import CompanyFinder as CF  # type: ignore[import]
     yield CF()
 
     sys.path.remove(temp_dir)

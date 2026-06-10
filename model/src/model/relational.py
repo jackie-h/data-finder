@@ -15,7 +15,7 @@ class Operation(RelationalOperationElement):
     def and_op(self, other) -> RelationalOperationElement:
         return LogicalOperation(self, LogicalOperator.AND, other)
 
-class NoOperation(RelationalOperationElement):
+class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
@@ -154,7 +154,7 @@ class WindowSpecification:
 class AggregateOperation(UnaryOperation):
     operator: AggregateOperator
 
-    def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str = None,
+    def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
                  window=None):
         super().__init__(element)
         self.operator = operator
@@ -162,7 +162,7 @@ class AggregateOperation(UnaryOperation):
         self.window = window
 
     def over(self, partition_by=None, order_by=None):
-        return AggregateOperation(self.element, self.operator, self.display_name,
+        return AggregateOperation(self.element, self.operator, self.display_name,  # type: ignore[arg-type]
                                   WindowSpecification(partition_by, order_by))
 
 
@@ -201,10 +201,13 @@ class WindowFunction(Enum):
     PERCENT_RANK = 10
 
 
-class WindowFunctionOperation(UnaryOperation):
-    def __init__(self, element: RelationalOperationElement, function: WindowFunction,
-                 display_name: str = None, second_arg: int = None, extra_args: list = None, window=None):
-        super().__init__(element)
+class WindowFunctionOperation(Operation):
+    element: RelationalOperationElement | None
+
+    def __init__(self, element: RelationalOperationElement | None, function: WindowFunction,
+                 display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None, window=None):
+        super().__init__()
+        self.element = element
         self.function = function
         self.display_name = display_name
         self.second_arg = second_arg
@@ -219,7 +222,7 @@ class WindowFunctionOperation(UnaryOperation):
 
 class ScalarFunctionOperation(UnaryOperation):
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
-                 display_name: str = None, second_arg: int = None, extra_args: list = None):
+                 display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None):
         super().__init__(element)
         self.function = function
         self.display_name = display_name
@@ -240,7 +243,7 @@ class DatePart(Enum):
 
 
 class DateExtractOperation(UnaryOperation):
-    def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str = None):
+    def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.part = part
         self.display_name = display_name
@@ -248,7 +251,7 @@ class DateExtractOperation(UnaryOperation):
 
 class DateArithmeticOperation(UnaryOperation):
     def __init__(self, element: RelationalOperationElement, n: int, unit: DatePart,
-                 is_add: bool = True, display_name: str = None):
+                 is_add: bool = True, display_name: str | None = None):
         super().__init__(element)
         self.n = n
         self.unit = unit
@@ -257,7 +260,7 @@ class DateArithmeticOperation(UnaryOperation):
 
 
 class DateDiffOperation(UnaryOperation):
-    def __init__(self, element: RelationalOperationElement, other, unit: DatePart, display_name: str = None):
+    def __init__(self, element: RelationalOperationElement, other, unit: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.other = other
         self.unit = unit
@@ -270,9 +273,9 @@ class Relation:
 
 
 class MilestoningScheme:
-    def __init__(self, name: str, processing_start: str = None, processing_end: str = None,
-                 business_date: str = None, business_date_from: str = None, business_date_to: str = None,
-                 infinite_datetime: str = None):
+    def __init__(self, name: str, processing_start: str | None = None, processing_end: str | None = None,
+                 business_date: str | None = None, business_date_from: str | None = None,
+                 business_date_to: str | None = None, infinite_datetime: str | None = None):
         self.name = name
         self.processing_start = processing_start
         self.processing_end = processing_end
@@ -297,7 +300,7 @@ class DataStore(ABC):
 
 
 class Database(DataStore):
-    def __init__(self, name: str, location: str = None):
+    def __init__(self, name: str, location: str | None = None):
         super().__init__(name)
         self.location = location
 
@@ -314,7 +317,7 @@ class DataCatalog(DataStore):
 
 
 class Schema:
-    def __init__(self, name: str, datastore: DataStore = None):
+    def __init__(self, name: str, datastore: DataStore | None = None):
         self.name = name
         self.datastore = datastore
         self.tables: list = []
@@ -323,13 +326,20 @@ class Schema:
 
 
 class Column(RelationalOperationElement):
+    table: 'Table | None'
+
     #TODO owner should be Relation
-    def __init__(self, name: str, _type: str, owner: str = None, primary_key: bool = False):
+    def __init__(self, name: str, _type: str, owner: str | None = None, primary_key: bool = False):
+        self.table = None
         super().__init__()
         self.name = name
         self.type = _type
         self.owner = owner
         self.primary_key = primary_key
+
+    def qualified_name(self) -> str:
+        assert self.table is not None, f"Column {self.name} has no table"
+        return self.table.qualified_name
 
 
 class ForeignKey:
@@ -339,7 +349,10 @@ class ForeignKey:
 
 
 class Table(Relation):
-    def __init__(self, name: str, columns: list[Column], schema: Schema = None):
+    schema: 'Schema | None'
+    foreign_keys: 'list[ForeignKey]'
+
+    def __init__(self, name: str, columns: list[Column], schema: 'Schema | None' = None):
         super().__init__()
         self._columns_by_name: dict[str, Column] = {}
         for col in columns:
@@ -355,14 +368,6 @@ class Table(Relation):
             schema.tables.append(self)
 
     @property
-    def qualified_name(self) -> str:
-        if self.schema is None:
-            return self.name
-        if self.schema.prefix:
-            return f"{self.schema.prefix}.{self.schema.name}.{self.name}"
-        return f"{self.schema.name}.{self.name}"
-
-    @property
     def columns(self) -> list[Column]:
         return list(self._columns_by_name.values())
 
@@ -376,7 +381,7 @@ class Table(Relation):
 
 
 class JoinOperation:
-    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement = None):
+    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement | None = None):
         self.name = name
         self.target = target
         self.left = lhs
@@ -392,7 +397,7 @@ class JoinTreeNodeOperation:
     Enables multi-hop traversal (e.g. Employee.manager.reports) by ensuring
     intermediate joins are emitted before the joins that depend on them.
     """
-    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation' = None):
+    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None):
         self.join = join
         self.parent = parent
 

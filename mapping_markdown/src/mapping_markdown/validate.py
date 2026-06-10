@@ -37,7 +37,7 @@ def validate_file(path: str) -> ValidationResult:
     return validate(content, base_dir=base_dir, source=os.path.basename(path))
 
 
-def validate(content: str, base_dir: str = None, source: str = "<mapping>") -> ValidationResult:
+def validate(content: str, base_dir: str | None = None, source: str = "<mapping>") -> ValidationResult:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
     result = ValidationResult()
@@ -45,7 +45,7 @@ def validate(content: str, base_dir: str = None, source: str = "<mapping>") -> V
     return result
 
 
-def _validate_nodes(nodes: list, base_dir: str, source: str, result: ValidationResult) -> None:
+def _validate_nodes(nodes: list, base_dir: str | None, source: str, result: ValidationResult) -> None:
     i = 0
     while i < len(nodes):
         node = nodes[i]

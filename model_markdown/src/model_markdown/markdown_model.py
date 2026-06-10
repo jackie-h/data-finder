@@ -56,13 +56,13 @@ def _type_to_str(t: Type) -> str:
 # Load: markdown → m3
 # ---------------------------------------------------------------------------
 
-def load(path: str, known_classes: dict[str, Class] = None) -> list[Package]:
+def load(path: str, known_classes: dict[str, Class] | None = None) -> list[Package]:
     with open(path, encoding="utf-8") as f:
         content = f.read()
     return loads(content, known_classes)
 
 
-def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]:
+def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[Package]:
     root = SyntaxTreeNode(_md_parser.parse(content))
     nodes = root.children
 
@@ -85,6 +85,9 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
 
             elif level == "h3" and text.startswith("Class:"):
                 m = _CLASS_HEADING_RE.match(text[len("Class:"):].strip())
+                if m is None:
+                    i += 1
+                    continue
                 class_name = m.group(1).strip()
                 superclass_names = [s.strip() for s in m.group(2).split(",")] if m.group(2) else []
                 i += 1
@@ -162,12 +165,12 @@ def loads(content: str, known_classes: dict[str, Class] = None) -> list[Package]
                                 f"Association '{assoc_name}' must specify Target Property"
                             )
                         desc = row.get("Description", "").strip()
-                        tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else None
+                        tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else []
                         Association(assoc_name, source, src_mult_str,
                                     src_prop_name, src_prop_id,
                                     target, tgt_mult_str,
                                     tgt_prop_name, tgt_prop_id,
-                                    current_package, tagged)
+                                    current_package, tagged or None)
                     i += 1
                 continue
 

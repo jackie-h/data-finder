@@ -2,8 +2,9 @@ from __future__ import annotations
 from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range
+from datafinder.attribute import Attribute
 from datafinder.finder import RelatedFinder
-from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation
+from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation, Operation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase, {{rcm.clazz.name}}RelatedFinderBase
 
@@ -44,7 +45,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% endfor %}
     }
 
-    def __init__(self, relation_name: str, source: Column, target: Column, parent_join: JoinTreeNodeOperation = None, **kwargs):
+    def __init__(self, relation_name: str, source: Column, target: Column, parent_join: JoinTreeNodeOperation | None = None, **kwargs):
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
         self.__node = JoinTreeNodeOperation(join, parent_join)
         RelatedFinder.__init__(self, self.__node)
@@ -201,16 +202,16 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         """Returns data matching the optional filter."""
 {% if rcm.milestone_mapping %}
 {% if has_bitemporal(rcm.milestone_mapping) %}
-        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% elif has_business_date_and_processing(rcm.milestone_mapping) %}
-        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% elif has_processing_temporal(rcm.milestone_mapping) %}
-        return convert_inputs_and_select(None, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return convert_inputs_and_select(None, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
-        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% endif %}
 {% else %}
-        return convert_inputs_and_select(None, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return convert_inputs_and_select(None, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% endif %}
 {% if rcm.milestone_mapping and (has_bitemporal(rcm.milestone_mapping) or has_business_date_and_processing(rcm.milestone_mapping) or has_uni_business_temporal(rcm.milestone_mapping)) %}
 
@@ -227,5 +228,5 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         For single-date tables:
             business_date >= business_date_from AND business_date <= business_date_to
         """
-        return convert_inputs_and_select_for_date_range(business_date_from, business_date_to, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)
+        return convert_inputs_and_select_for_date_range(business_date_from, business_date_to, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% endif %}

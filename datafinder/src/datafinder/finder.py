@@ -1,7 +1,11 @@
-class ExistsOperation:
+from model.relational import RelationalOperationElement
+
+
+class ExistsOperation(RelationalOperationElement):
     """Returned by RelatedFinder.exists(). Backend translates this to a join-presence check."""
 
     def __init__(self, node):
+        super().__init__()
         self.node = node
 
     def and_op(self, other):
@@ -9,10 +13,11 @@ class ExistsOperation:
         return LogicalOperation(self, LogicalOperator.AND, other)
 
 
-class NotExistsOperation:
+class NotExistsOperation(RelationalOperationElement):
     """Returned by RelatedFinder.not_exists(). Backend translates this to a join-absence check."""
 
     def __init__(self, node):
+        super().__init__()
         self.node = node
 
     def and_op(self, other):

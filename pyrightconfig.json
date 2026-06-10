@@ -1,0 +1,25 @@
+{
+  "pythonVersion": "3.11",
+  "venvPath": ".",
+  "venv": ".venv",
+  "extraPaths": [
+    ".",
+    "src",
+    "calc/src",
+    "datafinder/src",
+    "datafinder_generator/src",
+    "model/src",
+    "example",
+    "example/generated",
+    "datafinder_ibis/src",
+    "datafinder_duckdb/src",
+    "datafinder_databricks/src",
+    "datafinder_linkml/src",
+    "datafinder_iceberg/src",
+    "model_markdown/src",
+    "mapping_markdown/src",
+    "datafinder_graphql/src",
+    "datafinder_graphql/tests",
+    "datafinder_examples/src"
+  ]
+}

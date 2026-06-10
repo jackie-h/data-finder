@@ -71,7 +71,7 @@ def finders():
     generate(mapping, temp_dir)
     _build_test_db()
 
-    from employee_finder import EmployeeFinder
+    from employee_finder import EmployeeFinder  # type: ignore[import]
 
     yield EmployeeFinder()
 
@@ -227,7 +227,7 @@ def diamond_finder():
     generate(mapping, temp_dir)
     _build_diamond_db()
 
-    from record_finder import RecordFinder
+    from record_finder import RecordFinder  # type: ignore[import]
 
     yield RecordFinder()
 

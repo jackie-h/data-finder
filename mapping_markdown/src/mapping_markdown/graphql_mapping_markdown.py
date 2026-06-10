@@ -85,7 +85,7 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
 
     title = "Mapping"
     current_endpoint: Optional[GraphQLEndpoint] = None
-    class_mappings: list[GraphQLClassMapping] = []
+    class_mappings: list = []
     # class name → (property_mappings list, Class) for association sections to append to
     class_context: dict[str, tuple[list, Class]] = {}
 
@@ -157,9 +157,9 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
 
                 # Determine which side of the association applies to the most-recently mapped class
                 last_class_name = next(reversed(class_context), None)
-                pm_list, src_cls = class_context.get(last_class_name, (None, None))
+                pm_list, src_cls = class_context.get(last_class_name, (None, None)) if last_class_name is not None else (None, None)
 
-                if pm_list is None:
+                if pm_list is None or src_cls is None:
                     _log.warning("Association '%s': no Query section found before this Association", assoc_name)
                     if i < len(nodes) and nodes[i].type == "table":
                         i += 1
@@ -251,12 +251,12 @@ def _parse_association_table(node: SyntaxTreeNode) -> list[dict]:
 # Save: Mapping → markdown
 # ---------------------------------------------------------------------------
 
-def save(path: str, title: str, mapping: Mapping, model_paths: list[str] = None) -> None:
+def save(path: str, title: str, mapping: Mapping, model_paths: list[str] | None = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
         f.write(to_markdown(title, mapping, model_paths))
 
 
-def to_markdown(title: str, mapping: Mapping, model_paths: list[str] = None) -> str:
+def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = None) -> str:
     lines: list[str] = [f"# {title}", ""]
     for mp in (model_paths or []):
         lines.append(f"## Model: {mp}")

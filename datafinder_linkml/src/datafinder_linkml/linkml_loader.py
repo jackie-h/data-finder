@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, cast
 
 from linkml_runtime.loaders import yaml_loader
-from linkml_runtime.linkml_model import SchemaDefinition
+from linkml_runtime.linkml_model import SchemaDefinition, ClassDefinition, SlotDefinition
 
 from model.m3 import (
     Class, Package, Property,
@@ -39,14 +39,14 @@ def _resolve_type(range_name: Optional[str]) -> Type:
 
 
 def load_schema(path: str) -> Package:
-    schema: SchemaDefinition = yaml_loader.load(path, target_class=SchemaDefinition)
+    schema: SchemaDefinition = cast(SchemaDefinition, yaml_loader.load(path, target_class=SchemaDefinition))
 
     package = Package(schema.name or "default")
 
-    for class_name, class_def in schema.classes.items():
+    for class_name, class_def in cast(dict[str, ClassDefinition], schema.classes).items():
         properties: list[Property] = []
 
-        for slot_name, slot_def in (class_def.attributes or {}).items():
+        for slot_name, slot_def in cast(dict[str, SlotDefinition], class_def.attributes or {}).items():
             tagged: list[TaggedValue] = []
             if slot_def.description:
                 tagged.append(TaggedValue(TaggedValue.DOC, slot_def.description))
@@ -56,7 +56,7 @@ def load_schema(path: str) -> Package:
         for slot_name in (class_def.slots or []):
             if slot_name in (class_def.attributes or {}):
                 continue
-            slot_def = schema.slots.get(slot_name)
+            slot_def = cast(dict[str, SlotDefinition], schema.slots).get(slot_name)
             if slot_def is None:
                 continue
             tagged = []

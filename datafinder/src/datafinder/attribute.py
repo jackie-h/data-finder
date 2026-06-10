@@ -5,7 +5,7 @@ from model.relational import Column, Operation, ComparisonOperation, ComparisonO
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
 
-class Attribute:
+class Attribute(RelationalOperationElement):
     """Base wrapper for a table column exposed through the finder API."""
 
     __display_name: str
@@ -15,6 +15,7 @@ class Attribute:
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
         """Create a typed attribute for a named column."""
+        super().__init__()
         self.__display_name = display_name
         self.__column = Column(column_name, column_db_type, owner)
         self.__owner = owner
