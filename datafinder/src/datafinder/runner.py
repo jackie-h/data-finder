@@ -60,10 +60,10 @@ _DEFAULT_TIMEOUT_MS = 60_000
 
 class FinderResult(DataFrame):
 
-    def __init__(self, business_date: Optional[datetime.date],
-                 processing_datetime: Optional[datetime.datetime],
+    def __init__(self, business_date: datetime.date | None,
+                 processing_datetime: datetime.datetime | None,
                  columns: list, table: Table, op: Operation,
-                 business_date_to: Optional[datetime.date] = None):
+                 business_date_to: datetime.date | None = None):
         self._business_date = business_date
         self._business_date_to = business_date_to
         self._processing_datetime = processing_datetime
@@ -113,8 +113,8 @@ class FinderResult(DataFrame):
         return self._execute().to_numpy()
 
 
-def convert_inputs_and_select(business_date: Optional[Union[datetime.date, str]],
-                              processing_datetime: Optional[Union[datetime.datetime, str]],
+def convert_inputs_and_select(business_date: Union[datetime.date, str] | None,
+                              processing_datetime: Union[datetime.datetime, str] | None,
                               columns: list[Attribute], table: Table, op: Operation) -> FinderResult:
     bd = None if business_date is None else convert_date(business_date)
     pdt = None if processing_datetime is None else convert_date_time(processing_datetime)
@@ -141,7 +141,7 @@ def convert_inputs_and_select_for_date_range(
 class QueryRunnerBase(metaclass=RegistryBase):
 
     @staticmethod
-    def select(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: Table, op: Operation,
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,

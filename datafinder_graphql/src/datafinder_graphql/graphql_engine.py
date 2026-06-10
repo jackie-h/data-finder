@@ -89,7 +89,7 @@ def _build_temporal_args(business_date: datetime.date | None,
 class GraphQLConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,  # type: ignore[override]
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime,  # type: ignore[override]
                columns: list[Attribute], table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:

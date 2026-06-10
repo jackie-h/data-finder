@@ -27,7 +27,7 @@ class DatabricksConnect(QueryRunnerBase):
         self._http_path = http_path
         self._access_token = access_token
 
-    def select(self, business_date: datetime.date | None, processing_datetime: datetime.datetime | None,  # type: ignore[override]
+    def select(self, business_date: datetime.date, processing_datetime: datetime.datetime,  # type: ignore[override]
                columns: list[Attribute], table: Table, op: Operation,
                order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000,

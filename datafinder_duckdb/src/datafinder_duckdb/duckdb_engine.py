@@ -13,7 +13,7 @@ from model.relational import Table
 class DuckDbConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date | None, processing_datetime: datetime.datetime | None, columns: list[Attribute],
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         conn = duckdb.connect('test.db')
