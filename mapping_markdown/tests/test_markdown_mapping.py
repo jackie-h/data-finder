@@ -572,6 +572,62 @@ class TestDuplicateAssociationMapping:
             loads(self._MAPPING, self._packages, self._repo)
 
 
+class TestAssociationBeforeTableRaises:
+
+    _MAPPING = """\
+# Finance Mapping
+
+## Model: finance.md
+## Model: finance_trade.md
+
+## DataStore: finance_db (Database)
+
+### Schema: ref_data
+
+#### Table: account_master → Account
+
+| Column    | Type    | Key | Property ID |
+|-----------|---------|-----|-------------|
+| ID        | INT     | PK  | id          |
+| ACCT_NAME | VARCHAR |     | name        |
+
+### Schema: trading
+
+#### Association: TradeAccount
+
+| Source Column | Target Table   | Target Column |
+|---------------|----------------|---------------|
+| account_id    | account_master | ID            |
+
+#### Table: trades → Trade
+
+| Column | Type    | Key | Property ID |
+|--------|---------|-----|-------------|
+| sym    | VARCHAR |     | symbol      |
+| price  | DOUBLE  |     | price       |
+"""
+
+    def setup_method(self):
+        self._repo = Database("finance_db", "duckdb://test.db")
+        ref_data = Schema("ref_data", self._repo)
+        trading = Schema("trading", self._repo)
+        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+        Table(
+            "trades",
+            [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("account_id", "INT")],
+            trading,
+        )
+        known = {}
+        packages1 = load_model(MODEL_FILE, known_classes=known)
+        known.update({c.name: c for pkg in packages1 for c in pkg.children if isinstance(c, Class)})
+        packages2 = load_model(TRADE_MODEL_FILE, known_classes=known)
+        self._packages = packages1 + packages2
+
+    def test_association_before_table_raises(self):
+        with pytest.raises(ValueError, match="no Table section defined before"):
+            loads(self._MAPPING, self._packages, self._repo)
+
+
 class TestColumnMappingHeaderValidation:
 
     def _mapping_with_headers(self, header_row: str, separator_row: str) -> str:
