@@ -308,6 +308,11 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
 
                         if tgt_col and nav_prop_id and target_cls:
+                            if any(pm.property.id == nav_prop_id for pm in pm_list):
+                                raise ValueError(
+                                    f"Association '{assoc_name}': navigation property '{nav_prop_id}' "
+                                    f"on class '{src_cls_name}' is already mapped"
+                                )
                             prop = Property(assoc_def.target_property.name, nav_prop_id, target_cls)
                             pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col)))
                             lhs_col.table.foreign_keys.append(ForeignKey(lhs_col, tgt_col))
