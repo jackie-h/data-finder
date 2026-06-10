@@ -275,13 +275,10 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 target_cls = classes_by_name.get(target_cls_name) if target_cls_name else None
 
                 if pm_list is None:
-                    _log.warning(
-                        "Association '%s': source class '%s' has no processed Table section",
-                        assoc_name, src_cls_name,
+                    raise ValueError(
+                        f"Association '{assoc_name}': source class '{src_cls_name}' "
+                        f"has no Table section defined before this Association"
                     )
-                    if i < len(nodes) and nodes[i].type == "table":
-                        i += 1
-                    continue
 
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i], _ASSOCIATION_HEADERS):
