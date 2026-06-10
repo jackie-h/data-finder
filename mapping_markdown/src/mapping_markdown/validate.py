@@ -1,8 +1,8 @@
 import os
 from dataclasses import dataclass, field
 
-from markdown_it import MarkdownIt  # type: ignore
-from markdown_it.tree import SyntaxTreeNode  # type: ignore
+from markdown_it import MarkdownIt
+from markdown_it.tree import SyntaxTreeNode
 
 _md_parser = MarkdownIt().enable("table")
 

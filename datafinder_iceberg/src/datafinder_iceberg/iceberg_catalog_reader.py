@@ -3,9 +3,9 @@ import json
 import logging
 from typing import Optional
 
-from pyiceberg.catalog.rest import RestCatalog  # type: ignore
-from pyiceberg.schema import Schema  # type: ignore
-from pyiceberg.types import (  # type: ignore
+from pyiceberg.catalog.rest import RestCatalog
+from pyiceberg.schema import Schema
+from pyiceberg.types import (
     IcebergType, StructType,
     StringType, BooleanType,
     IntegerType, LongType,
@@ -70,7 +70,7 @@ def schema_to_table(schema: Schema, table_name: str) -> Table:
 
 def load_schema_from_dict(schema_dict: dict, table_name: str) -> Table:
     """Load a Table from an Iceberg schema represented as a dict."""
-    schema = Schema.from_dict(schema_dict)
+    schema = Schema.from_dict(schema_dict)  # type: ignore[attr-defined]
     return schema_to_table(schema, table_name)
 
 

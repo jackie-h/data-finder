@@ -17,8 +17,17 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "databricks-sql-connector>=3.0.0",
+    "duckdb>=1.0.0",
+    "ibis-framework~=12.0.0",
+    "linkml-runtime>=1.9.5",
+    "markdown-it-py>=4.0.0",
+    "pyarrow>=24.0.0",
+    "pyarrow-hotfix>=0.7",
+    "pyiceberg>=0.11.0",
     "pyright>=1.1.410",
     "pytest>=9.0.0",
+    "sqlalchemy>=2.0.0",
 ]
 ibis = [
     "ibis-framework~=12.0.0",

@@ -2,8 +2,8 @@ import logging
 import re
 from typing import Optional
 
-from markdown_it import MarkdownIt  # type: ignore
-from markdown_it.tree import SyntaxTreeNode  # type: ignore
+from markdown_it import MarkdownIt
+from markdown_it.tree import SyntaxTreeNode
 
 import model.m3 as m3
 from model.m3 import (

@@ -4,9 +4,9 @@ import sys
 import tempfile
 
 import pytest
-from pyiceberg.catalog.memory import InMemoryCatalog  # type: ignore[import-untyped]
-from pyiceberg.schema import Schema as IcebergSchema  # type: ignore[import-untyped]
-from pyiceberg.types import (  # type: ignore[import-untyped]
+from pyiceberg.catalog.memory import InMemoryCatalog
+from pyiceberg.schema import Schema as IcebergSchema
+from pyiceberg.types import (
     NestedField, StringType, IntegerType, DoubleType, BooleanType, TimestampType, DateType,
 )
 

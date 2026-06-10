@@ -3,8 +3,8 @@ import os
 import re
 from typing import Optional
 
-from markdown_it import MarkdownIt  # type: ignore
-from markdown_it.tree import SyntaxTreeNode  # type: ignore
+from markdown_it import MarkdownIt
+from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, Property, PrimitiveType, Association
 from model.mapping import Mapping

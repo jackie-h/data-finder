@@ -39,7 +39,7 @@ class DatabricksConnect(QueryRunnerBase):
 
         def run():
             try:
-                from databricks import sql as databricks_sql  # type: ignore[import-untyped]
+                from databricks import sql as databricks_sql
                 with databricks_sql.connect(
                     server_hostname=self._server_hostname,
                     http_path=self._http_path,
@@ -47,7 +47,7 @@ class DatabricksConnect(QueryRunnerBase):
                 ) as conn:
                     with conn.cursor() as cursor:
                         cursor.execute(query)
-                        result[0] = (cursor.fetchall(), [desc[0] for desc in cursor.description])
+                        result[0] = (cursor.fetchall(), [desc[0] for desc in (cursor.description or [])])
             except Exception as e:
                 error[0] = e
 

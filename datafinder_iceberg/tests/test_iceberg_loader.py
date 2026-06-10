@@ -1,7 +1,7 @@
 import pytest
 
-from pyiceberg.schema import Schema  # type: ignore[import-untyped]
-from pyiceberg.types import (  # type: ignore[import-untyped]
+from pyiceberg.schema import Schema
+from pyiceberg.types import (
     NestedField, StringType, IntegerType, LongType,
     DoubleType, FloatType, BooleanType, DateType,
     TimestampType, DecimalType, StructType, ListType, MapType,
