@@ -143,7 +143,7 @@ def build_milestoning_filter_operation(business_date: datetime.date | None, proc
 
 def find_column(operation: RelationalOperationElement) -> ColumnWithJoin:
     if isinstance(operation, UnaryOperation):
-        return find_column(operation.element)  # type: ignore[arg-type]
+        return find_column(operation.element)
     elif isinstance(operation, ColumnWithJoin):
         return operation
     else:

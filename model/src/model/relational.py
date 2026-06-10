@@ -75,9 +75,9 @@ class BooleanConstantOperation(ConstantOperation):
 
 
 class UnaryOperation(Operation):
-    element: RelationalOperationElement | None
+    element: RelationalOperationElement
 
-    def __init__(self, element: RelationalOperationElement | None):
+    def __init__(self, element: RelationalOperationElement):
         super().__init__()
         self.element = element
 
@@ -201,10 +201,13 @@ class WindowFunction(Enum):
     PERCENT_RANK = 10
 
 
-class WindowFunctionOperation(UnaryOperation):
+class WindowFunctionOperation(Operation):
+    element: RelationalOperationElement | None
+
     def __init__(self, element: RelationalOperationElement | None, function: WindowFunction,
                  display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None, window=None):
-        super().__init__(element)
+        super().__init__()
+        self.element = element
         self.function = function
         self.display_name = display_name
         self.second_arg = second_arg
