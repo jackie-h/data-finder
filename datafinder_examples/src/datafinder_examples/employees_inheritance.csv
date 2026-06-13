@@ -1,0 +1,5 @@
+emp_id,first_name,last_name,email,department,manager_id
+1,Alice,Smith,alice@example.com,Executive,
+2,Bob,Jones,bob@example.com,Engineering,1
+3,Carol,White,carol@example.com,Engineering,1
+4,Dave,Brown,dave@example.com,QA,2
