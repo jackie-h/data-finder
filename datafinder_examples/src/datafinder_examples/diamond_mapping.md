@@ -1,6 +1,6 @@
 # Diamond Inheritance Mapping
 
-## Model: ../../model_markdown/tests/diamond_model.md
+## Model: diamond_model.md
 
 ## DataStore: diamond_db (Database)
 
