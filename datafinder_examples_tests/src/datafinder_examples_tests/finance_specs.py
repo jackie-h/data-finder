@@ -75,7 +75,7 @@ TRADE_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="price_sum_single_active_trade",
             query=lambda f: f.find_all(None, _AT, [f.price().sum()]),
-            expected_columns=["Price"],
+            expected_columns=["Sum Price"],
             expected_result=np.array([[84.11]], dtype=object),
         ),
         TestExpectation(
