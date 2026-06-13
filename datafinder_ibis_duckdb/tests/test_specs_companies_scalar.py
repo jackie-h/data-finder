@@ -18,7 +18,6 @@ from datafinder_examples import example_path
 
 from datafinder_examples_tests.companies_string_scalar_specs import (
     COMPANIES_STRING_SCALAR_SPECS,
-    COMPANIES_SCALAR,
 )
 
 _MODS = ["company_finder"]
@@ -39,8 +38,7 @@ def company_scalar_finder():
     conn = duckdb.connect("test.db")
     conn.execute("DROP TABLE IF EXISTS companies")
     conn.execute("CREATE TABLE companies (id INT, name VARCHAR, category VARCHAR)")
-    for row in COMPANIES_SCALAR:
-        conn.execute("INSERT INTO companies VALUES (?, ?, ?)", row)
+    conn.execute(f"INSERT INTO companies SELECT * FROM read_csv_auto('{str(example_path('companies_scalar.csv'))}')")
     conn.close()
 
     from company_finder import CompanyFinder as CF  # type: ignore[import]

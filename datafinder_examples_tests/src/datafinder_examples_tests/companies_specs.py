@@ -11,14 +11,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 COMPANIES_MAPPING = "companies_mapping.md"
 
-COMPANIES = [
-    (1, "Acme Corp", "Technology"),
-    (2, "Acme Industries", "Manufacturing"),
-    (3, "Beta Corp", "Technology"),
-    (4, "Gamma LLC", "Finance"),
-    (5, "Delta Ltd", "Finance"),
-]
-
 COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,

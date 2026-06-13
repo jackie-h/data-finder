@@ -17,17 +17,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 FINANCE_MAPPING = "finance_mapping.md"
 
-ACCOUNTS_NUMERIC = [(1, "Alpha Fund")]
-
-PRICES_NUMERIC: list = []  # no price rows needed for these specs
-
-TRADES_NUMERIC = [
-    ("AAPL", -25.5, True,  1, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-    ("GOOG",  36.0, True,  1, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-    ("MSFT", 100.4, True,  1, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-    ("TSLA",   9.0, False, 1, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-]
-
 _AT = "2030-01-01 00:00:00"
 
 TRADE_NUMERIC_FINDER_SPECS = FinderSpec(

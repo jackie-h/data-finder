@@ -13,12 +13,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 NULL_END_MILESTONING_MAPPING = "null_end_milestoning_mapping.md"
 
-PRICES_NULL_END = [
-    ("AAPL", 150.0, "2020-01-01 00:00:00", None),
-    ("MSFT", 300.0, "2020-01-01 00:00:00", None),
-    ("GOOG", 2800.0, "2020-01-01 00:00:00", "2022-01-01 00:00:00"),
-]
-
 _AT_2024 = datetime.datetime(2024, 6, 1, 12, 0, 0)
 _AT_2021 = datetime.datetime(2021, 6, 1, 12, 0, 0)
 

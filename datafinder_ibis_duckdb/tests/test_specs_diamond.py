@@ -19,7 +19,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
-from datafinder_examples_tests.diamond_specs import DIAMOND_FINDER_SPECS, DIAMOND_ITEMS
+from datafinder_examples_tests.diamond_specs import DIAMOND_FINDER_SPECS
 
 _MODS = ["record_finder", "record_finder_base"]
 
@@ -45,8 +45,7 @@ def record_finder():
             version INT, record_name VARCHAR
         )
     """)
-    for r in DIAMOND_ITEMS:
-        conn.execute("INSERT INTO records.items VALUES (?, ?, ?, ?, ?)", r)
+    conn.execute(f"INSERT INTO records.items SELECT * FROM read_csv_auto('{str(example_path('diamond_items.csv'))}')")
     conn.close()
 
     from record_finder import RecordFinder  # type: ignore[import]

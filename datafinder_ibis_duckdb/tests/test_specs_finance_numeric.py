@@ -18,8 +18,6 @@ from datafinder_examples import example_path
 
 from datafinder_examples_tests.finance_numeric_specs import (
     TRADE_NUMERIC_FINDER_SPECS,
-    ACCOUNTS_NUMERIC,
-    TRADES_NUMERIC,
 )
 
 _MODS = [
@@ -50,15 +48,13 @@ def _seed_db():
     conn.execute("CREATE SCHEMA trading")
     conn.execute("CREATE SCHEMA ref_data")
     conn.execute("CREATE TABLE ref_data.account_master (ID INT, ACCT_NAME VARCHAR)")
-    for r in ACCOUNTS_NUMERIC:
-        conn.execute("INSERT INTO ref_data.account_master VALUES (?, ?)", r)
+    conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts_numeric.csv'))}')")
     conn.execute("CREATE TABLE ref_data.price (SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)")
     conn.execute(
         "CREATE TABLE trading.trades "
         "(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP)"
     )
-    for r in TRADES_NUMERIC:
-        conn.execute("INSERT INTO trading.trades VALUES (?, ?, ?, ?, ?, ?)", r)
+    conn.execute(f"INSERT INTO trading.trades SELECT * FROM read_csv_auto('{str(example_path('finance_trades_numeric.csv'))}')")
     conn.close()
 
 

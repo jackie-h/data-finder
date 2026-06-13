@@ -15,22 +15,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 FINANCE_MAPPING = "finance_mapping.md"
 
-ACCOUNTS_GROUP_BY = [
-    (1, "Alpha Fund"),
-    (2, "Beta Fund"),
-    (3, "Gamma Fund"),
-]
-
-PRICES_GROUP_BY: list = []
-
-TRADES_GROUP_BY = [
-    ("AAPL", 100.0, True,  1, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-    ("GOOG", 200.0, True,  1, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-    ("MSFT", 300.0, True,  2, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-    ("TSLA", 400.0, False, 2, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-    ("GS",   500.0, True,  3, "2020-01-01 00:00:00", "9999-12-31 23:59:59"),
-]
-
 _AT = "2030-01-01 00:00:00"
 
 TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(

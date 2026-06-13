@@ -13,12 +13,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 DIAMOND_MAPPING = "diamond_mapping.md"
 
-DIAMOND_ITEMS = [
-    (1, "2024-01-01", "2024-06-01", 3, "Alpha"),
-    (2, "2024-02-01", "2024-07-01", 1, "Beta"),
-    (3, "2024-03-01", "2024-03-01", 2, "Gamma"),
-]
-
 DIAMOND_FINDER_SPECS = FinderSpec(
     finder_name="RecordFinder",
     mapping_file=DIAMOND_MAPPING,

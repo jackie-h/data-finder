@@ -17,7 +17,6 @@ from datafinder_examples import example_path
 
 from datafinder_examples_tests.positions_specs import (
     POSITION_DATE_FINDER_SPECS,
-    POSITIONS_DATE,
 )
 
 _MODS = ["position_finder", "position_finder_base"]
@@ -38,8 +37,7 @@ def position_finder():
     conn = duckdb.connect("test.db")
     conn.execute("DROP TABLE IF EXISTS positions")
     conn.execute("CREATE TABLE positions (id INT, trade_date DATE, npv DOUBLE)")
-    for r in POSITIONS_DATE:
-        conn.execute("INSERT INTO positions VALUES (?, ?, ?)", r)
+    conn.execute(f"INSERT INTO positions SELECT * FROM read_csv_auto('{str(example_path('positions_date.csv'))}')")
     conn.close()
 
     from position_finder import PositionFinder  # type: ignore[import]

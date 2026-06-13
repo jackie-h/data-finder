@@ -15,7 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
-from datafinder_examples_tests.orgchart_specs import ORGCHART_FINDER_SPECS, EMPLOYEES
+from datafinder_examples_tests.orgchart_specs import ORGCHART_FINDER_SPECS
 
 _MODS = ["employee_finder", "employee_finder_base"]
 
@@ -36,8 +36,7 @@ def employee_finder():
     conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
     conn.execute("CREATE SCHEMA hr")
     conn.execute("CREATE TABLE hr.employees (id INT, name VARCHAR, manager_id INT)")
-    for r in EMPLOYEES:
-        conn.execute("INSERT INTO hr.employees VALUES (?, ?, ?)", r)
+    conn.execute(f"INSERT INTO hr.employees SELECT * FROM read_csv_auto('{str(example_path('employees.csv'))}')")
     conn.close()
 
     from employee_finder import EmployeeFinder  # type: ignore[import]

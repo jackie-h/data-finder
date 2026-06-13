@@ -9,13 +9,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 ORGCHART_MAPPING = "orgchart_mapping.md"
 
-EMPLOYEES = [
-    (1, "Alice", None),
-    (2, "Bob", 1),
-    (3, "Carol", 1),
-    (4, "Dave", 2),
-]
-
 ORGCHART_FINDER_SPECS = FinderSpec(
     finder_name="EmployeeFinder",
     mapping_file=ORGCHART_MAPPING,

@@ -21,8 +21,6 @@ from datafinder_examples import example_path
 from datafinder_examples_tests.orgchart_inheritance_specs import (
     EMPLOYEE_INHERITANCE_FINDER_SPECS,
     PROJECT_FINDER_SPECS,
-    EMPLOYEES_INHERITANCE,
-    PROJECTS,
 )
 
 _MODS = ["employee_finder", "employee_finder_base", "project_finder", "project_finder_base"]
@@ -38,15 +36,13 @@ def _seed_db():
             email VARCHAR, department VARCHAR, manager_id INT
         )
     """)
-    for r in EMPLOYEES_INHERITANCE:
-        conn.execute("INSERT INTO hr.employees VALUES (?, ?, ?, ?, ?, ?)", r)
+    conn.execute(f"INSERT INTO hr.employees SELECT * FROM read_csv_auto('{str(example_path('employees_inheritance.csv'))}')")
     conn.execute("""
         CREATE TABLE hr.projects (
             project_id INT, name VARCHAR, code VARCHAR, assignee_id INT
         )
     """)
-    for r in PROJECTS:
-        conn.execute("INSERT INTO hr.projects VALUES (?, ?, ?, ?)", r)
+    conn.execute(f"INSERT INTO hr.projects SELECT * FROM read_csv_auto('{str(example_path('projects.csv'))}')")
     conn.close()
 
 

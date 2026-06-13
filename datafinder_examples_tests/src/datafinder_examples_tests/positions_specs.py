@@ -11,12 +11,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 POSITIONS_MAPPING = "positions_mapping.md"
 
-POSITIONS_DATE = [
-    (1, datetime.date(2024, 3, 15),  500.0),
-    (2, datetime.date(2024, 7, 20),  800.0),
-    (3, datetime.date(2024, 11, 5), 1200.0),
-]
-
 _D1 = datetime.date(2024, 3, 15)
 _D2 = datetime.date(2024, 7, 20)
 

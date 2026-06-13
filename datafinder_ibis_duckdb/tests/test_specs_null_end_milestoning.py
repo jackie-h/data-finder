@@ -18,7 +18,6 @@ from datafinder_examples import example_path
 
 from datafinder_examples_tests.null_end_milestoning_specs import (
     NULL_END_PRICE_FINDER_SPECS,
-    PRICES_NULL_END,
 )
 
 _MODS = ["prices", "prices.market", "prices.market.price_finder",
@@ -42,8 +41,7 @@ def _seed_db():
     conn.execute(
         "CREATE TABLE mkt.prices (sym VARCHAR, price DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)"
     )
-    for r in PRICES_NULL_END:
-        conn.execute("INSERT INTO mkt.prices VALUES (?, ?, ?, ?)", r)
+    conn.execute(f"INSERT INTO mkt.prices SELECT * FROM read_csv_auto('{str(example_path('null_end_prices.csv'))}')")
     conn.close()
 
 

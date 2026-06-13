@@ -15,7 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
-from datafinder_examples_tests.companies_specs import COMPANY_FINDER_SPECS, COMPANIES
+from datafinder_examples_tests.companies_specs import COMPANY_FINDER_SPECS
 
 _MODS = ["company_finder"]
 
@@ -35,8 +35,7 @@ def company_finder():
     conn = duckdb.connect("test.db")
     conn.execute("DROP TABLE IF EXISTS companies")
     conn.execute("CREATE TABLE companies (id INT, name VARCHAR, category VARCHAR)")
-    for row in COMPANIES:
-        conn.execute("INSERT INTO companies VALUES (?, ?, ?)", row)
+    conn.execute(f"INSERT INTO companies SELECT * FROM read_csv_auto('{str(example_path('companies.csv'))}')")
     conn.close()
 
     from company_finder import CompanyFinder as CF  # type: ignore[import]

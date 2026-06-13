@@ -14,21 +14,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 ORGCHART_INHERITANCE_MAPPING = "orgchart_inheritance_mapping.md"
 
-EMPLOYEES_INHERITANCE = [
-    (1, "Alice", "Smith",  "alice@example.com",  "Executive",   None),
-    (2, "Bob",   "Jones",  "bob@example.com",    "Engineering", 1),
-    (3, "Carol", "White",  "carol@example.com",  "Engineering", 1),
-    (4, "Dave",  "Brown",  "dave@example.com",   "QA",          2),
-]
-
-PROJECTS = [
-    (1, "Alpha Initiative", "ALPHA", 2),
-    (2, "Beta Platform",    "BETA",  2),
-    (3, "Gamma Tooling",    "GAMMA", 3),
-    (4, "Delta Ops",        "DELTA", 4),
-    (5, "Epsilon Research", "EPS",   1),
-]
-
 EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
     finder_name="EmployeeFinder",
     mapping_file=ORGCHART_INHERITANCE_MAPPING,
