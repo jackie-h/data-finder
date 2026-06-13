@@ -258,5 +258,147 @@ COMPANY_FINDER_SPECS = FinderSpec(
                 [5, "Finance", 4],
             ], dtype=object),
         ),
+        TestExpectation(
+            name="last_id_per_category",
+            query=lambda f: f.find_all(
+                None, None,
+                [f.id_(), f.category(),
+                 f.id_().last(partition_by=[f.category()], order_by=[f.id_().ascending()])],
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Category", "Last Id"],
+            # LAST_VALUE uses default frame (ROWS UNBOUNDED PRECEDING → CURRENT ROW),
+            # so each row sees the last value up to itself within its partition.
+            expected_result=np.array([
+                [1, "Technology", 1],
+                [2, "Manufacturing", 2],
+                [3, "Technology", 3],
+                [4, "Finance", 4],
+                [5, "Finance", 5],
+            ], dtype=object),
+        ),
+        TestExpectation(
+            name="rank_method_first",
+            query=lambda f: f.find_all(
+                None, None,
+                [f.id_(), f.id_().rank(method="first", order_by=[f.id_().ascending()])],
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Row Number"],
+            expected_result=np.array([[1, 1], [2, 2], [3, 3], [4, 4], [5, 5]], dtype=object),
+        ),
+        TestExpectation(
+            name="rank_pct",
+            query=lambda f: f.find_all(
+                None, None,
+                [f.id_(), f.id_().rank(pct=True, order_by=[f.id_().ascending()])],
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Percent Rank"],
+            # percent_rank() = (rank - 1) / (N - 1) for N=5
+            expected_result=np.array(
+                [[1, 0.0], [2, 0.25], [3, 0.5], [4, 0.75], [5, 1.0]], dtype=float
+            ),
+        ),
+        TestExpectation(
+            name="rank_pct_method_max",
+            query=lambda f: f.find_all(
+                None, None,
+                [f.id_(), f.id_().rank(pct=True, method="max", order_by=[f.id_().ascending()])],
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Cume Dist"],
+            # cume_dist() = rank_max / N for N=5
+            expected_result=np.array(
+                [[1, 0.2], [2, 0.4], [3, 0.6], [4, 0.8], [5, 1.0]], dtype=float
+            ),
+        ),
+        # --- Additional count variants ---
+        TestExpectation(
+            name="count_with_contains_filter",
+            query=lambda f: f.find_all(None, None, [f.count()], f.name().contains("Corp")),
+            expected_columns=["Count"],
+            expected_result=np.array([[2]], dtype=object),
+        ),
+        TestExpectation(
+            name="count_finance_category",
+            query=lambda f: f.find_all(None, None, [f.count()], f.category().eq("Finance")),
+            expected_columns=["Count"],
+            expected_result=np.array([[2]], dtype=object),
+        ),
+        TestExpectation(
+            name="count_id_attribute",
+            query=lambda f: f.find_all(None, None, [f.id_().count()]),
+            expected_columns=["Id Count"],
+            expected_result=np.array([[5]], dtype=object),
+        ),
+        TestExpectation(
+            name="count_name_technology_filter",
+            query=lambda f: f.find_all(None, None, [f.name().count()], f.category().eq("Technology")),
+            expected_columns=["Name Count"],
+            expected_result=np.array([[2]], dtype=object),
+        ),
+        TestExpectation(
+            name="count_name_ne_technology",
+            query=lambda f: f.find_all(None, None, [f.name().count()], f.category().ne("Technology")),
+            expected_columns=["Name Count"],
+            expected_result=np.array([[3]], dtype=object),
+        ),
+        # --- Additional sort variants ---
+        TestExpectation(
+            name="sort_by_id_asc",
+            query=lambda f: f.find_all(None, None, [f.id_()]).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2], [3], [4], [5]], dtype=object),
+        ),
+        TestExpectation(
+            name="sort_by_name_desc",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().descending()),
+            expected_columns=["Name"],
+            expected_result=np.array(
+                [["Gamma LLC"], ["Delta Ltd"], ["Beta Corp"], ["Acme Industries"], ["Acme Corp"]],
+                dtype=object,
+            ),
+        ),
+        TestExpectation(
+            name="sort_by_category_asc_name_asc",
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.category()]
+            ).order_by(f.category().ascending(), f.name().ascending()),
+            expected_columns=["Name", "Category"],
+            expected_result=np.array(
+                [
+                    ["Delta Ltd", "Finance"],
+                    ["Gamma LLC", "Finance"],
+                    ["Acme Industries", "Manufacturing"],
+                    ["Acme Corp", "Technology"],
+                    ["Beta Corp", "Technology"],
+                ],
+                dtype=object,
+            ),
+        ),
+        # --- Additional limit variants ---
+        TestExpectation(
+            name="limit_one",
+            query=lambda f: f.find_all(
+                None, None, [f.name()]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+        ),
+        TestExpectation(
+            name="limit_three",
+            query=lambda f: f.find_all(
+                None, None, [f.name()]
+            ).order_by(f.name().ascending()).limit(3),
+            expected_columns=["Name"],
+            expected_result=np.array(
+                [["Acme Corp"], ["Acme Industries"], ["Beta Corp"]], dtype=object
+            ),
+        ),
+        TestExpectation(
+            name="limit_with_filter",
+            query=lambda f: f.find_all(
+                None, None, [f.name()], f.category().eq("Technology")
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+        ),
     ],
 )

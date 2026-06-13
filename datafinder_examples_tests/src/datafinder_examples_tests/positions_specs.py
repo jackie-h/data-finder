@@ -58,6 +58,12 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
         # --- Date arithmetic ---
         # ibis/DuckDB returns date arithmetic results as datetime64[us], not datetime.date
         TestExpectation(
+            name="subtract_months_one",
+            query=lambda f: f.find_all(None, None, [f.trade_date().subtract_months(1)], f.id_().eq(1)),
+            expected_columns=["Subtract Months Trade Date"],
+            expected_result=np.array([[np.datetime64("2024-02-15", "us")]], dtype=object),
+        ),
+        TestExpectation(
             name="add_days_ten",
             query=lambda f: f.find_all(None, None, [f.trade_date().add_days(10)], f.id_().eq(1)),
             expected_columns=["Add Days Trade Date"],

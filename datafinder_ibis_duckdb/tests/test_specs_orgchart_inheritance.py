@@ -88,6 +88,38 @@ def test_project(expectation, orgchart_finders):
     expectation.run(orgchart_finders[1], backend="duckdb")
 
 
+# --- non-spec tests: property existence (inherited from Person / Contactable) ---
+
+def test_has_id(orgchart_finders):
+    ef, _ = orgchart_finders
+    assert ef.id_() is not None
+
+
+def test_has_first_name(orgchart_finders):
+    ef, _ = orgchart_finders
+    assert ef.first_name() is not None
+
+
+def test_has_last_name(orgchart_finders):
+    ef, _ = orgchart_finders
+    assert ef.last_name() is not None
+
+
+def test_has_email(orgchart_finders):
+    ef, _ = orgchart_finders
+    assert ef.email() is not None
+
+
+def test_has_department(orgchart_finders):
+    ef, _ = orgchart_finders
+    assert ef.department() is not None
+
+
+def test_has_manager(orgchart_finders):
+    ef, _ = orgchart_finders
+    assert ef.manager() is not None
+
+
 # --- non-spec tests: error handling and caching behaviour ---
 
 def test_invalid_join_kwarg_raises(orgchart_finders):

@@ -135,6 +135,110 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             expected_columns=["Project Name"],
             expected_result=np.array([["Epsilon Research"], ["Epsilon Research"]], dtype=object),
         ),
+        # --- Additional inheritance specs ---
+        TestExpectation(
+            name="filter_by_inherited_last_name",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()], f.last_name().eq("Jones"),
+            ),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Bob"]], dtype=object),
+        ),
+        TestExpectation(
+            name="project_all_inherited_columns",
+            query=lambda f: f.find_all(
+                None, None,
+                [f.id_(), f.first_name(), f.last_name(), f.email(), f.department()],
+                f.first_name().eq("Dave"),
+            ),
+            expected_columns=["Id", "First Name", "Last Name", "Email", "Department"],
+            expected_result=np.array(
+                [[4, "Dave", "Brown", "dave@example.com", "QA"]], dtype=object
+            ),
+        ),
+        TestExpectation(
+            name="manager_name_for_all",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name(), f.manager().first_name()],
+            ).order_by(f.first_name().ascending()),
+            expected_columns=["First Name", "Manager First Name"],
+            # Alice has no manager → None; Bob/Carol report to Alice; Dave reports to Bob
+            expected_result=np.array(
+                [["Alice", None], ["Bob", "Alice"], ["Carol", "Alice"], ["Dave", "Bob"]],
+                dtype=object,
+            ),
+        ),
+        TestExpectation(
+            name="filter_by_manager_alice",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()],
+                f.manager().first_name().eq("Alice"),
+            ).order_by(f.first_name().ascending()),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
+        ),
+        TestExpectation(
+            name="manager_email_for_bob",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name(), f.manager().email()],
+                f.first_name().eq("Bob"),
+            ),
+            expected_columns=["First Name", "Manager Email"],
+            expected_result=np.array([["Bob", "alice@example.com"]], dtype=object),
+        ),
+        TestExpectation(
+            name="employee_projects_for_bob",
+            query=lambda f: f.find_all(
+                None, None, [f.projects().code()],
+                f.first_name().eq("Bob"),
+            ).order_by(f.projects().code().ascending()),
+            expected_columns=["Project Code"],
+            expected_result=np.array([["ALPHA"], ["BETA"]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_employee_by_project_name",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()],
+                f.projects().name().eq("Delta Ops"),
+            ),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Dave"]], dtype=object),
+        ),
+        # --- Additional join filter specs ---
+        TestExpectation(
+            name="forward_join_filter_name_gamma",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name(), f.projects(name="Gamma Tooling").name()],
+            ).order_by(f.first_name().ascending()),
+            expected_columns=["First Name", "Project Name"],
+            expected_result=np.array(
+                [["Alice", None], ["Bob", None], ["Carol", "Gamma Tooling"], ["Dave", None]],
+                dtype=object,
+            ),
+        ),
+        TestExpectation(
+            name="forward_join_filter_multi_kwarg",
+            query=lambda f: f.find_all(
+                None, None,
+                [f.first_name(), f.projects(name="Alpha Initiative", code="ALPHA").name()],
+            ).order_by(f.first_name().ascending()),
+            expected_columns=["First Name", "Project Name"],
+            expected_result=np.array(
+                [["Alice", None], ["Bob", "Alpha Initiative"], ["Carol", None], ["Dave", None]],
+                dtype=object,
+            ),
+        ),
+        TestExpectation(
+            name="forward_join_filter_nonexistent",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name(), f.projects(code="NONEXISTENT").name()],
+            ).order_by(f.first_name().ascending()),
+            expected_columns=["First Name", "Project Name"],
+            expected_result=np.array(
+                [["Alice", None], ["Bob", None], ["Carol", None], ["Dave", None]],
+                dtype=object,
+            ),
+        ),
     ],
 )
 
@@ -184,6 +288,23 @@ PROJECT_FINDER_SPECS = FinderSpec(
                     ["Delta Ops", None],
                     ["Epsilon Research", None],
                     ["Gamma Tooling", "Carol"],
+                ],
+                dtype=object,
+            ),
+        ),
+        TestExpectation(
+            name="reverse_join_filter_nonexistent",
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.assignee(department="UNKNOWN").first_name()],
+            ).order_by(f.name().ascending()),
+            expected_columns=["Name", "Assignee First Name"],
+            expected_result=np.array(
+                [
+                    ["Alpha Initiative", None],
+                    ["Beta Platform", None],
+                    ["Delta Ops", None],
+                    ["Epsilon Research", None],
+                    ["Gamma Tooling", None],
                 ],
                 dtype=object,
             ),

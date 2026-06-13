@@ -86,6 +86,13 @@ TRADE_FINDER_SPECS = FinderSpec(
             expected_columns=["Symbol"],
             expected_result=np.array([["AAPL"], ["GOOG"]], dtype=object),
         ),
+        TestExpectation(
+            name="filter_by_is_settled_true",
+            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.is_settled().eq(True)),
+            expected_columns=["Symbol"],
+            # At _AT only AAPL is active; GOOG expired 2022-01-01 and is_settled=False anyway
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
     ],
 )
 
