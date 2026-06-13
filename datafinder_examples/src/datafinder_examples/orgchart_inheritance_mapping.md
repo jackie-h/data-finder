@@ -1,6 +1,6 @@
 # Org Chart Inheritance Mapping
 
-## Model: ../../model_markdown/tests/orgchart_inheritance.md
+## Model: orgchart_inheritance.md
 
 ## DataStore: hr_db (Database)
 
