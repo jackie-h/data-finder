@@ -207,7 +207,7 @@ This writes one `<classname>_finder.py` file per mapped class, organised into th
 If you have a DuckDB database you can auto-populate the mapping skeleton from the live schema:
 
 ```bash
-uv run example/refresh_mapping.py path/to/finance.db finance_mapping.md
+uv run datafinder_duckdb/src/datafinder_duckdb/refresh_mapping.py path/to/finance.db finance_mapping.md
 ```
 
 ---

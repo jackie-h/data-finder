@@ -2,7 +2,7 @@
 refresh_mapping.py — update a mapping markdown from a live DuckDB schema.
 
 Usage:
-    uv run example/refresh_mapping.py <db_path> <mapping_path> [--out <output_path>] [--repo-name <name>]
+    uv run datafinder_duckdb/src/datafinder_duckdb/refresh_mapping.py <db_path> <mapping_path> [--out <output_path>] [--repo-name <name>]
 
 If --out is omitted the mapping file is updated in-place.
 """
