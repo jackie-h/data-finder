@@ -10,9 +10,9 @@ from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateA
     BiTemporalMilestonePropertyMapping
 from model.relational_mapping import RelationalPropertyMapping, Join
 
-FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping.md")
-MODEL_FILE = os.path.join(os.path.dirname(__file__), "finance.md")
-TRADE_MODEL_FILE = os.path.join(os.path.dirname(__file__), "finance_trade.md")
+FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
+MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance.md"))
+TRADE_MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_trade.md"))
 
 
 def _build_repository() -> Database:

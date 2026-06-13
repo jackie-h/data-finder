@@ -13,7 +13,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 
 _MAPPING_FILE = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "positions_mapping.md")
+    os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "positions_mapping.md")
 )
 
 _FINDER_MODULES = ["position_finder"]

@@ -14,7 +14,7 @@ from mapping_markdown.markdown_mapping import load
 _MAPPING_FILE = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "orgchart_inheritance_mapping.md"))
 _DIAMOND_MAPPING_FILE = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "diamond_mapping.md")
+    os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "diamond_mapping.md")
 )
 
 _FINDER_MODULES = ["employee_finder", "employee_finder_base"]

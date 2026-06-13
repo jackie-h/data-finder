@@ -34,3 +34,9 @@
 | symbol     | symbol     |
 | price      | price      |
 | isSettled  | isSettled  |
+
+#### Association: TradeAccount
+
+| GraphQL Field |
+|---------------|
+| account       |
