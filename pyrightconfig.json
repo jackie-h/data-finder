@@ -20,6 +20,7 @@
     "mapping_markdown/src",
     "datafinder_graphql/src",
     "datafinder_graphql/tests",
-    "datafinder_examples/src"
+    "datafinder_examples/src",
+    "datafinder_examples_tests/src"
   ]
 }
