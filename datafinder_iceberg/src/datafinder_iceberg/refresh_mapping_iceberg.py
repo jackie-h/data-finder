@@ -2,15 +2,15 @@
 refresh_mapping_iceberg.py — update a mapping markdown from an Iceberg REST catalog.
 
 Usage:
-    uv run example/refresh_mapping_iceberg.py <catalog_uri> <mapping_path> \
+    uv run datafinder_iceberg/src/datafinder_iceberg/refresh_mapping_iceberg.py <catalog_uri> <mapping_path> \
         [--out <output_path>] [--repo-name <name>] \
         [--credential KEY=VALUE ...] [--skip-errors]
 
 If --out is omitted the mapping file is updated in-place.
 
 Examples:
-    uv run example/refresh_mapping_iceberg.py http://localhost:8181 finance_mapping.md
-    uv run example/refresh_mapping_iceberg.py http://catalog/api mapping.md \\
+    uv run datafinder_iceberg/src/datafinder_iceberg/refresh_mapping_iceberg.py http://localhost:8181 finance_mapping.md
+    uv run datafinder_iceberg/src/datafinder_iceberg/refresh_mapping_iceberg.py http://catalog/api mapping.md \\
         --credential token=secret --repo-name finance_db
 """
 import argparse
