@@ -21,7 +21,7 @@ from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table, Column
 
 _MAPPING_FILE = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "null_end_milestoning_mapping.md")
+    os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "null_end_milestoning_mapping.md")
 )
 
 _DB_FILE = "test.db"  # relative path — same file the ibis engine connects to
