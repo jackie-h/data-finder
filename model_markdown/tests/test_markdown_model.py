@@ -4,7 +4,7 @@ import tempfile
 import pytest
 
 from model_markdown.markdown_model import load, save, loads, to_markdown
-from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity
+from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance.md")
 
@@ -61,8 +61,8 @@ class TestMarkdownLoad:
 
     def test_association_multiplicity(self):
         assoc = self.associations[0]
-        assert assoc.source_multiplicity == Multiplicity.MANY
-        assert assoc.target_multiplicity == Multiplicity.ONE
+        assert assoc.source_multiplicity is ZERO_TO_MANY
+        assert assoc.target_multiplicity is ONE_TO_ONE
 
     def test_association_properties(self):
         assoc = self.associations[0]
@@ -207,8 +207,8 @@ class TestMarkdownSave:
         content = to_markdown("Finance Model", self.packages)
         packages2 = loads(content)
         assocs2 = [a for a in packages2[0].children if isinstance(a, Association)]
-        assert assocs2[0].source_multiplicity == Multiplicity.MANY
-        assert assocs2[0].target_multiplicity == Multiplicity.ONE
+        assert assocs2[0].source_multiplicity is ZERO_TO_MANY
+        assert assocs2[0].target_multiplicity is ONE_TO_ONE
 
     def test_property_roundtrip(self):
         content = to_markdown("Finance Model", self.packages)
