@@ -2,10 +2,18 @@ from model.m3 import Property, Class
 from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
 
 
+class GraphQLFilterConvention:
+    """Describes which GraphQL argument names the endpoint uses for server-side push-down."""
+    def __init__(self, filter_arg: str, sort_arg: str, limit_arg: str):
+        self.filter_arg = filter_arg  # e.g. "where", "filter"
+        self.sort_arg = sort_arg      # e.g. "order_by", "orderBy"
+        self.limit_arg = limit_arg    # e.g. "limit", "take", "first"
+
+
 class GraphQLEndpoint:
-    def __init__(self, url: str, convention: str | None = None):
+    def __init__(self, url: str, filter_convention: 'GraphQLFilterConvention | None' = None):
         self.url = url
-        self.convention = convention  # e.g. "hasura" or None (client-side only)
+        self.filter_convention = filter_convention
 
 
 class GraphQLProcessingMilestone:

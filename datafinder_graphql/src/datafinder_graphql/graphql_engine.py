@@ -293,7 +293,7 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
 # Hasura server-side push: filter / sort / limit → GraphQL args
 # ---------------------------------------------------------------------------
 
-_HASURA_CMP_OPS = {
+_CMP_OPS = {
     ComparisonOperator.EQUAL:                "_eq",
     ComparisonOperator.NOT_EQUAL:            "_neq",
     ComparisonOperator.LESS_THAN:            "_lt",
@@ -316,21 +316,21 @@ def _gql_value(val) -> str:
     return str(val)
 
 
-def _op_to_hasura_where(op) -> str | None:
-    """Translate a filter op tree to a Hasura-style where clause string, or None."""
+def _op_to_where_clause(op) -> str | None:
+    """Translate a filter op tree to a GraphQL where-object string, or None."""
     if op is None or isinstance(op, NoOperation):
         return None
     if isinstance(op, ComparisonOperation):
         if isinstance(op.left, ColumnWithJoin):
-            gql_op = _HASURA_CMP_OPS.get(op.operator)
+            gql_op = _CMP_OPS.get(op.operator)
             if gql_op:
                 field = op.left.column.name
                 val = _gql_value(_constant_value(op.right))
                 return f"{{ {field}: {{ {gql_op}: {val} }} }}"
         return None
     if isinstance(op, LogicalOperation):
-        left = _op_to_hasura_where(op.left)
-        right = _op_to_hasura_where(op.right)
+        left = _op_to_where_clause(op.left)
+        right = _op_to_where_clause(op.right)
         if left and right:
             logical = "_and" if op.operator == LogicalOperator.AND else "_or"
             return f"{{ {logical}: [{left}, {right}] }}"
@@ -344,8 +344,8 @@ def _op_to_hasura_where(op) -> str | None:
     return None
 
 
-def _order_by_to_hasura(order_by: list | None) -> str | None:
-    """Translate order_by list to a Hasura order_by argument string, or None."""
+def _to_order_by_clause(order_by: list | None) -> str | None:
+    """Translate order_by list to a GraphQL order-by array string, or None."""
     if not order_by:
         return None
     parts = []
@@ -356,19 +356,19 @@ def _order_by_to_hasura(order_by: list | None) -> str | None:
     return f"[{', '.join(parts)}]" if parts else None
 
 
-def _build_server_args(op, order_by: list | None, limit: int | None, convention: str | None) -> list[str]:
-    """Return additional GraphQL query args to push to the server based on the endpoint convention."""
-    if convention != "hasura":
+def _build_server_args(op, order_by: list | None, limit: int | None, filter_conv) -> list[str]:
+    """Return additional GraphQL query args to push to the server using the endpoint's filter convention."""
+    if filter_conv is None:
         return []
     extra: list[str] = []
-    where = _op_to_hasura_where(op)
+    where = _op_to_where_clause(op)
     if where:
-        extra.append(f"where: {where}")
-    order_by_str = _order_by_to_hasura(order_by)
+        extra.append(f"{filter_conv.filter_arg}: {where}")
+    order_by_str = _to_order_by_clause(order_by)
     if order_by_str:
-        extra.append(f"order_by: {order_by_str}")
+        extra.append(f"{filter_conv.sort_arg}: {order_by_str}")
     if limit is not None:
-        extra.append(f"limit: {limit}")
+        extra.append(f"{filter_conv.limit_arg}: {limit}")
     return extra
 
 
@@ -476,14 +476,14 @@ class GraphQLConnect(QueryRunnerBase):
         has_agg = any(isinstance(col, AggregateOperation) for col in columns)
         display_names = [_col_display_name(col) for col in columns]
 
-        convention = getattr(table.endpoint, 'convention', None)
+        filter_conv = getattr(table.endpoint, 'filter_convention', None)
         is_date_range = business_date_to is not None and business_date is not None
         # order_by and limit span all batches for date-range queries; keep client-side
         server_args = _build_server_args(
             op,
             order_by if not is_date_range else None,
             limit if not is_date_range else None,
-            convention,
+            filter_conv,
         )
 
         # Fetch rows — iterate dates for date-range queries

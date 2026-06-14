@@ -213,13 +213,13 @@ def _coerce(raw, target):
     return raw
 
 
-def _eval_hasura_where(where: dict, row: dict) -> bool:
+def _eval_where(where: dict, row: dict) -> bool:
     if '_and' in where:
-        return all(_eval_hasura_where(sub, row) for sub in where['_and'])
+        return all(_eval_where(sub, row) for sub in where['_and'])
     if '_or' in where:
-        return any(_eval_hasura_where(sub, row) for sub in where['_or'])
+        return any(_eval_where(sub, row) for sub in where['_or'])
     if '_not' in where:
-        return not _eval_hasura_where(where['_not'], row)
+        return not _eval_where(where['_not'], row)
     for field, ops in where.items():
         if not isinstance(ops, dict):
             continue
@@ -247,16 +247,16 @@ def _eval_hasura_where(where: dict, row: dict) -> bool:
     return True
 
 
-def _apply_hasura_where(rows: list[dict], query_str: str) -> list[dict]:
+def _apply_where(rows: list[dict], query_str: str) -> list[dict]:
     where_str = _extract_balanced(query_str, 'where', '{')
     if not where_str:
         return rows
     tokens = _tokenize_gql(where_str)
     where, _ = _parse_gql_object(tokens, 0)
-    return [r for r in rows if _eval_hasura_where(where, r)]
+    return [r for r in rows if _eval_where(where, r)]
 
 
-def _apply_hasura_order_by(rows: list[dict], query_str: str) -> list[dict]:
+def _apply_order_by(rows: list[dict], query_str: str) -> list[dict]:
     ob_str = _extract_balanced(query_str, 'order_by', '[')
     if not ob_str:
         return rows
@@ -273,7 +273,7 @@ def _apply_hasura_order_by(rows: list[dict], query_str: str) -> list[dict]:
     return rows
 
 
-def _apply_hasura_limit(rows: list[dict], query_str: str) -> list[dict]:
+def _apply_limit(rows: list[dict], query_str: str) -> list[dict]:
     m = re.search(r'\blimit:\s*(\d+)', query_str)
     return rows[:int(m.group(1))] if m else rows
 
@@ -345,9 +345,9 @@ class _FinanceHandler(BaseHTTPRequestHandler):
 
         if "accounts" in query_str:
             rows = _FinanceHandler._accounts
-            rows = _apply_hasura_where(rows, query_str)
-            rows = _apply_hasura_order_by(rows, query_str)
-            rows = _apply_hasura_limit(rows, query_str)
+            rows = _apply_where(rows, query_str)
+            rows = _apply_order_by(rows, query_str)
+            rows = _apply_limit(rows, query_str)
             response_data["accounts"] = rows
 
         elif "trades" in query_str:
@@ -356,9 +356,9 @@ class _FinanceHandler(BaseHTTPRequestHandler):
             if as_of_str:
                 as_of = _parse_dt(as_of_str)
                 rows = _filter_processing(rows, as_of, "_in_z", "_out_z")
-            rows = _apply_hasura_where(rows, query_str)
-            rows = _apply_hasura_order_by(rows, query_str)
-            rows = _apply_hasura_limit(rows, query_str)
+            rows = _apply_where(rows, query_str)
+            rows = _apply_order_by(rows, query_str)
+            rows = _apply_limit(rows, query_str)
             response_data["trades"] = _strip_internal(rows)
 
         elif "contractualPositions" in query_str:
@@ -370,9 +370,9 @@ class _FinanceHandler(BaseHTTPRequestHandler):
             if as_of_str:
                 as_of = _parse_dt(as_of_str)
                 rows = _filter_processing(rows, as_of, "_in_z", "_out_z")
-            rows = _apply_hasura_where(rows, query_str)
-            rows = _apply_hasura_order_by(rows, query_str)
-            rows = _apply_hasura_limit(rows, query_str)
+            rows = _apply_where(rows, query_str)
+            rows = _apply_order_by(rows, query_str)
+            rows = _apply_limit(rows, query_str)
             response_data["contractualPositions"] = _strip_internal(rows)
 
         payload = json.dumps({"data": response_data}).encode()
