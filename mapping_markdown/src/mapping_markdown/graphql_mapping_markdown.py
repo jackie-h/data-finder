@@ -30,6 +30,9 @@ _QUERY_RE = re.compile(
     r'(?:\s*\(milestone:\s*(\w+)(?:,\s*(\w+))?(?:,\s*(\w+))?\))?'
 )
 
+# "http://localhost:4000/graphql" or "http://localhost:4000/graphql (convention: hasura)"
+_ENDPOINT_RE = re.compile(r'(.+?)(?:\s*\(convention:\s*(\w+)\))?$')
+
 
 # ---------------------------------------------------------------------------
 # Load: markdown → Mapping
@@ -101,7 +104,10 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                 title = text
 
             elif level == "h2" and text.startswith("Endpoint:"):
-                current_endpoint = GraphQLEndpoint(text[len("Endpoint:"):].strip())
+                m = _ENDPOINT_RE.match(text[len("Endpoint:"):].strip())
+                url = m.group(1).strip() if m else text[len("Endpoint:"):].strip()
+                convention = m.group(2) if m else None
+                current_endpoint = GraphQLEndpoint(url, convention)
 
             elif level == "h3" and text.startswith("Query:"):
                 if current_endpoint is None:
@@ -281,7 +287,11 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         endpoint_mappings[url].append(cm)
 
     for url in endpoints_seen:
-        lines.append(f"## Endpoint: {url}")
+        endpoint = endpoint_objs[url]
+        endpoint_line = f"## Endpoint: {url}"
+        if endpoint.convention:
+            endpoint_line += f" (convention: {endpoint.convention})"
+        lines.append(endpoint_line)
         lines.append("")
 
         for cm in endpoint_mappings[url]:

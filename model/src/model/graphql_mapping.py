@@ -3,8 +3,9 @@ from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMappin
 
 
 class GraphQLEndpoint:
-    def __init__(self, url: str):
+    def __init__(self, url: str, convention: str | None = None):
         self.url = url
+        self.convention = convention  # e.g. "hasura" or None (client-side only)
 
 
 class GraphQLProcessingMilestone:

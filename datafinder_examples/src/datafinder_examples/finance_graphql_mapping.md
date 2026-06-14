@@ -3,7 +3,7 @@
 ## Model: finance.md
 ## Model: finance_trade.md
 
-## Endpoint: http://localhost:4000/graphql
+## Endpoint: http://localhost:4000/graphql (convention: hasura)
 
 ### Query: accounts → Account
 

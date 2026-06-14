@@ -290,6 +290,89 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
 
 
 # ---------------------------------------------------------------------------
+# Hasura server-side push: filter / sort / limit → GraphQL args
+# ---------------------------------------------------------------------------
+
+_HASURA_CMP_OPS = {
+    ComparisonOperator.EQUAL:                "_eq",
+    ComparisonOperator.NOT_EQUAL:            "_neq",
+    ComparisonOperator.LESS_THAN:            "_lt",
+    ComparisonOperator.GREATER_THAN:         "_gt",
+    ComparisonOperator.LESS_THAN_OR_EQUAL_TO:    "_lte",
+    ComparisonOperator.GREATER_THAN_OR_EQUAL_TO: "_gte",
+}
+
+
+def _gql_value(val) -> str:
+    """Serialize a Python value to an inline GraphQL argument literal."""
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    if isinstance(val, datetime.datetime):
+        return f'"{val.isoformat()}"'
+    if isinstance(val, datetime.date):
+        return f'"{val.isoformat()}"'
+    if isinstance(val, str):
+        return f'"{val}"'
+    return str(val)
+
+
+def _op_to_hasura_where(op) -> str | None:
+    """Translate a filter op tree to a Hasura-style where clause string, or None."""
+    if op is None or isinstance(op, NoOperation):
+        return None
+    if isinstance(op, ComparisonOperation):
+        if isinstance(op.left, ColumnWithJoin):
+            gql_op = _HASURA_CMP_OPS.get(op.operator)
+            if gql_op:
+                field = op.left.column.name
+                val = _gql_value(_constant_value(op.right))
+                return f"{{ {field}: {{ {gql_op}: {val} }} }}"
+        return None
+    if isinstance(op, LogicalOperation):
+        left = _op_to_hasura_where(op.left)
+        right = _op_to_hasura_where(op.right)
+        if left and right:
+            logical = "_and" if op.operator == LogicalOperator.AND else "_or"
+            return f"{{ {logical}: [{left}, {right}] }}"
+        return left or right
+    if isinstance(op, IsNullOperation):
+        if isinstance(op.element, ColumnWithJoin):
+            return f"{{ {op.element.column.name}: {{ _is_null: true }} }}"
+    if isinstance(op, IsNotNullOperation):
+        if isinstance(op.element, ColumnWithJoin):
+            return f"{{ {op.element.column.name}: {{ _is_null: false }} }}"
+    return None
+
+
+def _order_by_to_hasura(order_by: list | None) -> str | None:
+    """Translate order_by list to a Hasura order_by argument string, or None."""
+    if not order_by:
+        return None
+    parts = []
+    for so in order_by:
+        if isinstance(so, SortOperation) and isinstance(so.column, ColumnWithJoin):
+            direction = "asc" if so.direction == SortDirection.ASC else "desc"
+            parts.append(f"{{ {so.column.column.name}: {direction} }}")
+    return f"[{', '.join(parts)}]" if parts else None
+
+
+def _build_server_args(op, order_by: list | None, limit: int | None, convention: str | None) -> list[str]:
+    """Return additional GraphQL query args to push to the server based on the endpoint convention."""
+    if convention != "hasura":
+        return []
+    extra: list[str] = []
+    where = _op_to_hasura_where(op)
+    if where:
+        extra.append(f"where: {where}")
+    order_by_str = _order_by_to_hasura(order_by)
+    if order_by_str:
+        extra.append(f"order_by: {order_by_str}")
+    if limit is not None:
+        extra.append(f"limit: {limit}")
+    return extra
+
+
+# ---------------------------------------------------------------------------
 # GraphQL request helpers
 # ---------------------------------------------------------------------------
 
@@ -354,9 +437,12 @@ def _build_temporal_args(business_date: datetime.date | None,
 def _fetch_rows(table: GraphQLQuery, fields_str: str,
                 business_date: datetime.date | None,
                 processing_datetime: datetime.datetime | None,
-                timeout_ms: int) -> list[dict]:
+                timeout_ms: int,
+                server_args: list[str] | None = None) -> list[dict]:
     milestone = getattr(table, 'milestone', None)
     arg_parts = _build_temporal_args(business_date, processing_datetime, milestone)
+    if server_args:
+        arg_parts.extend(server_args)
     args = f"({', '.join(arg_parts)})" if arg_parts else ""
     query_str = f"{{ {table.name}{args} {{ {fields_str} }} }}"
     payload = json.dumps({"query": query_str}).encode()
@@ -390,16 +476,26 @@ class GraphQLConnect(QueryRunnerBase):
         has_agg = any(isinstance(col, AggregateOperation) for col in columns)
         display_names = [_col_display_name(col) for col in columns]
 
+        convention = getattr(table.endpoint, 'convention', None)
+        is_date_range = business_date_to is not None and business_date is not None
+        # order_by and limit span all batches for date-range queries; keep client-side
+        server_args = _build_server_args(
+            op,
+            order_by if not is_date_range else None,
+            limit if not is_date_range else None,
+            convention,
+        )
+
         # Fetch rows — iterate dates for date-range queries
         if business_date_to is not None and business_date is not None:
             all_rows: list[dict] = []
             current = business_date
             while current <= business_date_to:
-                all_rows.extend(_fetch_rows(table, fields_str, current, processing_datetime, timeout_ms))
+                all_rows.extend(_fetch_rows(table, fields_str, current, processing_datetime, timeout_ms, server_args))
                 current += datetime.timedelta(days=1)
             rows = all_rows
         else:
-            rows = _fetch_rows(table, fields_str, business_date, processing_datetime, timeout_ms)
+            rows = _fetch_rows(table, fields_str, business_date, processing_datetime, timeout_ms, server_args)
 
         if not rows:
             return GraphQLOutput(pd.DataFrame(columns=display_names))
