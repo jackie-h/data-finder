@@ -141,6 +141,6 @@ class TestGraphQLEngine:
         result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # type: ignore[arg-type]
         df = result.to_pandas()
 
-        assert list(df.columns) == ["sym", "price"]
+        assert list(df.columns) == ["Symbol", "Price"]
         assert len(df) == 3
-        assert df["sym"].tolist() == ["AAPL", "MSFT", "GOOG"]
+        assert df["Symbol"].tolist() == ["AAPL", "MSFT", "GOOG"]

@@ -19,7 +19,7 @@
 | symbol | symbol   |
 | price  | price    |
 
-### Query: contractualPositions → ContractualPosition (milestone: business_date, businessDate)
+### Query: contractualPositions → ContractualPosition (milestone: bitemporal, businessDate, asOf)
 
 | Field         | Property ID   |
 |---------------|---------------|
@@ -34,6 +34,8 @@
 | symbol     | symbol     |
 | price      | price      |
 | isSettled  | isSettled  |
+| validFrom  | validFrom  |
+| validTo    | validTo    |
 
 #### Association: TradeAccount
 

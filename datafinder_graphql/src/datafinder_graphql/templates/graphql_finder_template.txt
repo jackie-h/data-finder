@@ -2,7 +2,7 @@ from __future__ import annotations
 import datetime
 from typing import Union
 from datafinder.typed_attributes import *
-from datafinder import FinderResult, convert_inputs_and_select
+from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range
 {% if milestone_class(cm.query.milestone) %}
 from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint, {{milestone_class(cm.query.milestone)}}
 {% else %}
@@ -22,7 +22,7 @@ class _{{pm.property.type.name}}RelatedFinder:
     def __init__(self, parent_field: str):
 {% for tpm in target_cm.property_mappings %}
 {% if is_primitive_mapping(tpm) %}
-        self.__{{to_python_name(tpm.property)}} = {{tpm.property.type.name}}Attribute('{{display_name(tpm.property)}}', parent_field + '.{{tpm.target.name}}', '{{type_str(tpm.property.type)}}', '{{cm.query.name}}')
+        self.__{{to_python_name(tpm.property)}} = {{tpm.property.type.name}}Attribute(parent_field.title() + ' {{display_name(tpm.property)}}', parent_field + '.{{tpm.target.name}}', '{{type_str(tpm.property.type)}}', '{{cm.query.name}}')
 {% endif %}
 {% endfor %}
 
@@ -83,3 +83,12 @@ class {{cm.clazz.name}}Finder:
                  filter_op: Operation = NoOperation()) -> FinderResult:
         """Returns data matching the optional filter."""
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, self._query, filter_op)
+
+    def find_for_date_range(self,
+                            business_date_from: Union[datetime.date, str],
+                            business_date_to: Union[datetime.date, str],
+                            processing_valid_at: Union[datetime.datetime, str],
+                            display_columns: list[Attribute],
+                            filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data for all records whose business date falls within the given range."""
+        return convert_inputs_and_select_for_date_range(business_date_from, business_date_to, processing_valid_at, display_columns, self._query, filter_op)
