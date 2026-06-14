@@ -224,6 +224,27 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 dtype=object,
             ),
         ),
+        # --- RelatedFinder.exists() / not_exists() ---
+        TestExpectation(
+            name="manager_exists_filter",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()],
+                f.manager().exists(),
+            ).order_by(f.first_name().ascending()),
+            expected_columns=["First Name"],
+            # Alice has no manager; Bob/Carol/Dave all have managers
+            expected_result=np.array([["Bob"], ["Carol"], ["Dave"]], dtype=object),
+        ),
+        TestExpectation(
+            name="manager_not_exists_filter",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()],
+                f.manager().not_exists(),
+            ),
+            expected_columns=["First Name"],
+            # Only Alice has no manager (manager_id IS NULL)
+            expected_result=np.array([["Alice"]], dtype=object),
+        ),
     ],
 )
 
