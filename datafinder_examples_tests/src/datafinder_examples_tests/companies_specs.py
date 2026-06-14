@@ -114,6 +114,12 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Acme Corp"]], dtype=object),
         ),
         TestExpectation(
+            name="string_eq_operator",
+            query=lambda f: f.find_all(None, None, [f.name()], f.name() == "Acme Corp"),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+        ),
+        TestExpectation(
             name="string_ne_excludes_row",
             query=lambda f: f.find_all(
                 None, None, [f.count()], f.name().ne("Acme Corp")

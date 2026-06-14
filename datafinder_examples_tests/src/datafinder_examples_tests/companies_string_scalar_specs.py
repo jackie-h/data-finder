@@ -112,5 +112,11 @@ COMPANIES_STRING_SCALAR_SPECS = FinderSpec(
             expected_columns=["Reverse Name"],
             expected_result=np.array([["beta corp"[::-1]]], dtype=object),
         ),
+        TestExpectation(
+            name="mul_operator",
+            query=lambda f: f.find_all(None, None, [f.name() * 2], f.id_().eq(2)),
+            expected_columns=["Repeat Name"],
+            expected_result=np.array([["beta corpbeta corp"]], dtype=object),
+        ),
     ],
 )

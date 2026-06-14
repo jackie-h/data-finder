@@ -71,5 +71,18 @@ TRADE_NUMERIC_FINDER_SPECS = FinderSpec(
             expected_columns=["Symbol", "Round Price"],
             expected_result=np.array([["AAPL", round(-25.5, 1)]], dtype=object),
         ),
+        # --- Operator overloads (separate from the explicit .mod() / .power() methods) ---
+        TestExpectation(
+            name="mod_operator",
+            query=lambda f: f.find_all(None, _AT, [f.symbol(), f.price() % 10], f.symbol().eq("GOOG")),
+            expected_columns=["Symbol", "Mod Price"],
+            expected_result=np.array([["GOOG", 36.0 % 10]], dtype=object),
+        ),
+        TestExpectation(
+            name="pow_operator",
+            query=lambda f: f.find_all(None, _AT, [f.symbol(), f.price() ** 2], f.symbol().eq("TSLA")),
+            expected_columns=["Symbol", "Power Price"],
+            expected_result=np.array([["TSLA", 9.0 ** 2]], dtype=object),
+        ),
     ],
 )
