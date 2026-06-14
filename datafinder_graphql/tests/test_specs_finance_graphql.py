@@ -427,7 +427,7 @@ def finance_finders(finance_server):
     from contractualposition_finder import ContractualPositionFinder  # type: ignore[import]
 
     endpoint = GraphQLEndpoint(endpoint_url)
-    yield AccountFinder(endpoint), TradeFinder(endpoint), ContractualPositionFinder(endpoint)
+    yield AccountFinder(endpoint), TradeFinder(endpoint), ContractualPositionFinder(endpoint)  # type: ignore[call-arg]
 
     if tmp in sys.path:
         sys.path.remove(tmp)

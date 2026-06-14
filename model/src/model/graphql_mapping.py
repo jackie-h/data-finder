@@ -11,7 +11,7 @@ class GraphQLFilterConvention:
 
 
 class GraphQLEndpoint:
-    def __init__(self, url: str, filter_convention: 'GraphQLFilterConvention | None' = None):
+    def __init__(self, url: str, filter_convention: GraphQLFilterConvention | None = None):
         self.url = url
         self.filter_convention = filter_convention
 

@@ -114,12 +114,12 @@ def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
         if col.unit in _ARITH_TIMEDELTA:
             result = dt + _ARITH_TIMEDELTA[col.unit](n)
         elif col.unit == DatePart.MONTH:
-            result = dt.apply(lambda x: x + pd.DateOffset(months=n))
+            result = pd.Series(dt.apply(lambda x: x + pd.DateOffset(months=n)))
         elif col.unit == DatePart.YEAR:
-            result = dt.apply(lambda x: x + pd.DateOffset(years=n))
+            result = pd.Series(dt.apply(lambda x: x + pd.DateOffset(years=n)))
         else:
             return None
-        return result.astype('datetime64[us]')
+        return pd.Series(result).astype('datetime64[us]')
 
     if isinstance(col, DateDiffOperation):
         fn = _col_field_name(col)
@@ -129,17 +129,17 @@ def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
         other = pd.Timestamp(col.other)
         delta = other - dt
         if col.unit == DatePart.DAY:
-            return delta.dt.days
+            return pd.Series(delta.dt.days)
         if col.unit == DatePart.HOUR:
-            return (delta.dt.total_seconds() / 3600).astype(int)
+            return pd.Series((delta.dt.total_seconds() / 3600).astype(int))
         if col.unit == DatePart.MINUTE:
-            return (delta.dt.total_seconds() / 60).astype(int)
+            return pd.Series((delta.dt.total_seconds() / 60).astype(int))
         if col.unit == DatePart.SECOND:
-            return delta.dt.total_seconds().astype(int)
+            return pd.Series(delta.dt.total_seconds().astype(int))
         if col.unit == DatePart.MONTH:
-            return dt.apply(lambda x: (other.year - x.year) * 12 + (other.month - x.month))
+            return pd.Series(dt.apply(lambda x: (other.year - x.year) * 12 + (other.month - x.month)))
         if col.unit == DatePart.YEAR:
-            return dt.apply(lambda x: other.year - x.year)
+            return pd.Series(dt.apply(lambda x: other.year - x.year))
         return None
 
     return None
@@ -243,7 +243,8 @@ def _eval_filter(df: pd.DataFrame, op) -> pd.Series:
         if isinstance(op.element, ColumnWithJoin):
             name = op.element.column.name
             if name in df.columns:
-                return df[name].isna() if isinstance(op, IsNullOperation) else df[name].notna()
+                col = pd.Series(df[name])
+                return col.isna() if isinstance(op, IsNullOperation) else col.notna()
     return pd.Series([True] * len(df), index=df.index)
 
 
@@ -498,17 +499,17 @@ class GraphQLConnect(QueryRunnerBase):
             rows = _fetch_rows(table, fields_str, business_date, processing_datetime, timeout_ms, server_args)
 
         if not rows:
-            return GraphQLOutput(pd.DataFrame(columns=display_names))
+            return GraphQLOutput(pd.DataFrame(columns=display_names))  # type: ignore[arg-type]
 
         df = pd.DataFrame([_flatten_row(row) for row in rows])
 
         # Apply filter
         if op is not None and not isinstance(op, NoOperation):
             mask = _eval_filter(df, op)
-            df = df[mask].reset_index(drop=True)
+            df = pd.DataFrame(df[mask]).reset_index(drop=True)
 
         if df.empty:
-            return GraphQLOutput(pd.DataFrame(columns=display_names))
+            return GraphQLOutput(pd.DataFrame(columns=display_names))  # type: ignore[arg-type]
 
         # Aggregation path
         if has_agg:
@@ -516,7 +517,8 @@ class GraphQLConnect(QueryRunnerBase):
 
         # Sort before projecting (field names still raw)
         if order_by:
-            sort_cols, ascending = [], []
+            sort_cols: list[str] = []
+            ascending: list[bool] = []
             for so in order_by:
                 if isinstance(so, SortOperation) and isinstance(so.column, ColumnWithJoin):
                     fn = so.column.column.name
@@ -524,7 +526,7 @@ class GraphQLConnect(QueryRunnerBase):
                         sort_cols.append(fn)
                         ascending.append(so.direction == SortDirection.ASC)
             if sort_cols:
-                df = df.sort_values(sort_cols, ascending=ascending).reset_index(drop=True)
+                df = pd.DataFrame(df.sort_values(sort_cols, ascending=ascending)).reset_index(drop=True)
 
         # Project and apply derived column expressions
         result_df = _project_columns(df, columns)
