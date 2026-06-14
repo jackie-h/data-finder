@@ -238,9 +238,9 @@ class TestGraphQLFinanceE2E:
     def test_query_instruments_to_pandas(self, finders):
         inf = finders["instrument"]
         df = inf.find_all(None, None, [inf.symbol(), inf.price()]).to_pandas()
-        assert list(df.columns) == ["symbol", "price"]
-        assert df["symbol"].tolist() == ["IBM", "GS", "AAPL"]
-        assert df["price"].tolist() == [2304.5, 45.7, 84.11]
+        assert list(df.columns) == ["Symbol", "Price"]
+        assert df["Symbol"].tolist() == ["IBM", "GS", "AAPL"]
+        assert df["Price"].tolist() == [2304.5, 45.7, 84.11]
 
     def test_query_accounts_single_column(self, finders):
         af = finders["account"]
@@ -329,8 +329,9 @@ class TestGraphQLBusinessDateMilestoneE2E:
 
     def test_milestone_metadata(self, finder_classes):
         cpf = finder_classes["ContractualPositionFinder"](GraphQLEndpoint("http://example.com/graphql"))
-        assert isinstance(cpf._query.milestone, GraphQLBusinessDateMilestone)
-        assert cpf._query.milestone.argument_name == "businessDate"
+        assert isinstance(cpf._query.milestone, GraphQLBiTemporalMilestone)
+        assert cpf._query.milestone.business_date_argument == "businessDate"
+        assert cpf._query.milestone.processing_argument == "asOf"
 
 
 # ---------------------------------------------------------------------------

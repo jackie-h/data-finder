@@ -57,10 +57,11 @@ class TestGraphQLMarkdownLoad:
         assert by_prop["symbol"].target.name == "symbol"
         assert by_prop["price"].target.name == "price"
 
-    def test_position_has_business_date_milestone(self):
+    def test_position_has_bitemporal_milestone(self):
         ms = self.by_class["ContractualPosition"].query.milestone
-        assert isinstance(ms, GraphQLBusinessDateMilestone)
-        assert ms.argument_name == "businessDate"
+        assert isinstance(ms, GraphQLBiTemporalMilestone)
+        assert ms.business_date_argument == "businessDate"
+        assert ms.processing_argument == "asOf"
 
     def test_position_query_name(self):
         assert self.by_class["ContractualPosition"].query.name == "contractualPositions"
@@ -105,7 +106,7 @@ class TestGraphQLMarkdownRoundTrip:
         md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
         assert "### Query: accounts → Account" in md
         assert "### Query: instruments → Instrument (milestone: processing, asOf)" in md
-        assert "### Query: contractualPositions → ContractualPosition (milestone: business_date, businessDate)" in md
+        assert "### Query: contractualPositions → ContractualPosition (milestone: bitemporal, businessDate, asOf)" in md
         assert "### Query: trades → Trade (milestone: bitemporal, businessDate, asOf)" in md
 
     def test_to_markdown_contains_model_references(self):
@@ -137,7 +138,7 @@ class TestGraphQLMarkdownRoundTrip:
             reloaded = load(tmp)
             by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in reloaded.mappings}  # type: ignore[dict-item]
             assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
-            assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBusinessDateMilestone)
+            assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBiTemporalMilestone)
             assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)
             assert by_class["Account"].query.milestone is None
         finally:

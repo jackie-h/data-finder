@@ -10,6 +10,7 @@ from model.m3 import Class, Property, PrimitiveType, Association
 from model.mapping import Mapping
 from model.graphql_mapping import (
     GraphQLEndpoint,
+    GraphQLFilterConvention,
     GraphQLQuery,
     GraphQLField,
     GraphQLPropertyMapping,
@@ -29,6 +30,9 @@ _QUERY_RE = re.compile(
     r'(\S+)\s*→\s*(\w+)'
     r'(?:\s*\(milestone:\s*(\w+)(?:,\s*(\w+))?(?:,\s*(\w+))?\))?'
 )
+
+# "http://localhost:4000/graphql" or "http://localhost:4000/graphql (filter: where, sort: order_by, limit: limit)"
+_ENDPOINT_RE = re.compile(r'(.+?)(?:\s*\(([^)]*)\))?$')
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +105,10 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                 title = text
 
             elif level == "h2" and text.startswith("Endpoint:"):
-                current_endpoint = GraphQLEndpoint(text[len("Endpoint:"):].strip())
+                m = _ENDPOINT_RE.match(text[len("Endpoint:"):].strip())
+                url = m.group(1).strip() if m else text[len("Endpoint:"):].strip()
+                filter_convention = _parse_filter_convention(m.group(2) if m else None)
+                current_endpoint = GraphQLEndpoint(url, filter_convention)
 
             elif level == "h3" and text.startswith("Query:"):
                 if current_endpoint is None:
@@ -202,6 +209,24 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
     return Mapping(title, class_mappings)
 
 
+def _parse_filter_convention(opts_str: str | None) -> GraphQLFilterConvention | None:
+    """Parse key=value pairs from an endpoint options string into a GraphQLFilterConvention."""
+    if not opts_str or not opts_str.strip():
+        return None
+    opts: dict[str, str] = {}
+    for part in opts_str.split(','):
+        if ':' in part:
+            k, v = part.split(':', 1)
+            opts[k.strip()] = v.strip()
+    if not any(k in opts for k in ('filter', 'sort', 'limit')):
+        return None
+    return GraphQLFilterConvention(
+        filter_arg=opts.get('filter', 'where'),
+        sort_arg=opts.get('sort', 'order_by'),
+        limit_arg=opts.get('limit', 'limit'),
+    )
+
+
 def _parse_milestone(milestone_type: str, arg1: str, arg2: str):
     if milestone_type is None:
         return None
@@ -281,7 +306,12 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         endpoint_mappings[url].append(cm)
 
     for url in endpoints_seen:
-        lines.append(f"## Endpoint: {url}")
+        endpoint = endpoint_objs[url]
+        endpoint_line = f"## Endpoint: {url}"
+        fc = endpoint.filter_convention
+        if fc:
+            endpoint_line += f" (filter: {fc.filter_arg}, sort: {fc.sort_arg}, limit: {fc.limit_arg})"
+        lines.append(endpoint_line)
         lines.append("")
 
         for cm in endpoint_mappings[url]:
