@@ -7,7 +7,7 @@ from markdown_it.tree import SyntaxTreeNode
 
 import model.m3 as m3
 from model.m3 import (
-    Class, Package, Property, Association, Multiplicity,
+    Class, Package, Property, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY,
     String, TaggedValue, Type, PrimitiveType,
 )
 
@@ -128,7 +128,7 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                         if desc:
                             tagged.append(TaggedValue(TaggedValue.DOC, desc))
                         prop_type = _resolve_type(type_str, classes_by_name)
-                        prop = Property(label, prop_id, prop_type, tagged or None)
+                        prop = Property(label, prop_id, prop_type, tagged_values=tagged or None)
                         cls.properties[prop.id] = prop
                     i += 1
                 continue
@@ -148,11 +148,11 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                         src_prop_id = row.get("Source Property ID", "").strip()
                         tgt_prop_name = row.get("Target Property Name", "").strip()
                         tgt_prop_id = row.get("Target Property ID", "").strip()
-                        if src_mult_str not in (Multiplicity.ONE, Multiplicity.MANY):
+                        if src_mult_str not in ("1", "*"):
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Source Multiplicity ('1' or '*')"
                             )
-                        if tgt_mult_str not in (Multiplicity.ONE, Multiplicity.MANY):
+                        if tgt_mult_str not in ("1", "*"):
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Target Multiplicity ('1' or '*')"
                             )
@@ -164,11 +164,13 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Target Property"
                             )
+                        src_mult = ONE_TO_ONE if src_mult_str == "1" else ZERO_TO_MANY
+                        tgt_mult = ONE_TO_ONE if tgt_mult_str == "1" else ZERO_TO_MANY
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else []
-                        Association(assoc_name, source, src_mult_str,
+                        Association(assoc_name, source, src_mult,
                                     src_prop_name, src_prop_id,
-                                    target, tgt_mult_str,
+                                    target, tgt_mult,
                                     tgt_prop_name, tgt_prop_id,
                                     current_package, tagged or None)
                     i += 1
@@ -289,9 +291,9 @@ def to_markdown(title: str, packages: list[Package]) -> str:
                     ["Name", "Source", "Source Property Name", "Source Property ID", "Source Multiplicity",
                      "Target", "Target Property Name", "Target Property ID", "Target Multiplicity", "Description"],
                     [[child.name, child.source,
-                      child.source_property.name, child.source_property.id, child.source_multiplicity or "",
+                      child.source_property.name, child.source_property.id, str(child.source_multiplicity),
                       child.target,
-                      child.target_property.name, child.target_property.id, child.target_multiplicity or "",
+                      child.target_property.name, child.target_property.id, str(child.target_multiplicity),
                       description]],
                 ))
                 lines.append("")

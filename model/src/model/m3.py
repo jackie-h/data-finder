@@ -60,11 +60,14 @@ Boolean = PrimitiveType("Boolean")
 
 
 class Property(AnnotatedElement):
-    def __init__(self, name: str, id: str, type: Type | None, tagged_values: list[TaggedValue] | None = None):
+    def __init__(self, name: str, id: str, type: Type | None,
+                 multiplicity: 'Multiplicity | None' = None,
+                 tagged_values: list[TaggedValue] | None = None):
         super().__init__(tagged_values)
         self.name = name
         self._id = id
         self.type = type
+        self.multiplicity = multiplicity
         assert _name_to_camel_id(name) == id, (
             f"Property id must be camelCase of name: '{name}' → expected '{_name_to_camel_id(name)}', got '{id}'"
         )
@@ -99,21 +102,89 @@ class Class(PackagableElement, Type):
 
 
 class Multiplicity:
-    ONE = "1"
-    MANY = "*"
+    """Cardinality of an association end (lower bound .. upper bound)."""
+
+    def __init__(self, lower: int):
+        if lower < 0:
+            raise ValueError(f"Lower bound must be >= 0, got {lower}")
+        self._lower = lower
+
+    @property
+    def lower(self) -> int:
+        return self._lower
+
+    def has_upper_bound(self) -> bool:
+        raise NotImplementedError
+
+    @property
+    def upper(self) -> int:
+        raise NotImplementedError("Check has_upper_bound() before accessing upper")
+
+    def is_many(self) -> bool:
+        """True when the end can hold more than one value."""
+        return not self.has_upper_bound() or self.upper > 1
+
+
+class BoundedMultiplicity(Multiplicity):
+    """Multiplicity with a known upper bound (e.g. 0..1, 1..1)."""
+
+    def __init__(self, lower: int, upper: int):
+        super().__init__(lower)
+        if upper < lower:
+            raise ValueError(f"Upper bound {upper} must be >= lower bound {lower}")
+        self._upper = upper
+
+    def has_upper_bound(self) -> bool:
+        return True
+
+    @property
+    def upper(self) -> int:
+        return self._upper
+
+    def __repr__(self) -> str:
+        return str(self._lower) if self._lower == self._upper else f"{self._lower}..{self._upper}"
+
+    def __str__(self) -> str:
+        return repr(self)
+
+
+class UnboundedMultiplicity(Multiplicity):
+    """Multiplicity with no upper bound (e.g. 0..*, 1..*)."""
+
+    def __init__(self, lower: int):
+        super().__init__(lower)
+
+    def has_upper_bound(self) -> bool:
+        return False
+
+    @property
+    def upper(self) -> int:
+        raise ValueError("UnboundedMultiplicity has no upper bound; check has_upper_bound() first")
+
+    def __repr__(self) -> str:
+        return "*" if self._lower == 0 else f"{self._lower}..*"
+
+    def __str__(self) -> str:
+        return repr(self)
+
+
+ONE_TO_ONE = BoundedMultiplicity(1, 1)
+ZERO_TO_ONE = BoundedMultiplicity(0, 1)
+ONE_TO_MANY = UnboundedMultiplicity(1)
+ZERO_TO_MANY = UnboundedMultiplicity(0)
 
 
 class Association(PackagableElement):
     def __init__(self, name: str,
-                 source: str, source_multiplicity: str,
+                 source: str, source_multiplicity: Multiplicity,
                  source_property_name: str, source_property_id: str,
-                 target: str, target_multiplicity: str,
+                 target: str, target_multiplicity: Multiplicity,
                  target_property_name: str, target_property_id: str,
                  package: Package | None, tagged_values: list[TaggedValue] | None = None):
-        if source_multiplicity not in (Multiplicity.ONE, Multiplicity.MANY):
-            raise ValueError(f"Association '{name}' must specify Source Multiplicity ('1' or '*')")
-        if target_multiplicity not in (Multiplicity.ONE, Multiplicity.MANY):
-            raise ValueError(f"Association '{name}' must specify Target Multiplicity ('1' or '*')")
+        if not isinstance(source_multiplicity, Multiplicity):
+            raise ValueError(f"Association '{name}': source_multiplicity must be a Multiplicity instance")
+        if not isinstance(target_multiplicity, Multiplicity):
+            raise ValueError(f"Association '{name}': target_multiplicity must be a Multiplicity instance")
         if not source_property_id:
             raise ValueError(f"Association '{name}' must specify Source Property")
         if not target_property_id:
@@ -122,7 +193,9 @@ class Association(PackagableElement):
         self.name = name
         self.source = source
         self.source_multiplicity = source_multiplicity
-        self.source_property = Property(source_property_name, source_property_id, None)
+        self.source_property = Property(source_property_name, source_property_id, None,
+                                        multiplicity=source_multiplicity)
         self.target = target
         self.target_multiplicity = target_multiplicity
-        self.target_property = Property(target_property_name, target_property_id, None)
+        self.target_property = Property(target_property_name, target_property_id, None,
+                                        multiplicity=target_multiplicity)
