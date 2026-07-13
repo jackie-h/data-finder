@@ -183,46 +183,126 @@ def _build_join_kwargs_filter(node, filter_kwargs: dict, filter_column_map: dict
     return result
 
 
-def collect_required_joins(op: RelationalOperationElement | None, required_joins: dict):
+def collect_required_joins(op: RelationalOperationElement | None, required_joins: dict,
+                            node_refs: dict | None = None):
+    """Walk an operation tree collecting the JoinTreeNodeOperations it depends on.
+
+    When ``node_refs`` is provided, also records — per node id — every Attribute/ColumnWithJoin
+    that references that node, so callers can decide whether *all* references to a node can be
+    satisfied by an embedded (join-less) alternate (see _compute_elidable_nodes).
+    """
     if op is None:
         return
     if isinstance(op, Attribute):
         parent = op.parent()
         if parent is not None:
             required_joins[id(parent)] = parent
+            if node_refs is not None:
+                node_refs.setdefault(id(parent), []).append(op)
     elif isinstance(op, ColumnWithJoin):
         if op.parent is not None:
             required_joins[id(op.parent)] = op.parent
+            if node_refs is not None:
+                node_refs.setdefault(id(op.parent), []).append(op)
     elif isinstance(op, AggregateOperation):
-        collect_required_joins(op.element, required_joins)
-        collect_required_joins(op.window, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
+        collect_required_joins(op.window, required_joins, node_refs)
     elif isinstance(op, ScalarFunctionOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateExtractOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateArithmeticOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateDiffOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, WindowFunctionOperation):
         if op.element is not None:
-            collect_required_joins(op.element, required_joins)
-        collect_required_joins(op.window, required_joins)
+            collect_required_joins(op.element, required_joins, node_refs)
+        collect_required_joins(op.window, required_joins, node_refs)
     elif isinstance(op, WindowSpecification):
         for part in op.partition_by:
-            collect_required_joins(part, required_joins)
+            collect_required_joins(part, required_joins, node_refs)
         for sort_op in op.order_by:
-            collect_required_joins(sort_op.column, required_joins)
+            collect_required_joins(sort_op.column, required_joins, node_refs)
     elif isinstance(op, SortOperation):
-        collect_required_joins(op.column, required_joins)
+        collect_required_joins(op.column, required_joins, node_refs)
     elif isinstance(op, Alias):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, LogicalOperation):
-        collect_required_joins(op.left, required_joins)
-        collect_required_joins(op.right, required_joins)
+        collect_required_joins(op.left, required_joins, node_refs)
+        collect_required_joins(op.right, required_joins, node_refs)
     elif isinstance(op, ComparisonOperation):
-        collect_required_joins(op.left, required_joins)
-        collect_required_joins(op.right, required_joins)
+        collect_required_joins(op.left, required_joins, node_refs)
+        collect_required_joins(op.right, required_joins, node_refs)
+
+
+def _embedded_of(ref: RelationalOperationElement):
+    """Return the join-less alternate for an Attribute (a method) or ColumnWithJoin (a field)."""
+    return ref.embedded() if isinstance(ref, Attribute) else getattr(ref, 'embedded', None)
+
+
+def _compute_elidable_nodes(node_refs: dict) -> set:
+    """Return the ids of join-tree nodes where every reference has a usable embedded alternate.
+
+    A ColumnWithJoin/Attribute built without an ``embedded`` alternate (e.g. a milestoning column,
+    or a raw filter kwarg column) forces the join to stay for every reference to that node —
+    "if one projected property isn't embedded, take all of them from the join instead".
+    """
+    elidable = set()
+    for node_id, refs in node_refs.items():
+        if refs and all(_embedded_of(ref) is not None for ref in refs):
+            elidable.add(node_id)
+    return elidable
+
+
+def _rewrite_for_embedding(op: RelationalOperationElement | None, elidable_ids: set):
+    """Recursively rewrite an operation tree, substituting any Attribute/ColumnWithJoin whose
+    join-tree node is elidable with its pre-built embedded (join-less) alternate."""
+    if op is None:
+        return None
+    if isinstance(op, Attribute):
+        parent = op.parent()
+        if parent is not None and id(parent) in elidable_ids:
+            return _embedded_of(op)
+        return op
+    elif isinstance(op, ColumnWithJoin):
+        if op.parent is not None and id(op.parent) in elidable_ids:
+            return _embedded_of(op)
+        return op
+    elif isinstance(op, AggregateOperation):
+        return AggregateOperation(_rewrite_for_embedding(op.element, elidable_ids), op.operator,
+                                  op.display_name, _rewrite_for_embedding(op.window, elidable_ids))  # type: ignore[arg-type]
+    elif isinstance(op, ScalarFunctionOperation):
+        return ScalarFunctionOperation(_rewrite_for_embedding(op.element, elidable_ids), op.function,
+                                       op.display_name, second_arg=op.second_arg, extra_args=list(op.extra_args))  # type: ignore[arg-type]
+    elif isinstance(op, DateExtractOperation):
+        return DateExtractOperation(_rewrite_for_embedding(op.element, elidable_ids), op.part, op.display_name)  # type: ignore[arg-type]
+    elif isinstance(op, DateArithmeticOperation):
+        return DateArithmeticOperation(_rewrite_for_embedding(op.element, elidable_ids), op.n, op.unit,
+                                       op.is_add, op.display_name)  # type: ignore[arg-type]
+    elif isinstance(op, DateDiffOperation):
+        return DateDiffOperation(_rewrite_for_embedding(op.element, elidable_ids), op.other, op.unit, op.display_name)  # type: ignore[arg-type]
+    elif isinstance(op, WindowFunctionOperation):
+        element = None if op.element is None else _rewrite_for_embedding(op.element, elidable_ids)
+        return WindowFunctionOperation(element, op.function, op.display_name, second_arg=op.second_arg,
+                                       extra_args=list(op.extra_args),
+                                       window=_rewrite_for_embedding(op.window, elidable_ids))  # type: ignore[arg-type]
+    elif isinstance(op, WindowSpecification):
+        return WindowSpecification(
+            [_rewrite_for_embedding(part, elidable_ids) for part in op.partition_by],
+            [SortOperation(_rewrite_for_embedding(s.column, elidable_ids), s.direction) for s in op.order_by],
+        )
+    elif isinstance(op, SortOperation):
+        return SortOperation(_rewrite_for_embedding(op.column, elidable_ids), op.direction)
+    elif isinstance(op, Alias):
+        return Alias(_rewrite_for_embedding(op.element, elidable_ids), op.name)
+    elif isinstance(op, LogicalOperation):
+        return LogicalOperation(_rewrite_for_embedding(op.left, elidable_ids), op.operator,
+                                _rewrite_for_embedding(op.right, elidable_ids))
+    elif isinstance(op, ComparisonOperation):
+        return ComparisonOperation(_rewrite_for_embedding(op.left, elidable_ids), op.operator,
+                                   _rewrite_for_embedding(op.right, elidable_ids))
+    return op
 
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
                          columns: list[Attribute], table: Table, op: Operation,
@@ -237,13 +317,23 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
             op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
     required_joins: dict = {}
+    node_refs: dict = {}
     for col in columns:
-        collect_required_joins(col, required_joins)
+        collect_required_joins(col, required_joins, node_refs)
     for group_by_expr in group_by or []:
-        collect_required_joins(group_by_expr, required_joins)
+        collect_required_joins(group_by_expr, required_joins, node_refs)
     for sort_op in order_by or []:
-        collect_required_joins(sort_op.column, required_joins)
-    collect_required_joins(op, required_joins)
+        collect_required_joins(sort_op, required_joins, node_refs)
+    collect_required_joins(op, required_joins, node_refs)
+
+    elidable_ids = _compute_elidable_nodes(node_refs)
+    if elidable_ids:
+        columns = [_rewrite_for_embedding(col, elidable_ids) for col in columns]  # type: ignore[assignment]
+        group_by = [_rewrite_for_embedding(g, elidable_ids) for g in (group_by or [])]
+        order_by = [_rewrite_for_embedding(s, elidable_ids) for s in (order_by or [])]  # type: ignore[assignment]
+        op = _rewrite_for_embedding(op, elidable_ids)  # type: ignore[assignment]
+        for node_id in elidable_ids:
+            required_joins.pop(node_id, None)
 
     for node in required_joins.values():
         combined = None

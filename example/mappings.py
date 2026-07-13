@@ -4,7 +4,7 @@ from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
 from model.relational import Column, Table, Schema, Database
-from model.relational_mapping import RelationalPropertyMapping, RelationalClassMapping, Join
+from model.relational_mapping import RelationalPropertyMapping, RelationalClassMapping, Join, EmbeddedSetMapping
 
 
 def create_description(text: str) -> TaggedValue:
@@ -83,12 +83,16 @@ def create_mappings_normalized() -> Mapping:
     c4 = Column('price', 'DOUBLE')
     c5 = Column('start_at', 'TIMESTAMP')
     c6 = Column('end_at', 'TIMESTAMP')
+    c7 = Column('acct_name', 'VARCHAR')
 
-    trade_t = Table('trades', [c1, c2, c3, c4, c5, c6], trading)
+    trade_t = Table('trades', [c1, c2, c3, c4, c5, c6, c7], trading)
 
+    account_name_embedded = EmbeddedSetMapping(
+        account_c, [RelationalPropertyMapping(account_c.property('name'), c7)]
+    )
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3)
     pm2 = RelationalPropertyMapping(trade_c.property('price'), c4)
-    pm3 = RelationalPropertyMapping(trade_c.property('account'),Join(c2,ac1))
+    pm3 = RelationalPropertyMapping(trade_c.property('account'), Join(c2, ac1, embedded=account_name_embedded))
     pm4 = RelationalPropertyMapping(trade_c.property('validFrom'), c5)
     pm5 = RelationalPropertyMapping(trade_c.property('validTo'), c6)
     pm6 = RelationalPropertyMapping(trade_c.property('instrument'), Join(c3,ic1))

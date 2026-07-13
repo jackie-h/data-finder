@@ -12,14 +12,22 @@ class Attribute(RelationalOperationElement):
     __column: Column
     __owner: str
     __parent: Any
+    __embedded: Any
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None):
-        """Create a typed attribute for a named column."""
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+                 embedded: 'Attribute | None' = None):
+        """Create a typed attribute for a named column.
+
+        ``embedded``, when set, is a fully-built alternate Attribute pointing at a flat column
+        that satisfies this same property without the join ``parent`` depends on. The SQL
+        generator decides at query-build time whether to use it (see sql_generator elision).
+        """
         super().__init__()
         self.__display_name = display_name
         self.__column = Column(column_name, column_db_type, owner)
         self.__owner = owner
         self.__parent = parent
+        self.__embedded = embedded
 
     def column(self) -> Column:
         """Return the underlying column metadata."""
@@ -32,6 +40,15 @@ class Attribute(RelationalOperationElement):
     def parent(self) -> Any:
         """Return the parent join, if this attribute is traversal-based."""
         return self.__parent
+
+    def embedded(self) -> 'Attribute | None':
+        """Return the join-less alternate for this attribute, if one is mapped."""
+        return self.__embedded
+
+    def _column_with_join(self) -> ColumnWithJoin:
+        """Return this attribute as a ColumnWithJoin, propagating its embedded alternate."""
+        embedded_column_with_join = self.__embedded._column_with_join() if self.__embedded is not None else None
+        return ColumnWithJoin(self.__column, self.__parent, embedded=embedded_column_with_join)
 
     def display_name(self) -> str:
         """Return the human-readable display name."""
@@ -97,7 +114,7 @@ class Attribute(RelationalOperationElement):
         func = WindowFunction.LAG if periods >= 0 else WindowFunction.LEAD
         label = 'Lag' if periods >= 0 else 'Lead'
         return WindowFunctionOperation(
-            ColumnWithJoin(self.__column, self.__parent),
+            self._column_with_join(),
             func,
             label + ' ' + self.__display_name,
             second_arg=abs(periods),
@@ -108,7 +125,7 @@ class Attribute(RelationalOperationElement):
     def first(self, partition_by=None, order_by=None):
         """Return the first value of this column in the window frame."""
         return WindowFunctionOperation(
-            ColumnWithJoin(self.__column, self.__parent),
+            self._column_with_join(),
             WindowFunction.FIRST_VALUE,
             'First ' + self.__display_name,
             window=self._window_spec(partition_by, order_by),
@@ -117,7 +134,7 @@ class Attribute(RelationalOperationElement):
     def last(self, partition_by=None, order_by=None):
         """Return the last value of this column in the window frame."""
         return WindowFunctionOperation(
-            ColumnWithJoin(self.__column, self.__parent),
+            self._column_with_join(),
             WindowFunction.LAST_VALUE,
             'Last ' + self.__display_name,
             window=self._window_spec(partition_by, order_by),
@@ -125,20 +142,20 @@ class Attribute(RelationalOperationElement):
 
     def count(self) -> AggregateOperation:
         """Return a count aggregation for this Attribute."""
-        return AggregateOperation(ColumnWithJoin(self.__column, self.__parent), AggregateOperator.COUNT, self.__display_name + ' Count')
+        return AggregateOperation(self._column_with_join(), AggregateOperator.COUNT, self.__display_name + ' Count')
 
     def ascending(self) -> SortOperation:
         """Return an ascending sort operation for this Attribute."""
-        return SortOperation(ColumnWithJoin(self.__column, self.__parent), SortDirection.ASC)
+        return SortOperation(self._column_with_join(), SortDirection.ASC)
 
     def descending(self) -> SortOperation:
         """Return a descending sort operation for this Attribute."""
-        return SortOperation(ColumnWithJoin(self.__column, self.__parent), SortDirection.DESC)
+        return SortOperation(self._column_with_join(), SortDirection.DESC)
 
     def is_none(self) -> Operation:
         """Return a filter that matches rows where this column is NULL. Equivalent to ``is None`` in Python."""
-        return IsNullOperation(ColumnWithJoin(self.__column, self.__parent))
+        return IsNullOperation(self._column_with_join())
 
     def is_not_none(self) -> Operation:
         """Return a filter that matches rows where this column is not NULL. Equivalent to ``is not None`` in Python."""
-        return IsNotNullOperation(ColumnWithJoin(self.__column, self.__parent))
+        return IsNotNullOperation(self._column_with_join())

@@ -800,3 +800,173 @@ class TestMilestonedWithMissingColumns:
         pkg, db = self._make_repo_and_pkg()
         mapping = loads(content, packages=[pkg], datastore=db)
         assert isinstance(mapping.mappings[0].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
+
+
+class TestEmbeddedMapping:
+
+    _MAPPING = """\
+# Finance Mapping
+
+## Model: finance.md
+## Model: finance_trade.md
+
+## DataStore: finance_db (Database)
+
+### Schema: ref_data
+
+#### Table: account_master → Account
+
+| Column    | Type    | Key | Property ID |
+|-----------|---------|-----|-------------|
+| ID        | INT     | PK  | id          |
+| ACCT_NAME | VARCHAR |     | name        |
+
+### Schema: trading
+
+#### Table: trades → Trade
+
+| Column     | Type    | Key | Property ID  |
+|------------|---------|-----|--------------|
+| sym        | VARCHAR |     | symbol       |
+| price      | DOUBLE  |     | price        |
+| account_id | INT     | FK  | account      |
+| acct_name  | VARCHAR |     | account.name |
+
+#### Association: TradeAccount
+
+| Source Column | Target Table   | Target Column |
+|----------------|----------------|---------------|
+| account_id     | account_master | ID            |
+"""
+
+    def _build_repo(self) -> Database:
+        repo = Database("finance_db", "duckdb://test.db")
+        ref_data = Schema("ref_data", repo)
+        trading = Schema("trading", repo)
+        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+        Table(
+            "trades",
+            [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("account_id", "INT"),
+             Column("acct_name", "VARCHAR")],
+            trading,
+        )
+        return repo
+
+    def _build_packages(self):
+        known = {}
+        packages1 = load_model(MODEL_FILE, known_classes=known)
+        known.update({c.name: c for pkg in packages1 for c in pkg.children if isinstance(c, Class)})
+        packages2 = load_model(TRADE_MODEL_FILE, known_classes=known)
+        return packages1 + packages2
+
+    def test_dotted_property_id_builds_embedded_set_mapping(self):
+        packages = self._build_packages()
+        mapping = loads(self._MAPPING, packages, self._build_repo())
+        rcm = next(m for m in mapping.mappings if m.clazz.name == "Trade")
+        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
+        assert isinstance(pm.target, Join)
+        assert pm.target.embedded is not None
+        assert pm.target.embedded.clazz.name == "Account"
+        leaf = pm.target.embedded.property_mappings[0]
+        assert leaf.property.id == "name"
+        assert isinstance(leaf.target, Column)
+        assert leaf.target.name == "acct_name"
+
+    def test_unresolvable_nav_segment_raises(self):
+        content = self._MAPPING.replace("account.name", "bogus.name")
+        packages = self._build_packages()
+        with pytest.raises(ValueError, match="could not resolve navigation property 'bogus'"):
+            loads(content, packages, self._build_repo())
+
+    def test_unresolvable_leaf_property_raises(self):
+        content = self._MAPPING.replace("account.name", "account.bogus")
+        packages = self._build_packages()
+        with pytest.raises(ValueError, match="property 'bogus' not found"):
+            loads(content, packages, self._build_repo())
+
+    def test_embedded_without_association_raises(self):
+        content = self._MAPPING.replace(
+            """#### Association: TradeAccount
+
+| Source Column | Target Table   | Target Column |
+|----------------|----------------|---------------|
+| account_id     | account_master | ID            |
+""",
+            "",
+        )
+        packages = self._build_packages()
+        with pytest.raises(ValueError, match="have no matching Association section"):
+            loads(content, packages, self._build_repo())
+
+    def test_roundtrip_preserves_embedded_mapping(self):
+        packages = self._build_packages()
+        mapping = loads(self._MAPPING, packages, self._build_repo())
+        content = to_markdown("Finance Mapping", mapping, model_paths=["finance.md", "finance_trade.md"])
+        assert "| acct_name" in content and "account.name" in content
+
+        mapping2 = loads(content, packages, self._build_repo())
+        rcm = next(m for m in mapping2.mappings if m.clazz.name == "Trade")
+        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
+        assert pm.target.embedded is not None
+        leaf = pm.target.embedded.property_mappings[0]
+        assert leaf.property.id == "name" and leaf.target.name == "acct_name"
+
+    def test_two_hop_dotted_path_builds_nested_embedded_set_mapping(self):
+        from model.m3 import Package, Class, Property, Association, String, Integer, ONE_TO_ONE, ZERO_TO_ONE
+
+        pkg = Package("test")
+        branch = Class("Branch", [Property("City", "city", String)], pkg)
+        account = Class("Account", [Property("Id", "id", Integer)], pkg)
+        trade = Class("Trade", [Property("Symbol", "symbol", String)], pkg)
+        Association("AccountBranch", "Account", ONE_TO_ONE, "Account", "account",
+                    "Branch", ZERO_TO_ONE, "Branch", "branch", pkg)
+        Association("TradeAccount", "Trade", ONE_TO_ONE, "Trade", "trade",
+                    "Account", ZERO_TO_ONE, "Account", "account", pkg)
+
+        repo = Database("test_db", "duckdb://test.db")
+        schema = Schema("s", repo)
+        Table("account_master", [Column("ID", "INT")], schema)
+        Table(
+            "trades",
+            [Column("sym", "VARCHAR"), Column("account_id", "INT"), Column("branch_city", "VARCHAR")],
+            schema,
+        )
+
+        content = """\
+# Test Mapping
+
+## DataStore: test_db (Database)
+
+### Schema: s
+
+#### Table: account_master → Account
+
+| Column | Type | Key | Property ID |
+|--------|------|-----|-------------|
+| ID     | INT  | PK  | id          |
+
+#### Table: trades → Trade
+
+| Column      | Type    | Key | Property ID          |
+|-------------|---------|-----|-----------------------|
+| sym         | VARCHAR |     | symbol                |
+| account_id  | INT     | FK  | account               |
+| branch_city | VARCHAR |     | account.branch.city   |
+
+#### Association: TradeAccount
+
+| Source Column | Target Table   | Target Column |
+|----------------|----------------|---------------|
+| account_id     | account_master | ID            |
+"""
+        mapping = loads(content, [pkg], repo)
+        rcm = next(m for m in mapping.mappings if m.clazz.name == "Trade")
+        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
+        assert pm.target.embedded is not None
+        branch_pm = pm.target.embedded.property_mappings[0]
+        assert branch_pm.property.id == "branch"
+        from model.relational_mapping import EmbeddedSetMapping
+        assert isinstance(branch_pm.target, EmbeddedSetMapping)
+        city_pm = branch_pm.target.property_mappings[0]
+        assert city_pm.property.id == "city"
+        assert city_pm.target.name == "branch_city"

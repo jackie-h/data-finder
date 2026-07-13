@@ -10,7 +10,7 @@ def setup_duckdb():
     con.execute("CREATE SCHEMA ref_data;")
 
     con.execute(
-        "CREATE TABLE trading.trades(id INT, account_id INT, sym VARCHAR, price DOUBLE, start_at TIMESTAMP, end_at TIMESTAMP); COPY trading.trades FROM 'data/trades.csv'")
+        "CREATE TABLE trading.trades(id INT, account_id INT, sym VARCHAR, price DOUBLE, start_at TIMESTAMP, end_at TIMESTAMP, acct_name VARCHAR); COPY trading.trades FROM 'data/trades.csv'")
     con.sql("SELECT * from trading.trades").show()
     con.sql("SELECT * from trading.trades where sym LIKE 'AAPL'").show()
 

@@ -1170,3 +1170,55 @@ class TestFindForDateRange:
         sql_point = to_sql(bd, pdt, [attr], table, NoOperation())
         sql_none = to_sql(bd, pdt, [attr], table, NoOperation(), business_date_to=None)
         assert sql_point == sql_none
+
+
+class TestEmbeddedJoinElision:
+    """A joined property with a pre-built join-less alternate (Attribute.embedded / ColumnWithJoin.embedded)
+    is only used when *every* reference to that join node has one — otherwise the real join is kept
+    for all of them. See EmbeddedSetMapping / Join.embedded in model.relational_mapping."""
+
+    def _make_trades_with_account_join(self):
+        trades = Table("trading.trades", [])
+        account_master = Table("ref_data.account_master", [])
+        join = JoinOperation(
+            "account", account_master,
+            Column("account_id", "INT", "trading.trades"), Column("ID", "INT", "ref_data.account_master"),
+        )
+        node = JoinTreeNodeOperation(join, None)
+        embedded_name = StringAttribute("Account Name", "acct_name", "VARCHAR", "trading.trades", None)
+        name_attr = StringAttribute(
+            "Account Name", "ACCT_NAME", "VARCHAR", "ref_data.account_master", node, embedded=embedded_name,
+        )
+        id_attr = IntegerAttribute("Account Id", "ID", "INT", "ref_data.account_master", node)
+        return trades, node, name_attr, id_attr
+
+    def test_only_embedded_property_selected_elides_join(self):
+        trades, node, name_attr, id_attr = self._make_trades_with_account_join()
+        sql = to_sql(None, None, [name_attr], trades, NoOperation())
+        assert "JOIN" not in sql
+        assert "acct_name" in sql
+
+    def test_embedded_and_non_embedded_property_of_same_join_keeps_join(self):
+        trades, node, name_attr, id_attr = self._make_trades_with_account_join()
+        sql = to_sql(None, None, [name_attr, id_attr], trades, NoOperation())
+        assert "JOIN" in sql
+        assert "ACCT_NAME" in sql
+        assert "ID" in sql
+
+    def test_non_embedded_filter_on_same_join_keeps_join_even_if_only_embedded_property_displayed(self):
+        from model.relational import ColumnWithJoin, ComparisonOperation, ComparisonOperator, IntegerConstantOperation
+
+        trades, node, name_attr, id_attr = self._make_trades_with_account_join()
+        kwargs_filter = ComparisonOperation(
+            ColumnWithJoin(Column("ID", "INT", "ref_data.account_master"), node),
+            ComparisonOperator.EQUAL, IntegerConstantOperation(5),
+        )
+        sql = to_sql(None, None, [name_attr], trades, kwargs_filter)
+        assert "JOIN" in sql
+
+    def test_order_by_only_embedded_property_elides_join(self):
+        trades, node, name_attr, id_attr = self._make_trades_with_account_join()
+        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trading.trades", None)
+        sql = to_sql(None, None, [sym_attr], trades, NoOperation(), order_by=[name_attr.ascending()])
+        assert "JOIN" not in sql
+        assert "ORDER BY" in sql and "acct_name" in sql

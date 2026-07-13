@@ -12,11 +12,34 @@ from model.m3 import Association
 from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
-from model.relational_mapping import Join
+from model.relational import Column
+from model.relational_mapping import Join, EmbeddedSetMapping
 
 
 def is_primitive(prop: Property) -> bool:
     return isinstance(prop.type, PrimitiveType)
+
+
+def flatten_embedded(join: Join) -> list[tuple[str, Property, Column]]:
+    """Flatten a Join's embedded EmbeddedSetMapping (if any) into (dotted_path, leaf_property, column)
+    triples, relative to the related class (e.g. 'name', 'branch.city' — not 'account.name').
+
+    Returns [] when the join has no embedded mapping, so templates can gate codegen on it.
+    """
+    if join is None or join.embedded is None:
+        return []
+    result: list[tuple[str, Property, Column]] = []
+
+    def _walk(esm: EmbeddedSetMapping, prefix: str):
+        for pm in esm.property_mappings:
+            dotted = f"{prefix}.{pm.property.id}" if prefix else pm.property.id
+            if isinstance(pm.target, Column):
+                result.append((dotted, pm.property, pm.target))
+            elif isinstance(pm.target, EmbeddedSetMapping):
+                _walk(pm.target, dotted)
+
+    _walk(join.embedded, '')
+    return result
 
 def has_processing_temporal(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, ProcessingDateMilestonesPropertyMapping)
@@ -144,6 +167,7 @@ def generate(mapping: Mapping, output_directory):
         to_python_name=to_python_name,
         table_qualified_name=table_qualified_name,
         to_snake_case=to_snake_case,
+        flatten_embedded=flatten_embedded,
     )
 
     for rcm in mapping.mappings:

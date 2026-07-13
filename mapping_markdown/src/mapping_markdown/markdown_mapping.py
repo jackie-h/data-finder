@@ -10,7 +10,7 @@ from model.m3 import Class, PrimitiveType, Association, Property, DateTime
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping
 from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
-from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
 
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
@@ -207,6 +207,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 cols_by_name = {col.name: col for col in table.columns}
                 all_props = cls.all_properties()
                 property_mappings: list[RelationalPropertyMapping] = []
+                embedded_rows: list[tuple[Column, list[str]]] = []
                 i += 1
 
                 if i < len(nodes) and nodes[i].type == "table":
@@ -222,6 +223,9 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         key = row.get("Key", "").strip().upper()
                         if key == "PK":
                             col.primary_key = True
+                        if "." in prop_name:
+                            embedded_rows.append((col, prop_name.split(".")))
+                            continue
                         prop = all_props.get(prop_name)
                         if prop is None:
                             prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name, repository)
@@ -240,12 +244,17 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         # non-primitive (association) properties are resolved in the Association section
                     i += 1
 
+                embedded_by_nav = (
+                    _build_embedded_mappings(embedded_rows, cls, classes_by_name, assoc_nav_lookup)
+                    if embedded_rows else {}
+                )
+
                 milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository,
                                                               table_name=table_name, class_name=class_name)
                 class_mappings.append(
                     RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping)
                 )
-                class_context[cls.name] = (property_mappings, cols_by_name)
+                class_context[cls.name] = (property_mappings, cols_by_name, embedded_by_nav)
                 continue
 
             elif level == "h4" and text.startswith("Association:"):
@@ -270,7 +279,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
                 src_cls_name = assoc_def.source
                 nav_prop_id = assoc_def.target_property.id
-                pm_list, cols_by_name = class_context.get(src_cls_name, (None, {}))
+                pm_list, cols_by_name, embedded_by_nav = class_context.get(src_cls_name, (None, {}, {}))
                 target_cls_name = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
                 target_cls = classes_by_name.get(target_cls_name) if target_cls_name else None
 
@@ -311,7 +320,9 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                     f"on class '{src_cls_name}' is already mapped"
                                 )
                             prop = Property(assoc_def.target_property.name, nav_prop_id, target_cls)
-                            pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col)))
+                            embedded_entry = embedded_by_nav.pop(nav_prop_id, None)
+                            embedded = embedded_entry[1] if embedded_entry is not None else None
+                            pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col, embedded=embedded)))
                             lhs_col.table.foreign_keys.append(ForeignKey(lhs_col, tgt_col))
                         else:
                             _log.warning(
@@ -324,7 +335,95 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
         i += 1
 
+    for cls_name, (_, _, embedded_by_nav) in class_context.items():
+        if embedded_by_nav:
+            unresolved = ", ".join(sorted(embedded_by_nav))
+            raise ValueError(
+                f"Class '{cls_name}': embedded mapping(s) for '{unresolved}' have no matching "
+                f"Association section to fall back to — an embedded mapping requires a real join"
+            )
+
     return Mapping(title, class_mappings)
+
+
+def _resolve_nav_property(cls_name: str, seg: str, classes_by_name: dict, assoc_nav_lookup: dict,
+                           all_props: dict) -> Property | None:
+    """Resolve a single dotted-path segment to a non-primitive (navigable) Property."""
+    prop = all_props.get(seg)
+    if prop is not None and not isinstance(prop.type, PrimitiveType):
+        return prop
+    target_cls_name = assoc_nav_lookup.get((cls_name, seg))
+    if target_cls_name is not None:
+        target_cls = classes_by_name.get(target_cls_name)
+        if target_cls is not None:
+            return Property(seg, seg, target_cls)
+    return None
+
+
+def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: dict,
+                              assoc_nav_lookup: dict) -> dict:
+    """Group dotted-path (column, segments) rows by their first segment and build nested
+    EmbeddedSetMappings recursively.
+
+    Returns ``{root_nav_property_id: (nav_Property, EmbeddedSetMapping)}``. Raises ValueError for
+    any segment that can't be resolved (unknown nav property, or a leaf that isn't a primitive
+    property) — a bad embedded path is a mapping authoring error, not a tolerable partial mapping.
+    """
+    groups: dict[str, list] = {}
+    for col, segments in embedded_rows:
+        groups.setdefault(segments[0], []).append((col, segments[1:]))
+
+    all_props = cls.all_properties()
+    result: dict = {}
+    for seg0, rows in groups.items():
+        nav_prop = _resolve_nav_property(cls.name, seg0, classes_by_name, assoc_nav_lookup, all_props)
+        if nav_prop is None:
+            raise ValueError(
+                f"Embedded mapping: could not resolve navigation property '{seg0}' on class '{cls.name}'"
+            )
+        target_cls = nav_prop.type
+        if not isinstance(target_cls, Class):
+            raise ValueError(
+                f"Embedded mapping: navigation property '{seg0}' on class '{cls.name}' "
+                f"does not resolve to a class"
+            )
+        target_all_props = target_cls.all_properties()
+
+        nested_pms: list[RelationalPropertyMapping] = []
+        deeper: list = []
+        for col, segs in rows:
+            if len(segs) == 1:
+                leaf_id = segs[0]
+                leaf_prop = target_all_props.get(leaf_id)
+                if leaf_prop is None or not isinstance(leaf_prop.type, PrimitiveType):
+                    raise ValueError(
+                        f"Embedded mapping: property '{leaf_id}' not found (or not primitive) "
+                        f"on class '{target_cls.name}'"
+                    )
+                nested_pms.append(RelationalPropertyMapping(leaf_prop, col))
+            else:
+                deeper.append((col, segs))
+
+        if deeper:
+            nested = _build_embedded_mappings(deeper, target_cls, classes_by_name, assoc_nav_lookup)
+            for nested_prop, nested_esm in nested.values():
+                nested_pms.append(RelationalPropertyMapping(nested_prop, nested_esm))
+
+        result[seg0] = (nav_prop, EmbeddedSetMapping(target_cls, nested_pms))
+    return result
+
+
+def _flatten_embedded_rows(esm: EmbeddedSetMapping, prefix: str) -> list[list[str]]:
+    """Inverse of _build_embedded_mappings: flatten a nested EmbeddedSetMapping back into
+    dotted Property ID rows for round-tripping through to_markdown."""
+    rows: list[list[str]] = []
+    for pm in esm.property_mappings:
+        dotted = f"{prefix}.{pm.property.id}"
+        if isinstance(pm.target, Column):
+            rows.append([pm.target.name, pm.target.type or "", "", dotted])
+        elif isinstance(pm.target, EmbeddedSetMapping):
+            rows.extend(_flatten_embedded_rows(pm.target, dotted))
+    return rows
 
 
 _COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Property ID"]
@@ -545,6 +644,8 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                         lhs = pm.target.lhs
                         key = "FK" if lhs.name in fk_cols else ""
                         col_rows.append([lhs.name, lhs.type or "", key, pm.property.id])
+                        if pm.target.embedded is not None:
+                            col_rows.extend(_flatten_embedded_rows(pm.target.embedded, pm.property.id))
                 lines.append(_md_table(["Column", "Type", "Key", "Property ID"], col_rows))
                 lines.append("")
 
