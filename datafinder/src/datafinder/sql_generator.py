@@ -254,56 +254,6 @@ def _compute_elidable_nodes(node_refs: dict) -> set:
             elidable.add(node_id)
     return elidable
 
-
-def _rewrite_for_embedding(op: RelationalOperationElement | None, elidable_ids: set):
-    """Recursively rewrite an operation tree, substituting any Attribute/ColumnWithJoin whose
-    join-tree node is elidable with its pre-built embedded (join-less) alternate."""
-    if op is None:
-        return None
-    if isinstance(op, Attribute):
-        parent = op.parent()
-        if parent is not None and id(parent) in elidable_ids:
-            return _embedded_of(op)
-        return op
-    elif isinstance(op, ColumnWithJoin):
-        if op.parent is not None and id(op.parent) in elidable_ids:
-            return _embedded_of(op)
-        return op
-    elif isinstance(op, AggregateOperation):
-        return AggregateOperation(_rewrite_for_embedding(op.element, elidable_ids), op.operator,
-                                  op.display_name, _rewrite_for_embedding(op.window, elidable_ids))  # type: ignore[arg-type]
-    elif isinstance(op, ScalarFunctionOperation):
-        return ScalarFunctionOperation(_rewrite_for_embedding(op.element, elidable_ids), op.function,
-                                       op.display_name, second_arg=op.second_arg, extra_args=list(op.extra_args))  # type: ignore[arg-type]
-    elif isinstance(op, DateExtractOperation):
-        return DateExtractOperation(_rewrite_for_embedding(op.element, elidable_ids), op.part, op.display_name)  # type: ignore[arg-type]
-    elif isinstance(op, DateArithmeticOperation):
-        return DateArithmeticOperation(_rewrite_for_embedding(op.element, elidable_ids), op.n, op.unit,
-                                       op.is_add, op.display_name)  # type: ignore[arg-type]
-    elif isinstance(op, DateDiffOperation):
-        return DateDiffOperation(_rewrite_for_embedding(op.element, elidable_ids), op.other, op.unit, op.display_name)  # type: ignore[arg-type]
-    elif isinstance(op, WindowFunctionOperation):
-        element = None if op.element is None else _rewrite_for_embedding(op.element, elidable_ids)
-        return WindowFunctionOperation(element, op.function, op.display_name, second_arg=op.second_arg,
-                                       extra_args=list(op.extra_args),
-                                       window=_rewrite_for_embedding(op.window, elidable_ids))  # type: ignore[arg-type]
-    elif isinstance(op, WindowSpecification):
-        return WindowSpecification(
-            [_rewrite_for_embedding(part, elidable_ids) for part in op.partition_by],
-            [SortOperation(_rewrite_for_embedding(s.column, elidable_ids), s.direction) for s in op.order_by],
-        )
-    elif isinstance(op, SortOperation):
-        return SortOperation(_rewrite_for_embedding(op.column, elidable_ids), op.direction)
-    elif isinstance(op, Alias):
-        return Alias(_rewrite_for_embedding(op.element, elidable_ids), op.name)
-    elif isinstance(op, LogicalOperation):
-        return LogicalOperation(_rewrite_for_embedding(op.left, elidable_ids), op.operator,
-                                _rewrite_for_embedding(op.right, elidable_ids))
-    elif isinstance(op, ComparisonOperation):
-        return ComparisonOperation(_rewrite_for_embedding(op.left, elidable_ids), op.operator,
-                                   _rewrite_for_embedding(op.right, elidable_ids))
-    return op
-
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
                          columns: list[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
@@ -317,23 +267,13 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
             op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
     required_joins: dict = {}
-    node_refs: dict = {}
     for col in columns:
-        collect_required_joins(col, required_joins, node_refs)
+        collect_required_joins(col, required_joins)
     for group_by_expr in group_by or []:
-        collect_required_joins(group_by_expr, required_joins, node_refs)
+        collect_required_joins(group_by_expr, required_joins)
     for sort_op in order_by or []:
-        collect_required_joins(sort_op, required_joins, node_refs)
-    collect_required_joins(op, required_joins, node_refs)
-
-    elidable_ids = _compute_elidable_nodes(node_refs)
-    if elidable_ids:
-        columns = [_rewrite_for_embedding(col, elidable_ids) for col in columns]  # type: ignore[assignment]
-        group_by = [_rewrite_for_embedding(g, elidable_ids) for g in (group_by or [])]
-        order_by = [_rewrite_for_embedding(s, elidable_ids) for s in (order_by or [])]  # type: ignore[assignment]
-        op = _rewrite_for_embedding(op, elidable_ids)  # type: ignore[assignment]
-        for node_id in elidable_ids:
-            required_joins.pop(node_id, None)
+        collect_required_joins(sort_op, required_joins)
+    collect_required_joins(op, required_joins)
 
     for node in required_joins.values():
         combined = None
@@ -510,10 +450,40 @@ class SQLQueryGenerator:
         self.__table_alias_incr = 0
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
+        self.__elidable_ids: set = set()
         self._root_table = None
+
+    def __compute_elidable_ids(self, select: SelectOperation) -> set:
+        """Determine upfront which join nodes can be satisfied entirely by embedded (join-less)
+        alternates, so every later leaf resolution can build the right TableAliasColumn directly —
+        see __resolve."""
+        node_refs: dict = {}
+        required_joins: dict = {}
+        for col in select.display:
+            collect_required_joins(col, required_joins, node_refs)
+        for group_by_expr in select.group_by:
+            collect_required_joins(group_by_expr, required_joins, node_refs)
+        for sort_op in select.order_by:
+            collect_required_joins(sort_op, required_joins, node_refs)
+        collect_required_joins(select.filter, required_joins, node_refs)
+        return _compute_elidable_nodes(node_refs)
+
+    def __resolve(self, op: 'Attribute | ColumnWithJoin') -> tuple[Column, JoinTreeNodeOperation | None]:
+        """Return the (column, parent) an Attribute/ColumnWithJoin should actually reference,
+        substituting its embedded alternate when the join it depends on has been elided."""
+        if isinstance(op, Attribute):
+            column, parent = op.column(), op.parent()
+        else:
+            column, parent = op.column, op.parent
+        if parent is not None and id(parent) in self.__elidable_ids:
+            embedded = _embedded_of(op)
+            if embedded is not None:
+                return self.__resolve(embedded)
+        return column, parent
 
     def generate(self, select:SelectOperation):
         self._root_table = select.table
+        self.__elidable_ids = self.__compute_elidable_ids(select)
         self.select(select.display)
         self._where = self.build_filter(select.filter)
         required_joins: dict = {}
@@ -533,9 +503,9 @@ class SQLQueryGenerator:
         self._limit = select.limit
 
     def __attr_to_col_string(self, attr: Attribute) -> str:
-        parent = attr.parent()
-        ta = self.__table_alias_for_table(attr.owner(), key=self.__join_target_key(parent) if parent is not None else None)
-        return ta.alias + '.' + attr.column().name
+        column, parent = self.__resolve(attr)
+        ta = self.__table_alias_for_table(column.owner, key=self.__join_target_key(parent) if parent is not None else None)
+        return ta.alias + '.' + column.name
 
     @staticmethod
     def __is_self_join(parent: JoinTreeNodeOperation) -> bool:
@@ -558,10 +528,9 @@ class SQLQueryGenerator:
         return WindowSpecification(partition_by, order_by)
 
     def __rewrite_operation(self, op: RelationalOperationElement):
-        if isinstance(op, Attribute):
-            return TableAliasColumn(op.column(), self.__table_alias_for_column(op.column(), op.parent()))
-        elif isinstance(op, ColumnWithJoin):
-            return TableAliasColumn(op.column, self.__table_alias_for_column(op.column, op.parent))
+        if isinstance(op, (Attribute, ColumnWithJoin)):
+            column, parent = self.__resolve(op)
+            return TableAliasColumn(column, self.__table_alias_for_column(column, parent))
         elif isinstance(op, Column):
             return TableAliasColumn(op, self.__table_alias_for_table(op.owner))
         elif isinstance(op, AggregateOperation):
@@ -589,13 +558,10 @@ class SQLQueryGenerator:
     def __collect_required_joins(self, op: RelationalOperationElement | None, required_joins: dict):
         if op is None:
             return
-        if isinstance(op, Attribute):
-            parent = op.parent()
+        if isinstance(op, (Attribute, ColumnWithJoin)):
+            _, parent = self.__resolve(op)
             if parent is not None:
                 required_joins[id(parent)] = parent
-        elif isinstance(op, ColumnWithJoin):
-            if op.parent is not None:
-                required_joins[id(op.parent)] = op.parent
         elif isinstance(op, AggregateOperation):
             self.__collect_required_joins(op.element, required_joins)
             self.__collect_required_joins(op.window, required_joins)
@@ -710,13 +676,13 @@ class SQLQueryGenerator:
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
         elif isinstance(op, ColumnWithJoin):
-            node = op.parent
+            column, node = self.__resolve(op)
             if node is not None:
-                ta = self.__table_alias_for_table(op.column.owner, key=node)
+                ta = self.__table_alias_for_table(column.owner, key=node)
                 self.__add_join(node)
             else:
-                ta = self.__table_alias_for_table(op.column.owner)
-            return ta.alias + '.' + op.column.name
+                ta = self.__table_alias_for_table(column.owner)
+            return ta.alias + '.' + column.name
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
