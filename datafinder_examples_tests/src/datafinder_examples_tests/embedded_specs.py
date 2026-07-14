@@ -4,13 +4,10 @@ finance_mapping_embedded.md example (finance_mapping.md itself stays join-only).
 table carries denormalized columns for both a one-hop chain (`account.name`) and a two-hop
 chain (`account.branch.city`).
 
-Backends must seed trading.trades with `acct_name`/`branch_city` columns (see
-finance_trades_embedded.csv) distinct from the real ref_data.account_master.ACCT_NAME and
-ref_data.branch_master.CITY values, so a passing test proves which physical column was
-actually read:
-
-    ref_data.account_master.ACCT_NAME = "Acme Corp"        vs. trading.trades.acct_name   = "Acme Corp (denorm)"
-    ref_data.branch_master.CITY       = "New York"         vs. trading.trades.branch_city = "NYC (denorm)"
+The denormalized columns hold the same values as their normalized source (a real denormalized
+copy should match, not diverge) — see finance_trades_embedded.csv. So unlike a naive test, these
+specs can't tell embedded from joined by value; each pair below proves it via `expected_sql`/
+`unexpected_sql` (JOIN presence or absence) instead.
 """
 import numpy as np
 
@@ -33,7 +30,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
                 None, _AT, [f.account().name(), f.symbol()], f.symbol().eq("AAPL"),
             ),
             expected_columns=["Account Name", "Symbol"],
-            expected_result=np.array([["Acme Corp (denorm)", "AAPL"]], dtype=object),
+            expected_result=np.array([["Acme Corp", "AAPL"]], dtype=object),
             unexpected_sql={"duckdb": "JOIN"},
         ),
         TestExpectation(
@@ -42,7 +39,6 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
                 None, _AT, [f.account().name(), f.account().id_(), f.symbol()], f.symbol().eq("AAPL"),
             ),
             expected_columns=["Account Name", "Account Id", "Symbol"],
-            # Real join: Account Name now comes from ref_data.account_master, not the flat column.
             expected_result=np.array([["Acme Corp", 1, "AAPL"]], dtype=object),
             expected_sql={"duckdb": "JOIN"},
         ),
@@ -52,7 +48,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
                 None, _AT, [f.account().branch().city(), f.symbol()], f.symbol().eq("AAPL"),
             ),
             expected_columns=["Branch City", "Symbol"],
-            expected_result=np.array([["NYC (denorm)", "AAPL"]], dtype=object),
+            expected_result=np.array([["New York", "AAPL"]], dtype=object),
             unexpected_sql={"duckdb": "JOIN"},
         ),
         TestExpectation(
@@ -63,7 +59,6 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
                 f.symbol().eq("AAPL"),
             ),
             expected_columns=["Branch City", "Branch Id", "Symbol"],
-            # Real joins: trades -> account_master -> branch_master.
             expected_result=np.array([["New York", 10, "AAPL"]], dtype=object),
             expected_sql={"duckdb": "JOIN"},
         ),
@@ -72,7 +67,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="filter_by_embedded_account_name_elides_join",
             query=lambda f: f.find_all(
-                None, _BOTH_AT, [f.symbol()], f.account().name().eq("Acme Corp (denorm)"),
+                None, _BOTH_AT, [f.symbol()], f.account().name().eq("Acme Corp"),
             ).order_by(f.symbol().ascending()),
             expected_columns=["Symbol"],
             expected_result=np.array([["AAPL"], ["GOOG"]], dtype=object),
@@ -82,8 +77,6 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
             name="filter_mixed_with_account_id_display_forces_real_join",
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account().id_()],
-                # The filter itself resolves against the real column once the join is forced —
-                # note the value is the real "Acme Corp", not the flat "Acme Corp (denorm)".
                 f.account().name().eq("Acme Corp"),
             ).order_by(f.symbol().ascending()),
             expected_columns=["Symbol", "Account Id"],
@@ -98,7 +91,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
                 None, _BOTH_AT, [f.account().name(), f.count()],
             ).group_by(f.account().name()),
             expected_columns=["Account Name", "Count"],
-            expected_result=np.array([["Acme Corp (denorm)", 2]], dtype=object),
+            expected_result=np.array([["Acme Corp", 2]], dtype=object),
             unexpected_sql={"duckdb": "JOIN"},
         ),
         TestExpectation(
