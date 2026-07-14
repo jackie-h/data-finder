@@ -238,7 +238,11 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
 
 def _embedded_of(ref: RelationalOperationElement):
     """Return the join-less alternate for an Attribute (a method) or ColumnWithJoin (a field)."""
-    return ref.embedded() if isinstance(ref, Attribute) else getattr(ref, 'embedded', None)
+    if isinstance(ref, Attribute):
+        return ref.embedded()
+    if isinstance(ref, ColumnWithJoin):
+        return ref.embedded
+    return None
 
 
 def _compute_elidable_nodes(node_refs: dict) -> set:
