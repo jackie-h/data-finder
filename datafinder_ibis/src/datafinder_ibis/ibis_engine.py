@@ -7,6 +7,7 @@ import duckdb
 import ibis
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 
 from datafinder import QueryRunnerBase
 from model.relational import Table
@@ -21,24 +22,49 @@ class IbisConnect(QueryRunnerBase):
         conn = ibis.connect('duckdb://test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to)
         print(query)
-        timer = threading.Timer(timeout_ms / 1000, conn.con.interrupt)  # type: ignore[attr-defined]
-        timer.start()
-        try:
-            result = conn.sql(query)  # type: ignore[attr-defined]
-        except duckdb.InterruptException:
-            raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
-        finally:
-            timer.cancel()
-        return IbisOutput(result)
+        # conn.sql() only builds the expression — nothing executes until IbisOutput actually
+        # materializes it, driven by which of to_pandas()/to_numpy() the caller asks for.
+        expr = conn.sql(query)  # type: ignore[attr-defined]
+        return IbisOutput(conn, expr, timeout_ms)
 
 
 class IbisOutput(DataFrame):
+    """Wraps an unmaterialized Ibis expression. Materializes at most once, into a PyArrow
+    Table (not a pandas DataFrame) — to_pandas() and to_numpy() each convert that cached
+    result independently, so to_numpy() never allocates a DataFrame it doesn't need.
 
-    def __init__(self, t: ibis.Table):
-        self.__table = t
+    PyArrow's own per-column to_numpy() already reproduces pandas' classic missing-value
+    conventions (NaN for a nullable numeric/window-function column, None for a nullable
+    string/bool column) rather than pandas' newer nullable dtypes, matching what
+    to_pandas()/existing specs already depend on.
+    """
 
-    def to_numpy(self) -> np.ndarray:
-        return self.__table.__array__()
+    def __init__(self, conn: 'ibis.BaseBackend', expr: 'ibis.Table', timeout_ms: int):
+        self.__conn = conn
+        self.__expr = expr
+        self.__timeout_ms = timeout_ms
+        self.__arrow: pa.Table | None = None
+
+    def __materialize(self) -> pa.Table:
+        arrow = self.__arrow
+        if arrow is None:
+            timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.con.interrupt)  # type: ignore[attr-defined]
+            timer.start()
+            try:
+                arrow = self.__expr.to_pyarrow()
+            except duckdb.InterruptException:
+                raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
+            finally:
+                timer.cancel()
+            self.__arrow = arrow
+        return arrow
 
     def to_pandas(self) -> pd.DataFrame:
-        return self.__table.to_pandas()
+        return self.__materialize().to_pandas()
+
+    def to_numpy(self) -> np.ndarray:
+        table = self.__materialize()
+        if table.num_rows == 0:
+            return np.empty((0, table.num_columns), dtype=object)
+        columns = [table.column(i).to_numpy(zero_copy_only=False) for i in range(table.num_columns)]
+        return np.column_stack(columns)
