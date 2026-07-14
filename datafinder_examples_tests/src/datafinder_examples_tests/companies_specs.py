@@ -6,6 +6,7 @@ Backends must seed their database with COMPANIES before running these specs.
     companies — id INT, name VARCHAR, category VARCHAR
 """
 import numpy as np
+import pandas as pd
 
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
@@ -211,10 +212,10 @@ COMPANY_FINDER_SPECS = FinderSpec(
                 [f.id_(), f.id_().shift(1, order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Lag Id"],
-            # Row 1 has no predecessor → NaN; rows 2-5 have the previous id.
-            # dtype=float because pandas/DuckDB encodes NaN-containing int cols as float64.
+            # Row 1 has no predecessor → pd.NA; rows 2-5 have the previous id, still as int
+            # (Arrow-backed nullable Int64 dtype, not pandas' classic float64-on-null upcast).
             expected_result=np.array(
-                [[1, np.nan], [2, 1], [3, 2], [4, 3], [5, 4]], dtype=float
+                [[1, pd.NA], [2, 1], [3, 2], [4, 3], [5, 4]], dtype=object
             ),
         ),
         TestExpectation(
@@ -224,10 +225,9 @@ COMPANY_FINDER_SPECS = FinderSpec(
                 [f.id_(), f.id_().shift(-1, order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Lead Id"],
-            # Rows 1-4 see the next id; row 5 has no successor → NaN.
-            # dtype=float because pandas/DuckDB encodes NaN-containing int cols as float64.
+            # Rows 1-4 see the next id; row 5 has no successor → pd.NA (see above).
             expected_result=np.array(
-                [[1, 2], [2, 3], [3, 4], [4, 5], [5, np.nan]], dtype=float
+                [[1, 2], [2, 3], [3, 4], [4, 5], [5, pd.NA]], dtype=object
             ),
         ),
         TestExpectation(

@@ -4,11 +4,12 @@ import threading
 import sqlglot
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
-from datafinder.output import build_typed_dataframe
+from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
 from model.relational import Table
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 
 
 def _to_databricks_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
@@ -48,7 +49,10 @@ class DatabricksConnect(QueryRunnerBase):
                 ) as conn:
                     with conn.cursor() as cursor:
                         cursor.execute(query)
-                        result[0] = (cursor.fetchall(), [desc[0] for desc in (cursor.description or [])])
+                        # PyArrow carries the query's own schema (from the SQL aliases and
+                        # Databricks' native column types), rather than an untyped list of
+                        # row tuples pandas would have to guess dtypes for.
+                        result[0] = cursor.fetchall_arrow()
             except Exception as e:
                 error[0] = e
 
@@ -59,19 +63,20 @@ class DatabricksConnect(QueryRunnerBase):
             raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
         if error[0] is not None:
             raise error[0]
-        rows, columns_meta = result[0]
-        return DatabricksOutput(rows, columns_meta, columns)
+        return DatabricksOutput(result[0])
 
 
 class DatabricksOutput(DataFrame):
+    """Wraps an already-fetched PyArrow Table (Databricks' cursor has no lazy/unmaterialized
+    query handle to defer to, unlike DuckDB/Ibis — the round trip already happened in
+    select()). to_pandas() and to_numpy() each convert it independently using Arrow-backed
+    nullable dtypes, so to_numpy() still never allocates a DataFrame it doesn't need."""
 
-    def __init__(self, rows: list, columns: list[str], display_columns: list | None = None):
-        self._rows = rows
-        self._columns = columns
-        self._display_columns = display_columns
-
-    def to_numpy(self) -> np.ndarray:
-        return self.to_pandas().to_numpy()
+    def __init__(self, table: pa.Table):
+        self._table = table
 
     def to_pandas(self) -> pd.DataFrame:
-        return build_typed_dataframe(self._rows, self._columns, self._display_columns)
+        return arrow_table_to_pandas(self._table)
+
+    def to_numpy(self) -> np.ndarray:
+        return arrow_table_to_numpy(self._table)

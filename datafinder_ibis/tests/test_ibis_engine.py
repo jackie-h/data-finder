@@ -66,14 +66,14 @@ class TestIbisOutputTypes:
         ]
         return table, columns
 
-    def test_pandas_dtypes_match_model_types(self, con):
+    def test_pandas_dtypes_are_nullable_and_correct(self, con):
         table, columns = self._columns()
         df = IbisConnect.select(None, None, columns, table, NoOperation()).to_pandas()  # type: ignore[arg-type]
         assert list(df.columns) == ["Name", "Quantity", "Price", "Active"]
-        assert df["Name"].dtype == object
-        assert np.issubdtype(df["Quantity"].dtype, np.integer)  # type: ignore[arg-type]
-        assert np.issubdtype(df["Price"].dtype, np.floating)  # type: ignore[arg-type]
-        assert df["Active"].dtype == bool
+        assert str(df["Name"].dtype) == "string[pyarrow]"
+        assert str(df["Quantity"].dtype) == "int32[pyarrow]"
+        assert str(df["Price"].dtype) == "double[pyarrow]"
+        assert str(df["Active"].dtype) == "bool[pyarrow]"
 
     def test_numpy_cell_types_match_model_types(self, con):
         table, columns = self._columns()
@@ -89,3 +89,13 @@ class TestIbisOutputTypes:
         output = IbisConnect.select(None, None, columns, table, NoOperation())  # type: ignore[arg-type]
         output.to_numpy()
         assert output._IbisOutput__arrow is not None  # type: ignore[attr-defined]
+
+    def test_null_value_is_pd_na_in_both_pandas_and_numpy(self, con):
+        import pandas as pd
+        con.con.execute("INSERT INTO widgets VALUES (NULL, NULL, NULL, NULL)")  # type: ignore[attr-defined]
+        table, columns = self._columns()
+        output = IbisConnect.select(None, None, columns, table, NoOperation())  # type: ignore[arg-type]
+        df = output.to_pandas()
+        assert df["Quantity"].iloc[1] is pd.NA
+        arr = output.to_numpy()
+        assert arr[1][1] is pd.NA

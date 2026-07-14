@@ -14,61 +14,24 @@ class DataFrame(ToNumpy):
         raise NotImplementedError()
 
 
-def _dtype_for_column(col) -> str | None:
-    """Best-effort pandas dtype for a display column, derived from its declared model type.
-
-    Only used for backends whose driver doesn't already hand back a correctly-typed frame
-    (e.g. Databricks' DB-API cursor, where a NULL silently upcasts an integer column to
-    float64 under plain pandas inference). Returns None when there's no reliable mapping,
-    so the caller falls back to pandas' own inference rather than risk a wrong coercion.
-    """
-    from datafinder.attribute import Attribute
-    from datafinder.typed_attributes import (
-        StringAttribute, IntegerAttribute, DoubleAttribute, BooleanAttribute,
-        DateAttribute, DateTimeAttribute,
-    )
-    from model.relational import (
-        CountAllOperation, AggregateOperation, AggregateOperator,
-        WindowFunctionOperation, WindowFunction, DateExtractOperation,
-    )
-
-    if isinstance(col, CountAllOperation):
-        return 'Int64'
-    if isinstance(col, AggregateOperation) and col.operator == AggregateOperator.COUNT:
-        return 'Int64'
-    if isinstance(col, WindowFunctionOperation) and col.function in (
-        WindowFunction.ROW_NUMBER, WindowFunction.RANK, WindowFunction.DENSE_RANK, WindowFunction.NTILE,
-    ):
-        return 'Int64'
-    if isinstance(col, DateExtractOperation):
-        return 'Int64'
-    if isinstance(col, BooleanAttribute):
-        return 'boolean'
-    if isinstance(col, IntegerAttribute):
-        return 'Int64'
-    if isinstance(col, DoubleAttribute):
-        return 'float64'
-    if isinstance(col, StringAttribute):
-        return 'object'
-    if isinstance(col, (DateAttribute, DateTimeAttribute)):
-        return 'datetime64[ns]'
-    return None
+def arrow_table_to_pandas(table) -> pd.DataFrame:
+    """Convert a PyArrow Table to a pandas DataFrame using Arrow-backed nullable dtypes
+    (pandas.ArrowDtype), so a NULL doesn't silently upcast e.g. an integer column to
+    float64 or a boolean column to object the way plain pandas inference would — the
+    schema-derived type (Int64, boolean, string, ...) is preserved either way, with
+    ``pd.NA`` uniformly representing a missing value."""
+    return table.to_pandas(types_mapper=pd.ArrowDtype)
 
 
-def build_typed_dataframe(rows, column_names: list[str], display_columns: list | None = None) -> pd.DataFrame:
-    """Build a pandas DataFrame with the given column names, coercing each column to its
-    declared model dtype when one can be determined (leaving pandas' own inference in place
-    otherwise, or if the coercion itself fails against the actual data returned)."""
-    df = pd.DataFrame(rows, columns=column_names)  # type: ignore[arg-type]
-    if not display_columns:
-        return df
-    for name, col in zip(column_names, display_columns):
-        dtype = _dtype_for_column(col)
-        if dtype is None:
-            continue
-        try:
-            df[name] = df[name].astype(dtype)
-        except (TypeError, ValueError):
-            pass
-    return df
-
+def arrow_table_to_numpy(table) -> np.ndarray:
+    """Convert a PyArrow Table directly to a numpy object array with the same nullable-dtype
+    semantics as arrow_table_to_pandas() — without allocating a full pandas DataFrame, since
+    each column only goes through a lightweight pandas.Series, never a joint multi-column
+    frame with its own index/block-manager overhead."""
+    if table.num_rows == 0:
+        return np.empty((0, table.num_columns), dtype=object)
+    columns = [
+        table.column(i).to_pandas(types_mapper=pd.ArrowDtype).to_numpy(dtype=object, na_value=pd.NA)
+        for i in range(table.num_columns)
+    ]
+    return np.column_stack(columns)

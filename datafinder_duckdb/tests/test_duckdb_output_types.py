@@ -1,10 +1,11 @@
-"""Verify DuckDbOutput.to_pandas()/to_numpy() carry correct column names and per-column
-types (String -> object/str, Integer -> int, Double -> float, Boolean -> bool), rather than
-an unnamed frame with pandas' best-guess dtypes from raw row tuples."""
+"""Verify DuckDbOutput.to_pandas()/to_numpy() carry correct column names and correct, nullable
+per-column types (Arrow-backed dtypes), rather than an unnamed frame with pandas' best-guess
+dtypes from raw row tuples."""
 import datetime
 
 import duckdb
 import numpy as np
+import pandas as pd
 import pytest
 
 from datafinder import QueryRunnerBase, StringAttribute, IntegerAttribute, DoubleAttribute, BooleanAttribute
@@ -46,13 +47,13 @@ class TestDuckDbOutputTypes:
         df = DuckDbConnect.select(None, None, columns, table, NoOperation()).to_pandas()  # type: ignore[arg-type]
         assert list(df.columns) == ["Name", "Quantity", "Price", "Active"]
 
-    def test_pandas_dtypes_match_model_types(self, con):
+    def test_pandas_dtypes_are_nullable_and_correct(self, con):
         table, columns = _columns()
         df = DuckDbConnect.select(None, None, columns, table, NoOperation()).to_pandas()  # type: ignore[arg-type]
-        assert df["Name"].dtype == object
-        assert np.issubdtype(df["Quantity"].dtype, np.integer)  # type: ignore[arg-type]
-        assert np.issubdtype(df["Price"].dtype, np.floating)  # type: ignore[arg-type]
-        assert df["Active"].dtype == bool
+        assert str(df["Name"].dtype) == "string[pyarrow]"
+        assert str(df["Quantity"].dtype) == "int32[pyarrow]"
+        assert str(df["Price"].dtype) == "double[pyarrow]"
+        assert str(df["Active"].dtype) == "bool[pyarrow]"
 
     def test_numpy_cell_types_match_model_types(self, con):
         table, columns = _columns()
@@ -62,3 +63,14 @@ class TestDuckDbOutputTypes:
         assert isinstance(quantity, (int, np.integer)) and quantity == 10
         assert isinstance(price, (float, np.floating)) and price == 4.5
         assert isinstance(active, (bool, np.bool_)) and active is True
+
+    def test_null_value_is_pd_na_in_both_pandas_and_numpy(self, con):
+        conn = duckdb.connect("test.db")
+        conn.execute("INSERT INTO type_check.widgets VALUES (NULL, NULL, NULL, NULL)")
+        conn.close()
+        table, columns = _columns()
+        output = DuckDbConnect.select(None, None, columns, table, NoOperation())  # type: ignore[arg-type]
+        df = output.to_pandas()
+        assert df["Quantity"].iloc[1] is pd.NA
+        arr = output.to_numpy()
+        assert arr[1][1] is pd.NA

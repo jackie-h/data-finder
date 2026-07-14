@@ -2,10 +2,12 @@ import datetime
 import threading
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
+from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
 
 import duckdb
 import numpy as np
 import pandas as pd
+import pyarrow as pa
 
 from model.relational import Table
 
@@ -27,45 +29,34 @@ class DuckDbConnect(QueryRunnerBase):
 
 
 class DuckDbOutput(DataFrame):
-    """Wraps an unmaterialized DuckDB relation. A relation can be (re-)materialized any number
-    of times, so to_pandas() and to_numpy() each only do the work — and only pay for a pandas
-    DataFrame — their own conversion actually needs."""
+    """Wraps an unmaterialized DuckDB relation. Materializes at most once, into a cached
+    PyArrow Table (not a pandas DataFrame) — to_pandas() and to_numpy() each convert that
+    independently, using Arrow-backed nullable dtypes so a NULL doesn't silently upcast e.g.
+    an integer column to float64, without to_numpy() ever allocating a DataFrame it doesn't
+    need."""
 
     def __init__(self, conn: duckdb.DuckDBPyConnection, relation: duckdb.DuckDBPyRelation, timeout_ms: int):
         self.__conn = conn
         self.__relation = relation
         self.__timeout_ms = timeout_ms
-        self.__df: pd.DataFrame | None = None
+        self.__arrow: pa.Table | None = None
 
-    def __materialize(self, fetch):
-        timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.interrupt)
-        timer.start()
-        try:
-            return fetch()
-        except duckdb.InterruptException:
-            raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
-        finally:
-            timer.cancel()
+    def __materialize(self) -> pa.Table:
+        arrow = self.__arrow
+        if arrow is None:
+            timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.interrupt)
+            timer.start()
+            try:
+                arrow = self.__relation.arrow()
+            except duckdb.InterruptException:
+                raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
+            finally:
+                timer.cancel()
+            self.__arrow = arrow
+        return arrow
 
     def to_pandas(self) -> pd.DataFrame:
-        if self.__df is None:
-            # .df() carries the query's own column names (from the SQL aliases) and DuckDB's
-            # native per-column types, rather than an untyped, unnamed list of row tuples.
-            self.__df = self.__materialize(self.__relation.df)
-        return self.__df.copy()
+        return arrow_table_to_pandas(self.__materialize())
 
     def to_numpy(self) -> np.ndarray:
-        if self.__df is not None:
-            return self.__df.to_numpy()
-        columns = self.__materialize(self.__relation.fetchnumpy)
-        arrays = []
-        for arr in columns.values():
-            if isinstance(arr, np.ma.MaskedArray):
-                filled = arr.astype(object)
-                filled[arr.mask] = None
-                arrays.append(filled)
-            else:
-                arrays.append(np.asarray(arr, dtype=object))
-        if not arrays or len(arrays[0]) == 0:
-            return np.empty((0, len(arrays)), dtype=object)
-        return np.column_stack(arrays)
+        return arrow_table_to_numpy(self.__materialize())

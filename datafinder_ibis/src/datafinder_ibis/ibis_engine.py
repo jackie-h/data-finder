@@ -2,6 +2,7 @@ import datetime
 import threading
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
+from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
 
 import duckdb
 import ibis
@@ -29,15 +30,11 @@ class IbisConnect(QueryRunnerBase):
 
 
 class IbisOutput(DataFrame):
-    """Wraps an unmaterialized Ibis expression. Materializes at most once, into a PyArrow
-    Table (not a pandas DataFrame) — to_pandas() and to_numpy() each convert that cached
-    result independently, so to_numpy() never allocates a DataFrame it doesn't need.
-
-    PyArrow's own per-column to_numpy() already reproduces pandas' classic missing-value
-    conventions (NaN for a nullable numeric/window-function column, None for a nullable
-    string/bool column) rather than pandas' newer nullable dtypes, matching what
-    to_pandas()/existing specs already depend on.
-    """
+    """Wraps an unmaterialized Ibis expression. Materializes at most once, into a cached
+    PyArrow Table (not a pandas DataFrame) — to_pandas() and to_numpy() each convert that
+    independently, using Arrow-backed nullable dtypes so a NULL doesn't silently upcast e.g.
+    an integer column to float64, without to_numpy() ever allocating a DataFrame it doesn't
+    need."""
 
     def __init__(self, conn: 'ibis.BaseBackend', expr: 'ibis.Table', timeout_ms: int):
         self.__conn = conn
@@ -60,11 +57,7 @@ class IbisOutput(DataFrame):
         return arrow
 
     def to_pandas(self) -> pd.DataFrame:
-        return self.__materialize().to_pandas()
+        return arrow_table_to_pandas(self.__materialize())
 
     def to_numpy(self) -> np.ndarray:
-        table = self.__materialize()
-        if table.num_rows == 0:
-            return np.empty((0, table.num_columns), dtype=object)
-        columns = [table.column(i).to_numpy(zero_copy_only=False) for i in range(table.num_columns)]
-        return np.column_stack(columns)
+        return arrow_table_to_numpy(self.__materialize())

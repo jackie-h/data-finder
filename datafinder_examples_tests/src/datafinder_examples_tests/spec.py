@@ -4,7 +4,21 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import numpy as np
+import pandas as pd
 from numpy.testing import assert_array_equal
+
+
+def _normalize_missing(values: np.ndarray) -> np.ndarray:
+    """Normalize any missing-value marker (None, NaN, pd.NA, NaT, ...) to None.
+
+    assert_array_equal raises TypeError on pd.NA ("boolean value of NA is ambiguous") even
+    when both sides agree, since it isn't a plain Python/numpy scalar. Specs may reasonably
+    write expected_result with None/np.nan while the actual nullable-dtype output uses
+    pd.NA (or vice versa) — normalize both sides the same way so a real mismatch is still
+    caught but the missing-value spelling doesn't matter.
+    """
+    flat = [None if pd.isna(v) else v for v in np.asarray(values, dtype=object).ravel()]
+    return np.array(flat, dtype=object).reshape(np.asarray(values, dtype=object).shape)
 
 
 @dataclass
@@ -45,8 +59,8 @@ class TestExpectation:
             f"Actual:   {list(df.columns)}"
         )
         assert_array_equal(
-            df.values,
-            self.expected_result,
+            _normalize_missing(df.values),
+            _normalize_missing(self.expected_result),
             err_msg=f"[{self.name}] Result mismatch",
         )
 
