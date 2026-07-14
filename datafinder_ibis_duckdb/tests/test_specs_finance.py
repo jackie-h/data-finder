@@ -24,10 +24,10 @@ from datafinder_examples_tests.finance_specs import (
 
 _MODS = [
     "finance", "finance.reference_data", "finance.trade",
-    "finance.reference_data.account_finder",
-    "finance.reference_data.instrument_finder",
-    "finance.trade.trade_finder",
-    "finance.trade.contractualposition_finder",
+    "finance.reference_data.account_finder", "finance.reference_data.account_finder_base",
+    "finance.reference_data.instrument_finder", "finance.reference_data.instrument_finder_base",
+    "finance.trade.trade_finder", "finance.trade.trade_finder_base",
+    "finance.trade.contractualposition_finder", "finance.trade.contractualposition_finder_base",
 ]
 
 

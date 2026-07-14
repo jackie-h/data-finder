@@ -8,9 +8,10 @@ from model.m3 import Class
 from model.relational import Database, Schema, Table, Column
 from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
-from model.relational_mapping import RelationalPropertyMapping, Join
+from model.relational_mapping import RelationalPropertyMapping, Join, EmbeddedSetMapping
 
 FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
+EMBEDDED_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping_embedded.md"))
 MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance.md"))
 TRADE_MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_trade.md"))
 
@@ -802,7 +803,71 @@ class TestMilestonedWithMissingColumns:
         assert isinstance(mapping.mappings[0].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
 
 
+
 class TestEmbeddedMapping:
+    """Structural assertions load the real finance_mapping_embedded.md example (so the same
+    mapping can be exercised by other language implementations); only the parser's error-path
+    validation — which by definition can't live in a valid example file — uses inline content."""
+
+    def setup_method(self):
+        self.mapping = load(EMBEDDED_FIXTURE)
+        self.by_class = {rcm.clazz.name: rcm for rcm in self.mapping.mappings}
+
+    def _account_join(self):
+        rcm = self.by_class["Trade"]
+        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
+        assert isinstance(pm.target, Join)
+        return pm.target
+
+    def test_one_hop_dotted_property_id_builds_embedded_set_mapping(self):
+        join = self._account_join()
+        assert join.embedded is not None
+        assert join.embedded.clazz.name == "Account"
+        leaf = next(pm for pm in join.embedded.property_mappings if pm.property.id == "name")
+        assert isinstance(leaf.target, Column)
+        assert leaf.target.name == "acct_name"
+
+    def test_two_hop_dotted_property_id_builds_nested_embedded_set_mapping(self):
+        join = self._account_join()
+        assert join.embedded is not None
+        branch_pm = next(pm for pm in join.embedded.property_mappings if pm.property.id == "branch")
+        assert isinstance(branch_pm.target, EmbeddedSetMapping)
+        assert branch_pm.target.clazz.name == "Branch"
+        city_pm = branch_pm.target.property_mappings[0]
+        assert city_pm.property.id == "city"
+        assert isinstance(city_pm.target, Column)
+        assert city_pm.target.name == "branch_city"
+
+    def test_non_embedded_association_property_still_uses_real_join(self):
+        # Account.branch itself (not just city) resolves to a real Join, independent of embedding.
+        rcm = self.by_class["Account"]
+        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "branch")
+        assert isinstance(pm.target, Join)
+        assert pm.target.rhs.table is not None
+        assert pm.target.rhs.table.name == "branch_master"
+
+    def test_roundtrip_preserves_embedded_mapping(self):
+        content = to_markdown("Finance Mapping Embedded", self.mapping, model_paths=["finance.md", "finance_trade.md"])
+        assert "account.name" in content and "account.branch.city" in content
+
+        # Model: references are relative to the mapping file's own directory.
+        tmp_path = os.path.join(os.path.dirname(EMBEDDED_FIXTURE), "_tmp_roundtrip_embedded.md")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            f.write(content)
+        try:
+            mapping2 = load(tmp_path)
+        finally:
+            os.remove(tmp_path)
+        rcm = next(m for m in mapping2.mappings if m.clazz.name == "Trade")
+        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
+        branch_pm = next(p for p in pm.target.embedded.property_mappings if p.property.id == "branch")
+        city_pm = branch_pm.target.property_mappings[0]
+        assert city_pm.property.id == "city" and city_pm.target.name == "branch_city"
+
+
+class TestEmbeddedMappingErrors:
+    """Parser validation for malformed embedded mappings — these can't live in a valid example
+    file by definition, so they use minimal inline content."""
 
     _MAPPING = """\
 # Finance Mapping
@@ -859,19 +924,6 @@ class TestEmbeddedMapping:
         packages2 = load_model(TRADE_MODEL_FILE, known_classes=known)
         return packages1 + packages2
 
-    def test_dotted_property_id_builds_embedded_set_mapping(self):
-        packages = self._build_packages()
-        mapping = loads(self._MAPPING, packages, self._build_repo())
-        rcm = next(m for m in mapping.mappings if m.clazz.name == "Trade")
-        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
-        assert isinstance(pm.target, Join)
-        assert pm.target.embedded is not None
-        assert pm.target.embedded.clazz.name == "Account"
-        leaf = pm.target.embedded.property_mappings[0]
-        assert leaf.property.id == "name"
-        assert isinstance(leaf.target, Column)
-        assert leaf.target.name == "acct_name"
-
     def test_unresolvable_nav_segment_raises(self):
         content = self._MAPPING.replace("account.name", "bogus.name")
         packages = self._build_packages()
@@ -897,76 +949,3 @@ class TestEmbeddedMapping:
         packages = self._build_packages()
         with pytest.raises(ValueError, match="have no matching Association section"):
             loads(content, packages, self._build_repo())
-
-    def test_roundtrip_preserves_embedded_mapping(self):
-        packages = self._build_packages()
-        mapping = loads(self._MAPPING, packages, self._build_repo())
-        content = to_markdown("Finance Mapping", mapping, model_paths=["finance.md", "finance_trade.md"])
-        assert "| acct_name" in content and "account.name" in content
-
-        mapping2 = loads(content, packages, self._build_repo())
-        rcm = next(m for m in mapping2.mappings if m.clazz.name == "Trade")
-        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
-        assert pm.target.embedded is not None
-        leaf = pm.target.embedded.property_mappings[0]
-        assert leaf.property.id == "name" and leaf.target.name == "acct_name"
-
-    def test_two_hop_dotted_path_builds_nested_embedded_set_mapping(self):
-        from model.m3 import Package, Class, Property, Association, String, Integer, ONE_TO_ONE, ZERO_TO_ONE
-
-        pkg = Package("test")
-        branch = Class("Branch", [Property("City", "city", String)], pkg)
-        account = Class("Account", [Property("Id", "id", Integer)], pkg)
-        trade = Class("Trade", [Property("Symbol", "symbol", String)], pkg)
-        Association("AccountBranch", "Account", ONE_TO_ONE, "Account", "account",
-                    "Branch", ZERO_TO_ONE, "Branch", "branch", pkg)
-        Association("TradeAccount", "Trade", ONE_TO_ONE, "Trade", "trade",
-                    "Account", ZERO_TO_ONE, "Account", "account", pkg)
-
-        repo = Database("test_db", "duckdb://test.db")
-        schema = Schema("s", repo)
-        Table("account_master", [Column("ID", "INT")], schema)
-        Table(
-            "trades",
-            [Column("sym", "VARCHAR"), Column("account_id", "INT"), Column("branch_city", "VARCHAR")],
-            schema,
-        )
-
-        content = """\
-# Test Mapping
-
-## DataStore: test_db (Database)
-
-### Schema: s
-
-#### Table: account_master → Account
-
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| ID     | INT  | PK  | id          |
-
-#### Table: trades → Trade
-
-| Column      | Type    | Key | Property ID          |
-|-------------|---------|-----|-----------------------|
-| sym         | VARCHAR |     | symbol                |
-| account_id  | INT     | FK  | account               |
-| branch_city | VARCHAR |     | account.branch.city   |
-
-#### Association: TradeAccount
-
-| Source Column | Target Table   | Target Column |
-|----------------|----------------|---------------|
-| account_id     | account_master | ID            |
-"""
-        mapping = loads(content, [pkg], repo)
-        rcm = next(m for m in mapping.mappings if m.clazz.name == "Trade")
-        pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
-        assert pm.target.embedded is not None
-        branch_pm = pm.target.embedded.property_mappings[0]
-        assert branch_pm.property.id == "branch"
-        from model.relational_mapping import EmbeddedSetMapping
-        assert isinstance(branch_pm.target, EmbeddedSetMapping)
-        city_pm = branch_pm.target.property_mappings[0]
-        assert city_pm.property.id == "city"
-        assert city_pm.target.name == "branch_city"

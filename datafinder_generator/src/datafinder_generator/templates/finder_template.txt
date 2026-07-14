@@ -72,7 +72,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}
-        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node{% if flatten_embedded(rpm.target) %}, embedded=_embedded_for_{{to_python_name(rpm.property)}}(embedded, self.__node, '{{rpm.property.name}}'){% endif %})
+        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node, embedded={% if flatten_embedded(rpm.target) %}_embedded_for_{{to_python_name(rpm.property)}}(embedded, self.__node, '{{rpm.property.name}}'){% else %}{k[len('{{rpm.property.id}}.'):]: v for k, v in (embedded or {}).items() if k.startswith('{{rpm.property.id}}.')} or None{% endif %})
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}

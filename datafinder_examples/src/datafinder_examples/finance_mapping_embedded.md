@@ -1,4 +1,4 @@
-# Finance Mapping
+# Finance Mapping Embedded
 
 ## Model: finance.md
 ## Model: finance_trade.md
@@ -19,6 +19,20 @@
 |-----------|---------|-----|----------|
 | ID        | INT     | PK  | id       |
 | ACCT_NAME | VARCHAR |     | name     |
+| BRANCH_ID | INT     | FK  | branch   |
+
+#### Association: AccountBranch
+
+| Source Column | Target Table | Target Column |
+|----------------|--------------|----------------|
+| BRANCH_ID      | branch_master | ID            |
+
+#### Table: branch_master → Branch
+
+| Column | Type    | Key | Property ID |
+|--------|---------|-----|-------------|
+| ID     | INT     | PK  | id          |
+| CITY   | VARCHAR |     | city        |
 
 #### Table: price → Instrument (milestoning: processing_only)
 
@@ -33,14 +47,16 @@
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Type      | Key | Property ID |
-|------------|-----------|-----|------------|
-| sym        | VARCHAR   |     | symbol     |
-| price      | DOUBLE    |     | price      |
-| is_settled | BOOLEAN   |     | isSettled  |
-| account_id | INT       | FK  | account    |
-| in_z       | TIMESTAMP |     | validFrom  |
-| out_z      | TIMESTAMP |     | validTo    |
+| Column      | Type      | Key | Property ID          |
+|-------------|-----------|-----|------------------------|
+| sym         | VARCHAR   |     | symbol                 |
+| price       | DOUBLE    |     | price                  |
+| is_settled  | BOOLEAN   |     | isSettled              |
+| account_id  | INT       | FK  | account                |
+| in_z        | TIMESTAMP |     | validFrom              |
+| out_z       | TIMESTAMP |     | validTo                |
+| acct_name   | VARCHAR   |     | account.name           |
+| branch_city | VARCHAR   |     | account.branch.city    |
 
 #### Association: TradeAccount
 

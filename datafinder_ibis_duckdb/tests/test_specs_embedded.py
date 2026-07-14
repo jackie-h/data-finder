@@ -1,8 +1,9 @@
 """
 Runs EMBEDDED_TRADE_FINDER_SPECS against the ibis/DuckDB backend, proving that a query
-selecting only embedded (denormalized) properties of Trade.account elides the join, while
-a query that also touches a non-embedded property of the same account forces the real join
-for all of them.
+selecting only embedded (denormalized) properties of Trade.account (one-hop) or
+Trade.account.branch (two-hop) elides the corresponding join(s), while a query that also
+touches a non-embedded property of the same related object forces the real join(s) for
+all of them.
 """
 import shutil
 import sys
@@ -22,10 +23,11 @@ from datafinder_examples_tests.embedded_specs import EMBEDDED_TRADE_FINDER_SPECS
 
 _MODS = [
     "finance", "finance.reference_data", "finance.trade",
-    "finance.reference_data.account_finder",
-    "finance.reference_data.instrument_finder",
-    "finance.trade.trade_finder",
-    "finance.trade.contractualposition_finder",
+    "finance.reference_data.account_finder", "finance.reference_data.account_finder_base",
+    "finance.reference_data.branch_finder", "finance.reference_data.branch_finder_base",
+    "finance.reference_data.instrument_finder", "finance.reference_data.instrument_finder_base",
+    "finance.trade.trade_finder", "finance.trade.trade_finder_base",
+    "finance.trade.contractualposition_finder", "finance.trade.contractualposition_finder_base",
 ]
 
 
@@ -33,13 +35,14 @@ def _build_repo():
     repo = Database("finance_db", "duckdb://test.db")
     ref = Schema("ref_data", repo)
     trd = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref)
+    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT")], ref)
+    Table("branch_master", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
                      Column("is_settled", "BOOLEAN"), Column("account_id", "INT"),
                      Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
-                     Column("acct_name", "VARCHAR")], trd)
+                     Column("acct_name", "VARCHAR"), Column("branch_city", "VARCHAR")], trd)
     Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"),
                                   Column("NPV", "DOUBLE"), Column("in_z", "TIMESTAMP"),
                                   Column("out_z", "TIMESTAMP")], trd)
@@ -52,11 +55,14 @@ def _seed_db():
     conn.execute("DROP SCHEMA IF EXISTS ref_data CASCADE")
     conn.execute("CREATE SCHEMA trading")
     conn.execute("CREATE SCHEMA ref_data")
-    conn.execute("CREATE TABLE ref_data.account_master (ID INT, ACCT_NAME VARCHAR)")
-    conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts.csv'))}')")
+    conn.execute("CREATE TABLE ref_data.branch_master (ID INT, CITY VARCHAR)")
+    conn.execute(f"INSERT INTO ref_data.branch_master SELECT * FROM read_csv_auto('{str(example_path('finance_branches_embedded.csv'))}')")
+    conn.execute("CREATE TABLE ref_data.account_master (ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT)")
+    conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts_embedded.csv'))}')")
     conn.execute(
         "CREATE TABLE trading.trades "
-        "(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP, acct_name VARCHAR)"
+        "(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP, "
+        "acct_name VARCHAR, branch_city VARCHAR)"
     )
     conn.execute(f"INSERT INTO trading.trades SELECT * FROM read_csv_auto('{str(example_path('finance_trades_embedded.csv'))}')")
     conn.close()
