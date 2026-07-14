@@ -19,6 +19,9 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 FINANCE_MAPPING_EMBEDDED = "finance_mapping_embedded.md"
 
 _AT = "2023-12-01 12:00:00"
+# GOOG expires 2022-01-01; use an earlier processing time so both trades are active for the
+# multi-row filter/group_by/partition_by cases below.
+_BOTH_AT = "2021-06-01 12:00:00"
 
 EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
@@ -63,6 +66,84 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
             # Real joins: trades -> account_master -> branch_master.
             expected_result=np.array([["New York", 10, "AAPL"]], dtype=object),
             expected_sql={"duckdb": "JOIN"},
+        ),
+
+        # --- Filtering (WHERE) on an embedded property ---
+        TestExpectation(
+            name="filter_by_embedded_account_name_elides_join",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol()], f.account().name().eq("Acme Corp (denorm)"),
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["GOOG"]], dtype=object),
+            unexpected_sql={"duckdb": "JOIN"},
+        ),
+        TestExpectation(
+            name="filter_mixed_with_account_id_display_forces_real_join",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account().id_()],
+                # The filter itself resolves against the real column once the join is forced —
+                # note the value is the real "Acme Corp", not the flat "Acme Corp (denorm)".
+                f.account().name().eq("Acme Corp"),
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Account Id"],
+            expected_result=np.array([["AAPL", 1], ["GOOG", 1]], dtype=object),
+            expected_sql={"duckdb": "JOIN"},
+        ),
+
+        # --- group_by on an embedded property ---
+        TestExpectation(
+            name="group_by_embedded_account_name_elides_join",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.account().name(), f.count()],
+            ).group_by(f.account().name()),
+            expected_columns=["Account Name", "Count"],
+            expected_result=np.array([["Acme Corp (denorm)", 2]], dtype=object),
+            unexpected_sql={"duckdb": "JOIN"},
+        ),
+        TestExpectation(
+            name="group_by_mixed_with_account_id_forces_real_join",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.account().name(), f.account().id_(), f.count()],
+            ).group_by(f.account().name(), f.account().id_()),
+            expected_columns=["Account Name", "Account Id", "Count"],
+            expected_result=np.array([["Acme Corp", 1, 2]], dtype=object),
+            expected_sql={"duckdb": "JOIN"},
+        ),
+
+        # --- partition_by (window functions) on an embedded property ---
+        TestExpectation(
+            name="partition_by_embedded_account_name_elides_join",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT,
+                [f.symbol(), f.price(),
+                 f.price().rank(method="min", partition_by=[f.account().name()], order_by=[f.price().ascending()])],
+            ).order_by(f.price().ascending()),
+            expected_columns=["Symbol", "Price", "Rank"],
+            expected_result=np.array([["AAPL", 84.11, 1], ["GOOG", 200.0, 2]], dtype=object),
+            unexpected_sql={"duckdb": "JOIN"},
+        ),
+        TestExpectation(
+            name="partition_by_mixed_with_account_id_forces_real_join",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT,
+                [f.symbol(), f.account().id_(),
+                 f.price().rank(method="min", partition_by=[f.account().name()], order_by=[f.price().ascending()])],
+            ).order_by(f.price().ascending()),
+            expected_columns=["Symbol", "Account Id", "Rank"],
+            expected_result=np.array([["AAPL", 1, 1], ["GOOG", 1, 2]], dtype=object),
+            expected_sql={"duckdb": "JOIN"},
+        ),
+        TestExpectation(
+            name="partition_by_two_hop_embedded_branch_city_elides_both_joins",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT,
+                [f.symbol(), f.price(),
+                 f.price().rank(method="min", partition_by=[f.account().branch().city()], order_by=[f.price().ascending()])],
+            ).order_by(f.price().ascending()),
+            expected_columns=["Symbol", "Price", "Rank"],
+            expected_result=np.array([["AAPL", 84.11, 1], ["GOOG", 200.0, 2]], dtype=object),
+            unexpected_sql={"duckdb": "JOIN"},
         ),
     ],
 )
