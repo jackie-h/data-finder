@@ -1,0 +1,3 @@
+sym,price,is_settled,account_id,in_z,out_z,acct_name,branch_city
+AAPL,84.11,true,1,2020-01-01 00:00:00,9999-12-31 23:59:59,Acme Corp,New York
+GOOG,200.0,false,1,2020-01-01 00:00:00,2022-01-01 00:00:00,Acme Corp,New York

@@ -183,46 +183,80 @@ def _build_join_kwargs_filter(node, filter_kwargs: dict, filter_column_map: dict
     return result
 
 
-def collect_required_joins(op: RelationalOperationElement | None, required_joins: dict):
+def collect_required_joins(op: RelationalOperationElement | None, required_joins: dict,
+                            node_refs: dict | None = None):
+    """Walk an operation tree collecting the JoinTreeNodeOperations it depends on.
+
+    When ``node_refs`` is provided, also records — per node id — every Attribute/ColumnWithJoin
+    that references that node, so callers can decide whether *all* references to a node can be
+    satisfied by an embedded (join-less) alternate (see _compute_elidable_nodes).
+    """
     if op is None:
         return
     if isinstance(op, Attribute):
         parent = op.parent()
         if parent is not None:
             required_joins[id(parent)] = parent
+            if node_refs is not None:
+                node_refs.setdefault(id(parent), []).append(op)
     elif isinstance(op, ColumnWithJoin):
         if op.parent is not None:
             required_joins[id(op.parent)] = op.parent
+            if node_refs is not None:
+                node_refs.setdefault(id(op.parent), []).append(op)
     elif isinstance(op, AggregateOperation):
-        collect_required_joins(op.element, required_joins)
-        collect_required_joins(op.window, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
+        collect_required_joins(op.window, required_joins, node_refs)
     elif isinstance(op, ScalarFunctionOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateExtractOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateArithmeticOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateDiffOperation):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, WindowFunctionOperation):
         if op.element is not None:
-            collect_required_joins(op.element, required_joins)
-        collect_required_joins(op.window, required_joins)
+            collect_required_joins(op.element, required_joins, node_refs)
+        collect_required_joins(op.window, required_joins, node_refs)
     elif isinstance(op, WindowSpecification):
         for part in op.partition_by:
-            collect_required_joins(part, required_joins)
+            collect_required_joins(part, required_joins, node_refs)
         for sort_op in op.order_by:
-            collect_required_joins(sort_op.column, required_joins)
+            collect_required_joins(sort_op.column, required_joins, node_refs)
     elif isinstance(op, SortOperation):
-        collect_required_joins(op.column, required_joins)
+        collect_required_joins(op.column, required_joins, node_refs)
     elif isinstance(op, Alias):
-        collect_required_joins(op.element, required_joins)
+        collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, LogicalOperation):
-        collect_required_joins(op.left, required_joins)
-        collect_required_joins(op.right, required_joins)
+        collect_required_joins(op.left, required_joins, node_refs)
+        collect_required_joins(op.right, required_joins, node_refs)
     elif isinstance(op, ComparisonOperation):
-        collect_required_joins(op.left, required_joins)
-        collect_required_joins(op.right, required_joins)
+        collect_required_joins(op.left, required_joins, node_refs)
+        collect_required_joins(op.right, required_joins, node_refs)
+
+
+def _embedded_of(ref: RelationalOperationElement):
+    """Return the join-less alternate for an Attribute (a method) or ColumnWithJoin (a field)."""
+    if isinstance(ref, Attribute):
+        return ref.embedded()
+    if isinstance(ref, ColumnWithJoin):
+        return ref.embedded
+    return None
+
+
+def _compute_elidable_nodes(node_refs: dict) -> set:
+    """Return the ids of join-tree nodes where every reference has a usable embedded alternate.
+
+    A ColumnWithJoin/Attribute built without an ``embedded`` alternate (e.g. a milestoning column,
+    or a raw filter kwarg column) forces the join to stay for every reference to that node —
+    "if one projected property isn't embedded, take all of them from the join instead".
+    """
+    elidable = set()
+    for node_id, refs in node_refs.items():
+        if refs and all(_embedded_of(ref) is not None for ref in refs):
+            elidable.add(node_id)
+    return elidable
 
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
                          columns: list[Attribute], table: Table, op: Operation,
@@ -242,7 +276,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
     for group_by_expr in group_by or []:
         collect_required_joins(group_by_expr, required_joins)
     for sort_op in order_by or []:
-        collect_required_joins(sort_op.column, required_joins)
+        collect_required_joins(sort_op, required_joins)
     collect_required_joins(op, required_joins)
 
     for node in required_joins.values():
@@ -420,10 +454,40 @@ class SQLQueryGenerator:
         self.__table_alias_incr = 0
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
+        self.__elidable_ids: set = set()
         self._root_table = None
+
+    def __compute_elidable_ids(self, select: SelectOperation) -> set:
+        """Determine upfront which join nodes can be satisfied entirely by embedded (join-less)
+        alternates, so every later leaf resolution can build the right TableAliasColumn directly —
+        see __resolve."""
+        node_refs: dict = {}
+        required_joins: dict = {}
+        for col in select.display:
+            collect_required_joins(col, required_joins, node_refs)
+        for group_by_expr in select.group_by:
+            collect_required_joins(group_by_expr, required_joins, node_refs)
+        for sort_op in select.order_by:
+            collect_required_joins(sort_op, required_joins, node_refs)
+        collect_required_joins(select.filter, required_joins, node_refs)
+        return _compute_elidable_nodes(node_refs)
+
+    def __resolve(self, op: 'Attribute | ColumnWithJoin') -> tuple[Column, JoinTreeNodeOperation | None]:
+        """Return the (column, parent) an Attribute/ColumnWithJoin should actually reference,
+        substituting its embedded alternate when the join it depends on has been elided."""
+        if isinstance(op, Attribute):
+            column, parent = op.column(), op.parent()
+        else:
+            column, parent = op.column, op.parent
+        if parent is not None and id(parent) in self.__elidable_ids:
+            embedded = _embedded_of(op)
+            if embedded is not None:
+                return self.__resolve(embedded)
+        return column, parent
 
     def generate(self, select:SelectOperation):
         self._root_table = select.table
+        self.__elidable_ids = self.__compute_elidable_ids(select)
         self.select(select.display)
         self._where = self.build_filter(select.filter)
         required_joins: dict = {}
@@ -443,9 +507,9 @@ class SQLQueryGenerator:
         self._limit = select.limit
 
     def __attr_to_col_string(self, attr: Attribute) -> str:
-        parent = attr.parent()
-        ta = self.__table_alias_for_table(attr.owner(), key=self.__join_target_key(parent) if parent is not None else None)
-        return ta.alias + '.' + attr.column().name
+        column, parent = self.__resolve(attr)
+        ta = self.__table_alias_for_table(column.owner, key=self.__join_target_key(parent) if parent is not None else None)
+        return ta.alias + '.' + column.name
 
     @staticmethod
     def __is_self_join(parent: JoinTreeNodeOperation) -> bool:
@@ -468,10 +532,9 @@ class SQLQueryGenerator:
         return WindowSpecification(partition_by, order_by)
 
     def __rewrite_operation(self, op: RelationalOperationElement):
-        if isinstance(op, Attribute):
-            return TableAliasColumn(op.column(), self.__table_alias_for_column(op.column(), op.parent()))
-        elif isinstance(op, ColumnWithJoin):
-            return TableAliasColumn(op.column, self.__table_alias_for_column(op.column, op.parent))
+        if isinstance(op, (Attribute, ColumnWithJoin)):
+            column, parent = self.__resolve(op)
+            return TableAliasColumn(column, self.__table_alias_for_column(column, parent))
         elif isinstance(op, Column):
             return TableAliasColumn(op, self.__table_alias_for_table(op.owner))
         elif isinstance(op, AggregateOperation):
@@ -499,13 +562,10 @@ class SQLQueryGenerator:
     def __collect_required_joins(self, op: RelationalOperationElement | None, required_joins: dict):
         if op is None:
             return
-        if isinstance(op, Attribute):
-            parent = op.parent()
+        if isinstance(op, (Attribute, ColumnWithJoin)):
+            _, parent = self.__resolve(op)
             if parent is not None:
                 required_joins[id(parent)] = parent
-        elif isinstance(op, ColumnWithJoin):
-            if op.parent is not None:
-                required_joins[id(op.parent)] = op.parent
         elif isinstance(op, AggregateOperation):
             self.__collect_required_joins(op.element, required_joins)
             self.__collect_required_joins(op.window, required_joins)
@@ -620,13 +680,13 @@ class SQLQueryGenerator:
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
         elif isinstance(op, ColumnWithJoin):
-            node = op.parent
+            column, node = self.__resolve(op)
             if node is not None:
-                ta = self.__table_alias_for_table(op.column.owner, key=node)
+                ta = self.__table_alias_for_table(column.owner, key=node)
                 self.__add_join(node)
             else:
-                ta = self.__table_alias_for_table(op.column.owner)
-            return ta.alias + '.' + op.column.name
+                ta = self.__table_alias_for_table(column.owner)
+            return ta.alias + '.' + column.name
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name

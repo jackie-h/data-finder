@@ -17,17 +17,27 @@ class TestExpectation:
     expected_result: np.ndarray
     # Keyed by backend name (e.g. "duckdb"). Omit to skip SQL check for that backend.
     expected_sql: dict[str, str] = field(default_factory=dict)
+    # Keyed by backend name — fragment that must NOT appear (e.g. "JOIN", to assert join elision).
+    unexpected_sql: dict[str, str] = field(default_factory=dict)
 
     def run(self, finder: Any, backend: str | None = None) -> None:
         result = self.query(finder)
-        if backend and backend in self.expected_sql:
+        if backend and (backend in self.expected_sql or backend in self.unexpected_sql):
             actual_sql = result.to_sql()
-            fragment = self.expected_sql[backend]
-            assert fragment in actual_sql, (
-                f"[{self.name}] SQL fragment not found.\n"
-                f"Expected fragment: {fragment}\n"
-                f"Actual SQL: {actual_sql}"
-            )
+            if backend in self.expected_sql:
+                fragment = self.expected_sql[backend]
+                assert fragment in actual_sql, (
+                    f"[{self.name}] SQL fragment not found.\n"
+                    f"Expected fragment: {fragment}\n"
+                    f"Actual SQL: {actual_sql}"
+                )
+            if backend in self.unexpected_sql:
+                fragment = self.unexpected_sql[backend]
+                assert fragment not in actual_sql, (
+                    f"[{self.name}] Unexpected SQL fragment found.\n"
+                    f"Unwanted fragment: {fragment}\n"
+                    f"Actual SQL: {actual_sql}"
+                )
         df = result.to_pandas()
         assert list(df.columns) == self.expected_columns, (
             f"[{self.name}] Column mismatch.\n"

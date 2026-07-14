@@ -1,6 +1,9 @@
 """
-Runs ACCOUNT_FINDER_SPECS, TRADE_FINDER_SPECS, and CONTRACTUAL_POSITION_FINDER_SPECS
-against the ibis/DuckDB backend.
+Runs EMBEDDED_TRADE_FINDER_SPECS against the ibis/DuckDB backend, proving that a query
+selecting only embedded (denormalized) properties of Trade.account (one-hop) or
+Trade.account.branch (two-hop) elides the corresponding join(s), while a query that also
+touches a non-embedded property of the same related object forces the real join(s) for
+all of them.
 """
 import shutil
 import sys
@@ -16,15 +19,12 @@ from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table, Column
 from datafinder_examples import example_path
 
-from datafinder_examples_tests.finance_specs import (
-    ACCOUNT_FINDER_SPECS,
-    TRADE_FINDER_SPECS,
-    CONTRACTUAL_POSITION_FINDER_SPECS,
-)
+from datafinder_examples_tests.embedded_specs import EMBEDDED_TRADE_FINDER_SPECS
 
 _MODS = [
     "finance", "finance.reference_data", "finance.trade",
     "finance.reference_data.account_finder", "finance.reference_data.account_finder_base",
+    "finance.reference_data.branch_finder", "finance.reference_data.branch_finder_base",
     "finance.reference_data.instrument_finder", "finance.reference_data.instrument_finder_base",
     "finance.trade.trade_finder", "finance.trade.trade_finder_base",
     "finance.trade.contractualposition_finder", "finance.trade.contractualposition_finder_base",
@@ -35,12 +35,14 @@ def _build_repo():
     repo = Database("finance_db", "duckdb://test.db")
     ref = Schema("ref_data", repo)
     trd = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref)
+    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT")], ref)
+    Table("branch_master", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
                      Column("is_settled", "BOOLEAN"), Column("account_id", "INT"),
-                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trd)
+                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
+                     Column("acct_name", "VARCHAR"), Column("branch_city", "VARCHAR")], trd)
     Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"),
                                   Column("NPV", "DOUBLE"), Column("in_z", "TIMESTAMP"),
                                   Column("out_z", "TIMESTAMP")], trd)
@@ -53,25 +55,21 @@ def _seed_db():
     conn.execute("DROP SCHEMA IF EXISTS ref_data CASCADE")
     conn.execute("CREATE SCHEMA trading")
     conn.execute("CREATE SCHEMA ref_data")
-    conn.execute("CREATE TABLE ref_data.account_master (ID INT, ACCT_NAME VARCHAR)")
-    conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts.csv'))}')")
-    conn.execute("CREATE TABLE ref_data.price (SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)")
-    conn.execute(f"INSERT INTO ref_data.price SELECT * FROM read_csv_auto('{str(example_path('finance_prices.csv'))}')")
+    conn.execute("CREATE TABLE ref_data.branch_master (ID INT, CITY VARCHAR)")
+    conn.execute(f"INSERT INTO ref_data.branch_master SELECT * FROM read_csv_auto('{str(example_path('finance_branches_embedded.csv'))}')")
+    conn.execute("CREATE TABLE ref_data.account_master (ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT)")
+    conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts_embedded.csv'))}')")
     conn.execute(
         "CREATE TABLE trading.trades "
-        "(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP)"
+        "(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP, "
+        "acct_name VARCHAR, branch_city VARCHAR)"
     )
-    conn.execute(f"INSERT INTO trading.trades SELECT * FROM read_csv_auto('{str(example_path('finance_trades.csv'))}')")
-    conn.execute(
-        "CREATE TABLE trading.contractualposition "
-        "(DATE DATE, QUANTITY DOUBLE, NPV DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)"
-    )
-    conn.execute(f"INSERT INTO trading.contractualposition SELECT * FROM read_csv_auto('{str(example_path('finance_positions.csv'))}')")
+    conn.execute(f"INSERT INTO trading.trades SELECT * FROM read_csv_auto('{str(example_path('finance_trades_embedded.csv'))}')")
     conn.close()
 
 
 @pytest.fixture(scope="module")
-def finance_finders():
+def trade_finder():
     QueryRunnerBase.clear()
     QueryRunnerBase.register(IbisConnect)
     tmp = tempfile.mkdtemp()
@@ -80,15 +78,13 @@ def finance_finders():
     sys.path.insert(0, tmp)
 
     repo = _build_repo()
-    mapping = load(str(example_path(ACCOUNT_FINDER_SPECS.mapping_file)), repo)
+    mapping = load(str(example_path(EMBEDDED_TRADE_FINDER_SPECS.mapping_file)), repo)
     generate(mapping, tmp)
     _seed_db()
 
-    from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
     from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
-    from finance.trade.contractualposition_finder import ContractualPositionFinder  # type: ignore[import]
 
-    yield AccountFinder(), TradeFinder(), ContractualPositionFinder()
+    yield TradeFinder()
 
     if tmp in sys.path:
         sys.path.remove(tmp)
@@ -98,21 +94,7 @@ def finance_finders():
 
 
 @pytest.mark.parametrize(
-    "expectation", ACCOUNT_FINDER_SPECS.expectations, ids=lambda e: e.name
+    "expectation", EMBEDDED_TRADE_FINDER_SPECS.expectations, ids=lambda e: e.name
 )
-def test_account(expectation, finance_finders):
-    expectation.run(finance_finders[0], backend="duckdb")
-
-
-@pytest.mark.parametrize(
-    "expectation", TRADE_FINDER_SPECS.expectations, ids=lambda e: e.name
-)
-def test_trade(expectation, finance_finders):
-    expectation.run(finance_finders[1], backend="duckdb")
-
-
-@pytest.mark.parametrize(
-    "expectation", CONTRACTUAL_POSITION_FINDER_SPECS.expectations, ids=lambda e: e.name
-)
-def test_position(expectation, finance_finders):
-    expectation.run(finance_finders[2], backend="duckdb")
+def test_trade_embedded(expectation, trade_finder):
+    expectation.run(trade_finder, backend="duckdb")

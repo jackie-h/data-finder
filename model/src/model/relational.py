@@ -403,10 +403,11 @@ class JoinTreeNodeOperation:
 
 
 class ColumnWithJoin(RelationalOperationElement):
-    def __init__(self, column: Column, join: 'JoinTreeNodeOperation'):
+    def __init__(self, column: Column, join: 'JoinTreeNodeOperation', embedded: 'ColumnWithJoin | None' = None):
         super().__init__()
         self.column = column
         self.parent = join
+        self.embedded = embedded
 
 
 class SortDirection(Enum):
@@ -414,8 +415,9 @@ class SortDirection(Enum):
     DESC = 2
 
 
-class SortOperation:
+class SortOperation(RelationalOperationElement):
     def __init__(self, column: ColumnWithJoin, direction: SortDirection):
+        super().__init__()
         self.column = column
         self.direction = direction
 
