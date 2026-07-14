@@ -4,6 +4,7 @@ import threading
 import sqlglot
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
+from datafinder.output import build_typed_dataframe
 from model.relational import Table
 
 import numpy as np
@@ -59,17 +60,18 @@ class DatabricksConnect(QueryRunnerBase):
         if error[0] is not None:
             raise error[0]
         rows, columns_meta = result[0]
-        return DatabricksOutput(rows, columns_meta)
+        return DatabricksOutput(rows, columns_meta, columns)
 
 
 class DatabricksOutput(DataFrame):
 
-    def __init__(self, rows: list, columns: list[str]):
+    def __init__(self, rows: list, columns: list[str], display_columns: list | None = None):
         self._rows = rows
         self._columns = columns
+        self._display_columns = display_columns
 
     def to_numpy(self) -> np.ndarray:
-        return np.array(self._rows, dtype='object')
+        return self.to_pandas().to_numpy()
 
     def to_pandas(self) -> pd.DataFrame:
-        return pd.DataFrame(self._rows, columns=self._columns)  # type: ignore[arg-type]
+        return build_typed_dataframe(self._rows, self._columns, self._display_columns)
