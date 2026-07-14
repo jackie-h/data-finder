@@ -507,6 +507,38 @@ class TestDuplicateClassMappingValidation:
             loads(self._DUPLICATE_MAPPING, packages=[pkg], datastore=db)
 
 
+class TestUnknownPropertyValidation:
+
+    _MAPPING = """\
+# Unknown Property Mapping
+
+## DataStore: test_db (Database)
+
+### Schema: hr
+
+#### Table: accounts → Account
+
+| Column  | Type    | Key | Property ID |
+|---------|---------|-----|-------------|
+| id      | INT     | PK  | id          |
+| bogus   | VARCHAR |     | bogus       |
+"""
+
+    def test_unknown_property_raises(self):
+        from model.m3 import Package, Class, Property, Integer
+        from model.relational import Database, Schema, Table, Column
+
+        pkg = Package("test")
+        Class("Account", [Property("Id", "id", Integer)], pkg)
+
+        db = Database("test_db", "duckdb://test.db")
+        schema = Schema("hr", db)
+        Table("accounts", [Column("id", "INT"), Column("bogus", "VARCHAR")], schema)
+
+        with pytest.raises(ValueError, match="Property 'bogus' not found in class 'Account'"):
+            loads(self._MAPPING, packages=[pkg], datastore=db)
+
+
 class TestDuplicateAssociationMapping:
 
     _MAPPING = """\

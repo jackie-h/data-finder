@@ -237,8 +237,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                     from model.m3 import Property as _Property
                                     prop = _Property(prop_name, prop_name, target_cls)
                         if prop is None:
-                            _log.warning("Property '%s' not found in class '%s'", prop_name, cls.name)
-                            continue
+                            raise ValueError(f"Property '{prop_name}' not found in class '{cls.name}'")
                         if isinstance(prop.type, PrimitiveType):
                             property_mappings.append(RelationalPropertyMapping(prop, col))
                         # non-primitive (association) properties are resolved in the Association section
