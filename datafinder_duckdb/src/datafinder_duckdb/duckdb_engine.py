@@ -22,7 +22,9 @@ class DuckDbConnect(QueryRunnerBase):
         timer = threading.Timer(timeout_ms / 1000, conn.interrupt)
         timer.start()
         try:
-            result = conn.sql(query).fetchall()
+            # .df() carries the query's own column names (from the SQL aliases) and DuckDB's
+            # native per-column types, rather than an untyped, unnamed list of row tuples.
+            result = conn.sql(query).df()
         except duckdb.InterruptException:
             raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
         finally:
@@ -31,15 +33,13 @@ class DuckDbConnect(QueryRunnerBase):
 
 
 class DuckDbOutput(DataFrame):
-    __table: list
+    __df: pd.DataFrame
 
-    def __init__(self, t: list):
-        self.__table = t
+    def __init__(self, df: pd.DataFrame):
+        self.__df = df
 
     def to_numpy(self) -> np.ndarray:
-        #TODO - this could be a better dtype
-        return np.array(self.__table, dtype='object')
+        return self.__df.to_numpy()
 
     def to_pandas(self) -> pd.DataFrame:
-        #todo - this needs to be better, to ensure types and column names
-        return pd.DataFrame(self.__table)
+        return self.__df.copy()
