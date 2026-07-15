@@ -76,8 +76,10 @@ class TestFindForDateRangeValidation:
 
 
 class TestDuckDbTimeout:
+    """DuckDbConnect.select() only builds the (unexecuted) query plan — the timeout can only
+    fire once something actually materializes it, via to_pandas() or to_numpy()."""
 
-    def test_query_raises_timeout_error(self, monkeypatch):
+    def _output(self, monkeypatch):
         import duckdb
         from datafinder_duckdb.duckdb_engine import DuckDbConnect
         import datafinder_duckdb.duckdb_engine as engine_module
@@ -88,5 +90,16 @@ class TestDuckDbTimeout:
         monkeypatch.setattr(engine_module, 'to_sql',
                             lambda *a, **kw: "SELECT sum(i) FROM range(1000000000) t(i)")
 
+        return DuckDbConnect.select(None, None, [], None, None, timeout_ms=1)  # type: ignore[arg-type]
+
+    def test_select_itself_does_not_execute_or_raise(self, monkeypatch):
+        # No timeout here: select() must not touch the connection, just build the plan.
+        self._output(monkeypatch)
+
+    def test_to_numpy_raises_timeout_error(self, monkeypatch):
         with pytest.raises(TimeoutError, match="1ms"):
-            DuckDbConnect.select(None, None, [], None, None, timeout_ms=1)  # type: ignore[arg-type]
+            self._output(monkeypatch).to_numpy()
+
+    def test_to_pandas_raises_timeout_error(self, monkeypatch):
+        with pytest.raises(TimeoutError, match="1ms"):
+            self._output(monkeypatch).to_pandas()
