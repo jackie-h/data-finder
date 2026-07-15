@@ -82,7 +82,7 @@ class TestExampleMappingsLoadable:
 
     def test_graphql_mapping_milestones(self):
         mapping = load_graphql(str(example_path("finance_graphql_mapping.md")))
-        by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in mapping.mappings}  # type: ignore[dict-item]
+        by_class = {cm.clazz.name: cm for cm in mapping.mappings if isinstance(cm, GraphQLClassMapping)}
         assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
         assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBiTemporalMilestone)
         assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)

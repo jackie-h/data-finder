@@ -6,6 +6,7 @@ from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
 
 import duckdb
 import ibis
+from ibis.backends.duckdb import Backend as DuckDBBackend
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -20,12 +21,15 @@ class IbisConnect(QueryRunnerBase):
     def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
-        conn = ibis.connect('duckdb://test.db')
+        # We always connect via the duckdb:// scheme; ibis.connect()'s declared return type is
+        # the generic BaseBackend, so annotate the concrete backend explicitly rather than
+        # suppressing attr-defined at every subsequent .con/.sql() use below.
+        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to)
         print(query)
         # conn.sql() only builds the expression — nothing executes until IbisOutput actually
         # materializes it, driven by which of to_pandas()/to_numpy() the caller asks for.
-        expr = conn.sql(query)  # type: ignore[attr-defined]
+        expr = conn.sql(query)
         return IbisOutput(conn, expr, timeout_ms)
 
 
@@ -36,7 +40,7 @@ class IbisOutput(DataFrame):
     an integer column to float64, without to_numpy() ever allocating a DataFrame it doesn't
     need."""
 
-    def __init__(self, conn: 'ibis.BaseBackend', expr: 'ibis.Table', timeout_ms: int):
+    def __init__(self, conn: DuckDBBackend, expr: 'ibis.Table', timeout_ms: int):
         self.__conn = conn
         self.__expr = expr
         self.__timeout_ms = timeout_ms
@@ -45,7 +49,7 @@ class IbisOutput(DataFrame):
     def __materialize(self) -> pa.Table:
         arrow = self.__arrow
         if arrow is None:
-            timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.con.interrupt)  # type: ignore[attr-defined]
+            timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.con.interrupt)
             timer.start()
             try:
                 arrow = self.__expr.to_pyarrow()

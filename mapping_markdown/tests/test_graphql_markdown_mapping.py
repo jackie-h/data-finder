@@ -19,7 +19,7 @@ class TestGraphQLMarkdownLoad:
 
     def setup_method(self):
         self.mapping = load(FIXTURE)
-        self.by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in self.mapping.mappings}  # type: ignore[dict-item]
+        self.by_class = {cm.clazz.name: cm for cm in self.mapping.mappings if isinstance(cm, GraphQLClassMapping)}
 
     def test_mapping_title(self):
         assert self.mapping.name == "Finance GraphQL Mapping"
@@ -136,7 +136,7 @@ class TestGraphQLMarkdownRoundTrip:
             with open(tmp, "w", encoding="utf-8") as f:
                 f.write(md)
             reloaded = load(tmp)
-            by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in reloaded.mappings}  # type: ignore[dict-item]
+            by_class = {cm.clazz.name: cm for cm in reloaded.mappings if isinstance(cm, GraphQLClassMapping)}
             assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
             assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBiTemporalMilestone)
             assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)

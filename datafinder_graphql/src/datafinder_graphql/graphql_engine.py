@@ -499,7 +499,7 @@ class GraphQLConnect(QueryRunnerBase):
             rows = _fetch_rows(table, fields_str, business_date, processing_datetime, timeout_ms, server_args)
 
         if not rows:
-            return GraphQLOutput(pd.DataFrame(columns=display_names))  # type: ignore[arg-type]
+            return GraphQLOutput(pd.DataFrame({name: [] for name in display_names}))
 
         df = pd.DataFrame([_flatten_row(row) for row in rows])
 
@@ -509,7 +509,7 @@ class GraphQLConnect(QueryRunnerBase):
             df = pd.DataFrame(df[mask]).reset_index(drop=True)
 
         if df.empty:
-            return GraphQLOutput(pd.DataFrame(columns=display_names))  # type: ignore[arg-type]
+            return GraphQLOutput(pd.DataFrame({name: [] for name in display_names}))
 
         # Aggregation path
         if has_agg:

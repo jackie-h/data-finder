@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Sequence
 
 from model.m3 import Class, Property
 
@@ -39,7 +39,7 @@ class BiTemporalMilestonePropertyMapping(ProcessingDateMilestonesPropertyMapping
         self._date_to = _date_to
 
 class ClassMapping:
-    def __init__(self, clazz: Class, property_mappings: list[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):
+    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):
         self.clazz = clazz
         self.property_mappings = property_mappings
         self.milestone_mapping = milestone_mapping

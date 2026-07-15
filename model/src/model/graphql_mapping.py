@@ -70,5 +70,5 @@ class GraphQLAssociationMapping(GraphQLPropertyMapping):
 class GraphQLClassMapping(ClassMapping):
     def __init__(self, clazz: Class, property_mappings: list[GraphQLPropertyMapping],
                  query: GraphQLQuery, milestone_mapping: MilestonePropertyMapping | None = None):
-        super().__init__(clazz, property_mappings, milestone_mapping)  # type: ignore[arg-type]
+        super().__init__(clazz, property_mappings, milestone_mapping)
         self.query = query
