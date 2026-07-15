@@ -31,14 +31,14 @@ class TestDataFinderDuckDb:
         from account_finder import AccountFinder  # type: ignore[import]
         af = AccountFinder()
         np_accts = af \
-            .find_all(None, None, [af.id_(), af.name()],  # type: ignore[arg-type]
+            .find_all(datetime.date.today(), datetime.datetime.now(), [af.id_(), af.name()],
                       af.id_().eq(211978)) \
             .to_numpy()
         print(np_accts)
         assert_array_equal(np_accts, np.array([[211978, 'Trading Account 1']],dtype=object))
 
 
-        trades_with_account = tf.find_all(None, datetime.datetime.now(),  # type: ignore[arg-type]
+        trades_with_account = tf.find_all(datetime.date.today(), datetime.datetime.now(),
                                           [tf.account().name(), tf.symbol(),
                                            tf.price()],
                                           tf.symbol().eq("AAPL"))

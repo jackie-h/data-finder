@@ -1,3 +1,5 @@
+import datetime
+
 import ibis
 import numpy as np
 import pytest
@@ -6,6 +8,9 @@ from datafinder import QueryRunnerBase
 from datafinder.typed_attributes import StringAttribute, IntegerAttribute, DoubleAttribute, BooleanAttribute
 from datafinder_ibis.ibis_engine import IbisConnect
 from model.relational import NoOperation, Table
+
+_BUSINESS_DATE = datetime.date(2024, 1, 1)
+_PROCESSING_DATETIME = datetime.datetime(2024, 1, 1, 0, 0, 0)
 
 
 class TestIbisEngine:
@@ -28,7 +33,8 @@ class TestIbisTimeout:
         monkeypatch.setattr(ibis, 'connect', lambda *a, **kw: conn)
         monkeypatch.setattr(engine_module, 'to_sql',
                             lambda *a, **kw: "SELECT sum(i) FROM range(1000000000) t(i)")
-        return IbisConnect.select(None, None, [], None, None, timeout_ms=1)  # type: ignore[arg-type]
+        return IbisConnect.select(
+            _BUSINESS_DATE, _PROCESSING_DATETIME, [], Table("t", []), NoOperation(), timeout_ms=1)
 
     def test_select_itself_does_not_execute_or_raise(self, monkeypatch):
         self._output(monkeypatch)
@@ -68,7 +74,7 @@ class TestIbisOutputTypes:
 
     def test_pandas_dtypes_are_nullable_and_correct(self, con):
         table, columns = self._columns()
-        df = IbisConnect.select(None, None, columns, table, NoOperation()).to_pandas()  # type: ignore[arg-type]
+        df = IbisConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation()).to_pandas()
         assert list(df.columns) == ["Name", "Quantity", "Price", "Active"]
         assert str(df["Name"].dtype) == "string[pyarrow]"
         assert str(df["Quantity"].dtype) == "int32[pyarrow]"
@@ -77,7 +83,7 @@ class TestIbisOutputTypes:
 
     def test_numpy_cell_types_match_model_types(self, con):
         table, columns = self._columns()
-        row = IbisConnect.select(None, None, columns, table, NoOperation()).to_numpy()[0]  # type: ignore[arg-type]
+        row = IbisConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation()).to_numpy()[0]
         name, quantity, price, active = row
         assert isinstance(name, str) and name == "Widget"
         assert isinstance(quantity, (int, np.integer)) and quantity == 10
@@ -86,7 +92,7 @@ class TestIbisOutputTypes:
 
     def test_to_numpy_alone_never_builds_a_pandas_dataframe(self, con):
         table, columns = self._columns()
-        output = IbisConnect.select(None, None, columns, table, NoOperation())  # type: ignore[arg-type]
+        output = IbisConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation())
         output.to_numpy()
         assert output._IbisOutput__arrow is not None  # type: ignore[attr-defined]
 
@@ -94,7 +100,7 @@ class TestIbisOutputTypes:
         import pandas as pd
         con.con.execute("INSERT INTO widgets VALUES (NULL, NULL, NULL, NULL)")  # type: ignore[attr-defined]
         table, columns = self._columns()
-        output = IbisConnect.select(None, None, columns, table, NoOperation())  # type: ignore[arg-type]
+        output = IbisConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation())
         df = output.to_pandas()
         assert df["Quantity"].iloc[1] is pd.NA
         arr = output.to_numpy()

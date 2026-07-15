@@ -7,7 +7,7 @@ from model.relational import NoOperation, Table
 
 
 def _make_result() -> FinderResult:
-    return FinderResult(None, None, [], None, NoOperation())  # type: ignore[arg-type]
+    return FinderResult(None, None, [], Table("trades", []), NoOperation())
 
 
 class TestFinderResultTimeout:
@@ -90,7 +90,9 @@ class TestDuckDbTimeout:
         monkeypatch.setattr(engine_module, 'to_sql',
                             lambda *a, **kw: "SELECT sum(i) FROM range(1000000000) t(i)")
 
-        return DuckDbConnect.select(None, None, [], None, None, timeout_ms=1)  # type: ignore[arg-type]
+        return DuckDbConnect.select(
+            datetime.date(2024, 1, 1), datetime.datetime(2024, 1, 1, 0, 0, 0),
+            [], Table("trades", []), NoOperation(), timeout_ms=1)
 
     def test_select_itself_does_not_execute_or_raise(self, monkeypatch):
         # No timeout here: select() must not touch the connection, just build the plan.

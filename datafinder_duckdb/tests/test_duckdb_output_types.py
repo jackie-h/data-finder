@@ -12,6 +12,9 @@ from datafinder import QueryRunnerBase, StringAttribute, IntegerAttribute, Doubl
 from datafinder_duckdb.duckdb_engine import DuckDbConnect
 from model.relational import Table, NoOperation
 
+_BUSINESS_DATE = datetime.date(2024, 1, 1)
+_PROCESSING_DATETIME = datetime.datetime(2024, 1, 1, 0, 0, 0)
+
 
 @pytest.fixture
 def con():
@@ -44,12 +47,12 @@ class TestDuckDbOutputTypes:
 
     def test_pandas_column_names_match_display_names(self, con):
         table, columns = _columns()
-        df = DuckDbConnect.select(None, None, columns, table, NoOperation()).to_pandas()  # type: ignore[arg-type]
+        df = DuckDbConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation()).to_pandas()
         assert list(df.columns) == ["Name", "Quantity", "Price", "Active"]
 
     def test_pandas_dtypes_are_nullable_and_correct(self, con):
         table, columns = _columns()
-        df = DuckDbConnect.select(None, None, columns, table, NoOperation()).to_pandas()  # type: ignore[arg-type]
+        df = DuckDbConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation()).to_pandas()
         assert str(df["Name"].dtype) == "string[pyarrow]"
         assert str(df["Quantity"].dtype) == "int32[pyarrow]"
         assert str(df["Price"].dtype) == "double[pyarrow]"
@@ -57,7 +60,7 @@ class TestDuckDbOutputTypes:
 
     def test_numpy_cell_types_match_model_types(self, con):
         table, columns = _columns()
-        row = DuckDbConnect.select(None, None, columns, table, NoOperation()).to_numpy()[0]  # type: ignore[arg-type]
+        row = DuckDbConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation()).to_numpy()[0]
         name, quantity, price, active = row
         assert isinstance(name, str) and name == "Widget"
         assert isinstance(quantity, (int, np.integer)) and quantity == 10
@@ -69,7 +72,7 @@ class TestDuckDbOutputTypes:
         conn.execute("INSERT INTO type_check.widgets VALUES (NULL, NULL, NULL, NULL)")
         conn.close()
         table, columns = _columns()
-        output = DuckDbConnect.select(None, None, columns, table, NoOperation())  # type: ignore[arg-type]
+        output = DuckDbConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation())
         df = output.to_pandas()
         assert df["Quantity"].iloc[1] is pd.NA
         arr = output.to_numpy()
