@@ -5,7 +5,7 @@ import pytest
 from pyiceberg.schema import Schema
 from pyiceberg.types import NestedField, StringType, IntegerType
 
-from datafinder_iceberg.iceberg_catalog_reader import read_repository_from_iceberg_catalog
+from datafinder_iceberg.iceberg_catalog_reader import read_repository_from_iceberg_catalog, load_schema_from_dict
 
 
 def _make_catalog_mock(namespaces, tables_by_namespace, schemas_by_table, name="test_catalog"):
@@ -162,3 +162,20 @@ class TestIcebergReader:
         repo = read_repository_from_iceberg_catalog("https://catalog.example.com", "test_catalog", fail_on_error=False)
         table_names = [t.name for t in repo.schemas[0].tables]
         assert table_names == ["accounts"]
+
+
+class TestLoadSchemaFromDict:
+
+    def test_builds_table_from_schema_dict(self):
+        schema_dict = {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {"id": 1, "name": "id", "type": "int", "required": True},
+                {"id": 2, "name": "name", "type": "string", "required": False},
+            ],
+        }
+        table = load_schema_from_dict(schema_dict, "accounts")
+        assert table.name == "accounts"
+        col_names = [c.name for c in table.columns]
+        assert col_names == ["id", "name"]

@@ -399,7 +399,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return table_alias_column_string(operation)
     elif isinstance(operation, AggregateOperation):
         fn = _AGGREGATE_SQL_NAMES.get(operation.operator, operation.operator.name)
-        sql = fn + '(' + sql_operation_to_string(operation.element) + ')'  # type: ignore[arg-type]
+        sql = fn + '(' + sql_operation_to_string(operation.element) + ')'
         if operation.window is not None:
             sql += ' ' + _window_spec_to_string(operation.window)
         return sql
@@ -417,20 +417,20 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return sql
     elif isinstance(operation, ScalarFunctionOperation):
         fn = _SCALAR_SQL_NAMES[operation.function]
-        parts = [sql_operation_to_string(operation.element)]  # type: ignore[arg-type]
+        parts = [sql_operation_to_string(operation.element)]
         if operation.second_arg is not None:
             parts.append(str(operation.second_arg))
         for arg in operation.extra_args:
             parts.append("'" + arg + "'" if isinstance(arg, str) else str(arg))
         return fn + '(' + ', '.join(parts) + ')'
     elif isinstance(operation, DateExtractOperation):
-        return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'  # type: ignore[arg-type]
+        return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
     elif isinstance(operation, DateArithmeticOperation):
         op = '+' if operation.is_add else '-'
-        return sql_operation_to_string(operation.element) + ' ' + op + ' INTERVAL ' + str(operation.n) + ' ' + operation.unit.value  # type: ignore[arg-type]
+        return sql_operation_to_string(operation.element) + ' ' + op + ' INTERVAL ' + str(operation.n) + ' ' + operation.unit.value
     elif isinstance(operation, DateDiffOperation):
         other_sql = sql_format_datetime(operation.other) if isinstance(operation.other, datetime.datetime) else sql_format_date(operation.other)
-        return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'  # type: ignore[arg-type]
+        return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
     elif isinstance(operation, Alias):
@@ -538,18 +538,18 @@ class SQLQueryGenerator:
         elif isinstance(op, Column):
             return TableAliasColumn(op, self.__table_alias_for_table(op.owner))
         elif isinstance(op, AggregateOperation):
-            return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,  # type: ignore[arg-type]
+            return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,
                                       self.__rewrite_window_spec(op.window))
         elif isinstance(op, ScalarFunctionOperation):
-            return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,  # type: ignore[arg-type]
+            return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
                                            second_arg=op.second_arg, extra_args=list(op.extra_args))
         elif isinstance(op, DateExtractOperation):
-            return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)  # type: ignore[arg-type]
+            return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateArithmeticOperation):
-            return DateArithmeticOperation(self.__rewrite_operation(op.element), op.n, op.unit, op.is_add,  # type: ignore[arg-type]
+            return DateArithmeticOperation(self.__rewrite_operation(op.element), op.n, op.unit, op.is_add,
                                            op.display_name)
         elif isinstance(op, DateDiffOperation):
-            return DateDiffOperation(self.__rewrite_operation(op.element), op.other, op.unit, op.display_name)  # type: ignore[arg-type]
+            return DateDiffOperation(self.__rewrite_operation(op.element), op.other, op.unit, op.display_name)
         elif isinstance(op, WindowFunctionOperation):
             element = None if op.element is None else self.__rewrite_operation(op.element)
             return WindowFunctionOperation(element, op.function, op.display_name, second_arg=op.second_arg,
@@ -664,9 +664,9 @@ class SQLQueryGenerator:
             col = op.node.join.right
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NULL'
         elif isinstance(op, IsNotNullOperation):
-            return self.build_filter(op.element) + ' IS NOT NULL'  # type: ignore[arg-type]
+            return self.build_filter(op.element) + ' IS NOT NULL'
         elif isinstance(op, IsNullOperation):
-            return self.build_filter(op.element) + ' IS NULL'  # type: ignore[arg-type]
+            return self.build_filter(op.element) + ' IS NULL'
         elif isinstance(op, LogicalOperation):
             left_str = self.build_filter(op.left)
             right_str = self.build_filter(op.right)

@@ -1,6 +1,7 @@
 import datetime
 
 import ibis
+from ibis.backends.duckdb import Backend as DuckDBBackend
 import numpy as np
 import pytest
 
@@ -53,12 +54,12 @@ class TestIbisOutputTypes:
     to_numpy() alone never builds a pandas DataFrame."""
 
     @pytest.fixture
-    def con(self, monkeypatch):
-        conn = ibis.connect('duckdb://:memory:')
-        conn.con.execute(  # type: ignore[attr-defined]
+    def con(self, monkeypatch) -> DuckDBBackend:
+        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # type: ignore[assignment]
+        conn.con.execute(
             "CREATE TABLE widgets (name VARCHAR, quantity INTEGER, price DOUBLE, active BOOLEAN)"
         )
-        conn.con.execute("INSERT INTO widgets VALUES ('Widget', 10, 4.5, true)")  # type: ignore[attr-defined]
+        conn.con.execute("INSERT INTO widgets VALUES ('Widget', 10, 4.5, true)")
         monkeypatch.setattr(ibis, 'connect', lambda *a, **kw: conn)
         return conn
 
@@ -98,7 +99,7 @@ class TestIbisOutputTypes:
 
     def test_null_value_is_pd_na_in_both_pandas_and_numpy(self, con):
         import pandas as pd
-        con.con.execute("INSERT INTO widgets VALUES (NULL, NULL, NULL, NULL)")  # type: ignore[attr-defined]
+        con.con.execute("INSERT INTO widgets VALUES (NULL, NULL, NULL, NULL)")
         table, columns = self._columns()
         output = IbisConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation())
         df = output.to_pandas()

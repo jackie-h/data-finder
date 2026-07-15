@@ -162,7 +162,7 @@ class AggregateOperation(UnaryOperation):
         self.window = window
 
     def over(self, partition_by=None, order_by=None):
-        return AggregateOperation(self.element, self.operator, self.display_name,  # type: ignore[arg-type]
+        return AggregateOperation(self.element, self.operator, self.display_name,
                                   WindowSpecification(partition_by, order_by))
 
 

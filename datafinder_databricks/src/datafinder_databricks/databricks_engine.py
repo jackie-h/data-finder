@@ -23,17 +23,34 @@ def _to_databricks_sql(business_date: datetime.date | None, processing_datetime:
 
 
 class DatabricksConnect(QueryRunnerBase):
+    """Like every other QueryRunnerBase implementation, this is used via the class itself
+    (QueryRunnerBase.register(DatabricksConnect)), not an instance — the registry's __new__
+    hook already auto-registers every subclass as a class, and get_runner() returns that
+    class, calling .select() unbound. An instance-based __init__ holding credentials was
+    never actually compatible with that: register(instance) would fail (RegistryBase.register
+    reads clazz.__name__, which an instance doesn't have), and select() would receive
+    business_date positionally in self's slot. Call configure() once before use instead.
+    """
 
-    def __init__(self, server_hostname: str, http_path: str, access_token: str):
-        self._server_hostname = server_hostname
-        self._http_path = http_path
-        self._access_token = access_token
+    _server_hostname: str | None = None
+    _http_path: str | None = None
+    _access_token: str | None = None
 
-    def select(self, business_date: datetime.date, processing_datetime: datetime.datetime,  # type: ignore[override]
+    @classmethod
+    def configure(cls, server_hostname: str, http_path: str, access_token: str) -> None:
+        """Set the Databricks connection credentials used by select()."""
+        cls._server_hostname = server_hostname
+        cls._http_path = http_path
+        cls._access_token = access_token
+
+    @staticmethod
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime,
                columns: list[Attribute], table: Table, op: Operation,
                order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000,
                business_date_to: datetime.date | None = None) -> DataFrame:
+        if DatabricksConnect._server_hostname is None:
+            raise RuntimeError("DatabricksConnect.configure(...) must be called before use")
         query = _to_databricks_sql(business_date, processing_datetime, columns, table, op,
                                    order_by, group_by, limit, business_date_to=business_date_to)
         result: list = [None]
@@ -43,9 +60,9 @@ class DatabricksConnect(QueryRunnerBase):
             try:
                 from databricks import sql as databricks_sql
                 with databricks_sql.connect(
-                    server_hostname=self._server_hostname,
-                    http_path=self._http_path,
-                    access_token=self._access_token,
+                    server_hostname=DatabricksConnect._server_hostname,
+                    http_path=DatabricksConnect._http_path,
+                    access_token=DatabricksConnect._access_token,
                 ) as conn:
                     with conn.cursor() as cursor:
                         cursor.execute(query)

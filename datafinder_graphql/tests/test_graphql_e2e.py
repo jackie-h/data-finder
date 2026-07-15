@@ -256,7 +256,7 @@ class TestGraphQLFinanceE2E:
     def test_graphql_mapping_wires_model_to_endpoint(self):
         """Verify the mapping file correctly defines all four class queries."""
         mapping = load_graphql_mapping(FIXTURE)
-        by_class: dict[str, GraphQLClassMapping] = {cm.clazz.name: cm for cm in mapping.mappings}  # type: ignore[dict-item]
+        by_class = {cm.clazz.name: cm for cm in mapping.mappings if isinstance(cm, GraphQLClassMapping)}
 
         account_cm = by_class["Account"]
         assert account_cm.query.name == "accounts"

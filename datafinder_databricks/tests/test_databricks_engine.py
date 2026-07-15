@@ -1,5 +1,10 @@
-from datafinder import StringAttribute, IntegerAttribute
-from datafinder_databricks.databricks_engine import _to_databricks_sql
+from unittest.mock import MagicMock, patch
+
+import pyarrow as pa
+import pytest
+
+from datafinder import QueryRunnerBase, StringAttribute, IntegerAttribute
+from datafinder_databricks.databricks_engine import _to_databricks_sql, DatabricksConnect
 from model.relational import Table, Column, NoOperation
 
 
@@ -53,3 +58,40 @@ class TestDatabricksSqlTranspilation:
         table, attr = _make_table_and_attr()
         sql = _to_databricks_sql(None, None, [attr], table, NoOperation())
         assert isinstance(sql, str)
+
+
+class TestDatabricksConnectRegistryIntegration:
+    """DatabricksConnect must work the same way every other QueryRunnerBase implementation
+    does: registered as a class (QueryRunnerBase.register(DatabricksConnect)), with
+    get_runner() calling .select() unbound on that class — proving it's genuinely usable
+    through the registry, not just type-compatible with it."""
+
+    def setup_method(self):
+        DatabricksConnect._server_hostname = None
+        DatabricksConnect._http_path = None
+        DatabricksConnect._access_token = None
+        QueryRunnerBase.clear()
+
+    def test_select_without_configure_raises(self):
+        table, attr = _make_table_and_attr()
+        QueryRunnerBase.register(DatabricksConnect)
+        with pytest.raises(RuntimeError, match="configure"):
+            QueryRunnerBase.get_runner().select(None, None, [attr], table, NoOperation())
+
+    @patch("databricks.sql.connect")
+    def test_select_after_configure_returns_output(self, mock_connect):
+        arrow_table = pa.table({"Name": ["Acme"]})
+        mock_cursor = MagicMock()
+        mock_cursor.fetchall_arrow.return_value = arrow_table
+        mock_conn = MagicMock()
+        mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
+        mock_connect.return_value.__enter__.return_value = mock_conn
+
+        DatabricksConnect.configure("host", "path", "token")
+        QueryRunnerBase.register(DatabricksConnect)
+
+        table, attr = _make_table_and_attr()
+        output = QueryRunnerBase.get_runner().select(None, None, [attr], table, NoOperation())
+        df = output.to_pandas()
+        assert list(df["Name"]) == ["Acme"]
+        mock_connect.assert_called_once_with(server_hostname="host", http_path="path", access_token="token")

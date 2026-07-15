@@ -70,7 +70,7 @@ def schema_to_table(schema: Schema, table_name: str) -> Table:
 
 def load_schema_from_dict(schema_dict: dict, table_name: str) -> Table:
     """Load a Table from an Iceberg schema represented as a dict."""
-    schema = Schema.from_dict(schema_dict)  # type: ignore[attr-defined]
+    schema = Schema.model_validate(schema_dict)
     return schema_to_table(schema, table_name)
 
 
