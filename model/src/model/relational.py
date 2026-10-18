@@ -404,7 +404,7 @@ class JoinTreeNodeOperation:
 
 
 class ColumnWithJoin(RelationalOperationElement):
-    def __init__(self, column: Column, join: 'JoinTreeNodeOperation', embedded: 'ColumnWithJoin | None' = None):
+    def __init__(self, column: Column, join: 'JoinTreeNodeOperation | None', embedded: 'ColumnWithJoin | None' = None):
         super().__init__()
         self.column = column
         self.parent = join
@@ -459,13 +459,36 @@ class NotExistsOperation(RelationalOperationElement):
         return LogicalOperation(self, LogicalOperator.AND, other)
 
 
-class SelectOperation:
+class QueryExpression:
+    """A query expression over a root table: what to show, which rows qualify and how they are grouped.
+    This is the part of a SELECT that ANSI SQL also allows in a view definition.
+
+    ``order_by`` and ``limit`` exist so a query can be rendered uniformly, but they are always empty here:
+    a view definition has no ORDER BY or row limit. A SelectOperation, which is run rather than stored, can set them.
+    """
+    order_by: list[SortOperation]
+    limit: int | None
+
     def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
-                 order_by: list[SortOperation] | None = None, group_by: list | None = None,
-                 limit: int | None = None, table: Table | None = None):
+                 group_by: list | None = None, table: 'Table | None' = None):
         self.display = display
         self.filter = filter
-        self.order_by = order_by or []
         self.group_by = group_by or []
-        self.limit = limit
         self.table = table
+        self.order_by = []
+        self.limit = None
+
+    def expressions(self) -> list[RelationalOperationElement]:
+        """Every expression of the query, in the order they are rendered."""
+        return [*self.display, *self.group_by, *self.order_by, self.filter]
+
+
+class SelectOperation(QueryExpression):
+    """A query that is run: a query expression plus the ordering and row limit applied to its result."""
+
+    def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
+                 order_by: list[SortOperation] | None = None, group_by: list | None = None,
+                 limit: int | None = None, table: 'Table | None' = None):
+        super().__init__(display, filter, group_by, table)
+        self.order_by = order_by or []
+        self.limit = limit
