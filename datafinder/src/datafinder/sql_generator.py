@@ -1,11 +1,11 @@
 import datetime
+from typing import Sequence
 
 import sqlglot
 import sqlglot.errors
 
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
-from datafinder.finder import ExistsOperation, NotExistsOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
@@ -14,13 +14,8 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, \
-    WindowFunctionOperation, WindowFunction, WindowSpecification
-
-class Alias(RelationalOperationElement):
-    def __init__(self, element: RelationalOperationElement, name: str):
-        super().__init__()
-        self.element = element
-        self.name = name
+    WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
+    SelectOperation
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -40,16 +35,6 @@ class Join:
         self.source = source
         self.target = target
         self.filter_op = filter_op
-
-class SelectOperation:
-    def __init__(self, display: list[Attribute], filter: Operation, order_by: list[SortOperation] | None = None,
-                 group_by: list | None = None, limit: int | None = None, table: Table | None = None):
-        self.display = display
-        self.filter = filter
-        self.order_by = order_by or []
-        self.group_by = group_by or []
-        self.limit = limit
-        self.table = table
 
 def _open_end_clause(end_attr, value, infinite_datetime: str | None) -> Operation:
     """Returns `end > value` normally, or `(end > value OR end IS NULL)` when infinite_datetime is None."""
@@ -597,7 +582,7 @@ class SQLQueryGenerator:
             self.__collect_required_joins(op.left, required_joins)
             self.__collect_required_joins(op.right, required_joins)
 
-    def select(self, cols: list[Attribute]):
+    def select(self, cols: Sequence[RelationalOperationElement]):
         required_joins: dict = {}
         if self._root_table is not None:
             self._from.add(self.__table_alias_for_table(self._root_table.name))
