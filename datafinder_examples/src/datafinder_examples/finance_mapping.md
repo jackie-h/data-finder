@@ -13,12 +13,28 @@
 
 ### Schema: ref_data
 
-#### Table: account_master → Account
+#### Table: account_master → Account (milestoning: processing_only)
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|----------|
-| ID        | INT     | PK  | id       |
-| ACCT_NAME | VARCHAR |     | name     |
+| Column    | Type      | Key | Property ID |
+|-----------|-----------|-----|-------------|
+| ID        | INT       | PK  | id          |
+| ACCT_NAME | VARCHAR   |     | name        |
+| BRANCH_ID | INT       | FK  | branch      |
+| in_z      | TIMESTAMP |     | validFrom   |
+| out_z     | TIMESTAMP |     | validTo     |
+
+#### Association: AccountBranch
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| BRANCH_ID     | branch       | ID            |
+
+#### Table: branch → Branch
+
+| Column | Type    | Key | Property ID |
+|--------|---------|-----|-------------|
+| ID     | INT     | PK  | id          |
+| CITY   | VARCHAR |     | city        |
 
 #### Table: price → Instrument (milestoning: processing_only)
 

@@ -23,6 +23,7 @@ from datafinder_examples_tests.finance_numeric_specs import (
 _MODS = [
     "finance", "finance.reference_data", "finance.trade",
     "finance.reference_data.account_finder", "finance.reference_data.account_finder_base",
+    "finance.reference_data.branch_finder", "finance.reference_data.branch_finder_base",
     "finance.reference_data.instrument_finder", "finance.reference_data.instrument_finder_base",
     "finance.trade.trade_finder", "finance.trade.trade_finder_base",
 ]
@@ -32,7 +33,9 @@ def _build_repo():
     repo = Database("finance_db", "duckdb://test.db")
     ref = Schema("ref_data", repo)
     trd = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref)
+    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"),
+                             Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
+    Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
@@ -47,8 +50,11 @@ def _seed_db():
     conn.execute("DROP SCHEMA IF EXISTS ref_data CASCADE")
     conn.execute("CREATE SCHEMA trading")
     conn.execute("CREATE SCHEMA ref_data")
-    conn.execute("CREATE TABLE ref_data.account_master (ID INT, ACCT_NAME VARCHAR)")
+    conn.execute("CREATE TABLE ref_data.account_master "
+                 "(ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT, in_z TIMESTAMP, out_z TIMESTAMP)")
     conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts_numeric.csv'))}')")
+    conn.execute("CREATE TABLE ref_data.branch (ID INT, CITY VARCHAR)")
+    conn.execute(f"INSERT INTO ref_data.branch SELECT * FROM read_csv_auto('{str(example_path('finance_branches.csv'))}')")
     conn.execute("CREATE TABLE ref_data.price (SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)")
     conn.execute(
         "CREATE TABLE trading.trades "
