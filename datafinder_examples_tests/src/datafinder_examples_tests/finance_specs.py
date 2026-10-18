@@ -16,9 +16,13 @@ Trade data:
     AAPL: price=84.11, is_settled=True,  in_z=2020-01-01 00:00:00, out_z=9999-12-31 23:59:59
     GOOG: price=200.0, is_settled=False, in_z=2020-01-01 00:00:00, out_z=2022-01-01 00:00:00
 
+    MSFT: price=300.0, is_settled=True,  in_z=2024-01-01 00:00:00, out_z=9999-12-31 23:59:59, account 2
+
 Account 1 has two versions, which point at different branches:
     'Acme Ltd'  branch 10 (London)    in_z=2020-01-01 00:00:00, out_z=2022-01-01 00:00:00
     'Acme Corp' branch 11 (New York)  in_z=2022-01-01 00:00:00, out_z=9999-12-31 23:59:59
+Account 2 only becomes live after MSFT does, so for a while MSFT has an account row but no live account:
+    'Beta Inc'  branch 11 (New York)  in_z=2024-06-01 00:00:00, out_z=9999-12-31 23:59:59
 """
 import datetime
 
@@ -33,6 +37,9 @@ _AT = "2023-12-01 12:00:00"
 _BOTH_AT = "2021-06-01 12:00:00"
 # valid_from for both trades = 2020-01-01 00:00:00
 _VALID_FROM = datetime.datetime(2020, 1, 1, 0, 0, 0)
+# MSFT is live from 2024-01-01 but its account (2) only from 2024-06-01
+_MSFT_WITHOUT_LIVE_ACCOUNT_AT = "2024-03-01 12:00:00"
+_MSFT_WITH_LIVE_ACCOUNT_AT = "2024-09-01 12:00:00"
 
 ACCOUNT_FINDER_SPECS = FinderSpec(
     finder_name="AccountFinder",
@@ -410,6 +417,141 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
             expected_columns=["Symbol", "Branch City"],
             # no version of the account named 'Acme Ltd' is live in 2023, so the branch isn't found
             expected_result=np.array([["AAPL", None]], dtype=object),
+        ),
+    ],
+)
+
+# exists() / not_exists() join the related table, so the join has to be constrained to the version of the related
+# row applicable at the query time, like any other join. Account 1 has two versions, so an unconstrained join
+# returns each of its trades twice; account 2 only becomes live after MSFT does, so an unconstrained join
+# wrongly finds an account for MSFT while it has none.
+TRADE_EXISTS_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    expectations=[
+        TestExpectation(
+            name="exists_returns_each_trade_once",
+            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.account().exists()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_returns_each_trade_once_in_2021",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol()], f.account().exists()
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["GOOG"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_excludes_trade_whose_account_is_not_yet_live",
+            query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().exists()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_exists_finds_trade_whose_account_is_not_yet_live",
+            query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().not_exists()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_once_the_account_is_live",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().exists()
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_exists_is_empty_once_the_account_is_live",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().not_exists()),
+            expected_columns=["Symbol"],
+            expected_result=np.empty((0, 1), dtype=object),
+        ),
+        TestExpectation(
+            name="exists_through_a_milestoned_ancestor",
+            query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().exists()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_combined_with_a_filter",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.account().exists().and_op(f.symbol().eq("AAPL")),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+    ],
+)
+
+# is_none() / is_not_none() read a column through the join, so the join has to be constrained to the version of
+# the related row applicable at the query time. With the same data as the exists() specs: an unconstrained join
+# returns each of account 1's trades twice and finds a name for MSFT while its account is not yet live.
+TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    expectations=[
+        TestExpectation(
+            name="is_not_none_returns_each_trade_once",
+            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.account().name().is_not_none()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="is_none_finds_trade_whose_account_is_not_yet_live",
+            query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_none()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="is_not_none_excludes_trade_whose_account_is_not_yet_live",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_not_none()
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="is_none_is_empty_once_the_account_is_live",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_none()),
+            expected_columns=["Symbol"],
+            expected_result=np.empty((0, 1), dtype=object),
+        ),
+        TestExpectation(
+            name="is_not_none_once_the_account_is_live",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_not_none()
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="is_none_through_a_milestoned_ancestor",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().city().is_none()
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="is_not_none_through_a_milestoned_ancestor",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().city().is_not_none()
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="is_none_combined_with_a_filter",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.account().name().is_none().and_op(f.symbol().eq("MSFT")),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
         ),
     ],
 )

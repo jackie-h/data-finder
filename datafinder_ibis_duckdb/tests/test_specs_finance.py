@@ -1,6 +1,6 @@
 """
-Runs ACCOUNT_FINDER_SPECS, TRADE_FINDER_SPECS, TRADE_MULTI_HOP_FINDER_SPECS, and CONTRACTUAL_POSITION_FINDER_SPECS
-against the ibis/DuckDB backend.
+Runs ACCOUNT_FINDER_SPECS, TRADE_FINDER_SPECS, TRADE_MULTI_HOP_FINDER_SPECS, TRADE_EXISTS_FINDER_SPECS,
+TRADE_IS_NONE_FINDER_SPECS, and CONTRACTUAL_POSITION_FINDER_SPECS against the ibis/DuckDB backend.
 """
 import shutil
 import sys
@@ -20,6 +20,8 @@ from datafinder_examples_tests.finance_specs import (
     ACCOUNT_FINDER_SPECS,
     TRADE_FINDER_SPECS,
     TRADE_MULTI_HOP_FINDER_SPECS,
+    TRADE_EXISTS_FINDER_SPECS,
+    TRADE_IS_NONE_FINDER_SPECS,
     CONTRACTUAL_POSITION_FINDER_SPECS,
 )
 
@@ -122,6 +124,20 @@ def test_trade(expectation, finance_finders):
     "expectation", TRADE_MULTI_HOP_FINDER_SPECS.expectations, ids=lambda e: e.name
 )
 def test_trade_multi_hop(expectation, finance_finders):
+    expectation.run(finance_finders[1], backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", TRADE_EXISTS_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_trade_exists(expectation, finance_finders):
+    expectation.run(finance_finders[1], backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", TRADE_IS_NONE_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_trade_is_none(expectation, finance_finders):
     expectation.run(finance_finders[1], backend="duckdb")
 
 
