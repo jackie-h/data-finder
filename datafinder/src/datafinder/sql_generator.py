@@ -219,6 +219,12 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
     elif isinstance(op, ComparisonOperation):
         collect_required_joins(op.left, required_joins, node_refs)
         collect_required_joins(op.right, required_joins, node_refs)
+    elif isinstance(op, (IsNullOperation, IsNotNullOperation)):
+        collect_required_joins(op.element, required_joins, node_refs)
+    elif isinstance(op, (ExistsOperation, NotExistsOperation)):
+        # The join must be constrained like any other. It isn't recorded in node_refs: it is not an
+        # attribute reference, so it doesn't affect whether other references to the node can be embedded.
+        required_joins[id(op.node)] = op.node
 
 
 def _embedded_of(ref: RelationalOperationElement):
