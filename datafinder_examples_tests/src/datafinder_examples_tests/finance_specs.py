@@ -389,7 +389,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol(), f.account().branch().city()], f.symbol().eq("AAPL")
             ),
-            expected_columns=["Symbol", "Branch City"],
+            expected_columns=["Symbol", "Account Branch City"],
             # Without a milestoning condition on the Account join both account versions match: London and New York
             expected_result=np.array([["AAPL", "New York"]], dtype=object),
         ),
@@ -398,7 +398,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account().branch().city()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Branch City"],
+            expected_columns=["Symbol", "Account Branch City"],
             expected_result=np.array([["AAPL", "London"], ["GOOG", "London"]], dtype=object),
         ),
         TestExpectation(
@@ -406,7 +406,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),
-            expected_columns=["Symbol", "Branch City"],
+            expected_columns=["Symbol", "Account Branch City"],
             expected_result=np.array([["AAPL", "London"]], dtype=object),
         ),
         TestExpectation(
@@ -414,7 +414,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),
-            expected_columns=["Symbol", "Branch City"],
+            expected_columns=["Symbol", "Account Branch City"],
             # no version of the account named 'Acme Ltd' is live in 2023, so the branch isn't found
             expected_result=np.array([["AAPL", None]], dtype=object),
         ),
@@ -552,6 +552,88 @@ TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
             ),
             expected_columns=["Symbol"],
             expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+    ],
+)
+
+# A view has no dates: it exposes the root's validity columns (in_z, out_z) and pins every joined table to the
+# version that applied when the root row was recorded. So AAPL and GOOG (recorded 2020-01-01) see 'Acme Ltd' in
+# London, not today's 'Acme Corp', and MSFT (recorded 2024-01-01, before its account went live in June) has no
+# account at all, even though that account exists now. Rows are read back ordered by symbol, as a view has no order.
+_FOREVER = datetime.datetime(9999, 12, 31, 23, 59, 59)
+_START_OF_2020 = datetime.datetime(2020, 1, 1)
+_START_OF_2022 = datetime.datetime(2022, 1, 1)
+_START_OF_2024 = datetime.datetime(2024, 1, 1)
+
+TRADE_VIEW_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    expectations=[
+        TestExpectation(
+            name="view_of_root_columns_adds_the_validity_columns",
+            query=lambda f: f.find_all(None, None, [f.symbol(), f.price()])
+            .to_view("trade_prices", "reporting").result().order_by("symbol"),
+            expected_columns=["symbol", "price", "in_z", "out_z"],
+            expected_result=np.array([
+                ["AAPL", 84.11, _START_OF_2020, _FOREVER],
+                ["GOOG", 200.0, _START_OF_2020, _START_OF_2022],
+                ["MSFT", 300.0, _START_OF_2024, _FOREVER],
+            ], dtype=object),
+        ),
+        TestExpectation(
+            name="each_trade_sees_the_account_applicable_when_it_was_recorded",
+            query=lambda f: f.find_all(None, None, [f.symbol(), f.account().name()])
+            .to_view("trade_account", "reporting").result().order_by("symbol"),
+            expected_columns=["symbol", "account_name", "in_z", "out_z"],
+            expected_result=np.array([
+                ["AAPL", "Acme Ltd", _START_OF_2020, _FOREVER],
+                ["GOOG", "Acme Ltd", _START_OF_2020, _START_OF_2022],
+                ["MSFT", None, _START_OF_2024, _FOREVER],
+            ], dtype=object),
+            expected_sql={"duckdb": "t1.in_z <= t0.in_z"},
+            unexpected_sql={"duckdb": "GREATEST"},
+        ),
+        TestExpectation(
+            name="an_ancestor_nothing_projects_is_pinned_too",
+            query=lambda f: f.find_all(None, None, [f.symbol(), f.account().branch().city()])
+            .to_view("trade_branch", "reporting").result().order_by("symbol"),
+            expected_columns=["symbol", "account_branch_city", "in_z", "out_z"],
+            expected_result=np.array([
+                ["AAPL", "London", _START_OF_2020, _FOREVER],
+                ["GOOG", "London", _START_OF_2020, _START_OF_2022],
+                ["MSFT", None, _START_OF_2024, _FOREVER],
+            ], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_a_root_column",
+            query=lambda f: f.find_all(None, None, [f.account().name()], f.symbol().eq("GOOG"))
+            .to_view("goog_account", "reporting").result(),
+            expected_columns=["account_name", "in_z", "out_z"],
+            expected_result=np.array([["Acme Ltd", _START_OF_2020, _START_OF_2022]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_a_joined_column",
+            query=lambda f: f.find_all(None, None, [f.symbol()], f.account().name().is_not_none())
+            .to_view("trades_with_account", "reporting").result().order_by("symbol"),
+            expected_columns=["symbol", "in_z", "out_z"],
+            expected_result=np.array([
+                ["AAPL", _START_OF_2020, _FOREVER],
+                ["GOOG", _START_OF_2020, _START_OF_2022],
+            ], dtype=object),
+        ),
+        # Aggregates and group_by come from the same builder. A grouped view also groups by the validity columns,
+        # so AAPL and GOOG, which are valid over different periods, are separate groups.
+        TestExpectation(
+            name="grouped_view_groups_by_the_validity_columns_too",
+            query=lambda f: f.find_all(None, None, [f.account().name(), f.price().sum()])
+            .group_by(f.account().name()).to_view("account_totals", "reporting").result().order_by("sum_price"),
+            expected_columns=["account_name", "sum_price", "in_z", "out_z"],
+            expected_result=np.array([
+                ["Acme Ltd", 84.11, _START_OF_2020, _FOREVER],
+                ["Acme Ltd", 200.0, _START_OF_2020, _START_OF_2022],
+                [None, 300.0, _START_OF_2024, _FOREVER],
+            ], dtype=object),
+            expected_sql={"duckdb": "GROUP BY t1.ACCT_NAME, t0.in_z, t0.out_z"},
         ),
     ],
 )

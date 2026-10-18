@@ -99,7 +99,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 None, None, [f.manager().projects().name()],
                 f.first_name().eq("Dave"),
             ).order_by(f.manager().projects().name().ascending()),
-            expected_columns=["Project Name"],
+            expected_columns=["Manager Project Name"],
             expected_result=np.array([["Alpha Initiative"], ["Beta Platform"]], dtype=object),
         ),
         TestExpectation(
@@ -117,7 +117,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 None, None, [f.manager().projects().name()],
                 f.manager().first_name().eq("Alice"),
             ).order_by(f.manager().projects().name().ascending()),
-            expected_columns=["Project Name"],
+            expected_columns=["Manager Project Name"],
             expected_result=np.array([["Epsilon Research"], ["Epsilon Research"]], dtype=object),
         ),
         # --- Additional inheritance specs ---

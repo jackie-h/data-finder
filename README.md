@@ -290,6 +290,61 @@ result.to_pandas()   # pandas DataFrame
 result.to_numpy()    # NumPy array
 ```
 
+### Milestoned views
+
+A query can be defined as a SQL view with no business date or processing time. Use the same `find_all` as
+for any query, pass `None` for both dates, and call `to_view`. The view keeps the root table's milestoning
+columns, so consumers choose the date when they query it.
+
+```python
+f = TradeFinder()
+view = (f.find_all(None, None, [f.account().name(), f.symbol(), f.price()], f.is_settled().eq(True))
+          .to_view("trade_enriched", "reporting"))
+
+view.to_sql()                       # CREATE OR REPLACE VIEW reporting.trade_enriched AS ...
+view.to_sql(dialect="databricks")   # transpiled with sqlglot
+view.result().to_pandas()           # create the view on the registered backend and read its rows
+```
+
+Joins, the filter, `group_by`, aggregates and window functions all work as they do in `find_all`. Each column is
+named after its display name in snake_case (`account_name`, `symbol`, `sum_price`), and the root's milestoning
+columns (e.g. `in_z`, `out_z`) are added. Display names say how a column was reached, one relation per hop:
+`f.account().branch().city()` is "Account Branch City" in a query result and `account_branch_city` in a view. In a grouped view they are grouped by too, so each group is a set of
+rows with the same validity.
+
+A view has no `ORDER BY` or row limit, so `to_view` rejects a query that has them. To order the rows you read
+back, use `view.result().order_by("symbol")`.
+
+**Joined milestoned tables are pinned to the root row.** Each is joined on the version that applied when the root
+row was recorded (`child.in_z <= root.in_z AND child.out_z > root.in_z`), and on the root's business date where
+there is one. Later changes to reference data never alter rows already in the view; a new version of the root
+row picks up the new reference data. A bitemporal root uses `business_date_from` as its business date. All
+joins are anchored to the root, including multi-hop ones.
+
+`to_view` raises a `ViewDefinitionError` for:
+
+- a query with a business date, a processing time, an `ORDER BY` or a row limit
+- a joined table with a processing or business-date axis the root doesn't have
+- projected columns that resolve to the same name, and view or schema names that aren't plain identifiers
+
+Two limits to be aware of. Projecting across a to-many association (for example through a reverse accessor)
+multiplies the root's rows; that isn't checked yet. And a joined table is assumed never to have overlapping
+versions for one key at the same time.
+
+#### Liquibase
+
+`datafinder_liquibase` turns views into a Liquibase formatted-SQL changelog:
+
+```python
+from datafinder_liquibase import write_changelog, to_liquibase_master_changelog
+
+write_changelog([view], "db/changelog/views.sql", author="jackie", dialect="databricks")
+```
+
+Each view becomes one changeset with `runOnChange:true`, id `<schema>.<view>`, and a `DROP VIEW IF EXISTS`
+rollback, so changing a projection redeploys the view without a new id.
+`to_liquibase_master_changelog(["views.sql"])` returns a YAML master that includes the changelog.
+
 ---
 
 ## Project Layout
@@ -303,6 +358,7 @@ result.to_numpy()    # NumPy array
 | `datafinder_generator/` | Jinja2-based code generator that produces Finder classes |
 | `datafinder_ibis/` | Ibis backend for query execution |
 | `datafinder_ibis_duckdb/` | DuckDB integration via Ibis |
+| `datafinder_liquibase/` | Liquibase changelog output for milestoned views |
 | `datafinder_duckdb/` | Schema reader — introspects a live DuckDB database |
 | `example/` | End-to-end example with finance model, mapping, and queries |
 
