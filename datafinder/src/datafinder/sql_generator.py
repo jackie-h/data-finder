@@ -1,13 +1,14 @@
 import datetime
-from typing import Sequence
+from typing import Callable, Sequence
 
 import sqlglot
 import sqlglot.errors
 
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
-from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, \
+from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
+from model.view import View, ViewDefinitionError
 from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
@@ -15,7 +16,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation
+    SelectOperation, QueryExpression
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -249,8 +250,16 @@ def _compute_elidable_nodes(node_refs: dict) -> set:
             elidable.add(node_id)
     return elidable
 
-def _with_ancestors(required_joins: dict) -> list[JoinTreeNodeOperation]:
-    """The required join nodes plus every ancestor, each once, ancestors first.
+def _required_joins(query: QueryExpression, node_refs: dict | None = None) -> dict:
+    """Join-tree nodes the query's expressions read through, keyed by node id."""
+    required_joins: dict = {}
+    for expression in query.expressions():
+        collect_required_joins(expression, required_joins, node_refs)
+    return required_joins
+
+
+def _joined_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
+    """Every join the query needs, ancestors first.
 
     The SQL generator joins a node's ancestors whenever it joins the node, so each of them needs its
     join filter set too, not only the nodes an expression refers to directly.
@@ -264,9 +273,22 @@ def _with_ancestors(required_joins: dict) -> list[JoinTreeNodeOperation]:
             add(node.parent)
         ordered[id(node)] = node
 
-    for node in required_joins.values():
+    for node in _required_joins(query).values():
         add(node)
     return list(ordered.values())
+
+
+def _apply_join_filters(nodes: list[JoinTreeNodeOperation],
+                        milestoning_condition: Callable[[JoinTreeNodeOperation], Operation | None]) -> None:
+    """Set each node's ON-clause filter: its raw kwargs filter ANDed with ``milestoning_condition(node)``."""
+    for node in nodes:
+        combined = None
+        if node.join.filter_kwargs:
+            combined = _build_join_kwargs_filter(node, node.join.filter_kwargs, node.join.filter_column_map)
+        milestoned = milestoning_condition(node)
+        if milestoned is not None:
+            combined = milestoned if combined is None else LogicalOperation(combined, LogicalOperator.AND, milestoned)
+        node.join.filter = combined
 
 
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
@@ -281,29 +303,16 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
         if milestoned_op is not None:
             op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
-    required_joins: dict = {}
-    for col in columns:
-        collect_required_joins(col, required_joins)
-    for group_by_expr in group_by or []:
-        collect_required_joins(group_by_expr, required_joins)
-    for sort_op in order_by or []:
-        collect_required_joins(sort_op, required_joins)
-    collect_required_joins(op, required_joins)
-
-    for node in _with_ancestors(required_joins):
-        combined = None
-        if node.join.filter_kwargs:
-            combined = _build_join_kwargs_filter(node, node.join.filter_kwargs, node.join.filter_column_map)
-        if isinstance(node.join.target, MilestonedTable):
-            if business_date_to is not None:
-                milestoned_op = build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, node.join.target, node)
-            else:
-                milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
-            if milestoned_op is not None:
-                combined = milestoned_op if combined is None else LogicalOperation(combined, LogicalOperator.AND, milestoned_op)
-        node.join.filter = combined
-
     select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table)
+
+    def milestoning_condition(node):
+        if not isinstance(node.join.target, MilestonedTable):
+            return None
+        if business_date_to is not None:
+            return build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, node.join.target, node)
+        return build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
+
+    _apply_join_filters(_joined_nodes(select), milestoning_condition)
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
@@ -468,19 +477,12 @@ class SQLQueryGenerator:
         self.__elidable_ids: set = set()
         self._root_table = None
 
-    def __compute_elidable_ids(self, select: SelectOperation) -> set:
+    def __compute_elidable_ids(self, select: QueryExpression) -> set:
         """Determine upfront which join nodes can be satisfied entirely by embedded (join-less)
         alternates, so every later leaf resolution can build the right TableAliasColumn directly —
         see __resolve."""
         node_refs: dict = {}
-        required_joins: dict = {}
-        for col in select.display:
-            collect_required_joins(col, required_joins, node_refs)
-        for group_by_expr in select.group_by:
-            collect_required_joins(group_by_expr, required_joins, node_refs)
-        for sort_op in select.order_by:
-            collect_required_joins(sort_op, required_joins, node_refs)
-        collect_required_joins(select.filter, required_joins, node_refs)
+        _required_joins(select, node_refs)
         return _compute_elidable_nodes(node_refs)
 
     def __resolve(self, op: 'Attribute | ColumnWithJoin') -> tuple[Column, JoinTreeNodeOperation | None]:
@@ -496,7 +498,7 @@ class SQLQueryGenerator:
                 return self.__resolve(embedded)
         return column, parent
 
-    def generate(self, select:SelectOperation):
+    def generate(self, select: QueryExpression):
         self._root_table = select.table
         self.__elidable_ids = self.__compute_elidable_ids(select)
         self.select(select.display)
@@ -517,7 +519,9 @@ class SQLQueryGenerator:
         ]
         self._limit = select.limit
 
-    def __attr_to_col_string(self, attr: Attribute) -> str:
+    def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
+        if isinstance(attr, Column):
+            return self.__table_alias_for_table(attr.owner).alias + '.' + attr.name
         column, parent = self.__resolve(attr)
         ta = self.__table_alias_for_table(column.owner, key=self.__join_target_key(parent) if parent is not None else None)
         return ta.alias + '.' + column.name
@@ -617,7 +621,9 @@ class SQLQueryGenerator:
             self.__collect_required_joins(col, required_joins)
             rewritten = self.__rewrite_operation(col)
 
-            if isinstance(col, CountAllOperation):
+            if isinstance(col, Alias):
+                self._select.append(Alias(self.__rewrite_operation(col.element), col.name))
+            elif isinstance(col, CountAllOperation):
                 self._select.append(Alias(rewritten, 'Count'))
             elif isinstance(col, Attribute):
                 self._select.append(Alias(rewritten, col.display_name()))
@@ -761,7 +767,7 @@ def to_sql(business_date: datetime.date | None, processing_datetime: datetime.da
     return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
 
 
-def select_sql_to_string(select_operation: SelectOperation, validate_sqlglot: bool = True) -> str:
+def select_sql_to_string(select_operation: QueryExpression, validate_sqlglot: bool = True) -> str:
     qe = SQLQueryGenerator()
     qe.generate(select_operation)
     sql = qe.build_query_string()
@@ -769,3 +775,101 @@ def select_sql_to_string(select_operation: SelectOperation, validate_sqlglot: bo
         sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
     return sql
 
+
+# --- views -------------------------------------------------------------------------------------------------------
+
+def _as_of_column(column: Column, node: JoinTreeNodeOperation) -> ColumnWithJoin:
+    """The joined table's column, read through the join."""
+    return ColumnWithJoin(Column(column.name, column.type, column.qualified_name()), node)
+
+
+def _as_of_root_column(column: Column) -> Column:
+    """The root table's column: it is read directly, with no join."""
+    return Column(column.name, column.type, column.qualified_name())
+
+
+def _as_of_and(ops: list):
+    result = ops[0]
+    for op in ops[1:]:
+        result = LogicalOperation(result, LogicalOperator.AND, op)
+    return result
+
+
+def _as_of_interval_contains(start: Column, end: Column, point: Column, infinite_datetime: str | None,
+                             node: JoinTreeNodeOperation):
+    """``start <= point AND end > point`` (or ``end IS NULL`` when open ends are NULL)."""
+    after_start = ComparisonOperation(_as_of_column(start, node), ComparisonOperator.LESS_THAN_OR_EQUAL_TO, point)
+    before_end: Operation = ComparisonOperation(_as_of_column(end, node), ComparisonOperator.GREATER_THAN, point)
+    if infinite_datetime is None:
+        before_end = LogicalOperation(before_end, LogicalOperator.OR, IsNullOperation(_as_of_column(end, node)))
+    return LogicalOperation(after_start, LogicalOperator.AND, before_end)
+
+
+def _as_of_business_point(root: MilestoningColumns | None) -> Column | None:
+    """The root row's point on the business-date axis: its date, or the start of its interval."""
+    if isinstance(root, SingleBusinessDateColumn):
+        return root.business_date_column
+    if isinstance(root, BiTemporalColumns):
+        return root.business_date_from_column
+    return None
+
+
+def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -> Operation | None:
+    """Join condition pinning a joined milestoned table to the root row's own point in time.
+
+    The child version chosen is the one that applied when the root row was recorded (processing axis)
+    and for the root row's business date (business axis), so later changes to the child never alter
+    rows already in the view. Raises ViewDefinitionError when the root has no corresponding axis.
+    """
+    child_table = node.join.target
+    if not isinstance(child_table, MilestonedTable):
+        return None
+    child = child_table.milestoning_columns
+    root = root_table.milestoning_columns if isinstance(root_table, MilestonedTable) else None
+    where = f"'{node.join.name}' ({child_table.name}) joined from {root_table.name}"
+    conditions = []
+
+    if isinstance(child, ProcessingTemporalColumns):
+        if not isinstance(root, ProcessingTemporalColumns):
+            raise ViewDefinitionError(
+                f"{where} is processing-temporal, but {root_table.name} has no processing time to anchor it to")
+        conditions.append(_as_of_interval_contains(child.start_at_column, child.end_at_column,
+                                                   _as_of_root_column(root.start_at_column), child.infinite_datetime,
+                                                   node))
+
+    if isinstance(child, (SingleBusinessDateColumn, BiTemporalColumns)):
+        point = _as_of_business_point(root)
+        if point is None:
+            raise ViewDefinitionError(
+                f"{where} has a business date, but {root_table.name} has no business date to anchor it to")
+        if isinstance(child, SingleBusinessDateColumn):
+            conditions.append(ComparisonOperation(_as_of_column(child.business_date_column, node),
+                                                  ComparisonOperator.EQUAL, _as_of_root_column(point)))
+        else:
+            conditions.append(_as_of_interval_contains(child.business_date_from_column, child.business_date_to_column,
+                                                       _as_of_root_column(point), child.infinite_datetime, node))
+    return _as_of_and(conditions) if conditions else None
+
+
+def check_view_joins(view: View) -> None:
+    """Raise ViewDefinitionError unless every joined milestoned table can be pinned to the root row's point in time."""
+    assert view.table is not None
+    for node in _joined_nodes(view):
+        build_as_of_join_condition(view.table, node)
+
+
+def view_sql_to_string(view: View, dialect: str | None = None) -> str:
+    """``CREATE OR REPLACE VIEW`` DDL for the view, in generic SQL or transpiled to ``dialect`` (e.g. 'databricks').
+
+    Join filters are stored on join objects that are shared between queries, so they are set here, immediately
+    before rendering, and not when the view is built.
+    """
+    check_view_joins(view)
+    table = view.table
+    assert table is not None
+    _apply_join_filters(_joined_nodes(view), lambda node: build_as_of_join_condition(table, node))
+    sql = f"CREATE OR REPLACE VIEW {view.qualified_name} AS " + select_sql_to_string(view, validate_sqlglot=False)
+    if dialect is None:
+        sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
+        return sql
+    return sqlglot.transpile(sql, read='', write=dialect)[0]
