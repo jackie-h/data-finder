@@ -1,7 +1,4 @@
-import builtins
-import keyword
 import os
-import re
 
 from jinja2 import Environment, PackageLoader
 
@@ -14,8 +11,8 @@ from model.graphql_mapping import (
 )
 from model.mapping import Mapping
 from model.m3 import PrimitiveType
+from model.naming import to_python_name
 
-_BUILTIN_NAMES = set(dir(builtins))
 
 _TYPE_STRINGS = {
     "Integer": "INT",
@@ -38,22 +35,6 @@ def is_association_mapping(pm) -> bool:
 
 def type_str(t) -> str:
     return _TYPE_STRINGS.get(t.name, "STRING")
-
-
-def to_python_name(prop) -> str:
-    if ' ' in prop.name:
-        name = prop.name.lower().replace(' ', '_')
-    else:
-        name = _to_snake_case(prop.name)
-    if keyword.iskeyword(name) or name in _BUILTIN_NAMES:
-        name += '_'
-    return name
-
-
-def _to_snake_case(name: str) -> str:
-    s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', name)
-    s = re.sub(r'([a-z\d])([A-Z])', r'\1_\2', s)
-    return s.lower()
 
 
 def display_name(prop) -> str:

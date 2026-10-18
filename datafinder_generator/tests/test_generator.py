@@ -6,61 +6,8 @@ import tempfile
 import pytest
 from mapping_markdown.markdown_mapping import load
 from model.m3 import Property, String, Class, Package, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY, _name_to_camel_id
-from datafinder_generator.generator import to_python_name, generate, _class_package, _ensure_package_dirs, \
-    to_snake_case, _mapping_to_class_name, _mapping_to_filename
-
-
-def _prop(label: str, id: str | None = None) -> Property:
-    return Property(label, id or _name_to_camel_id(label), String)
-
-
-class TestToPythonName:
-
-    def test_single_word(self):
-        assert to_python_name(_prop("Price")) == "price"
-
-    def test_multi_word_label(self):
-        assert to_python_name(_prop("Valid From")) == "valid_from"
-
-    def test_multi_word_lowercase(self):
-        assert to_python_name(_prop("Is Settled")) == "is_settled"
-
-    def test_keyword_clash_from(self):
-        assert to_python_name(_prop("From")) == "from_"
-
-    def test_keyword_clash_type(self):
-        assert to_python_name(_prop("Type")) == "type_"
-
-    def test_keyword_clash_class(self):
-        assert to_python_name(_prop("Class")) == "class_"
-
-    def test_keyword_clash_import(self):
-        assert to_python_name(_prop("Import")) == "import_"
-
-    def test_builtin_clash_id(self):
-        assert to_python_name(_prop("Id", "id")) == "id_"
-
-    def test_builtin_clash_list(self):
-        assert to_python_name(_prop("List")) == "list_"
-
-    def test_no_clash_normal(self):
-        assert to_python_name(_prop("Account")) == "account"
-
-    def test_uses_label_not_id(self):
-        prop = Property("Valid From", "validFrom", String)
-        assert to_python_name(prop) == "valid_from"
-
-
-class TestToSnakeCase:
-
-    def test_single_word(self):
-        assert to_snake_case("Account") == "account"
-
-    def test_pascal_case(self):
-        assert to_snake_case("ContractualPosition") == "contractual_position"
-
-    def test_already_lower(self):
-        assert to_snake_case("trade") == "trade"
+from datafinder_generator.generator import generate, _class_package, _ensure_package_dirs, \
+    _mapping_to_class_name, _mapping_to_filename
 
 
 class TestMappingNaming:
