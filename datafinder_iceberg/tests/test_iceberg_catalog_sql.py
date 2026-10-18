@@ -26,6 +26,8 @@ _FINDER_MODULES = [
     "finance", "finance.reference_data", "finance.trade",
     "finance.reference_data.account_finder",
     "finance.reference_data.account_finder_base",
+    "finance.reference_data.branch_finder",
+    "finance.reference_data.branch_finder_base",
     "finance.reference_data.instrument_finder",
     "finance.reference_data.instrument_finder_base",
     "finance.trade.trade_finder",
@@ -40,6 +42,13 @@ def _build_iceberg_catalog(catalog_name: str) -> InMemoryCatalog:
     cat.create_table("ref_data.account_master", schema=IcebergSchema(
         NestedField(1, "ID", IntegerType()),
         NestedField(2, "ACCT_NAME", StringType()),
+        NestedField(3, "BRANCH_ID", IntegerType()),
+        NestedField(4, "in_z", TimestampType()),
+        NestedField(5, "out_z", TimestampType()),
+    ))
+    cat.create_table("ref_data.branch", schema=IcebergSchema(
+        NestedField(1, "ID", IntegerType()),
+        NestedField(2, "CITY", StringType()),
     ))
     cat.create_table("ref_data.price", schema=IcebergSchema(
         NestedField(1, "SYM", StringType()),

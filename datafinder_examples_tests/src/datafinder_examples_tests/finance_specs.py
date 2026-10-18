@@ -4,7 +4,8 @@ Test specifications for the finance domain (finance_mapping.md).
 Backends must seed their database with ACCOUNTS, PRICES, TRADES, and POSITIONS
 before running these specs.  Column ordering matches the tables in finance_mapping.md:
 
-    ref_data.account_master  — ID INT, ACCT_NAME VARCHAR
+    ref_data.account_master  — ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT, in_z TIMESTAMP, out_z TIMESTAMP
+    ref_data.branch          — ID INT, CITY VARCHAR
     ref_data.price           — SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP
     trading.trades           — sym VARCHAR, price DOUBLE, is_settled BOOLEAN,
                                account_id INT, in_z TIMESTAMP, out_z TIMESTAMP
@@ -14,6 +15,10 @@ before running these specs.  Column ordering matches the tables in finance_mappi
 Trade data:
     AAPL: price=84.11, is_settled=True,  in_z=2020-01-01 00:00:00, out_z=9999-12-31 23:59:59
     GOOG: price=200.0, is_settled=False, in_z=2020-01-01 00:00:00, out_z=2022-01-01 00:00:00
+
+Account 1 has two versions, which point at different branches:
+    'Acme Ltd'  branch 10 (London)    in_z=2020-01-01 00:00:00, out_z=2022-01-01 00:00:00
+    'Acme Corp' branch 11 (New York)  in_z=2022-01-01 00:00:00, out_z=9999-12-31 23:59:59
 """
 import datetime
 
@@ -35,7 +40,7 @@ ACCOUNT_FINDER_SPECS = FinderSpec(
     expectations=[
         TestExpectation(
             name="account_by_id",
-            query=lambda f: f.find_all(None, None, [f.id_(), f.name()], f.id_().eq(1)),
+            query=lambda f: f.find_all(None, _AT, [f.id_(), f.name()], f.id_().eq(1)),
             expected_columns=["Id", "Name"],
             expected_result=np.array([[1, "Acme Corp"]], dtype=object),
         ),
@@ -352,6 +357,59 @@ TRADE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_seconds(datetime.datetime(2020, 1, 1, 0, 1, 0))]),
             expected_columns=["Diff Seconds Valid From"],
             expected_result=np.array([[60]], dtype=object),
+        ),
+    ],
+)
+
+# Trade -> Account -> Branch, where Account is milestoned and the Branch column is the only thing projected from
+# it: the Account join is an ancestor that no projected column hangs off directly, and it must still be
+# constrained to the version applicable at the query time. The Account node is shared between queries, so the
+# order matters: account_name_in_2021 leaves a 2021 filter on it that the later 2023 queries must not inherit.
+TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    expectations=[
+        TestExpectation(
+            name="account_name_in_2021",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account().name()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Account Name"],
+            expected_result=np.array([["AAPL", "Acme Ltd"], ["GOOG", "Acme Ltd"]], dtype=object),
+        ),
+        TestExpectation(
+            name="ancestor_join_is_milestoned",
+            query=lambda f: f.find_all(
+                None, _AT, [f.symbol(), f.account().branch().city()], f.symbol().eq("AAPL")
+            ),
+            expected_columns=["Symbol", "Branch City"],
+            # Without a milestoning condition on the Account join both account versions match: London and New York
+            expected_result=np.array([["AAPL", "New York"]], dtype=object),
+        ),
+        TestExpectation(
+            name="ancestor_join_follows_the_query_time",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account().branch().city()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Branch City"],
+            expected_result=np.array([["AAPL", "London"], ["GOOG", "London"]], dtype=object),
+        ),
+        TestExpectation(
+            name="ancestor_join_keeps_its_filter_kwargs",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
+            ),
+            expected_columns=["Symbol", "Branch City"],
+            expected_result=np.array([["AAPL", "London"]], dtype=object),
+        ),
+        TestExpectation(
+            name="ancestor_join_filter_kwargs_apply_at_the_query_time",
+            query=lambda f: f.find_all(
+                None, _AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
+            ),
+            expected_columns=["Symbol", "Branch City"],
+            # no version of the account named 'Acme Ltd' is live in 2023, so the branch isn't found
+            expected_result=np.array([["AAPL", None]], dtype=object),
         ),
     ],
 )

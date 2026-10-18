@@ -284,7 +284,9 @@ def _apply_limit(rows: list[dict], query_str: str) -> list[dict]:
 
 def _build_accounts() -> list[dict]:
     rows = _read_csv("finance_accounts.csv")
-    return [{"id": int(r["ID"]), "name": r["ACCT_NAME"]} for r in rows]
+    # the relational mapping milestones accounts; GraphQL serves only the current (latest) version of each
+    current = {int(r["ID"]): r for r in sorted(rows, key=lambda r: r["in_z"])}
+    return [{"id": id_, "name": r["ACCT_NAME"]} for id_, r in current.items()]
 
 
 def _build_account_index(accounts: list[dict]) -> dict[int, dict]:

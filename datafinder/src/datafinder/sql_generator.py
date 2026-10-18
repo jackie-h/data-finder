@@ -243,6 +243,26 @@ def _compute_elidable_nodes(node_refs: dict) -> set:
             elidable.add(node_id)
     return elidable
 
+def _with_ancestors(required_joins: dict) -> list[JoinTreeNodeOperation]:
+    """The required join nodes plus every ancestor, each once, ancestors first.
+
+    The SQL generator joins a node's ancestors whenever it joins the node, so each of them needs its
+    join filter set too, not only the nodes an expression refers to directly.
+    """
+    ordered: dict = {}
+
+    def add(node: JoinTreeNodeOperation):
+        if id(node) in ordered:
+            return
+        if node.parent is not None:
+            add(node.parent)
+        ordered[id(node)] = node
+
+    for node in required_joins.values():
+        add(node)
+    return list(ordered.values())
+
+
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
                          columns: list[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
@@ -264,7 +284,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
         collect_required_joins(sort_op, required_joins)
     collect_required_joins(op, required_joins)
 
-    for node in required_joins.values():
+    for node in _with_ancestors(required_joins):
         combined = None
         if node.join.filter_kwargs:
             combined = _build_join_kwargs_filter(node, node.join.filter_kwargs, node.join.filter_column_map)
