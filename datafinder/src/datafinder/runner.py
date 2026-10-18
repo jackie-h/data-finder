@@ -1,9 +1,9 @@
 import datetime
-import re
 from typing import Union, Optional
 
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
+from model.naming import to_snake_case
 from model.relational import Table, SortOperation, Alias
 from model.view import View, ViewDefinitionError
 
@@ -116,7 +116,7 @@ class FinderResult(DataFrame):
         if self._order_by or self._limit is not None:
             raise ViewDefinitionError(
                 "A view has no ORDER BY or row limit; order the rows when you read them with result().order_by()")
-        projection = [Alias(column, _snake_case(display_alias(column))) for column in self._columns]
+        projection = [Alias(column, to_snake_case(display_alias(column))) for column in self._columns]
         view = ViewDefinition(name, schema, self._table, projection, self._op, self._group_by)
         check_view_joins(view)
         return view
@@ -134,10 +134,6 @@ class FinderResult(DataFrame):
 
     def to_numpy(self):
         return self._execute().to_numpy()
-
-
-def _snake_case(display_name: str) -> str:
-    return re.sub(r'[^0-9a-zA-Z]+', '_', display_name).strip('_').lower()
 
 
 class ViewDefinition(View):

@@ -1,14 +1,11 @@
-import builtins
-import keyword
 import os
 import re
 
 from model.m3 import Class, PrimitiveType, Property
-
-_BUILTIN_NAMES = set(dir(builtins))
 from jinja2 import Environment, PackageLoader
 
 from model.m3 import Association
+from model.naming import to_python_name, to_snake_case
 from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
@@ -57,23 +54,8 @@ def display_name(prop: Property) -> str:
     return prop.name
 
 
-def to_python_name(prop: Property) -> str:
-    if ' ' in prop.name:
-        name = prop.name.lower().replace(' ', '_')
-    else:
-        name = to_snake_case(prop.name)
-    if keyword.iskeyword(name) or name in _BUILTIN_NAMES:
-        name += '_'
-    return name
-
 def table_qualified_name(table) -> str:
     return table.qualified_name
-
-
-def to_snake_case(name: str) -> str:
-    s = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', name)
-    s = re.sub(r'([a-z\d])([A-Z])', r'\1_\2', s)
-    return s.lower()
 
 
 def _mapping_to_class_name(name: str) -> str:
