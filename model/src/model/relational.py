@@ -1,6 +1,7 @@
 import datetime
 import decimal
 from enum import Enum
+from typing import Sequence
 
 
 # Interface
@@ -429,6 +430,42 @@ class CountAllOperation(RelationalOperationElement):
         self.table = table
 
 
+class Alias(RelationalOperationElement):
+    def __init__(self, element: RelationalOperationElement, name: str):
+        super().__init__()
+        self.element = element
+        self.name = name
 
 
+class ExistsOperation(RelationalOperationElement):
+    """Returned by RelatedFinder.exists(). Backend translates this to a join-presence check."""
 
+    def __init__(self, node):
+        super().__init__()
+        self.node = node
+
+    def and_op(self, other):
+        return LogicalOperation(self, LogicalOperator.AND, other)
+
+
+class NotExistsOperation(RelationalOperationElement):
+    """Returned by RelatedFinder.not_exists(). Backend translates this to a join-absence check."""
+
+    def __init__(self, node):
+        super().__init__()
+        self.node = node
+
+    def and_op(self, other):
+        return LogicalOperation(self, LogicalOperator.AND, other)
+
+
+class SelectOperation:
+    def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
+                 order_by: list[SortOperation] | None = None, group_by: list | None = None,
+                 limit: int | None = None, table: Table | None = None):
+        self.display = display
+        self.filter = filter
+        self.order_by = order_by or []
+        self.group_by = group_by or []
+        self.limit = limit
+        self.table = table
