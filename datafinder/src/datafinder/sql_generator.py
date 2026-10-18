@@ -458,6 +458,27 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     else:
         raise TypeError(operation)
 
+def display_alias(col: RelationalOperationElement) -> str:
+    """The name a display expression gets in a SELECT when it has not been given an explicit alias."""
+    if isinstance(col, CountAllOperation):
+        return 'Count'
+    if isinstance(col, Attribute):
+        return col.display_name()
+    if isinstance(col, AggregateOperation):
+        return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
+    if isinstance(col, ScalarFunctionOperation):
+        return col.display_name if col.display_name else col.function.name + ' ' + find_column(col).column.name
+    if isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
+        return col.display_name if col.display_name else find_column(col).column.name
+    if isinstance(col, WindowFunctionOperation):
+        if col.display_name:
+            return col.display_name
+        if col.function in (WindowFunction.ROW_NUMBER, WindowFunction.RANK, WindowFunction.DENSE_RANK):
+            return col.function.name.replace('_', ' ').title()
+        return col.function.name + ('' if col.element is None else ' ' + find_column(col).column.name)
+    return str(col)
+
+
 class SQLQueryGenerator:
     _select: list[Alias]
     _from: set[TableAlias]
@@ -623,32 +644,8 @@ class SQLQueryGenerator:
 
             if isinstance(col, Alias):
                 self._select.append(Alias(self.__rewrite_operation(col.element), col.name))
-            elif isinstance(col, CountAllOperation):
-                self._select.append(Alias(rewritten, 'Count'))
-            elif isinstance(col, Attribute):
-                self._select.append(Alias(rewritten, col.display_name()))
-            elif isinstance(col, AggregateOperation):
-                col_nested = find_column(col)
-                alias = col.display_name if col.display_name else col.operator.name + ' ' + col_nested.column.name
-                self._select.append(Alias(rewritten, alias))
-            elif isinstance(col, ScalarFunctionOperation):
-                col_nested = find_column(col)
-                alias = col.display_name if col.display_name else col.function.name + ' ' + col_nested.column.name
-                self._select.append(Alias(rewritten, alias))
-            elif isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
-                col_nested = find_column(col)
-                alias = col.display_name if col.display_name else col_nested.column.name
-                self._select.append(Alias(rewritten, alias))
-            elif isinstance(col, WindowFunctionOperation):
-                if col.display_name:
-                    alias = col.display_name
-                elif col.function in (WindowFunction.ROW_NUMBER, WindowFunction.RANK, WindowFunction.DENSE_RANK):
-                    alias = col.function.name.replace('_', ' ').title()
-                else:
-                    alias = col.function.name + ('' if col.element is None else ' ' + find_column(col).column.name)
-                self._select.append(Alias(rewritten, alias))
             else:
-                self._select.append(Alias(rewritten, str(col)))
+                self._select.append(Alias(rewritten, display_alias(col)))
 
         for node in required_joins.values():
             self.__add_join(node)

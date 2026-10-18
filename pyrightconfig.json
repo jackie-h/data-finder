@@ -14,6 +14,7 @@
     "datafinder_ibis/src",
     "datafinder_duckdb/src",
     "datafinder_databricks/src",
+    "datafinder_liquibase/src",
     "datafinder_linkml/src",
     "datafinder_iceberg/src",
     "model_markdown/src",

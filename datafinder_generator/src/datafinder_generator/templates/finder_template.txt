@@ -3,7 +3,7 @@ from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from datafinder.attribute import Attribute
-from datafinder.finder import RelatedFinder
+from datafinder.finder import RelatedFinder, display_prefix
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation, Operation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase, {{rcm.clazz.name}}RelatedFinderBase
@@ -67,7 +67,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         RelatedFinder.__init__(self, self.__node)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(relation_name.title() + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', self.__node, embedded=(embedded or {}).get('{{rpm.property.id}}'))
+        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(display_prefix(relation_name, parent_join) + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', self.__node, embedded=(embedded or {}).get('{{rpm.property.id}}'))
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}

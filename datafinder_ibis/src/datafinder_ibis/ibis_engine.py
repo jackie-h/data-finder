@@ -2,6 +2,7 @@ import datetime
 import threading
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
+from datafinder.sql_generator import view_sql_to_string
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
 
 import duckdb
@@ -13,6 +14,7 @@ import pyarrow as pa
 
 from datafinder import QueryRunnerBase
 from model.relational import Table
+from model.view import View
 
 
 class IbisConnect(QueryRunnerBase):
@@ -31,6 +33,20 @@ class IbisConnect(QueryRunnerBase):
         # materializes it, driven by which of to_pandas()/to_numpy() the caller asks for.
         expr = conn.sql(query)
         return IbisOutput(conn, expr, timeout_ms)
+
+    @staticmethod
+    def create_view(view: View) -> None:
+        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
+        conn.raw_sql(f"CREATE SCHEMA IF NOT EXISTS {view.schema}")
+        conn.raw_sql(view_sql_to_string(view))
+
+    @staticmethod
+    def select_view(view: View, order_by: list[str] | None = None, timeout_ms: int = 60_000) -> DataFrame:
+        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
+        query = f"SELECT * FROM {view.qualified_name}"
+        if order_by:
+            query += " ORDER BY " + ", ".join('"' + column + '"' for column in order_by)
+        return IbisOutput(conn, conn.sql(query), timeout_ms)
 
 
 class IbisOutput(DataFrame):

@@ -1,14 +1,18 @@
 import datetime
 
+import duckdb
 import ibis
 from ibis.backends.duckdb import Backend as DuckDBBackend
 import numpy as np
 import pytest
 
-from datafinder import QueryRunnerBase
+from datafinder import QueryRunnerBase, ViewResult
 from datafinder.typed_attributes import StringAttribute, IntegerAttribute, DoubleAttribute, BooleanAttribute
+from datafinder_examples_tests.spec import TestExpectation
 from datafinder_ibis.ibis_engine import IbisConnect
-from model.relational import NoOperation, Table
+from model.milestoning import MilestonedTable, ProcessingTemporalColumns
+from model.relational import Alias, Column, JoinOperation, JoinTreeNodeOperation, NoOperation, Table
+from model.view import View
 
 _BUSINESS_DATE = datetime.date(2024, 1, 1)
 _PROCESSING_DATETIME = datetime.datetime(2024, 1, 1, 0, 0, 0)
@@ -106,3 +110,67 @@ class TestIbisOutputTypes:
         assert df["Quantity"].iloc[1] is pd.NA
         arr = output.to_numpy()
         assert arr[1][1] is pd.NA
+
+
+class TestIbisSelectView:
+    """A view is created on the backend and its rows read back, through the same expectation type as any query."""
+
+    @pytest.fixture
+    def view(self, monkeypatch) -> View:
+        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # type: ignore[assignment]
+        monkeypatch.setattr(ibis, 'connect', lambda *a, **kw: conn)
+        for statement in [
+            "CREATE SCHEMA vt",
+            "CREATE TABLE vt.trades (sym VARCHAR, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP)",
+            "CREATE TABLE vt.account (id INT, name VARCHAR, in_z TIMESTAMP, out_z TIMESTAMP)",
+            "INSERT INTO vt.account VALUES (1, 'Acme Old', '2020-01-01', '2022-01-01'), "
+            "(1, 'Acme New', '2022-01-01', '9999-12-31')",
+            "INSERT INTO vt.trades VALUES ('AAPL', 1, '2020-06-01', '9999-12-31'), "
+            "('IBM', 1, '2023-01-01', '9999-12-31')",
+        ]:
+            conn.raw_sql(statement)
+
+        def milestoning():
+            return ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"))
+
+        join = JoinOperation("Account", MilestonedTable("vt.account", [], milestoning()),
+                             Column("account_id", "INT", "vt.trades"), Column("id", "INT", "vt.account"))
+        node = JoinTreeNodeOperation(join)
+        return View("trade_account", "reporting", MilestonedTable("vt.trades", [], milestoning()),
+                    [Alias(StringAttribute("Symbol", "sym", "VARCHAR", "vt.trades"), "symbol"),
+                     Alias(StringAttribute("Account Name", "name", "VARCHAR", "vt.account", node), "account_name")])
+
+    def test_select_view_reads_the_rows_of_a_view_that_was_created(self, view):
+        IbisConnect.create_view(view)
+        df = IbisConnect.select_view(view).to_pandas()
+        assert list(df.columns) == ["symbol", "account_name", "in_z", "out_z"]
+        assert df[["symbol", "account_name"]].values.tolist() == [["AAPL", "Acme Old"], ["IBM", "Acme New"]]
+
+    def test_select_view_does_not_create_the_view(self, view):
+        with pytest.raises(duckdb.CatalogException):
+            IbisConnect.select_view(view).to_pandas()
+
+    def test_rows_can_be_ordered_by_view_columns(self, view):
+        IbisConnect.create_view(view)
+        df = IbisConnect.select_view(view, order_by=["account_name", "symbol"]).to_pandas()
+        assert df["symbol"].tolist() == ["IBM", "AAPL"] and df["account_name"].tolist() == ["Acme New", "Acme Old"]
+
+    def test_creating_the_same_view_twice_replaces_it(self, view):
+        IbisConnect.create_view(view)
+        IbisConnect.create_view(view)
+        assert len(IbisConnect.select_view(view).to_pandas()) == 2
+
+    def test_a_view_result_works_in_the_existing_test_expectation(self, view):
+        QueryRunnerBase.clear()
+        QueryRunnerBase.register(IbisConnect)
+        TestExpectation(
+            name="each_trade_sees_the_account_applicable_at_its_time",
+            query=lambda _: ViewResult(view),
+            expected_columns=["symbol", "account_name", "in_z", "out_z"],
+            expected_result=np.array([
+                ["AAPL", "Acme Old", datetime.datetime(2020, 6, 1), datetime.datetime(9999, 12, 31)],
+                ["IBM", "Acme New", datetime.datetime(2023, 1, 1), datetime.datetime(9999, 12, 31)],
+            ], dtype=object),
+            expected_sql={"duckdb": "t1.in_z <= t0.in_z"},
+            unexpected_sql={"duckdb": "GREATEST"},
+        ).run(None, backend="duckdb")

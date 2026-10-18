@@ -1,4 +1,15 @@
-from model.relational import ExistsOperation, NotExistsOperation
+from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation
+
+
+def display_prefix(relation_name: str, parent_join: JoinTreeNodeOperation | None) -> str:
+    """The display-name prefix for a column reached through a join: the relation names from the root, so
+    ``account().branch().city()`` is "Account Branch City" and not just "Branch City"."""
+    names = [relation_name]
+    node = parent_join
+    while node is not None:
+        names.append(node.join.name)
+        node = node.parent
+    return ' '.join(name.title() for name in reversed(names))
 
 
 class RelatedFinder:

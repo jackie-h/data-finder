@@ -1,9 +1,11 @@
 import datetime
+import re
 from typing import Union, Optional
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder.sql_generator import to_sql
-from model.relational import Table, SortOperation
+from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
+from model.relational import Table, SortOperation, Alias
+from model.view import View, ViewDefinitionError
 
 
 #TODO revisit this, don't want this to be static per class as need to be able to switch them
@@ -98,6 +100,27 @@ class FinderResult(DataFrame):
             self._timeout_ms, business_date_to=self._business_date_to,
         )
 
+    def to_view(self, name: str, schema: str) -> 'ViewDefinition':
+        """Define a SQL view from this query: ``schema.name``.
+
+        A view has no dates, so ``find_all`` must have been called with ``None`` for the business date and
+        processing time. The view exposes the root table's milestoning columns instead, and every joined
+        milestoned table is pinned to the version that applied when the root row was recorded. A view also
+        has no ORDER BY or row limit; to order the rows you read back use ``ViewDefinition.result().order_by()``.
+        Each column is named after its display name in snake_case, e.g. "Account Name" becomes ``account_name``.
+        """
+        if self._business_date is not None or self._business_date_to is not None or self._processing_datetime is not None:
+            raise ViewDefinitionError(
+                "A view has no dates: pass None for the business date and processing time, and the view will "
+                "expose the milestoning columns instead")
+        if self._order_by or self._limit is not None:
+            raise ViewDefinitionError(
+                "A view has no ORDER BY or row limit; order the rows when you read them with result().order_by()")
+        projection = [Alias(column, _snake_case(display_alias(column))) for column in self._columns]
+        view = ViewDefinition(name, schema, self._table, projection, self._op, self._group_by)
+        check_view_joins(view)
+        return view
+
     def to_sql(self) -> str:
         return to_sql(
             self._business_date, self._processing_datetime,
@@ -105,6 +128,64 @@ class FinderResult(DataFrame):
             self._order_by, self._group_by, self._limit,
             business_date_to=self._business_date_to,
         )
+
+    def to_pandas(self):
+        return self._execute().to_pandas()
+
+    def to_numpy(self):
+        return self._execute().to_numpy()
+
+
+def _snake_case(display_name: str) -> str:
+    return re.sub(r'[^0-9a-zA-Z]+', '_', display_name).strip('_').lower()
+
+
+class ViewDefinition(View):
+    """A relational View that can render itself as DDL and be read back through a ViewResult."""
+
+    def to_sql(self, dialect: str | None = None) -> str:
+        """``CREATE OR REPLACE VIEW`` DDL, in generic SQL or transpiled to ``dialect`` (e.g. 'databricks')."""
+        return view_sql_to_string(self, dialect)
+
+    def result(self) -> 'ViewResult':
+        """The view's rows, read by creating it on the registered runner's backend."""
+        return ViewResult(self)
+
+
+class ViewResult(DataFrame):
+    """The rows of a view.
+
+    ``to_sql()`` is the view's CREATE VIEW DDL. ``to_pandas()`` and ``to_numpy()`` have the registered runner
+    create the view, then select all of its rows. Like FinderResult, nothing runs until
+    one of them is asked for.
+
+    A view has no ORDER BY, so its rows come back in no particular order; ``order_by`` orders the read-back
+    (not the view) by output column name.
+    """
+
+    def __init__(self, view: View):
+        self._view = view
+        self._order_by: list[str] = []
+        self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
+
+    def order_by(self, *columns: str) -> 'ViewResult':
+        unknown = [c for c in columns if c not in self._view.column_names()]
+        if unknown:
+            raise ValueError(f"Unknown view columns {unknown} — valid columns are: {self._view.column_names()}")
+        self._order_by = list(columns)
+        return self
+
+    def timeout(self, milliseconds: int) -> 'ViewResult':
+        self._timeout_ms = milliseconds
+        return self
+
+    def _execute(self) -> DataFrame:
+        runner = QueryRunnerBase.get_runner()
+        runner.create_view(self._view)
+        return runner.select_view(self._view, self._order_by, self._timeout_ms)
+
+    def to_sql(self, dialect: str | None = None) -> str:
+        return view_sql_to_string(self._view, dialect)
 
     def to_pandas(self):
         return self._execute().to_pandas()
@@ -146,6 +227,16 @@ class QueryRunnerBase(metaclass=RegistryBase):
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
                business_date_to: datetime.date | None = None) -> DataFrame:
+        raise NotImplementedError()
+
+    @staticmethod
+    def create_view(view: View) -> None:
+        """Create the view on the backend, replacing any existing view of that name."""
+        raise NotImplementedError()
+
+    @staticmethod
+    def select_view(view: View, order_by: list[str] | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> DataFrame:
+        """Return all rows of a view that already exists, ordered by the named view columns."""
         raise NotImplementedError()
 
     @staticmethod

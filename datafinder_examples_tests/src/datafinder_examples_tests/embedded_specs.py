@@ -47,7 +47,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _AT, [f.account().branch().city(), f.symbol()], f.symbol().eq("AAPL"),
             ),
-            expected_columns=["Branch City", "Symbol"],
+            expected_columns=["Account Branch City", "Symbol"],
             expected_result=np.array([["New York", "AAPL"]], dtype=object),
             unexpected_sql={"duckdb": "JOIN"},
         ),
@@ -58,7 +58,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
                 [f.account().branch().city(), f.account().branch().id_(), f.symbol()],
                 f.symbol().eq("AAPL"),
             ),
-            expected_columns=["Branch City", "Branch Id", "Symbol"],
+            expected_columns=["Account Branch City", "Account Branch Id", "Symbol"],
             expected_result=np.array([["New York", 10, "AAPL"]], dtype=object),
             expected_sql={"duckdb": "JOIN"},
         ),

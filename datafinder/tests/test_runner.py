@@ -1,9 +1,13 @@
 import datetime
 
+import numpy as np
+import pandas as pd
 import pytest
 
-from datafinder.runner import FinderResult, _DEFAULT_TIMEOUT_MS, convert_inputs_and_select_for_date_range
-from model.relational import NoOperation, Table
+from datafinder import DataFrame, QueryRunnerBase
+from datafinder.runner import FinderResult, ViewResult, _DEFAULT_TIMEOUT_MS, convert_inputs_and_select_for_date_range
+from model.relational import Alias, Column, NoOperation, Table
+from model.view import View
 
 
 def _make_result() -> FinderResult:
@@ -105,3 +109,88 @@ class TestDuckDbTimeout:
     def test_to_pandas_raises_timeout_error(self, monkeypatch):
         with pytest.raises(TimeoutError, match="1ms"):
             self._output(monkeypatch).to_pandas()
+
+
+def _view() -> View:
+    return View("trades_v", "reporting", Table("trades", []), [Alias(Column("sym", "VARCHAR", "trades"), "symbol")])
+
+
+class _Rows(DataFrame):
+    FRAME = pd.DataFrame({"symbol": ["AAPL"]})
+    ARRAY = np.array([["AAPL"]], dtype=object)
+
+    def to_pandas(self) -> pd.DataFrame:
+        return self.FRAME
+
+    def to_numpy(self) -> np.ndarray:
+        return self.ARRAY
+
+
+class TestViewResult:
+
+    @pytest.fixture
+    def runner(self):
+        """A runner that records how it was asked to create and select a view."""
+        calls = []
+        QueryRunnerBase.clear()
+
+        class RecordingRunner(QueryRunnerBase):
+            @staticmethod
+            def create_view(view):
+                calls.append(("create", view))
+
+            @staticmethod
+            def select_view(view, order_by=None, timeout_ms=_DEFAULT_TIMEOUT_MS):
+                calls.append(("select", view, order_by, timeout_ms))
+                return _Rows()
+
+        yield calls
+        QueryRunnerBase.clear()
+
+    def test_default_timeout_matches_finder_result(self):
+        assert ViewResult(_view())._timeout_ms == _DEFAULT_TIMEOUT_MS
+
+    def test_timeout_sets_value_and_returns_self(self):
+        result = ViewResult(_view())
+        assert result.timeout(500) is result
+        assert result._timeout_ms == 500
+
+    def test_to_sql_is_the_create_view_ddl(self):
+        assert ViewResult(_view()).to_sql() == (
+            'CREATE OR REPLACE VIEW reporting.trades_v AS SELECT t0.sym AS "symbol" FROM trades AS t0')
+
+    def test_to_sql_can_be_transpiled(self):
+        assert "`symbol`" in ViewResult(_view()).to_sql(dialect="databricks")
+
+    def test_nothing_runs_until_rows_are_asked_for(self, runner):
+        ViewResult(_view()).to_sql()
+        assert runner == []
+
+    def test_rows_are_read_by_creating_the_view_then_selecting_from_it(self, runner):
+        view = _view()
+        result = ViewResult(view).order_by("symbol").timeout(250)
+        assert result.to_pandas() is _Rows.FRAME
+        assert result.to_numpy() is _Rows.ARRAY
+        assert runner == [("create", view), ("select", view, ["symbol"], 250)] * 2
+
+    def test_order_by_accepts_only_columns_of_the_view(self):
+        with pytest.raises(ValueError, match="Unknown view columns"):
+            ViewResult(_view()).order_by("nope")
+
+    def test_a_runner_that_does_not_support_views_says_so(self):
+        with pytest.raises(NotImplementedError):
+            QueryRunnerBase.create_view(_view())
+        with pytest.raises(NotImplementedError):
+            QueryRunnerBase.select_view(_view())
+
+    def test_reading_rows_fails_on_a_runner_that_cannot_create_views(self):
+        QueryRunnerBase.clear()
+
+        class QueryOnlyRunner(QueryRunnerBase):
+            pass
+
+        try:
+            with pytest.raises(NotImplementedError):
+                ViewResult(_view()).to_pandas()
+        finally:
+            QueryRunnerBase.clear()
