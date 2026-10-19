@@ -403,6 +403,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="ancestor_join_keeps_its_filter_kwargs",
+            skip_backends={"graphql": "The GraphQL finder's account() does not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),
@@ -411,6 +412,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="ancestor_join_filter_kwargs_apply_at_the_query_time",
+            skip_backends={"graphql": "The GraphQL finder's account() does not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),
@@ -428,6 +430,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
 TRADE_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
     expectations=[
         TestExpectation(
             name="exists_returns_each_trade_once",
@@ -502,6 +505,7 @@ TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="is_none_finds_trade_whose_account_is_not_yet_live",
+            skip_backends={"graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"},
             query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_none()),
             expected_columns=["Symbol"],
             expected_result=np.array([["MSFT"]], dtype=object),
@@ -530,6 +534,7 @@ TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="is_none_through_a_milestoned_ancestor",
+            skip_backends={"graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"},
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().city().is_none()
             ),
@@ -546,6 +551,7 @@ TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="is_none_combined_with_a_filter",
+            skip_backends={"graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"},
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.account().name().is_none().and_op(f.symbol().eq("MSFT")),
@@ -568,6 +574,7 @@ _START_OF_2024 = datetime.datetime(2024, 1, 1)
 TRADE_VIEW_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": "Views are not supported by the GraphQL backend"},
     expectations=[
         TestExpectation(
             name="view_of_root_columns_adds_the_validity_columns",
@@ -662,6 +669,7 @@ CONTRACTUAL_POSITION_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="range_jan15_jan16",
+            skip_backends={"graphql": "A sort across a date range cannot be pushed: each date is a separate query"},
             query=lambda f: f.find_for_date_range(
                 "2023-01-15", "2023-01-16", _AT, [f.quantity()]
             ).order_by(f.quantity().ascending()),

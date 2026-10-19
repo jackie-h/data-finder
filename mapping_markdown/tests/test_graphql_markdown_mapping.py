@@ -25,7 +25,7 @@ class TestGraphQLMarkdownLoad:
         assert self.mapping.name == "Finance GraphQL Mapping"
 
     def test_all_classes_mapped(self):
-        assert set(self.by_class.keys()) == {"Account", "Instrument", "Trade", "ContractualPosition"}
+        assert set(self.by_class.keys()) == {"Account", "Branch", "Instrument", "Trade", "ContractualPosition"}
 
     def test_account_field_mappings(self):
         cm = self.by_class["Account"]
@@ -151,7 +151,7 @@ class TestGraphQLMarkdownRoundTrip:
         try:
             save(tmp, "Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
             reloaded = load(tmp)
-            assert {cm.clazz.name for cm in reloaded.mappings} == {"Account", "Instrument", "Trade", "ContractualPosition"}
+            assert {cm.clazz.name for cm in reloaded.mappings} == {"Account", "Branch", "Instrument", "Trade", "ContractualPosition"}
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
@@ -186,8 +186,18 @@ class TestGraphQLAssociationMapping:
         assert prop_type is not None
         assert prop_type.name == "Account"
 
+    def test_account_has_branch_association(self):
+        cm = self.by_class["Account"]
+        assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+        assert len(assoc_mappings) == 1
+        assert assoc_mappings[0].association_name == "AccountBranch"
+        assert assoc_mappings[0].target.name == "branch"
+        prop_type = assoc_mappings[0].property.type
+        assert prop_type is not None
+        assert prop_type.name == "Branch"
+
     def test_non_association_classes_have_no_association_mappings(self):
-        for name in ("Account", "Instrument", "ContractualPosition"):
+        for name in ("Branch", "Instrument", "ContractualPosition"):
             cm = self.by_class[name]
             assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
             assert assoc_mappings == [], f"{name} should have no association mappings"

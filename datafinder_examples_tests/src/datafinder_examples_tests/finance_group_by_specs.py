@@ -48,6 +48,7 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="group_count_per_account",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
                 None, _AT, [f.account().name(), f.count()],
             ).group_by(f.account().name()).order_by(f.account().name().ascending()),

@@ -61,6 +61,22 @@ def milestone_expr(ms) -> str:
     return "None"
 
 
+def related_classes(cm, class_mappings_by_name: dict) -> list:
+    """The class mappings reachable from cm through associations, each once, in discovery order."""
+    found: list = []
+    pending = [cm]
+    while pending:
+        current = pending.pop(0)
+        for pm in current.property_mappings:
+            if not is_association_mapping(pm):
+                continue
+            target_cm = class_mappings_by_name.get(pm.property.type.name)
+            if target_cm is not None and target_cm not in found:
+                found.append(target_cm)
+                pending.append(target_cm)
+    return found
+
+
 def generate(mapping: Mapping, output_directory: str) -> None:
     env = Environment(
         loader=PackageLoader("datafinder_graphql"),
@@ -84,6 +100,7 @@ def generate(mapping: Mapping, output_directory: str) -> None:
         milestone_class=milestone_class,
         milestone_expr=milestone_expr,
         class_mappings_by_name=class_mappings_by_name,
+        related_classes=lambda cm: related_classes(cm, class_mappings_by_name),
     )
 
     for cm in mapping.mappings:

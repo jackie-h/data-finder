@@ -18,6 +18,7 @@ from model.relational import (
     ColumnWithJoin,
     ComparisonOperation,
     ComparisonOperator,
+    ConstantOperation,
     DateArithmeticOperation,
     DateDiffOperation,
     DateExtractOperation,
@@ -27,6 +28,9 @@ from model.relational import (
     LogicalOperation,
     LogicalOperator,
     NoOperation,
+    RelationalOperationElement,
+    ScalarFunction,
+    ScalarFunctionOperation,
     SortDirection,
     SortOperation,
     WindowFunctionOperation,
@@ -51,11 +55,18 @@ class GraphQLOutput(DataFrame):
 # Column metadata helpers
 # ---------------------------------------------------------------------------
 
+class GraphQLPushdownError(Exception):
+    """A filter, sort or limit that cannot be expressed as arguments to the GraphQL server.
+
+    The engine does not compensate on the client: only aggregations are computed locally.
+    """
+
+
 def _col_field_name(col) -> str | None:
     """Return the underlying GraphQL field name for a column expression."""
     if isinstance(col, Attribute):
         return col.column().name
-    if isinstance(col, (AggregateOperation, WindowFunctionOperation,
+    if isinstance(col, (AggregateOperation, WindowFunctionOperation, ScalarFunctionOperation,
                         DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
         if col.element and isinstance(col.element, ColumnWithJoin):
             return col.element.column.name
@@ -65,7 +76,7 @@ def _col_field_name(col) -> str | None:
 def _col_display_name(col) -> str:
     if isinstance(col, Attribute):
         return col.display_name()
-    if isinstance(col, (AggregateOperation, WindowFunctionOperation,
+    if isinstance(col, (AggregateOperation, WindowFunctionOperation, ScalarFunctionOperation,
                         DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
         return col.display_name or ""
     return ""
@@ -95,8 +106,32 @@ _ARITH_TIMEDELTA = {
 }
 
 
+def _round_half_away_from_zero(s: pd.Series, decimals: int) -> pd.Series:
+    """Round like SQL (halves go away from zero), not like pandas (halves go to even)."""
+    scale = 10 ** decimals
+    return np.sign(s) * np.floor(s.abs() * scale + 0.5) / scale
+
+
+_NUMERIC_SCALAR = {
+    ScalarFunction.ABS:     lambda s, n: s.abs(),
+    ScalarFunction.CEILING: lambda s, n: np.ceil(s),
+    ScalarFunction.FLOOR:   lambda s, n: np.floor(s),
+    ScalarFunction.SQRT:    lambda s, n: np.sqrt(s),
+    ScalarFunction.MOD:     lambda s, n: np.fmod(s, n),
+    ScalarFunction.POWER:   lambda s, n: np.power(s, n),
+    ScalarFunction.ROUND:   lambda s, n: _round_half_away_from_zero(s, n or 0),
+}
+
+
 def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
-    """Apply a date extract / arithmetic / diff column operation to the DataFrame."""
+    """Apply a numeric function / date extract / arithmetic / diff column operation to the DataFrame."""
+    if isinstance(col, ScalarFunctionOperation):
+        fn = _col_field_name(col)
+        func = _NUMERIC_SCALAR.get(col.function)
+        if not fn or fn not in df.columns or func is None:
+            return None
+        return pd.Series(func(pd.to_numeric(df[fn]), col.second_arg))
+
     if isinstance(col, DateExtractOperation):
         fn = _col_field_name(col)
         if not fn or fn not in df.columns:
@@ -155,8 +190,8 @@ def _project_columns(df: pd.DataFrame, columns: list) -> pd.DataFrame:
             result[dn] = derived.values
         elif isinstance(col, Attribute):
             fn = col.column().name
-            if fn in df.columns:
-                result[dn] = df[fn].values
+            # a nested field is absent from every row when its parent object is null in all of them
+            result[dn] = df[fn].values if fn in df.columns else [None] * len(df)
     return pd.DataFrame(result)
 
 
@@ -164,88 +199,8 @@ def _project_columns(df: pd.DataFrame, columns: list) -> pd.DataFrame:
 # Filter helpers
 # ---------------------------------------------------------------------------
 
-def _op_field_names(op) -> set[str]:
-    if op is None or isinstance(op, NoOperation):
-        return set()
-    if isinstance(op, ComparisonOperation):
-        if isinstance(op.left, ColumnWithJoin):
-            return {op.left.column.name}
-        return set()
-    if isinstance(op, LogicalOperation):
-        return _op_field_names(op.left) | _op_field_names(op.right)
-    if isinstance(op, (IsNullOperation, IsNotNullOperation)):
-        if isinstance(op.element, ColumnWithJoin):
-            return {op.element.column.name}
-        return set()
-    return set()
-
-
 def _constant_value(op):
     return getattr(op, 'value', op)
-
-
-_DT_FORMATS = ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d")
-
-
-def _parse_dt_str(s) -> datetime.datetime | None:
-    """Parse a datetime string using Python's datetime (handles 9999-12-31 sentinel)."""
-    if s is None:
-        return None
-    text = str(s).strip()
-    for fmt in _DT_FORMATS:
-        try:
-            return datetime.datetime.strptime(text, fmt)
-        except ValueError:
-            pass
-    return None
-
-
-def _eval_filter(df: pd.DataFrame, op) -> pd.Series:
-    if op is None or isinstance(op, NoOperation):
-        return pd.Series([True] * len(df), index=df.index)
-
-    if isinstance(op, ComparisonOperation):
-        if isinstance(op.left, ColumnWithJoin):
-            name = op.left.column.name
-            if name not in df.columns:
-                return pd.Series([True] * len(df), index=df.index)
-            col = df[name]
-            val = _constant_value(op.right)
-            # Parse string columns when comparing to datetime/date values.
-            # Use element-wise Python datetime parsing to handle out-of-bounds
-            # sentinel values like "9999-12-31 23:59:59".
-            if isinstance(val, (datetime.datetime, datetime.date)) and col.dtype == object:
-                if isinstance(val, datetime.date) and not isinstance(val, datetime.datetime):
-                    val = datetime.datetime(val.year, val.month, val.day)
-                col = col.apply(_parse_dt_str)
-            if op.operator == ComparisonOperator.EQUAL:
-                return col == val
-            if op.operator == ComparisonOperator.NOT_EQUAL:
-                return col != val
-            if op.operator == ComparisonOperator.LESS_THAN:
-                return col < val
-            if op.operator == ComparisonOperator.GREATER_THAN:
-                return col > val
-            if op.operator == ComparisonOperator.LESS_THAN_OR_EQUAL_TO:
-                return col <= val
-            if op.operator == ComparisonOperator.GREATER_THAN_OR_EQUAL_TO:
-                return col >= val
-        return pd.Series([True] * len(df), index=df.index)
-
-    if isinstance(op, LogicalOperation):
-        left_mask = _eval_filter(df, op.left)
-        right_mask = _eval_filter(df, op.right)
-        if op.operator == LogicalOperator.AND:
-            return left_mask & right_mask
-        return left_mask | right_mask
-
-    if isinstance(op, (IsNullOperation, IsNotNullOperation)):
-        if isinstance(op.element, ColumnWithJoin):
-            name = op.element.column.name
-            if name in df.columns:
-                col = pd.Series(df[name])
-                return col.isna() if isinstance(op, IsNullOperation) else col.notna()
-    return pd.Series([True] * len(df), index=df.index)
 
 
 # ---------------------------------------------------------------------------
@@ -280,6 +235,8 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
         agg_dict = {fn: func for fn, func, _ in agg_specs}
         result = df.groupby(gb_fields).agg(agg_dict).reset_index()
         result = result.rename(columns={fn: dn for fn, _, dn in agg_specs})
+        result = result.rename(columns={
+            gb.column().name: gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)})
     else:
         rows: dict = {}
         for fn, func, dn in agg_specs:
@@ -288,6 +245,20 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
         result = pd.DataFrame(rows)
 
     return result
+
+
+def _sort_aggregated(df: pd.DataFrame, order_by: list, group_by: list | None) -> pd.DataFrame:
+    """Sort an aggregation's result, which only exists on the client. It can be sorted by its group-by columns."""
+    display_by_field = {gb.column().name: gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)}
+    sort_cols: list[str] = []
+    ascending: list[bool] = []
+    for so in order_by:
+        field = _field_name(so.column, "a sort") if isinstance(so, SortOperation) else None
+        if field not in display_by_field:
+            raise GraphQLPushdownError("An aggregation can only be sorted by its group-by columns")
+        sort_cols.append(display_by_field[field])
+        ascending.append(so.direction == SortDirection.ASC)
+    return pd.DataFrame(df.sort_values(sort_cols, ascending=ascending)).reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +272,8 @@ _CMP_OPS = {
     ComparisonOperator.GREATER_THAN:         "_gt",
     ComparisonOperator.LESS_THAN_OR_EQUAL_TO:    "_lte",
     ComparisonOperator.GREATER_THAN_OR_EQUAL_TO: "_gte",
+    ComparisonOperator.LIKE:                 "_like",
+    ComparisonOperator.NOT_LIKE:             "_nlike",
 }
 
 
@@ -317,55 +290,70 @@ def _gql_value(val) -> str:
     return str(val)
 
 
+def _nest(field: str, inner: str) -> str:
+    """Wrap inner in the object path for a nested field: "a.b" gives "{ a: { b: inner } }"."""
+    out = inner
+    for part in reversed(field.split(".")):
+        out = f"{{ {part}: {out} }}"
+    return out
+
+
+def _field_name(element, what: str) -> str:
+    if not isinstance(element, ColumnWithJoin):
+        raise GraphQLPushdownError(
+            f"Cannot push {what} to the server: {type(element).__name__} is not a plain field")
+    return element.column.name
+
+
 def _op_to_where_clause(op) -> str | None:
-    """Translate a filter op tree to a GraphQL where-object string, or None."""
+    """Translate a filter op tree to a GraphQL where-object string. Raises if any part cannot be expressed."""
     if op is None or isinstance(op, NoOperation):
         return None
     if isinstance(op, ComparisonOperation):
-        if isinstance(op.left, ColumnWithJoin):
-            gql_op = _CMP_OPS.get(op.operator)
-            if gql_op:
-                field = op.left.column.name
-                val = _gql_value(_constant_value(op.right))
-                return f"{{ {field}: {{ {gql_op}: {val} }} }}"
-        return None
+        gql_op = _CMP_OPS.get(op.operator)
+        if gql_op is None:
+            raise GraphQLPushdownError(f"Cannot push comparison {op.operator.name} to the server")
+        field = _field_name(op.left, "a filter")
+        if isinstance(op.right, RelationalOperationElement) and not isinstance(op.right, ConstantOperation):
+            raise GraphQLPushdownError("Cannot push a filter comparing two fields to the server")
+        return _nest(field, f"{{ {gql_op}: {_gql_value(_constant_value(op.right))} }}")
     if isinstance(op, LogicalOperation):
         left = _op_to_where_clause(op.left)
         right = _op_to_where_clause(op.right)
-        if left and right:
-            logical = "_and" if op.operator == LogicalOperator.AND else "_or"
-            return f"{{ {logical}: [{left}, {right}] }}"
-        return left or right
+        logical = "_and" if op.operator == LogicalOperator.AND else "_or"
+        return f"{{ {logical}: [{left}, {right}] }}"
     if isinstance(op, IsNullOperation):
-        if isinstance(op.element, ColumnWithJoin):
-            return f"{{ {op.element.column.name}: {{ _is_null: true }} }}"
+        return _nest(_field_name(op.element, "a null check"), "{ _is_null: true }")
     if isinstance(op, IsNotNullOperation):
-        if isinstance(op.element, ColumnWithJoin):
-            return f"{{ {op.element.column.name}: {{ _is_null: false }} }}"
-    return None
+        return _nest(_field_name(op.element, "a null check"), "{ _is_null: false }")
+    raise GraphQLPushdownError(f"Cannot push {type(op).__name__} to the server")
 
 
 def _to_order_by_clause(order_by: list | None) -> str | None:
-    """Translate order_by list to a GraphQL order-by array string, or None."""
+    """Translate order_by list to a GraphQL order-by array string. Raises if any part cannot be expressed."""
     if not order_by:
         return None
     parts = []
     for so in order_by:
-        if isinstance(so, SortOperation) and isinstance(so.column, ColumnWithJoin):
-            direction = "asc" if so.direction == SortDirection.ASC else "desc"
-            parts.append(f"{{ {so.column.column.name}: {direction} }}")
-    return f"[{', '.join(parts)}]" if parts else None
+        if not isinstance(so, SortOperation):
+            raise GraphQLPushdownError(f"Cannot push sort by {type(so).__name__} to the server")
+        direction = "asc" if so.direction == SortDirection.ASC else "desc"
+        parts.append(_nest(_field_name(so.column, "a sort"), direction))
+    return f"[{', '.join(parts)}]"
 
 
 def _build_server_args(op, order_by: list | None, limit: int | None, filter_conv) -> list[str]:
-    """Return additional GraphQL query args to push to the server using the endpoint's filter convention."""
-    if filter_conv is None:
-        return []
-    extra: list[str] = []
+    """Return the GraphQL query args for the filter, sort and limit, using the endpoint's filter convention."""
     where = _op_to_where_clause(op)
+    order_by_str = _to_order_by_clause(order_by)
+    if where is None and order_by_str is None and limit is None:
+        return []
+    if filter_conv is None:
+        raise GraphQLPushdownError(
+            "The endpoint declares no filter convention, so filters, sorts and limits cannot be pushed to the server")
+    extra: list[str] = []
     if where:
         extra.append(f"{filter_conv.filter_arg}: {where}")
-    order_by_str = _to_order_by_clause(order_by)
     if order_by_str:
         extra.append(f"{filter_conv.sort_arg}: {order_by_str}")
     if limit is not None:
@@ -388,7 +376,7 @@ def _flatten_row(row: dict, prefix: str = "") -> dict:
     return result
 
 
-def _build_fields_str(columns: list, extra_fields: set[str]) -> str:
+def _build_fields_str(columns: list) -> str:
     all_names: list[str] = []
     seen: set[str] = set()
     for col in columns:
@@ -396,23 +384,18 @@ def _build_fields_str(columns: list, extra_fields: set[str]) -> str:
         if fn and fn not in seen:
             all_names.append(fn)
             seen.add(fn)
-    for fn in extra_fields:
-        if fn not in seen:
-            all_names.append(fn)
-            seen.add(fn)
 
-    nested: dict[str, list[str]] = {}
-    flat: list[str] = []
+    # "account.branch.city" selects city inside branch inside account
+    tree: dict = {}
     for name in all_names:
-        if "." in name:
-            parent, child = name.split(".", 1)
-            nested.setdefault(parent, []).append(child)
-        else:
-            flat.append(name)
-    parts = list(flat)
-    for parent, children in nested.items():
-        parts.append(f"{parent} {{ {' '.join(children)} }}")
-    return " ".join(parts)
+        node = tree
+        for part in name.split("."):
+            node = node.setdefault(part, {})
+
+    def render(node: dict) -> str:
+        return " ".join(f"{k} {{ {render(v)} }}" if v else k for k, v in node.items())
+
+    return render(tree)
 
 
 def _build_temporal_args(business_date: datetime.date | None,
@@ -457,6 +440,8 @@ def _fetch_rows(table: GraphQLQuery, fields_str: str,
             result = json.loads(response.read())
     except TimeoutError:
         raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
+    if result.get("errors"):
+        raise RuntimeError(f"GraphQL server returned errors: {result['errors']}")
     return result["data"][table.name]
 
 
@@ -472,20 +457,19 @@ class GraphQLConnect(QueryRunnerBase):
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
 
-        extra_fields = _op_field_names(op)
-        fields_str = _build_fields_str(columns, extra_fields)
+        fields_str = _build_fields_str(columns)
         has_agg = any(isinstance(col, AggregateOperation) for col in columns)
         display_names = [_col_display_name(col) for col in columns]
 
         filter_conv = getattr(table.endpoint, 'filter_convention', None)
         is_date_range = business_date_to is not None and business_date is not None
-        # order_by and limit span all batches for date-range queries; keep client-side
+        if is_date_range and (order_by or limit is not None):
+            raise GraphQLPushdownError(
+                "A sort or limit cannot be pushed to the server for a date range: each date is a separate query")
+
+        # Everything is pushed to the server; the sort and limit of an aggregation apply to its result, not its input
         server_args = _build_server_args(
-            op,
-            order_by if not is_date_range else None,
-            limit if not is_date_range else None,
-            filter_conv,
-        )
+            op, None if has_agg else order_by, None if has_agg else limit, filter_conv)
 
         # Fetch rows — iterate dates for date-range queries
         if business_date_to is not None and business_date is not None:
@@ -503,35 +487,11 @@ class GraphQLConnect(QueryRunnerBase):
 
         df = pd.DataFrame([_flatten_row(row) for row in rows])
 
-        # Apply filter
-        if op is not None and not isinstance(op, NoOperation):
-            mask = _eval_filter(df, op)
-            df = pd.DataFrame(df[mask]).reset_index(drop=True)
-
-        if df.empty:
-            return GraphQLOutput(pd.DataFrame({name: [] for name in display_names}))
-
-        # Aggregation path
+        # Aggregation is the only thing computed on the client
         if has_agg:
-            return GraphQLOutput(_apply_aggregation(df, columns, group_by))
+            aggregated = _apply_aggregation(df, columns, group_by)
+            if order_by:
+                aggregated = _sort_aggregated(aggregated, order_by, group_by)
+            return GraphQLOutput(aggregated.head(limit) if limit is not None else aggregated)
 
-        # Sort before projecting (field names still raw)
-        if order_by:
-            sort_cols: list[str] = []
-            ascending: list[bool] = []
-            for so in order_by:
-                if isinstance(so, SortOperation) and isinstance(so.column, ColumnWithJoin):
-                    fn = so.column.column.name
-                    if fn in df.columns:
-                        sort_cols.append(fn)
-                        ascending.append(so.direction == SortDirection.ASC)
-            if sort_cols:
-                df = pd.DataFrame(df.sort_values(sort_cols, ascending=ascending)).reset_index(drop=True)
-
-        # Project and apply derived column expressions
-        result_df = _project_columns(df, columns)
-
-        if limit is not None:
-            result_df = result_df.head(limit)
-
-        return GraphQLOutput(result_df)
+        return GraphQLOutput(_project_columns(df, columns))

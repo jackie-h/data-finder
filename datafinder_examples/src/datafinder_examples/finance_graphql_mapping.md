@@ -12,6 +12,19 @@
 | id    | id       |
 | name  | name     |
 
+#### Association: AccountBranch
+
+| GraphQL Field |
+|---------------|
+| branch        |
+
+### Query: branches → Branch
+
+| Field | Property ID |
+|-------|----------|
+| id    | id       |
+| city  | city     |
+
 ### Query: instruments → Instrument (milestone: processing, asOf)
 
 | Field  | Property ID |
