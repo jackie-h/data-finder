@@ -1,5 +1,6 @@
 import datetime
 import threading
+from typing import Sequence
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
 from datafinder.sql_generator import view_sql_to_string
@@ -20,7 +21,7 @@ from model.view import View
 class IbisConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: Sequence[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         # We always connect via the duckdb:// scheme; ibis.connect()'s declared return type is
