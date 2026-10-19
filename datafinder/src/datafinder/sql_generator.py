@@ -303,7 +303,7 @@ def _apply_join_filters(query: QueryExpression,
 
 
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
-                         columns: list[Attribute], table: Table, op: Operation,
+                         columns: Sequence[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
                          limit: int | None = None, business_date_to: datetime.date | None = None) -> SelectOperation:
     if isinstance(table, MilestonedTable):
