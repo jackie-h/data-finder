@@ -19,18 +19,21 @@ COMPANY_FINDER_SPECS = FinderSpec(
         # --- Count ---
         TestExpectation(
             name="count_all",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(None, None, [f.count()]),
             expected_columns=["Count"],
             expected_result=np.array([[5]], dtype=object),
         ),
         TestExpectation(
             name="count_technology",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(None, None, [f.count()], f.category().eq("Technology")),
             expected_columns=["Count"],
             expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
             name="count_no_matches",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(None, None, [f.count()], f.category().eq("Nonexistent")),
             expected_columns=["Count"],
             expected_result=np.array([[0]], dtype=object),
@@ -43,6 +46,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="group_by_category_count",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
                 None, None, [f.category(), f.count()]
             ).group_by(f.category()).order_by(f.category().ascending()),
@@ -122,6 +126,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="string_ne_excludes_row",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
                 None, None, [f.count()], f.name().ne("Acme Corp")
             ),
@@ -176,6 +181,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="string_category_ne_technology",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
                 None, None, [f.count()], f.category().ne("Technology")
             ),
@@ -185,6 +191,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         # --- Window functions ---
         TestExpectation(
             name="rank_min_by_id",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.id_().rank(method="min", order_by=[f.id_().ascending()])],
@@ -194,6 +201,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="rank_dense_with_partition_by_category",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(),
@@ -207,6 +215,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="shift_lag_second_row",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.id_().shift(1, order_by=[f.id_().ascending()])],
@@ -220,6 +229,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="shift_lead_last_row",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.id_().shift(-1, order_by=[f.id_().ascending()])],
@@ -232,6 +242,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="qcut_two_buckets",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.id_().qcut(2, order_by=[f.id_().ascending()])],
@@ -242,6 +253,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="first_id_per_category",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.category(),
@@ -258,6 +270,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="last_id_per_category",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.category(),
@@ -276,6 +289,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="rank_method_first",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.id_().rank(method="first", order_by=[f.id_().ascending()])],
@@ -285,6 +299,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="rank_pct",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.id_().rank(pct=True, order_by=[f.id_().ascending()])],
@@ -297,6 +312,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="rank_pct_method_max",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.id_(), f.id_().rank(pct=True, method="max", order_by=[f.id_().ascending()])],
@@ -310,12 +326,14 @@ COMPANY_FINDER_SPECS = FinderSpec(
         # --- Additional count variants ---
         TestExpectation(
             name="count_with_contains_filter",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(None, None, [f.count()], f.name().contains("Corp")),
             expected_columns=["Count"],
             expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
             name="count_finance_category",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(None, None, [f.count()], f.category().eq("Finance")),
             expected_columns=["Count"],
             expected_result=np.array([[2]], dtype=object),

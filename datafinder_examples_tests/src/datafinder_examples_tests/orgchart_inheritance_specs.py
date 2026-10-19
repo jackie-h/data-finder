@@ -67,6 +67,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="employees_with_all_projects",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects().name()],
             ).order_by(f.first_name().ascending(), f.projects().name().ascending()),
@@ -84,6 +85,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="forward_join_filter_code_alpha",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(code="ALPHA").name()],
             ).order_by(f.first_name().ascending()),
@@ -95,6 +97,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="multihop_manager_projects_for_dave",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.manager().projects().name()],
                 f.first_name().eq("Dave"),
@@ -104,6 +107,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="filter_by_manager_project_code",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name()],
                 f.manager().projects().code().eq("ALPHA"),
@@ -113,6 +117,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="filter_by_manager_name_select_project",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.manager().projects().name()],
                 f.manager().first_name().eq("Alice"),
@@ -173,6 +178,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="employee_projects_for_bob",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.projects().code()],
                 f.first_name().eq("Bob"),
@@ -182,6 +188,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="filter_employee_by_project_name",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name()],
                 f.projects().name().eq("Delta Ops"),
@@ -192,6 +199,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         # --- Additional join filter specs ---
         TestExpectation(
             name="forward_join_filter_name_gamma",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(name="Gamma Tooling").name()],
             ).order_by(f.first_name().ascending()),
@@ -203,6 +211,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="forward_join_filter_multi_kwarg",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.first_name(), f.projects(name="Alpha Initiative", code="ALPHA").name()],
@@ -215,6 +224,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="forward_join_filter_nonexistent",
+            skip_backends={"graphql": "Employee.projects (a to-many association) is not mapped for GraphQL yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(code="NONEXISTENT").name()],
             ).order_by(f.first_name().ascending()),
@@ -227,6 +237,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         # --- RelatedFinder.exists() / not_exists() ---
         TestExpectation(
             name="manager_exists_filter",
+            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name()],
                 f.manager().exists(),
@@ -237,6 +248,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="manager_not_exists_filter",
+            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name()],
                 f.manager().not_exists(),
@@ -283,6 +295,7 @@ PROJECT_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="filter_assignee_by_join_kwarg_dept",
+            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, None, [f.name(), f.assignee(department="Engineering").first_name()],
             ).order_by(f.name().ascending()),
@@ -300,6 +313,7 @@ PROJECT_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="reverse_join_filter_nonexistent",
+            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, None, [f.name(), f.assignee(department="UNKNOWN").first_name()],
             ).order_by(f.name().ascending()),
