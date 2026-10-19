@@ -84,7 +84,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="forward_join_filter_code_alpha",
-            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(code="ALPHA").name()],
             ).order_by(f.first_name().ascending()),
@@ -193,7 +192,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         # --- Additional join filter specs ---
         TestExpectation(
             name="forward_join_filter_name_gamma",
-            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(name="Gamma Tooling").name()],
             ).order_by(f.first_name().ascending()),
@@ -205,7 +203,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="forward_join_filter_multi_kwarg",
-            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, None,
                 [f.first_name(), f.projects(name="Alpha Initiative", code="ALPHA").name()],
@@ -218,7 +215,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="forward_join_filter_nonexistent",
-            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(code="NONEXISTENT").name()],
             ).order_by(f.first_name().ascending()),
@@ -289,7 +285,7 @@ PROJECT_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="filter_assignee_by_join_kwarg_dept",
-            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
+            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, None, [f.name(), f.assignee(department="Engineering").first_name()],
             ).order_by(f.name().ascending()),
@@ -307,7 +303,7 @@ PROJECT_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="reverse_join_filter_nonexistent",
-            skip_backends={"graphql": "The GraphQL finder's association methods do not take filter kwargs yet"},
+            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, None, [f.name(), f.assignee(department="UNKNOWN").first_name()],
             ).order_by(f.name().ascending()),

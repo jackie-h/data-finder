@@ -1,3 +1,7 @@
+import json
+import re
+from dataclasses import dataclass, field
+
 from model.m3 import Property, Class
 from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
 
@@ -72,3 +76,63 @@ class GraphQLClassMapping(ClassMapping):
                  query: GraphQLQuery, milestone_mapping: MilestonePropertyMapping | None = None):
         super().__init__(clazz, property_mappings, milestone_mapping)
         self.query = query
+
+
+# ---------------------------------------------------------------------------
+# Field paths
+#
+# A column's name is the path of GraphQL fields from the root query to the field, for example
+# `manager.projects[]{"code": "ALPHA"}.name`. A segment ending in `[]` is a to-many relation, and a
+# trailing JSON object holds the equality filters the relation was navigated with.
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class PathSegment:
+    name: str
+    many: bool = False
+    filters: dict = field(default_factory=dict, hash=False, compare=True)
+
+
+_SEGMENT_NAME = re.compile(r'[^.\[{]+')
+
+
+def format_path_segment(name: str, many: bool = False, filters: dict | None = None) -> str:
+    return name + ("[]" if many else "") + (json.dumps(filters) if filters else "")
+
+
+def parse_field_path(path: str) -> list[PathSegment]:
+    segments: list[PathSegment] = []
+    i = 0
+    while i < len(path):
+        m = _SEGMENT_NAME.match(path, i)
+        if m is None:
+            raise ValueError(f"Invalid field path {path!r} at {i}")
+        name, i = m.group(), m.end()
+        many = path.startswith("[]", i)
+        if many:
+            i += 2
+        filters: dict = {}
+        if i < len(path) and path[i] == "{":
+            filters, i = json.JSONDecoder().raw_decode(path, i)
+        segments.append(PathSegment(name, many, filters))
+        if i < len(path):
+            if path[i] != ".":
+                raise ValueError(f"Invalid field path {path!r} at {i}")
+            i += 1
+    return segments
+
+
+def plain_field_path(path: str) -> str:
+    """The path of field names alone: the key a field has in a flattened row."""
+    return ".".join(seg.name for seg in parse_field_path(path))
+
+
+def association_segment(name: str, many: bool, kwargs: dict, fields: dict[str, str]) -> str:
+    """The path segment for navigating an association with equality filters on the target's properties.
+
+    kwargs are keyed by the target's Python property names; fields maps those names to GraphQL field names.
+    """
+    unknown = sorted(set(kwargs) - set(fields))
+    if unknown:
+        raise TypeError(f"Unknown filter {', '.join(unknown)} for {name}: expected one of {', '.join(sorted(fields))}")
+    return format_path_segment(name, many, {fields[key]: value for key, value in kwargs.items()})

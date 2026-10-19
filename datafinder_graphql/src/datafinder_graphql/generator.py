@@ -33,6 +33,14 @@ def is_association_mapping(pm) -> bool:
     return isinstance(pm, GraphQLAssociationMapping)
 
 
+def association_name(pm) -> str:
+    return pm.target.name
+
+
+def association_many(pm) -> bool:
+    return pm.property.multiplicity is not None and pm.property.multiplicity.is_many()
+
+
 def association_path(pm) -> str:
     """The field path segment for an association; a to-many association is marked with "[]"."""
     many = pm.property.multiplicity is not None and pm.property.multiplicity.is_many()
@@ -107,6 +115,8 @@ def generate(mapping: Mapping, output_directory: str) -> None:
         is_primitive_mapping=is_primitive_mapping,
         is_association_mapping=is_association_mapping,
         type_str=type_str,
+        association_name=association_name,
+        association_many=association_many,
         association_path=association_path,
         association_display=association_display,
         to_python_name=to_python_name,

@@ -4,10 +4,10 @@ import pytest
 
 from datafinder.typed_attributes import DoubleAttribute, StringAttribute
 from datafinder_graphql.graphql_engine import (
-    GraphQLPushdownError, GraphQLUnsupportedError, _build_server_args, _check_expansion, _flatten_rows,
-    _project_columns, _sort_expanded,
+    GraphQLPushdownError, GraphQLUnsupportedError, _build_fields_str, _build_server_args, _check_expansion,
+    _flatten_rows, _project_columns, _sort_expanded,
 )
-from model.graphql_mapping import GraphQLFilterConvention
+from model.graphql_mapping import GraphQLFilterConvention, format_path_segment
 from model.relational import (
     ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator, WindowFunction, WindowFunctionOperation,
 )
@@ -116,3 +116,42 @@ def test_a_limit_on_rows_expanded_by_a_to_many_relation_fails():
 def test_expanded_rows_are_sorted_after_expansion():
     df = pd.DataFrame({"projects.name": ["Beta", "Alpha"], "name": ["Bob", "Bob"]})
     assert list(_sort_expanded(df, [_projects_name().ascending()])["projects.name"]) == ["Alpha", "Beta"]
+
+
+def _filtered_projects_name(**filters) -> StringAttribute:
+    path = format_path_segment("projects", True, filters) + ".name"
+    return StringAttribute("Project Name", path, "STRING", "employees")
+
+
+def test_a_filtered_to_many_relation_takes_a_where_argument():
+    fields = _build_fields_str([_filtered_projects_name(code="ALPHA")], CONVENTION)
+    assert fields == 'projects(where: { code: { _eq: "ALPHA" } }) { name }'
+
+
+def test_several_filters_on_a_relation_are_anded():
+    fields = _build_fields_str([_filtered_projects_name(code="ALPHA", name="Alpha Initiative")], CONVENTION)
+    assert fields == ('projects(where: { _and: [{ code: { _eq: "ALPHA" } }, '
+                      '{ name: { _eq: "Alpha Initiative" } }] }) { name }')
+
+
+def test_a_filtered_relation_nested_in_another_keeps_its_arguments():
+    path = "manager." + format_path_segment("projects", True, {"code": "ALPHA"}) + ".name"
+    column = StringAttribute("Manager Project Name", path, "STRING", "employees")
+    assert _build_fields_str([column], CONVENTION) == 'manager { projects(where: { code: { _eq: "ALPHA" } }) { name } }'
+
+
+def test_a_to_one_relation_cannot_be_filtered():
+    path = format_path_segment("account", False, {"name": "Acme"}) + ".name"
+    with pytest.raises(GraphQLPushdownError, match="to-one"):
+        _build_fields_str([StringAttribute("Account Name", path, "STRING", "trades")], CONVENTION)
+
+
+def test_filtering_a_relation_needs_a_filter_convention():
+    with pytest.raises(GraphQLPushdownError, match="no filter convention"):
+        _build_fields_str([_filtered_projects_name(code="ALPHA")], None)
+
+
+def test_one_relation_selected_with_different_filters_fails():
+    columns = [_filtered_projects_name(code="ALPHA"), _filtered_projects_name(code="BETA")]
+    with pytest.raises(GraphQLUnsupportedError, match="different filters"):
+        _build_fields_str(columns, CONVENTION)
