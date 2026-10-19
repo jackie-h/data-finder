@@ -32,7 +32,7 @@ class _{{target_cm.clazz.name}}RelatedFinder:
 {% elif is_association_mapping(tpm) and class_mappings_by_name.get(tpm.property.type.name) %}
     def {{to_python_name(tpm.property)}}(self) -> _{{tpm.property.type.name}}RelatedFinder:
         """{{display_name(tpm.property)}}"""
-        return _{{tpm.property.type.name}}RelatedFinder(self._parent_field + '.{{tpm.target.name}}', self._display_prefix + ' {{tpm.target.name.title()}}')
+        return _{{tpm.property.type.name}}RelatedFinder(self._parent_field + '.{{association_path(tpm)}}', self._display_prefix + ' {{association_display(tpm)}}')
 
 {% endif %}
 {% endfor %}
@@ -54,7 +54,7 @@ class {{cm.clazz.name}}Finder:
 {% elif is_association_mapping(pm) %}
 {% set target_cm = class_mappings_by_name.get(pm.property.type.name) %}
 {% if target_cm %}
-        self.__{{to_python_name(pm.property)}} = _{{pm.property.type.name}}RelatedFinder('{{pm.target.name}}')
+        self.__{{to_python_name(pm.property)}} = _{{pm.property.type.name}}RelatedFinder('{{association_path(pm)}}', '{{association_display(pm)}}')
 {% endif %}
 {% endif %}
 {% endfor %}

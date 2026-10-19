@@ -92,9 +92,12 @@ def _orgchart_inheritance() -> dict[str, GraphQLTable]:
     employees = csv_table("employees_inheritance.csv", {
         "id": ("emp_id", int), "firstName": "first_name", "lastName": "last_name",
         "email": "email", "department": "department"}, internal={"_manager_id": ("manager_id", int)})
-    employees.nested = {"manager": NestedVersions("_manager_id", employees.rows)}
     projects = csv_table("projects.csv", {"id": ("project_id", int), "name": "name", "code": "code"},
                          internal={"_assignee_id": ("assignee_id", int)})
+    # a to-many relation is a list on each parent
+    for employee in employees.rows:
+        employee["projects"] = [p for p in projects.rows if p["_assignee_id"] == employee["id"]]
+    employees.nested = {"manager": NestedVersions("_manager_id", employees.rows)}
     projects.nested = {"assignee": NestedVersions("_assignee_id", employees.rows)}
     return {"employees": employees, "projects": projects}
 
