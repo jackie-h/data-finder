@@ -767,7 +767,7 @@ class SQLQueryGenerator:
 
 
 def to_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
-           columns: list, table, op,
+           columns: Sequence, table, op,
            order_by: list | None = None, group_by: list | None = None,
            limit: int | None = None, validate_sqlglot: bool = True,
            business_date_to: datetime.date | None = None) -> str:

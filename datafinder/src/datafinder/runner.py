@@ -1,5 +1,5 @@
 import datetime
-from typing import Union, Optional
+from typing import Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
@@ -64,7 +64,7 @@ class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
                  processing_datetime: datetime.datetime | None,
-                 columns: list, table: Table, op: Operation,
+                 columns: Sequence, table: Table, op: Operation,
                  business_date_to: datetime.date | None = None):
         self._business_date = business_date
         self._business_date_to = business_date_to
@@ -192,7 +192,7 @@ class ViewResult(DataFrame):
 
 def convert_inputs_and_select(business_date: Union[datetime.date, str] | None,
                               processing_datetime: Union[datetime.datetime, str] | None,
-                              columns: list[Attribute], table: Table, op: Operation) -> FinderResult:
+                              columns: Sequence[Attribute], table: Table, op: Operation) -> FinderResult:
     bd = None if business_date is None else convert_date(business_date)
     pdt = None if processing_datetime is None else convert_date_time(processing_datetime)
     return FinderResult(bd, pdt, columns, table, op)
@@ -202,7 +202,7 @@ def convert_inputs_and_select_for_date_range(
         business_date_from: Union[datetime.date, str],
         business_date_to: Union[datetime.date, str],
         processing_datetime: Union[datetime.datetime, str],
-        columns: list[Attribute], table: Table, op: Operation) -> FinderResult:
+        columns: Sequence[Attribute], table: Table, op: Operation) -> FinderResult:
     if business_date_from is None:
         raise ValueError("business_date_from is required for find_for_date_range")
     if business_date_to is None:
@@ -219,7 +219,7 @@ class QueryRunnerBase(metaclass=RegistryBase):
 
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime,
-               columns: list[Attribute], table: Table, op: Operation,
+               columns: Sequence[Attribute], table: Table, op: Operation,
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
                business_date_to: datetime.date | None = None) -> DataFrame:

@@ -1,5 +1,6 @@
 import datetime
 import threading
+from typing import Sequence
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
@@ -15,7 +16,7 @@ from model.relational import Table
 class DuckDbConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: list[Attribute],
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: Sequence[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         conn = duckdb.connect('test.db')
