@@ -278,17 +278,28 @@ def _joined_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
     return list(ordered.values())
 
 
-def _apply_join_filters(nodes: list[JoinTreeNodeOperation],
+def _apply_join_filters(query: QueryExpression,
                         milestoning_condition: Callable[[JoinTreeNodeOperation], Operation | None]) -> None:
-    """Set each node's ON-clause filter: its raw kwargs filter ANDed with ``milestoning_condition(node)``."""
-    for node in nodes:
-        combined = None
+    """Set ``query.join_filters`` to each joined node's ON-clause condition: the join's own fixed filter and its raw
+    kwargs filter ANDed with ``milestoning_condition(node)``.
+
+    Join objects are shared between queries, so the conditions are kept on the query and the join is not modified.
+    """
+    query.join_filters = {}
+    for node in _joined_nodes(query):
+        parts = []
+        if node.join.filter is not None:
+            parts.append(node.join.filter)
         if node.join.filter_kwargs:
-            combined = _build_join_kwargs_filter(node, node.join.filter_kwargs, node.join.filter_column_map)
+            parts.append(_build_join_kwargs_filter(node, node.join.filter_kwargs, node.join.filter_column_map))
         milestoned = milestoning_condition(node)
         if milestoned is not None:
-            combined = milestoned if combined is None else LogicalOperation(combined, LogicalOperator.AND, milestoned)
-        node.join.filter = combined
+            parts.append(milestoned)
+        if parts:
+            combined = parts[0]
+            for part in parts[1:]:
+                combined = LogicalOperation(combined, LogicalOperator.AND, part)
+            query.join_filters[id(node)] = combined
 
 
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
@@ -312,7 +323,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
             return build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, node.join.target, node)
         return build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
 
-    _apply_join_filters(_joined_nodes(select), milestoning_condition)
+    _apply_join_filters(select, milestoning_condition)
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
@@ -497,6 +508,7 @@ class SQLQueryGenerator:
         self.__added_join_ids = set()
         self.__elidable_ids: set = set()
         self._root_table = None
+        self._join_filters: dict = {}
 
     def __compute_elidable_ids(self, select: QueryExpression) -> set:
         """Determine upfront which join nodes can be satisfied entirely by embedded (join-less)
@@ -521,6 +533,7 @@ class SQLQueryGenerator:
 
     def generate(self, select: QueryExpression):
         self._root_table = select.table
+        self._join_filters = select.join_filters
         self.__elidable_ids = self.__compute_elidable_ids(select)
         self.select(select.display)
         self._where = self.build_filter(select.filter)
@@ -666,7 +679,7 @@ class SQLQueryGenerator:
         sc = TableAliasColumn(left, src_ta)
         right = join.right
         tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
-        self._join.append(Join(sc, tc, join.filter))
+        self._join.append(Join(sc, tc, self._join_filters.get(id(node))))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
@@ -858,13 +871,12 @@ def check_view_joins(view: View) -> None:
 def view_sql_to_string(view: View, dialect: str | None = None) -> str:
     """``CREATE OR REPLACE VIEW`` DDL for the view, in generic SQL or transpiled to ``dialect`` (e.g. 'databricks').
 
-    Join filters are stored on join objects that are shared between queries, so they are set here, immediately
-    before rendering, and not when the view is built.
+    The view's join filters are set here, immediately before rendering, and not when the view is built.
     """
     check_view_joins(view)
     table = view.table
     assert table is not None
-    _apply_join_filters(_joined_nodes(view), lambda node: build_as_of_join_condition(table, node))
+    _apply_join_filters(view, lambda node: build_as_of_join_condition(table, node))
     sql = f"CREATE OR REPLACE VIEW {view.qualified_name} AS " + select_sql_to_string(view, validate_sqlglot=False)
     if dialect is None:
         sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)

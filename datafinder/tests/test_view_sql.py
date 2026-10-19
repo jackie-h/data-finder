@@ -1,4 +1,5 @@
 """Join checks and rendering for views: anchoring to the root row, and the DDL."""
+import datetime
 import pytest
 
 from datafinder.sql_generator import build_as_of_join_condition, check_view_joins, view_sql_to_string
@@ -35,9 +36,9 @@ def test_rendering_pins_the_joined_table_to_the_root_row():
     root, child = _processing("root"), _processing("child")
     node = _node(child)
     view = View("v", "s", root, [_alias("x"), _alias("y", "child", node)])
-    assert node.join.filter is None
     sql = view_sql_to_string(view)
-    assert node.join.filter is not None
+    assert node.join.filter is None
+    assert id(node) in view.join_filters
     assert "t1.in_z <= t0.in_z" in sql
 
 
@@ -91,3 +92,22 @@ def test_rendering_refuses_a_view_whose_joins_fail_the_check():
     view = View("v", "s", _processing("root"), [_alias("y", "child", _node(_business("child")))])
     with pytest.raises(ViewDefinitionError, match="no business date"):
         view_sql_to_string(view)
+
+
+def test_building_one_query_does_not_change_another_on_a_shared_join():
+    from datafinder import Attribute, StringAttribute
+    from datafinder.sql_generator import build_query_operation, select_sql_to_string
+    from model.relational import NoOperation
+    root, child = _processing("root"), _processing("child")
+    node = _node(child)
+    columns: list[Attribute] = [StringAttribute("Y", "y", "VARCHAR", "child", node)]
+
+    def build(year):
+        return build_query_operation(None, datetime.datetime(year, 6, 1, 12), columns, root, NoOperation())
+
+    first = build(2021)
+    second = build(2023)
+    sql = select_sql_to_string(first, validate_sqlglot=False)
+    assert "2021" in sql and "2023" not in sql
+    assert node.join.filter is None
+    assert "2023" in select_sql_to_string(second, validate_sqlglot=False)

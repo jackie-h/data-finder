@@ -4,6 +4,7 @@ TRADE_IS_NONE_FINDER_SPECS, TRADE_VIEW_FINDER_SPECS, and CONTRACTUAL_POSITION_FI
 backend.
 """
 import datetime
+import random
 import shutil
 import sys
 import tempfile
@@ -196,3 +197,40 @@ def test_trade_view_rows_do_not_change_when_reference_data_changes(finance_finde
 )
 def test_position(expectation, finance_finders):
     expectation.run(finance_finders[2], backend="duckdb")
+
+
+# Related finders, and the join nodes under them, are shared between queries. A query that is missing a join
+# condition can pass only because an earlier query left its condition on a shared node, so each spec must also
+# pass when it runs in a different order.
+_TRADE_EXPECTATIONS = [
+    *TRADE_FINDER_SPECS.expectations,
+    *TRADE_MULTI_HOP_FINDER_SPECS.expectations,
+    *TRADE_EXISTS_FINDER_SPECS.expectations,
+    *TRADE_IS_NONE_FINDER_SPECS.expectations,
+]
+
+
+def _shuffled(seed):
+    order = list(_TRADE_EXPECTATIONS)
+    random.Random(seed).shuffle(order)
+    return order
+
+
+@pytest.mark.parametrize(
+    "order",
+    [list(reversed(_TRADE_EXPECTATIONS)), _shuffled(1), _shuffled(2), _shuffled(3)],
+    ids=["reversed", "shuffled-1", "shuffled-2", "shuffled-3"],
+)
+def test_trade_specs_do_not_depend_on_order(order, finance_finders):
+    for expectation in order:
+        expectation.run(finance_finders[1], backend="duckdb")
+
+
+def test_trade_specs_pass_when_each_query_is_rendered_after_the_next_is_built(finance_finders):
+    """Build every query before running any of them, so none can rely on a condition left by the one before."""
+    tf = finance_finders[1]
+    queries = [(expectation, expectation.query(tf)) for expectation in _TRADE_EXPECTATIONS]
+    for expectation, result in reversed(queries):
+        result.to_sql()
+        df = result.to_pandas()
+        assert list(df.columns) == expectation.expected_columns, expectation.name

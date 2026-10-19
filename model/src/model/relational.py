@@ -477,6 +477,9 @@ class QueryExpression:
         self.table = table
         self.order_by = []
         self.limit = None
+        # ON-clause conditions this query adds to its joins (milestoning, kwargs filters), keyed by id(node).
+        # Join objects are shared between queries, so per-query conditions live here and not on the join.
+        self.join_filters: dict[int, Operation] = {}
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
