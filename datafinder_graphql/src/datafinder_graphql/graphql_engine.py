@@ -1,5 +1,6 @@
 import datetime
 import json
+from dataclasses import dataclass, field
 import urllib.request
 
 import numpy as np
@@ -7,6 +8,8 @@ import pandas as pd
 
 from datafinder import Attribute, Operation, DataFrame, QueryRunnerBase
 from model.graphql_mapping import (
+    parse_field_path,
+    plain_field_path,
     GraphQLQuery,
     GraphQLProcessingMilestone,
     GraphQLBusinessDateMilestone,
@@ -68,8 +71,8 @@ class GraphQLPushdownError(GraphQLUnsupportedError):
 
 
 def _plain(name: str) -> str:
-    """A field path without its to-many markers: "manager.projects[].name" is "manager.projects.name"."""
-    return name.replace("[]", "")
+    """A field path without its to-many markers and filters: "manager.projects[].name" is "manager.projects.name"."""
+    return plain_field_path(name)
 
 
 def _col_raw_name(col) -> str | None:
@@ -411,7 +414,7 @@ def _build_server_args(op, order_by: list | None, limit: int | None, filter_conv
 
 
 def _is_many(element) -> bool:
-    return isinstance(element, ColumnWithJoin) and "[]" in element.column.name
+    return isinstance(element, ColumnWithJoin) and any(seg.many for seg in parse_field_path(element.column.name))
 
 
 def _op_raw_names(op) -> set[str]:
@@ -425,20 +428,30 @@ def _op_raw_names(op) -> set[str]:
     return set()
 
 
+def _relation(raw: str) -> str | None:
+    """The plain path to the first to-many relation on a field path, or None."""
+    names: list[str] = []
+    for seg in parse_field_path(raw):
+        names.append(seg.name)
+        if seg.many:
+            return ".".join(names)
+    return None
+
+
 def _check_expansion(op, columns: list, limit: int | None) -> bool:
     """Whether the rows are expanded by a to-many relation, raising if the server cannot answer the query as is."""
     selected = [raw for raw in (_col_raw_name(col) for col in columns) if raw]
-    expands = any("[]" in raw for raw in selected)
+    expands = any(_relation(raw) for raw in selected)
     if expands and limit is not None:
         raise GraphQLUnsupportedError("A limit cannot be pushed to the server for rows expanded by a to-many relation")
     # a server filters the parents on a to-many condition but returns all of their children
     for raw in _op_raw_names(op):
-        if "[]" not in raw:
+        relation = _relation(raw)
+        if relation is None:
             continue
-        relation = raw[:raw.index("[]") + 2]
-        if any(sel.startswith(relation) for sel in selected):
+        if any(_plain(sel).startswith(relation + ".") for sel in selected):
             raise GraphQLUnsupportedError(
-                f"Cannot filter and select the same to-many relation ({_plain(relation)}): "
+                f"Cannot filter and select the same to-many relation ({relation}): "
                 "the server returns all of a matching parent's children")
     return expands
 
@@ -476,26 +489,51 @@ def _flatten_rows(row: dict, prefix: str = "") -> list[dict]:
     return rows
 
 
-def _build_fields_str(columns: list) -> str:
-    all_names: list[str] = []
-    seen: set[str] = set()
+@dataclass
+class _FieldNode:
+    children: dict = field(default_factory=dict)
+    many: bool = False
+    filters: dict | None = None
+
+
+def _filters_to_where(filters: dict) -> str:
+    conditions = [f"{{ {name}: {{ _eq: {_gql_value(value)} }} }}" for name, value in filters.items()]
+    return conditions[0] if len(conditions) == 1 else f"{{ _and: [{', '.join(conditions)}] }}"
+
+
+def _build_fields_str(columns: list, filter_conv) -> str:
+    """The selection set for the columns. A relation navigated with filters takes them as a where argument."""
+    root: dict[str, _FieldNode] = {}
     for col in columns:
-        fn = _col_field_name(col)
-        if fn and fn not in seen:
-            all_names.append(fn)
-            seen.add(fn)
+        raw = _col_raw_name(col)
+        if not raw:
+            continue
+        children = root
+        for seg in parse_field_path(raw):
+            node = children.setdefault(seg.name, _FieldNode())
+            node.many = seg.many
+            if node.filters is None:
+                node.filters = seg.filters
+            elif node.filters != seg.filters:
+                raise GraphQLUnsupportedError(f"The relation {seg.name} is selected with different filters")
+            children = node.children
 
-    # "account.branch.city" selects city inside branch inside account
-    tree: dict = {}
-    for name in all_names:
-        node = tree
-        for part in name.split("."):
-            node = node.setdefault(part, {})
+    def render(children: dict) -> str:
+        parts = []
+        for name, node in children.items():
+            args = ""
+            if node.filters:
+                if not node.many:
+                    raise GraphQLPushdownError(
+                        f"Cannot filter the to-one relation {name} on the server: only a list can take a where argument")
+                if filter_conv is None:
+                    raise GraphQLPushdownError(
+                        "The endpoint declares no filter convention, so a relation cannot be filtered on the server")
+                args = f"({filter_conv.filter_arg}: {_filters_to_where(node.filters)})"
+            parts.append(f"{name}{args} {{ {render(node.children)} }}" if node.children else f"{name}{args}")
+        return " ".join(parts)
 
-    def render(node: dict) -> str:
-        return " ".join(f"{k} {{ {render(v)} }}" if v else k for k, v in node.items())
-
-    return render(tree)
+    return render(root)
 
 
 def _build_temporal_args(business_date: datetime.date | None,
@@ -557,11 +595,11 @@ class GraphQLConnect(QueryRunnerBase):
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
 
-        fields_str = _build_fields_str(columns)
+        filter_conv = getattr(table.endpoint, 'filter_convention', None)
+        fields_str = _build_fields_str(columns, filter_conv)
         has_agg = any(isinstance(col, AggregateOperation) for col in columns)
         display_names = [_col_display_name(col) for col in columns]
 
-        filter_conv = getattr(table.endpoint, 'filter_convention', None)
         is_date_range = business_date_to is not None and business_date is not None
         if is_date_range and (order_by or limit is not None):
             raise GraphQLPushdownError(

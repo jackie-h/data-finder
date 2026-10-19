@@ -403,7 +403,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="ancestor_join_keeps_its_filter_kwargs",
-            skip_backends={"graphql": "The GraphQL finder's account() does not take filter kwargs yet"},
+            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),
@@ -412,7 +412,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="ancestor_join_filter_kwargs_apply_at_the_query_time",
-            skip_backends={"graphql": "The GraphQL finder's account() does not take filter kwargs yet"},
+            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),

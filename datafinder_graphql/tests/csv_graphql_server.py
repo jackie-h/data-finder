@@ -339,7 +339,8 @@ class GraphQLTable:
 
 
 def _parse_selection(s: str, pos: int = 0) -> tuple[dict, int]:
-    """Parse "{ a b { c } d(arg: 1) { e } }" into {"a": None, "b": {"c": None}, "d": {"e": None}}."""
+    """Parse "{ a b { c } d(arg: 1) { e } }" into {"a": (None, ""), "b": ({"c": (None, "")}, ""), "d": ({"e": ...}, "arg: 1")}:
+    each field maps to its sub-selection and the text of its arguments."""
     fields: dict = {}
     pos += 1  # skip '{'
     while pos < len(s) and s[pos] != '}':
@@ -352,7 +353,9 @@ def _parse_selection(s: str, pos: int = 0) -> tuple[dict, int]:
         name, pos = m.group(), m.end()
         while pos < len(s) and s[pos] in ' \t\n\r':
             pos += 1
-        if pos < len(s) and s[pos] == '(':  # skip the arguments
+        args = ""
+        if pos < len(s) and s[pos] == '(':
+            args_start = pos + 1
             depth = 0
             while pos < len(s):
                 if s[pos] == '"':
@@ -362,15 +365,16 @@ def _parse_selection(s: str, pos: int = 0) -> tuple[dict, int]:
                 elif s[pos] == ')':
                     depth -= 1
                     if depth == 0:
+                        args = s[args_start:pos]
                         pos += 1
                         break
                 pos += 1
             while pos < len(s) and s[pos] in ' \t\n\r':
                 pos += 1
+        sub = None
         if pos < len(s) and s[pos] == '{':
-            fields[name], pos = _parse_selection(s, pos)
-        else:
-            fields[name] = None
+            sub, pos = _parse_selection(s, pos)
+        fields[name] = (sub, args)
     return fields, pos + 1
 
 
@@ -382,7 +386,16 @@ def _select(value, selection: dict | None):
         return [_select(item, selection) for item in value]
     if value is None:
         return None
-    return {name: _select(value.get(name), sub) for name, sub in selection.items()}
+    return {name: _select_field(value.get(name), sub, args) for name, (sub, args) in selection.items()}
+
+
+def _select_field(value, selection: dict | None, args: str):
+    if args:
+        # a list relationship takes where, order_by and limit; an object relationship takes no arguments
+        if not isinstance(value, list):
+            raise GraphQLServerError("field does not accept arguments")
+        value = _apply_limit(_apply_order_by(_apply_where(value, args), args), args)
+    return _select(value, selection)
 
 
 def _resolve_nested(rows: list[dict], nested: dict[str, NestedVersions], as_of_str: str | None) -> list[dict]:
@@ -404,27 +417,29 @@ def _resolve_nested(rows: list[dict], nested: dict[str, NestedVersions], as_of_s
 
 
 def _serve_query(tables: dict[str, GraphQLTable], query_str: str) -> dict:
-    m = re.match(r'\s*\{\s*(\w+)', query_str)
-    if not m or m.group(1) not in tables:
+    selection, _ = _parse_selection(query_str[query_str.index('{'):])
+    if len(selection) != 1:
+        raise GraphQLServerError("expected a single root field")
+    (name, (sub_selection, args)), = selection.items()
+    if name not in tables:
         return {}
-    name = m.group(1)
     table = tables[name]
     rows = table.rows
+    # the arguments of the root field alone: a nested field's where must not filter the root rows
     if table.business_date_key:
-        bd_str = _extract_arg(query_str, "businessDate")
+        bd_str = _extract_arg(args, "businessDate")
         if bd_str:
             rows = [r for r in rows if r[table.business_date_key] == bd_str]
     if table.processing_milestoned:
-        as_of_str = _extract_arg(query_str, "asOf")
+        as_of_str = _extract_arg(args, "asOf")
         if as_of_str:
             rows = _filter_processing(rows, _parse_dt(as_of_str), "_in_z", "_out_z")
     if table.nested:
-        rows = _resolve_nested(rows, table.nested, _extract_arg(query_str, "asOf"))
-    rows = _apply_where(rows, query_str)
-    rows = _apply_order_by(rows, query_str)
-    rows = _apply_limit(rows, query_str)
-    selection, _ = _parse_selection(query_str[query_str.index('{'):])
-    return {name: _select(rows, selection[name])}
+        rows = _resolve_nested(rows, table.nested, _extract_arg(args, "asOf"))
+    rows = _apply_where(rows, args)
+    rows = _apply_order_by(rows, args)
+    rows = _apply_limit(rows, args)
+    return {name: _select(rows, sub_selection)}
 
 
 def start_graphql_server(tables: dict[str, GraphQLTable]) -> HTTPServer:
