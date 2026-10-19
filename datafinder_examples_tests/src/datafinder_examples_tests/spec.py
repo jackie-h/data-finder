@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
+import pytest
 from numpy.testing import assert_array_equal
 
 
@@ -33,8 +34,12 @@ class TestExpectation:
     expected_sql: dict[str, str] = field(default_factory=dict)
     # Keyed by backend name — fragment that must NOT appear (e.g. "JOIN", to assert join elision).
     unexpected_sql: dict[str, str] = field(default_factory=dict)
+    # Keyed by backend name — reason the expectation does not apply to that backend. The run is skipped.
+    skip_backends: dict[str, str] = field(default_factory=dict)
 
     def run(self, finder: Any, backend: str | None = None) -> None:
+        if backend and backend in self.skip_backends:
+            pytest.skip(self.skip_backends[backend])
         result = self.query(finder)
         if backend and (backend in self.expected_sql or backend in self.unexpected_sql):
             actual_sql = result.to_sql()
@@ -72,3 +77,9 @@ class FinderSpec:
     finder_name: str
     mapping_file: str
     expectations: list[TestExpectation]
+    # Keyed by backend name — skips every expectation in the spec (an expectation's own reason wins).
+    skip_backends: dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for expectation in self.expectations:
+            expectation.skip_backends = {**self.skip_backends, **expectation.skip_backends}

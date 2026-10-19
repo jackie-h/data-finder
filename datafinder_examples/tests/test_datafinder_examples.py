@@ -73,12 +73,12 @@ class TestExampleMappingsLoadable:
     def test_relational_mapping_loads(self):
         mapping = load_relational(str(example_path("finance_mapping.md")))
         class_names = {cm.clazz.name for cm in mapping.mappings}
-        assert {"Account", "Instrument", "Trade", "ContractualPosition"}.issubset(class_names)
+        assert {"Account", "Branch", "Instrument", "Trade", "ContractualPosition"}.issubset(class_names)
 
     def test_graphql_mapping_loads(self):
         mapping = load_graphql(str(example_path("finance_graphql_mapping.md")))
         by_class = {cm.clazz.name: cm for cm in mapping.mappings}
-        assert set(by_class.keys()) == {"Account", "Instrument", "Trade", "ContractualPosition"}
+        assert set(by_class.keys()) == {"Account", "Branch", "Instrument", "Trade", "ContractualPosition"}
 
     def test_graphql_mapping_milestones(self):
         mapping = load_graphql(str(example_path("finance_graphql_mapping.md")))

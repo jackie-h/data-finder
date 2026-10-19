@@ -10,19 +10,16 @@ from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint
 {% endif %}
 from model.relational import NoOperation
 
-{% set seen = namespace(targets=[]) %}
-{% for pm in cm.property_mappings %}
-{% if is_association_mapping(pm) and pm.property.type.name not in seen.targets %}
-{% set seen.targets = seen.targets + [pm.property.type.name] %}
-{% set target_cm = class_mappings_by_name.get(pm.property.type.name) %}
-{% if target_cm %}
+{% for target_cm in related_classes(cm) %}
 
-class _{{pm.property.type.name}}RelatedFinder:
+class _{{target_cm.clazz.name}}RelatedFinder:
 
-    def __init__(self, parent_field: str):
+    def __init__(self, parent_field: str, display_prefix: str | None = None):
+        self._parent_field = parent_field
+        self._display_prefix = display_prefix or parent_field.title()
 {% for tpm in target_cm.property_mappings %}
 {% if is_primitive_mapping(tpm) %}
-        self.__{{to_python_name(tpm.property)}} = {{tpm.property.type.name}}Attribute(parent_field.title() + ' {{display_name(tpm.property)}}', parent_field + '.{{tpm.target.name}}', '{{type_str(tpm.property.type)}}', '{{cm.query.name}}')
+        self.__{{to_python_name(tpm.property)}} = {{tpm.property.type.name}}Attribute(self._display_prefix + ' {{display_name(tpm.property)}}', parent_field + '.{{tpm.target.name}}', '{{type_str(tpm.property.type)}}', '{{cm.query.name}}')
 {% endif %}
 {% endfor %}
 
@@ -32,12 +29,14 @@ class _{{pm.property.type.name}}RelatedFinder:
         """{{display_name(tpm.property)}}"""
         return self.__{{to_python_name(tpm.property)}}
 
-{% endif %}
-{% endfor %}
-{% endif %}
-{% endif %}
-{% endfor %}
+{% elif is_association_mapping(tpm) and class_mappings_by_name.get(tpm.property.type.name) %}
+    def {{to_python_name(tpm.property)}}(self) -> _{{tpm.property.type.name}}RelatedFinder:
+        """{{display_name(tpm.property)}}"""
+        return _{{tpm.property.type.name}}RelatedFinder(self._parent_field + '.{{tpm.target.name}}', self._display_prefix + ' {{tpm.target.name.title()}}')
 
+{% endif %}
+{% endfor %}
+{% endfor %}
 class {{cm.clazz.name}}Finder:
 {% if cm.clazz.tagged_values['doc'] %}
     """{{cm.clazz.tagged_values['doc'].value}}"""
