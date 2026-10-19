@@ -55,11 +55,16 @@ class GraphQLOutput(DataFrame):
 # Column metadata helpers
 # ---------------------------------------------------------------------------
 
-class GraphQLPushdownError(Exception):
-    """A filter, sort or limit that cannot be expressed as arguments to the GraphQL server.
+class GraphQLUnsupportedError(Exception):
+    """A query the GraphQL engine cannot answer.
 
-    The engine does not compensate on the client: only aggregations are computed locally.
+    The engine does not compensate on the client for what the server cannot do: it computes aggregations
+    and row-wise column expressions locally, and nothing else.
     """
+
+
+class GraphQLPushdownError(GraphQLUnsupportedError):
+    """A filter, sort or limit that cannot be expressed as arguments to the GraphQL server."""
 
 
 def _col_field_name(col) -> str | None:
@@ -112,25 +117,54 @@ def _round_half_away_from_zero(s: pd.Series, decimals: int) -> pd.Series:
     return np.sign(s) * np.floor(s.abs() * scale + 0.5) / scale
 
 
-_NUMERIC_SCALAR = {
-    ScalarFunction.ABS:     lambda s, n: s.abs(),
-    ScalarFunction.CEILING: lambda s, n: np.ceil(s),
-    ScalarFunction.FLOOR:   lambda s, n: np.floor(s),
-    ScalarFunction.SQRT:    lambda s, n: np.sqrt(s),
-    ScalarFunction.MOD:     lambda s, n: np.fmod(s, n),
-    ScalarFunction.POWER:   lambda s, n: np.power(s, n),
-    ScalarFunction.ROUND:   lambda s, n: _round_half_away_from_zero(s, n or 0),
+def _num(s: pd.Series) -> pd.Series:
+    return pd.Series(pd.to_numeric(s))
+
+
+def _right(s: pd.Series, n: int) -> pd.Series:
+    return s.map(lambda x: x if x is None else x[max(len(x) - n, 0):])
+
+
+def _substring(s: pd.Series, args: list) -> pd.Series:
+    start = args[0] - 1  # SQL positions are 1-based
+    stop = None if len(args) == 1 else start + args[1]
+    return s.map(lambda x: x if x is None else x[start:stop])
+
+
+# Row-wise functions, computed on the returned rows; each takes the column and the operation's arguments
+_SCALAR_FUNCS: dict = {
+    ScalarFunction.ABS:       lambda s, c: _num(s).abs(),
+    ScalarFunction.CEILING:   lambda s, c: np.ceil(_num(s)),
+    ScalarFunction.FLOOR:     lambda s, c: np.floor(_num(s)),
+    ScalarFunction.SQRT:      lambda s, c: np.sqrt(_num(s)),
+    ScalarFunction.MOD:       lambda s, c: np.fmod(_num(s), c.second_arg),
+    ScalarFunction.POWER:     lambda s, c: np.power(_num(s), c.second_arg),
+    ScalarFunction.ROUND:     lambda s, c: _round_half_away_from_zero(_num(s), c.second_arg or 0),
+    ScalarFunction.UPPER:     lambda s, c: s.str.upper(),
+    ScalarFunction.LOWER:     lambda s, c: s.str.lower(),
+    ScalarFunction.TRIM:      lambda s, c: s.str.strip(),
+    ScalarFunction.LTRIM:     lambda s, c: s.str.lstrip(),
+    ScalarFunction.RTRIM:     lambda s, c: s.str.rstrip(),
+    ScalarFunction.LENGTH:    lambda s, c: s.str.len(),
+    ScalarFunction.REVERSE:   lambda s, c: s.map(lambda x: x if x is None else x[::-1]),
+    ScalarFunction.LEFT:      lambda s, c: s.str[:c.extra_args[0]],
+    ScalarFunction.RIGHT:     lambda s, c: _right(s, c.extra_args[0]),
+    ScalarFunction.REPEAT:    lambda s, c: s.str.repeat(c.extra_args[0]),
+    ScalarFunction.REPLACE:   lambda s, c: s.str.replace(c.extra_args[0], c.extra_args[1], regex=False),
+    ScalarFunction.SUBSTRING: lambda s, c: _substring(s, c.extra_args),
 }
 
 
 def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
-    """Apply a numeric function / date extract / arithmetic / diff column operation to the DataFrame."""
+    """Apply a scalar function / date extract / arithmetic / diff column operation to the DataFrame."""
     if isinstance(col, ScalarFunctionOperation):
         fn = _col_field_name(col)
-        func = _NUMERIC_SCALAR.get(col.function)
-        if not fn or fn not in df.columns or func is None:
+        func = _SCALAR_FUNCS.get(col.function)
+        if func is None:
+            raise GraphQLUnsupportedError(f"The GraphQL engine does not support the function {col.function.name}")
+        if not fn or fn not in df.columns:
             return None
-        return pd.Series(func(pd.to_numeric(df[fn]), col.second_arg))
+        return pd.Series(func(df[fn], col))
 
     if isinstance(col, DateExtractOperation):
         fn = _col_field_name(col)
@@ -192,6 +226,8 @@ def _project_columns(df: pd.DataFrame, columns: list) -> pd.DataFrame:
             fn = col.column().name
             # a nested field is absent from every row when its parent object is null in all of them
             result[dn] = df[fn].values if fn in df.columns else [None] * len(df)
+        else:
+            raise GraphQLUnsupportedError(f"The GraphQL engine does not support {type(col).__name__} columns")
     return pd.DataFrame(result)
 
 

@@ -40,7 +40,8 @@ def _filter_processing(rows: list[dict], as_of: datetime.datetime,
     result = []
     for row in rows:
         in_z = _parse_dt(row[in_col])
-        out_z = _parse_dt(row[out_col])
+        # a missing end means the row is open-ended
+        out_z = _parse_dt(row[out_col]) if row[out_col] else datetime.datetime.max
         if in_z <= as_of < out_z:
             result.append(row)
     return result
@@ -310,7 +311,7 @@ class NestedVersions:
     """A nested object resolved from a milestoned set of rows, as of the query's asOf (null if none is live)."""
 
     foreign_key: str  # row key holding the id of the nested object
-    versions: list[dict]  # each has an "id" plus _in_z / _out_z
+    versions: list[dict]  # each has an "id", plus _in_z / _out_z when the nested object is milestoned
 
 
 @dataclass
@@ -345,10 +346,11 @@ def _resolve_nested(rows: list[dict], nested: dict[str, NestedVersions], as_of_s
     def resolve(spec: NestedVersions, row: dict) -> dict | None:
         candidates = [v for v in spec.versions if v["id"] == row[spec.foreign_key]]
         if as_of is not None:
-            candidates = _filter_processing(candidates, as_of, "_in_z", "_out_z")
+            candidates = [v for v in candidates if "_in_z" not in v] + \
+                _filter_processing([v for v in candidates if "_in_z" in v], as_of, "_in_z", "_out_z")
         if not candidates:
             return None
-        return max(candidates, key=lambda v: v["_in_z"])
+        return max(candidates, key=lambda v: v.get("_in_z", ""))
 
     return [
         {**row, **{name: resolve(spec, row) for name, spec in nested.items()}}
@@ -412,16 +414,44 @@ def endpoint_url(server: HTTPServer) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Tables built from CSV files
+# ---------------------------------------------------------------------------
+
+def csv_table(csv_name: str, fields: dict[str, str | tuple[str, type]],
+              internal: dict[str, tuple[str, type]] | None = None, **table_kwargs) -> GraphQLTable:
+    """Build a table from a CSV file.
+
+    fields maps each GraphQL field to its CSV column, or to (column, type) when the value is not text.
+    internal does the same for the keys that are never returned (foreign keys).
+    An empty CSV cell is null.
+    """
+    def convert(raw: str, to: type):
+        return None if raw == "" else to(raw)
+
+    def pick(row: dict, spec: str | tuple[str, type]):
+        column, to = (spec, str) if isinstance(spec, str) else spec
+        return convert(row[column], to)
+
+    rows = []
+    for r in _read_csv(csv_name):
+        row = {field: pick(r, spec) for field, spec in fields.items()}
+        row.update({key: pick(r, spec) for key, spec in (internal or {}).items()})
+        rows.append(row)
+    return GraphQLTable(rows, **table_kwargs)
+
+
+# ---------------------------------------------------------------------------
 # Finance data, shaped as GraphQL responses
 # ---------------------------------------------------------------------------
 
 def finance_tables(accounts_csv: str = "finance_accounts.csv",
-                   trades_csv: str = "finance_trades.csv") -> dict[str, GraphQLTable]:
-    branches = [{"id": int(r["ID"]), "city": r["CITY"]} for r in _read_csv("finance_branches.csv")]
+                   trades_csv: str = "finance_trades.csv",
+                   branches_csv: str = "finance_branches.csv") -> dict[str, GraphQLTable]:
+    branches = [{"id": int(r["ID"]), "city": r["CITY"]} for r in _read_csv(branches_csv)]
     branch_index = {b["id"]: b for b in branches}
     versions = [
         {"id": int(r["ID"]), "name": r["ACCT_NAME"], "branch": branch_index[int(r["BRANCH_ID"])],
-         "_in_z": r["in_z"], "_out_z": r["out_z"]}
+         "_in_z": r.get("in_z", "1900-01-01 00:00:00"), "_out_z": r.get("out_z", "9999-12-31 23:59:59")}
         for r in _read_csv(accounts_csv)
     ]
     # the account query is not milestoned: GraphQL serves only the current (latest) version of each

@@ -1,10 +1,13 @@
 """The GraphQL engine pushes filters, sorts and limits to the server and fails when it cannot."""
+import pandas as pd
 import pytest
 
 from datafinder.typed_attributes import DoubleAttribute, StringAttribute
-from datafinder_graphql.graphql_engine import GraphQLPushdownError, _build_server_args
+from datafinder_graphql.graphql_engine import GraphQLUnsupportedError, GraphQLPushdownError, _build_server_args, _project_columns
 from model.graphql_mapping import GraphQLFilterConvention
-from model.relational import ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator
+from model.relational import (
+    ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator, WindowFunction, WindowFunctionOperation,
+)
 
 CONVENTION = GraphQLFilterConvention("where", "order_by", "limit")
 
@@ -66,3 +69,9 @@ def test_or_with_an_unpushable_side_fails_rather_than_narrowing():
 def test_and_with_an_unpushable_side_fails():
     with pytest.raises(GraphQLPushdownError):
         _build_server_args(_price().eq(2.0).and_op(_field_compared_to_field()), None, None, CONVENTION)
+
+
+def test_an_unsupported_column_expression_fails_rather_than_disappearing():
+    rank = WindowFunctionOperation(_price()._column_with_join(), WindowFunction.RANK, "Rank")
+    with pytest.raises(GraphQLUnsupportedError, match="WindowFunctionOperation"):
+        _project_columns(pd.DataFrame({"price": [1.0]}), [rank])

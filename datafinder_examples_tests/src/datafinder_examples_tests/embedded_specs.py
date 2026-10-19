@@ -87,6 +87,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
         # --- group_by on an embedded property ---
         TestExpectation(
             name="group_by_embedded_account_name_elides_join",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.account().name(), f.count()],
             ).group_by(f.account().name()),
@@ -96,6 +97,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="group_by_mixed_with_account_id_forces_real_join",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.account().name(), f.account().id_(), f.count()],
             ).group_by(f.account().name(), f.account().id_()),
@@ -107,6 +109,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
         # --- partition_by (window functions) on an embedded property ---
         TestExpectation(
             name="partition_by_embedded_account_name_elides_join",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT,
                 [f.symbol(), f.price(),
@@ -118,6 +121,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="partition_by_mixed_with_account_id_forces_real_join",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT,
                 [f.symbol(), f.account().id_(),
@@ -129,6 +133,7 @@ EMBEDDED_TRADE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="partition_by_two_hop_embedded_branch_city_elides_both_joins",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT,
                 [f.symbol(), f.price(),
