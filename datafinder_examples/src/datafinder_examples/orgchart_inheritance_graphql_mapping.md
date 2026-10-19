@@ -20,6 +20,12 @@
 |---------------|
 | manager       |
 
+#### Association: EmployeeProject
+
+| GraphQL Field |
+|---------------|
+| projects      |
+
 ### Query: projects → Project
 
 | Field | Property ID |

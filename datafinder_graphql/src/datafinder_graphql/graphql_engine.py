@@ -67,8 +67,13 @@ class GraphQLPushdownError(GraphQLUnsupportedError):
     """A filter, sort or limit that cannot be expressed as arguments to the GraphQL server."""
 
 
-def _col_field_name(col) -> str | None:
-    """Return the underlying GraphQL field name for a column expression."""
+def _plain(name: str) -> str:
+    """A field path without its to-many markers: "manager.projects[].name" is "manager.projects.name"."""
+    return name.replace("[]", "")
+
+
+def _col_raw_name(col) -> str | None:
+    """The field path of a column expression, with to-many markers."""
     if isinstance(col, Attribute):
         return col.column().name
     if isinstance(col, (AggregateOperation, WindowFunctionOperation, ScalarFunctionOperation,
@@ -76,6 +81,12 @@ def _col_field_name(col) -> str | None:
         if col.element and isinstance(col.element, ColumnWithJoin):
             return col.element.column.name
     return None
+
+
+def _col_field_name(col) -> str | None:
+    """The underlying GraphQL field path for a column expression."""
+    raw = _col_raw_name(col)
+    return _plain(raw) if raw is not None else None
 
 
 def _col_display_name(col) -> str:
@@ -223,7 +234,7 @@ def _project_columns(df: pd.DataFrame, columns: list) -> pd.DataFrame:
         if derived is not None:
             result[dn] = derived.values
         elif isinstance(col, Attribute):
-            fn = col.column().name
+            fn = _plain(col.column().name)
             # a nested field is absent from every row when its parent object is null in all of them
             result[dn] = df[fn].values if fn in df.columns else [None] * len(df)
         else:
@@ -265,14 +276,14 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
     if group_by:
         for gb in group_by:
             if isinstance(gb, Attribute):
-                gb_fields.append(gb.column().name)
+                gb_fields.append(_plain(gb.column().name))
 
     if gb_fields:
         agg_dict = {fn: func for fn, func, _ in agg_specs}
         result = df.groupby(gb_fields).agg(agg_dict).reset_index()
         result = result.rename(columns={fn: dn for fn, _, dn in agg_specs})
         result = result.rename(columns={
-            gb.column().name: gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)})
+            _plain(gb.column().name): gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)})
     else:
         rows: dict = {}
         for fn, func, dn in agg_specs:
@@ -285,7 +296,7 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
 
 def _sort_aggregated(df: pd.DataFrame, order_by: list, group_by: list | None) -> pd.DataFrame:
     """Sort an aggregation's result, which only exists on the client. It can be sorted by its group-by columns."""
-    display_by_field = {gb.column().name: gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)}
+    display_by_field = {_plain(gb.column().name): gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)}
     sort_cols: list[str] = []
     ascending: list[bool] = []
     for so in order_by:
@@ -338,7 +349,7 @@ def _field_name(element, what: str) -> str:
     if not isinstance(element, ColumnWithJoin):
         raise GraphQLPushdownError(
             f"Cannot push {what} to the server: {type(element).__name__} is not a plain field")
-    return element.column.name
+    return _plain(element.column.name)
 
 
 def _op_to_where_clause(op) -> str | None:
@@ -373,6 +384,8 @@ def _to_order_by_clause(order_by: list | None) -> str | None:
     for so in order_by:
         if not isinstance(so, SortOperation):
             raise GraphQLPushdownError(f"Cannot push sort by {type(so).__name__} to the server")
+        if _is_many(so.column):
+            raise GraphQLPushdownError("Cannot push a sort on a to-many relation to the server: select the column too")
         direction = "asc" if so.direction == SortDirection.ASC else "desc"
         parts.append(_nest(_field_name(so.column, "a sort"), direction))
     return f"[{', '.join(parts)}]"
@@ -397,19 +410,70 @@ def _build_server_args(op, order_by: list | None, limit: int | None, filter_conv
     return extra
 
 
+def _is_many(element) -> bool:
+    return isinstance(element, ColumnWithJoin) and "[]" in element.column.name
+
+
+def _op_raw_names(op) -> set[str]:
+    """The field paths a filter refers to, with to-many markers."""
+    if isinstance(op, ComparisonOperation) and isinstance(op.left, ColumnWithJoin):
+        return {op.left.column.name}
+    if isinstance(op, LogicalOperation):
+        return _op_raw_names(op.left) | _op_raw_names(op.right)
+    if isinstance(op, (IsNullOperation, IsNotNullOperation)) and isinstance(op.element, ColumnWithJoin):
+        return {op.element.column.name}
+    return set()
+
+
+def _check_expansion(op, columns: list, limit: int | None) -> bool:
+    """Whether the rows are expanded by a to-many relation, raising if the server cannot answer the query as is."""
+    selected = [raw for raw in (_col_raw_name(col) for col in columns) if raw]
+    expands = any("[]" in raw for raw in selected)
+    if expands and limit is not None:
+        raise GraphQLUnsupportedError("A limit cannot be pushed to the server for rows expanded by a to-many relation")
+    # a server filters the parents on a to-many condition but returns all of their children
+    for raw in _op_raw_names(op):
+        if "[]" not in raw:
+            continue
+        relation = raw[:raw.index("[]") + 2]
+        if any(sel.startswith(relation) for sel in selected):
+            raise GraphQLUnsupportedError(
+                f"Cannot filter and select the same to-many relation ({_plain(relation)}): "
+                "the server returns all of a matching parent's children")
+    return expands
+
+
+def _sort_expanded(df: pd.DataFrame, order_by: list) -> pd.DataFrame:
+    """Sort rows that a to-many relation expanded: the server can only order the parents."""
+    fields: list[str] = []
+    ascending: list[bool] = []
+    for so in order_by:
+        field = _field_name(so.column, "a sort") if isinstance(so, SortOperation) else None
+        if field is None or field not in df.columns:
+            raise GraphQLUnsupportedError("Rows expanded by a to-many relation can only be sorted by selected columns")
+        fields.append(field)
+        ascending.append(so.direction == SortDirection.ASC)
+    return pd.DataFrame(df.sort_values(fields, ascending=ascending, kind="stable")).reset_index(drop=True)
+
+
 # ---------------------------------------------------------------------------
 # GraphQL request helpers
 # ---------------------------------------------------------------------------
 
-def _flatten_row(row: dict, prefix: str = "") -> dict:
-    result = {}
+def _flatten_rows(row: dict, prefix: str = "") -> list[dict]:
+    """Flatten a nested row into dotted keys. A to-many relation expands the row into one row per child, as a
+    join does, or into a single row without the relation's fields when it has no children."""
+    rows: list[dict] = [{}]
     for k, v in row.items():
         key = f"{prefix}.{k}" if prefix else k
         if isinstance(v, dict):
-            result.update(_flatten_row(v, key))
+            children = _flatten_rows(v, key)
+        elif isinstance(v, list):
+            children = [flat for item in v for flat in _flatten_rows(item, key)] or [{}]
         else:
-            result[key] = v
-    return result
+            children = [{key: v}]
+        rows = [{**r, **c} for r in rows for c in children]
+    return rows
 
 
 def _build_fields_str(columns: list) -> str:
@@ -504,8 +568,12 @@ class GraphQLConnect(QueryRunnerBase):
                 "A sort or limit cannot be pushed to the server for a date range: each date is a separate query")
 
         # Everything is pushed to the server; the sort and limit of an aggregation apply to its result, not its input
+        expands = _check_expansion(op, columns, limit)
+        # the server can only order the parents, so rows expanded by a to-many relation are sorted afterwards
+        sort_expanded = bool(order_by) and not has_agg and expands and \
+            any(isinstance(so, SortOperation) and _is_many(so.column) for so in order_by)
         server_args = _build_server_args(
-            op, None if has_agg else order_by, None if has_agg else limit, filter_conv)
+            op, None if has_agg or sort_expanded else order_by, None if has_agg else limit, filter_conv)
 
         # Fetch rows — iterate dates for date-range queries
         if business_date_to is not None and business_date is not None:
@@ -521,7 +589,7 @@ class GraphQLConnect(QueryRunnerBase):
         if not rows:
             return GraphQLOutput(pd.DataFrame({name: [] for name in display_names}))
 
-        df = pd.DataFrame([_flatten_row(row) for row in rows])
+        df = pd.DataFrame([flat for row in rows for flat in _flatten_rows(row)])
 
         # Aggregation is the only thing computed on the client
         if has_agg:
@@ -530,4 +598,6 @@ class GraphQLConnect(QueryRunnerBase):
                 aggregated = _sort_aggregated(aggregated, order_by, group_by)
             return GraphQLOutput(aggregated.head(limit) if limit is not None else aggregated)
 
+        if sort_expanded:
+            df = _sort_expanded(df, order_by or [])
         return GraphQLOutput(_project_columns(df, columns))

@@ -3,7 +3,10 @@ import pandas as pd
 import pytest
 
 from datafinder.typed_attributes import DoubleAttribute, StringAttribute
-from datafinder_graphql.graphql_engine import GraphQLUnsupportedError, GraphQLPushdownError, _build_server_args, _project_columns
+from datafinder_graphql.graphql_engine import (
+    GraphQLPushdownError, GraphQLUnsupportedError, _build_server_args, _check_expansion, _flatten_rows,
+    _project_columns, _sort_expanded,
+)
 from model.graphql_mapping import GraphQLFilterConvention
 from model.relational import (
     ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator, WindowFunction, WindowFunctionOperation,
@@ -75,3 +78,41 @@ def test_an_unsupported_column_expression_fails_rather_than_disappearing():
     rank = WindowFunctionOperation(_price()._column_with_join(), WindowFunction.RANK, "Rank")
     with pytest.raises(GraphQLUnsupportedError, match="WindowFunctionOperation"):
         _project_columns(pd.DataFrame({"price": [1.0]}), [rank])
+
+
+def _projects_name() -> StringAttribute:
+    return StringAttribute("Project Name", "projects[].name", "STRING", "employees")
+
+
+def test_a_to_many_relation_expands_to_a_row_per_child():
+    rows = _flatten_rows({"name": "Bob", "projects": [{"name": "Alpha"}, {"name": "Beta"}]})
+    assert rows == [{"name": "Bob", "projects.name": "Alpha"}, {"name": "Bob", "projects.name": "Beta"}]
+
+
+def test_an_empty_to_many_relation_keeps_the_parent_without_the_fields():
+    assert _flatten_rows({"name": "Alice", "projects": []}) == [{"name": "Alice"}]
+
+
+def test_a_to_many_filter_is_pushed_as_a_nested_object_without_the_marker():
+    args = _build_server_args(_projects_name().eq("Alpha"), None, None, CONVENTION)
+    assert args == ['where: { projects: { name: { _eq: "Alpha" } } }']
+
+
+def test_a_sort_on_a_to_many_relation_is_not_pushed():
+    with pytest.raises(GraphQLPushdownError, match="to-many"):
+        _build_server_args(None, [_projects_name().ascending()], None, CONVENTION)
+
+
+def test_filtering_and_selecting_the_same_to_many_relation_fails():
+    with pytest.raises(GraphQLUnsupportedError, match="same to-many relation"):
+        _check_expansion(_projects_name().eq("Alpha"), [_projects_name()], None)
+
+
+def test_a_limit_on_rows_expanded_by_a_to_many_relation_fails():
+    with pytest.raises(GraphQLUnsupportedError, match="limit"):
+        _check_expansion(None, [_projects_name()], 5)
+
+
+def test_expanded_rows_are_sorted_after_expansion():
+    df = pd.DataFrame({"projects.name": ["Beta", "Alpha"], "name": ["Bob", "Bob"]})
+    assert list(_sort_expanded(df, [_projects_name().ascending()])["projects.name"]) == ["Alpha", "Beta"]

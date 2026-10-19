@@ -245,8 +245,12 @@ def _eval_where(where: dict, row: dict) -> bool:
             if not all(_eval_leaf(op_name, raw, target) for op_name, target in cond.items()):
                 return False
         else:
-            # a condition on a nested object matches only rows that have one, as a join would
-            if raw is None or not _eval_where(cond, raw):
+            # a condition on a nested object matches only rows that have one, as a join would;
+            # on a list of objects it matches a row when any of them does
+            if isinstance(raw, list):
+                if not any(_eval_where(cond, item) for item in raw):
+                    return False
+            elif raw is None or not _eval_where(cond, raw):
                 return False
     return True
 
@@ -274,9 +278,13 @@ def _order_path(item: dict) -> tuple[list[str], str]:
 def _value_at(row: dict, path: list[str]):
     value = row
     for part in path:
+        if isinstance(value, list):
+            raise GraphQLServerError("order_by on an array relationship needs an aggregate")
         if not isinstance(value, dict):
             return None
         value = value.get(part)
+    if isinstance(value, list):
+        raise GraphQLServerError("order_by on an array relationship needs an aggregate")
     return value
 
 
@@ -330,14 +338,51 @@ class GraphQLTable:
     nested: dict[str, NestedVersions] | None = None
 
 
-def _strip_internal_value(value):
-    if isinstance(value, dict):
-        return {k: _strip_internal_value(v) for k, v in value.items() if not k.startswith("_")}
-    return value
+def _parse_selection(s: str, pos: int = 0) -> tuple[dict, int]:
+    """Parse "{ a b { c } d(arg: 1) { e } }" into {"a": None, "b": {"c": None}, "d": {"e": None}}."""
+    fields: dict = {}
+    pos += 1  # skip '{'
+    while pos < len(s) and s[pos] != '}':
+        if s[pos] in ' \t\n\r,':
+            pos += 1
+            continue
+        m = re.compile(r'\w+').match(s, pos)
+        if not m:
+            raise GraphQLServerError(f"cannot parse the selection at {pos}")
+        name, pos = m.group(), m.end()
+        while pos < len(s) and s[pos] in ' \t\n\r':
+            pos += 1
+        if pos < len(s) and s[pos] == '(':  # skip the arguments
+            depth = 0
+            while pos < len(s):
+                if s[pos] == '"':
+                    pos = s.index('"', pos + 1)
+                elif s[pos] == '(':
+                    depth += 1
+                elif s[pos] == ')':
+                    depth -= 1
+                    if depth == 0:
+                        pos += 1
+                        break
+                pos += 1
+            while pos < len(s) and s[pos] in ' \t\n\r':
+                pos += 1
+        if pos < len(s) and s[pos] == '{':
+            fields[name], pos = _parse_selection(s, pos)
+        else:
+            fields[name] = None
+    return fields, pos + 1
 
 
-def _strip_internal(rows: list[dict]) -> list[dict]:
-    return [_strip_internal_value(r) for r in rows]
+def _select(value, selection: dict | None):
+    """Return only the requested fields, as a server does."""
+    if selection is None:
+        return value
+    if isinstance(value, list):
+        return [_select(item, selection) for item in value]
+    if value is None:
+        return None
+    return {name: _select(value.get(name), sub) for name, sub in selection.items()}
 
 
 def _resolve_nested(rows: list[dict], nested: dict[str, NestedVersions], as_of_str: str | None) -> list[dict]:
@@ -378,7 +423,8 @@ def _serve_query(tables: dict[str, GraphQLTable], query_str: str) -> dict:
     rows = _apply_where(rows, query_str)
     rows = _apply_order_by(rows, query_str)
     rows = _apply_limit(rows, query_str)
-    return {name: _strip_internal(rows)}
+    selection, _ = _parse_selection(query_str[query_str.index('{'):])
+    return {name: _select(rows, selection[name])}
 
 
 def start_graphql_server(tables: dict[str, GraphQLTable]) -> HTTPServer:
