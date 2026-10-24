@@ -16,7 +16,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
     expectations=[
-<<<<<<< HEAD
         # --- Aliases: a column can be given the name it has in the result ---
         TestExpectation(
             name="alias_names_the_columns",
@@ -58,7 +57,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Loud"],
             expected_result=np.array([["ACME CORP"]], dtype=object),
-=======
+        ),
         # --- Distinct: each row once ---
         TestExpectation(
             name="distinct_removes_repeated_rows",
@@ -136,7 +135,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             .order_by(f.category().ascending()).offset(1).limit(1),
             expected_columns=["Category"],
             expected_result=np.array([["Manufacturing"]], dtype=object),
->>>>>>> origin/main
         ),
         # --- Count ---
         TestExpectation(

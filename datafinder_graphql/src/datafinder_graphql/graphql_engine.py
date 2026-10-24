@@ -667,21 +667,13 @@ class GraphQLConnect(QueryRunnerBase):
             aggregated = _apply_aggregation(df, columns, group_by)
             if order_by:
                 aggregated = _sort_aggregated(aggregated, order_by, group_by)
-<<<<<<< HEAD
             aggregated = aggregated.rename(columns=renames)
-            return GraphQLOutput(aggregated.head(limit) if limit is not None else aggregated)
-
-        if sort_expanded:
-            df = _sort_expanded(df, order_by or [])
-        return GraphQLOutput(_project_columns(df, columns, names))
-=======
             aggregated = aggregated.drop_duplicates().reset_index(drop=True) if distinct else aggregated
             return GraphQLOutput(_slice_rows(aggregated, offset, limit))
 
         if sort_expanded:
             df = _sort_expanded(df, order_by or [])
-        projected = _project_columns(df, columns)
+        projected = _project_columns(df, columns, names)
         if distinct:  # the limit is applied here, after the duplicates are gone, not on the server before
             projected = projected.drop_duplicates().reset_index(drop=True)
         return GraphQLOutput(_slice_rows(projected, offset, limit) if distinct or offset else projected)
->>>>>>> origin/main

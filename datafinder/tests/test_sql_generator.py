@@ -801,7 +801,6 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
-<<<<<<< HEAD
 class TestAlias:
     """alias() names a column in the result."""
 
@@ -833,7 +832,8 @@ class TestAlias:
         attr = IntegerAttribute("Id", "id", "INT", "t")
         attr.alias("Key")
         assert self._select(attr) == 'SELECT t0.id AS "Id" FROM t AS t0'
-=======
+
+
 class TestDistinct:
 
     def test_select_distinct(self):
@@ -865,7 +865,6 @@ class TestOffset:
 
     def test_no_offset_by_default(self):
         assert "OFFSET" not in self._sql(limit=2)
->>>>>>> origin/main
 
 
 class TestOrFilter:
