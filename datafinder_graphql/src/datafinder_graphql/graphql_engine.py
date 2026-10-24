@@ -375,9 +375,15 @@ def _op_to_where_clause(op) -> str | None:
         logical = "_and" if op.operator == LogicalOperator.AND else "_or"
         return f"{{ {logical}: [{left}, {right}] }}"
     if isinstance(op, (InOperation, NotInOperation)):
-        gql_op = "_in" if isinstance(op, InOperation) else "_nin"
+        field = _field_name(op.element, "a filter")
         values = ", ".join(_gql_value(_constant_value(v)) for v in op.values)
-        return _nest(_field_name(op.element, "a filter"), f"{{ {gql_op}: [{values}] }}")
+        if isinstance(op, InOperation):
+            return _nest(field, f"{{ _in: [{values}] }}")
+        not_in = _nest(field, f"{{ _nin: [{values}] }}")
+        # a server's _nin skips nulls as SQL does, so a nullable field has to match its nulls explicitly
+        if op.element.column.nullable:  # type: ignore[union-attr]  # _field_name checked it is a ColumnWithJoin
+            return f"{{ _or: [{not_in}, {_nest(field, '{ _is_null: true }')}] }}"
+        return not_in
     if isinstance(op, IsNullOperation):
         return _nest(_field_name(op.element, "a null check"), "{ _is_null: true }")
     if isinstance(op, IsNotNullOperation):

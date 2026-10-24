@@ -15,16 +15,18 @@ class Attribute(RelationalOperationElement):
     __embedded: Any
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None):
+                 embedded: 'Attribute | None' = None, nullable: bool = True):
         """Create a typed attribute for a named column.
 
         ``embedded``, when set, is a fully-built alternate Attribute pointing at a flat column
         that satisfies this same property without the join ``parent`` depends on. The SQL
         generator decides at query-build time whether to use it (see sql_generator elision).
+
+        ``nullable`` is whether the column can hold NULL; ``is_not_in`` needs it to match NULL rows.
         """
         super().__init__()
         self.__display_name = display_name
-        self.__column = Column(column_name, column_db_type, owner)
+        self.__column = Column(column_name, column_db_type, owner, nullable=nullable)
         self.__owner = owner
         self.__parent = parent
         self.__embedded = embedded

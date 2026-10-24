@@ -20,7 +20,7 @@ def _embedded_for_{{to_python_name(rpm.property)}}(incoming: dict | None, parent
     on this table, merged with any deeper embedding forwarded by the caller."""
     result: dict = {}
 {% for dotted, leaf_prop, col in flatten_embedded(rpm.target) %}
-    result['{{dotted}}'] = {{leaf_prop.type.name}}Attribute(relation_name.title() + ' {{display_name(leaf_prop)}}', '{{col.name}}', '{{col.type}}', '{{table_qualified_name(col.table)}}', parent)
+    result['{{dotted}}'] = {{leaf_prop.type.name}}Attribute(relation_name.title() + ' {{display_name(leaf_prop)}}', '{{col.name}}', '{{col.type}}', '{{table_qualified_name(col.table)}}', parent, nullable={{col.nullable}})
 {% endfor %}
     if incoming:
         result.update({k[len('{{rpm.property.id}}.'):]: v for k, v in incoming.items() if k.startswith('{{rpm.property.id}}.')})
@@ -67,7 +67,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         RelatedFinder.__init__(self, self.__node)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(display_prefix(relation_name, parent_join) + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', self.__node, embedded=(embedded or {}).get('{{rpm.property.id}}'))
+        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(display_prefix(relation_name, parent_join) + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', self.__node, embedded=(embedded or {}).get('{{rpm.property.id}}'), nullable={{rpm.target.nullable}})
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
@@ -151,7 +151,7 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
-    __{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute('{{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}')
+    __{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute('{{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', nullable={{rpm.target.nullable}})
 {% endif %}
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
