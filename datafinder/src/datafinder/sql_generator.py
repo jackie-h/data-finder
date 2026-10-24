@@ -17,7 +17,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation, QueryExpression
+    SelectOperation, QueryExpression, ArithmeticOperation, ArithmeticOperator
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -429,6 +429,25 @@ def _window_spec_to_string(window: WindowSpecification) -> str:
         ))
     return 'OVER (' + ' '.join(parts) + ')'
 
+_ARITHMETIC_PRECEDENCE = {ArithmeticOperator.ADD: 1, ArithmeticOperator.SUBTRACT: 1,
+                          ArithmeticOperator.MULTIPLY: 2, ArithmeticOperator.DIVIDE: 2}
+
+
+def arithmetic_needs_parentheses(parent: ArithmeticOperation, child: RelationalOperationElement, on_right: bool) -> bool:
+    """Whether ``child`` must be parenthesised as an operand of ``parent``: it binds more loosely than the parent, or
+    it is the right operand of a - or / and binds equally (a - (b - c) is not a - b - c)."""
+    if not isinstance(child, ArithmeticOperation):
+        return False
+    here, there = _ARITHMETIC_PRECEDENCE[parent.operator], _ARITHMETIC_PRECEDENCE[child.operator]
+    return there < here or (there == here and on_right and parent.operator in (ArithmeticOperator.SUBTRACT,
+                                                                                 ArithmeticOperator.DIVIDE))
+
+
+def _operand_string(operation: RelationalOperationElement) -> str:
+    return constant_value_string(operation) if isinstance(operation, ConstantOperation) \
+        else sql_operation_to_string(operation)
+
+
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
@@ -468,6 +487,14 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
+    elif isinstance(operation, ArithmeticOperation):
+        left = _operand_string(operation.left)
+        right = _operand_string(operation.right)
+        if arithmetic_needs_parentheses(operation, operation.left, False):
+            left = '(' + left + ')'
+        if arithmetic_needs_parentheses(operation, operation.right, True):
+            right = '(' + right + ')'
+        return left + ' ' + operation.operator.value + ' ' + right
     elif isinstance(operation, Alias):
         return sql_operation_to_string(operation.element) + ' AS "' + operation.name + '"'
     else:
@@ -479,6 +506,8 @@ def display_alias(col: RelationalOperationElement) -> str:
         return 'Count'
     if isinstance(col, Attribute):
         return col.display_name()
+    if isinstance(col, ArithmeticOperation):
+        return col.display_name if col.display_name else 'Expression'
     if isinstance(col, AggregateOperation):
         return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
     if isinstance(col, ScalarFunctionOperation):
@@ -596,6 +625,9 @@ class SQLQueryGenerator:
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
                                            second_arg=op.second_arg, extra_args=list(op.extra_args))
+        elif isinstance(op, ArithmeticOperation):
+            return ArithmeticOperation(self.__rewrite_operation(op.left), op.operator,
+                                       self.__rewrite_operation(op.right), op.display_name)
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateArithmeticOperation):
@@ -624,6 +656,9 @@ class SQLQueryGenerator:
             self.__collect_required_joins(op.window, required_joins)
         elif isinstance(op, ScalarFunctionOperation):
             self.__collect_required_joins(op.element, required_joins)
+        elif isinstance(op, ArithmeticOperation):
+            self.__collect_required_joins(op.left, required_joins)
+            self.__collect_required_joins(op.right, required_joins)
         elif isinstance(op, DateExtractOperation):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateArithmeticOperation):

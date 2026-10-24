@@ -31,6 +31,9 @@ class Attribute(RelationalOperationElement):
         self.__parent = parent
         self.__embedded = embedded
 
+    def _arithmetic_operand(self) -> ColumnWithJoin:
+        return self._column_with_join()
+
     def column(self) -> Column:
         """Return the underlying column metadata."""
         return self.__column

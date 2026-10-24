@@ -17,6 +17,7 @@ from model.relational import Database, Schema, Table, Column
 from datafinder_examples import example_path
 
 from datafinder_examples_tests.finance_numeric_specs import (
+    TRADE_ARITHMETIC_FINDER_SPECS,
     TRADE_NUMERIC_FINDER_SPECS,
 )
 
@@ -92,4 +93,11 @@ def trade_numeric_finder():
     "expectation", TRADE_NUMERIC_FINDER_SPECS.expectations, ids=lambda e: e.name
 )
 def test_trade_numeric(expectation, trade_numeric_finder):
+    expectation.run(trade_numeric_finder, backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", TRADE_ARITHMETIC_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_trade_arithmetic(expectation, trade_numeric_finder):
     expectation.run(trade_numeric_finder, backend="duckdb")

@@ -3,7 +3,7 @@ import datetime
 from datafinder import Attribute
 import decimal
 
-from model.relational import ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
+from model.relational import Arithmetic, ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
@@ -151,7 +151,7 @@ class StringAttribute(Attribute):
         """Return a suffix match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{suffix}"))
 
-class NumericAttribute(Attribute):
+class NumericAttribute(Attribute, Arithmetic):
     """A numeric attribute supporting aggregate and scalar functions.
 
     Aggregate functions return an ``AggregateOperation`` for use with

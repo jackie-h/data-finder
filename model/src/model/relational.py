@@ -9,6 +9,10 @@ class RelationalOperationElement:
     def __init__(self):
         pass
 
+    def _arithmetic_operand(self) -> 'RelationalOperationElement':
+        """This expression as an operand of arithmetic; an attribute reads its column."""
+        return self
+
 class Operation(RelationalOperationElement):
     def __init__(self):
         super().__init__()
@@ -159,6 +163,78 @@ class LogicalOperation(BinaryOperation, BooleanOperation):
         self.operator = op
 
 
+class ArithmeticOperator(Enum):
+    ADD = '+'
+    SUBTRACT = '-'
+    MULTIPLY = '*'
+    DIVIDE = '/'
+
+
+def _constant_operand(value) -> 'ConstantOperation':
+    if isinstance(value, bool) or not isinstance(value, (int, float, decimal.Decimal)):
+        raise TypeError(f"Arithmetic is between numbers and numeric columns, not {type(value).__name__}")
+    if isinstance(value, int):
+        return IntegerConstantOperation(value)
+    if isinstance(value, float):
+        return FloatConstantOperation(value)
+    return DecimalConstantOperation(value)
+
+
+class Arithmetic:
+    """The operators ``+ - * /`` for an expression that holds a number: ``a + b``, ``a * 2``, ``1 - a``. The other
+    operand is a number or another numeric expression."""
+
+    def _numeric(self) -> None:
+        """Raise if this expression is not a number."""
+
+    def _arithmetic(self, operator: 'ArithmeticOperator', other, reflected: bool) -> 'ArithmeticOperation':
+        self._numeric()
+        if isinstance(other, RelationalOperationElement):
+            if isinstance(other, Arithmetic):
+                other._numeric()
+            operand = other._arithmetic_operand()
+        else:
+            operand = _constant_operand(other)
+        me = self._arithmetic_operand()  # type: ignore[attr-defined]
+        left, right = (operand, me) if reflected else (me, operand)
+        return ArithmeticOperation(left, operator, right)
+
+    def __add__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.ADD, other, False)
+
+    def __radd__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.ADD, other, True)
+
+    def __sub__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.SUBTRACT, other, False)
+
+    def __rsub__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.SUBTRACT, other, True)
+
+    def __mul__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.MULTIPLY, other, False)
+
+    def __rmul__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.MULTIPLY, other, True)
+
+    def __truediv__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.DIVIDE, other, False)
+
+    def __rtruediv__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
+
+
+class ArithmeticOperation(BinaryOperation, Arithmetic):
+    """``left operator right`` on numbers, e.g. ``price * quantity``."""
+    operator: ArithmeticOperator
+
+    def __init__(self, left: RelationalOperationElement, operator: ArithmeticOperator,
+                 right: RelationalOperationElement, display_name: str | None = None):
+        super().__init__(left, right)
+        self.operator = operator
+        self.display_name = display_name
+
+
 class AggregateOperator(Enum):
     COUNT = 1
     SUM = 2
@@ -173,7 +249,7 @@ class WindowSpecification:
         self.order_by = order_by or []
 
 
-class AggregateOperation(UnaryOperation):
+class AggregateOperation(UnaryOperation, Arithmetic):
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
@@ -242,7 +318,15 @@ class WindowFunctionOperation(Operation):
                                        window=WindowSpecification(partition_by, order_by))
 
 
-class ScalarFunctionOperation(UnaryOperation):
+_NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction.FLOOR, ScalarFunction.MOD,
+                      ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH}
+
+
+class ScalarFunctionOperation(UnaryOperation, Arithmetic):
+    def _numeric(self) -> None:
+        if self.function not in _NUMERIC_FUNCTIONS:
+            raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")
+
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
                  display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None):
         super().__init__(element)
