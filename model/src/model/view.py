@@ -18,25 +18,25 @@ def _check_identifier(kind: str, value: str) -> None:
         raise ViewDefinitionError(f"{kind} {value!r} must be a plain identifier (letters, digits, underscores)")
 
 
-def _contains_aggregate_or_window(op) -> bool:
+def contains_aggregate_or_window(op) -> bool:
     """True when ``op`` holds an aggregate, window function or count."""
     if isinstance(op, (AggregateOperation, WindowFunctionOperation, CountAllOperation)):
         return True
     if isinstance(op, (LogicalOperation, ComparisonOperation)):
-        return _contains_aggregate_or_window(op.left) or _contains_aggregate_or_window(op.right)
+        return contains_aggregate_or_window(op.left) or contains_aggregate_or_window(op.right)
     if isinstance(op, (UnaryOperation, Alias)):
-        return _contains_aggregate_or_window(op.element)
+        return contains_aggregate_or_window(op.element)
     return False
 
 
-def _contains_aggregate(op) -> bool:
+def contains_aggregate(op) -> bool:
     """True when ``op`` collapses rows: an aggregate or a count. Window functions keep every row."""
     if isinstance(op, (AggregateOperation, CountAllOperation)):
         return True
     if isinstance(op, (LogicalOperation, ComparisonOperation)):
-        return _contains_aggregate(op.left) or _contains_aggregate(op.right)
+        return contains_aggregate(op.left) or contains_aggregate(op.right)
     if isinstance(op, (UnaryOperation, Alias)):
-        return _contains_aggregate(op.element)
+        return contains_aggregate(op.element)
     return False
 
 
@@ -67,7 +67,7 @@ class View(QueryExpression, Relation):
         self._columns = [*self.projection, *milestoning_aliases]
 
         group_by = list(group_by or [])
-        if group_by or any(_contains_aggregate(column) for column in self.projection):
+        if group_by or any(contains_aggregate(column) for column in self.projection):
             group_by += [alias.element for alias in milestoning_aliases]
         QueryExpression.__init__(self, self._columns, NoOperation() if filter is None else filter, group_by, table)
         self.name = name
@@ -88,9 +88,9 @@ class View(QueryExpression, Relation):
         for column in self.projection:
             if not isinstance(column, Alias):
                 raise ViewDefinitionError(f"Every projected column needs a name, not a bare {type(column).__name__}")
-        if _contains_aggregate_or_window(self.filter):
+        if contains_aggregate_or_window(self.filter):
             raise ViewDefinitionError("A view's filter can't contain aggregates, windows or counts")
-        if any(_contains_aggregate_or_window(expression) for expression in self.group_by):
+        if any(contains_aggregate_or_window(expression) for expression in self.group_by):
             raise ViewDefinitionError("A view can't group by aggregates, windows or counts")
 
         names = [n.lower() for n in self.column_names()]

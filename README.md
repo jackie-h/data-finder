@@ -245,6 +245,25 @@ TradeFinder.symbol().eq("AAPL").and_(TradeFinder.price() > 100).or_(TradeFinder.
 The second is `(symbol is AAPL and price > 100) or symbol is MSFT`. To group differently, build the part that should
 bind first and combine it on the other side, e.g. `a.or_(b.and_(c))`.
 
+### Aggregates
+
+A query that selects aggregates is grouped by its other columns, so you do not have to repeat them in `group_by`:
+
+```python
+# average price for each account
+TradeFinder.find_all(None, None, [TradeFinder.account().name(), TradeFinder.price().average()])
+```
+
+An aggregate over a to-many association is computed for each row of the root, as in Legend. This gives each
+employee the number of their reports, including 0 for those with none:
+
+```python
+EmployeeFinder.find_all(None, None, [EmployeeFinder.name(), EmployeeFinder.employees().id_().count()])
+```
+
+A query that selects only aggregates over the root's own columns covers every row and is not grouped. Pass `group_by`
+to choose the grouping yourself; it is used as given.
+
 Sort with `order_by`, and limit with `limit`. Several `order_by` calls accumulate: the latest call takes priority
 and the earlier ones break its ties, so the two lines below sort by category and then by name. Sorting a column again
 replaces its earlier direction.

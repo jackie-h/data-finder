@@ -1,5 +1,6 @@
 """
-Runs ORGCHART_FINDER_SPECS (self-join, manager navigation) against the
+Runs ORGCHART_FINDER_SPECS (self-join, manager navigation) and ORGCHART_AGGREGATE_FINDER_SPECS (aggregates over
+a to-many association) against the
 ibis/DuckDB backend.
 """
 import shutil
@@ -15,7 +16,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
-from datafinder_examples_tests.orgchart_specs import ORGCHART_FINDER_SPECS
+from datafinder_examples_tests.orgchart_specs import ORGCHART_AGGREGATE_FINDER_SPECS, ORGCHART_FINDER_SPECS
 
 _MODS = ["employee_finder", "employee_finder_base"]
 
@@ -53,4 +54,11 @@ def employee_finder():
     "expectation", ORGCHART_FINDER_SPECS.expectations, ids=lambda e: e.name
 )
 def test_orgchart(expectation, employee_finder):
+    expectation.run(employee_finder, backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", ORGCHART_AGGREGATE_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_orgchart_aggregate(expectation, employee_finder):
     expectation.run(employee_finder, backend="duckdb")

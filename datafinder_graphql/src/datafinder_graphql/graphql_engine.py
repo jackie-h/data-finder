@@ -637,6 +637,9 @@ class GraphQLConnect(QueryRunnerBase):
         filter_conv = getattr(table.endpoint, 'filter_convention', None)
         fields_str = _build_fields_str(columns, filter_conv)
         has_agg = any(isinstance(col, AggregateOperation) for col in columns)
+        if has_agg and not group_by:
+            # as in the SQL finders, the columns that are not aggregated are what the aggregates are grouped by
+            group_by = [col for col in columns if isinstance(col, Attribute)]
         display_names = [_col_display_name(col) for col in columns]
 
         is_date_range = business_date_to is not None and business_date is not None
