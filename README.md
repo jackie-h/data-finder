@@ -254,6 +254,9 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:

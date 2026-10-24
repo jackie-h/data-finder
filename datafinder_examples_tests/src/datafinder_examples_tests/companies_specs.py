@@ -16,6 +16,44 @@ COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
     expectations=[
+        # --- Distinct: each row once ---
+        TestExpectation(
+            name="distinct_removes_repeated_rows",
+            query=lambda f: f.find_all(None, None, [f.category()]).distinct().order_by(f.category().ascending()),
+            expected_columns=["Category"],
+            expected_result=np.array([["Finance"], ["Manufacturing"], ["Technology"]], dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+        TestExpectation(
+            name="without_distinct_rows_repeat",
+            query=lambda f: f.find_all(None, None, [f.category()]).order_by(f.category().ascending()),
+            expected_columns=["Category"],
+            expected_result=np.array(
+                [["Finance"], ["Finance"], ["Manufacturing"], ["Technology"], ["Technology"]], dtype=object),
+            unexpected_sql={"duckdb": "DISTINCT"},
+        ),
+        TestExpectation(
+            name="distinct_keeps_rows_that_differ_in_any_column",
+            query=lambda f: f.find_all(None, None, [f.category(), f.name()]).distinct()
+            .order_by(f.category().ascending(), f.name().ascending()).limit(3),
+            expected_columns=["Category", "Name"],
+            expected_result=np.array(
+                [["Finance", "Delta Ltd"], ["Finance", "Gamma LLC"], ["Manufacturing", "Acme Industries"]], dtype=object),
+        ),
+        TestExpectation(
+            name="distinct_with_a_filter",
+            query=lambda f: f.find_all(None, None, [f.category()], f.name().starts_with("Acme")).distinct()
+            .order_by(f.category().ascending()),
+            expected_columns=["Category"],
+            expected_result=np.array([["Manufacturing"], ["Technology"]], dtype=object),
+        ),
+        TestExpectation(
+            name="distinct_applies_before_the_limit",
+            query=lambda f: f.find_all(None, None, [f.category()]).distinct()
+            .order_by(f.category().ascending()).limit(2),
+            expected_columns=["Category"],
+            expected_result=np.array([["Finance"], ["Manufacturing"]], dtype=object),
+        ),
         # --- Count ---
         TestExpectation(
             name="count_all",

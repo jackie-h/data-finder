@@ -801,6 +801,18 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestDistinct:
+
+    def test_select_distinct(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        sql = to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation(), distinct=True)
+        assert sql == 'SELECT DISTINCT t0.id AS "Id" FROM t AS t0'
+
+    def test_not_distinct_by_default(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert "DISTINCT" not in to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation())
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
