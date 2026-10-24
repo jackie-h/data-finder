@@ -12,9 +12,9 @@
 
 #### Table: prices → Price (milestoning: processing_only)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|------------|
-| sym    | VARCHAR   | PK  | symbol     |
-| price  | DOUBLE    |     | price      |
-| in_z   | TIMESTAMP |     | validFrom  |
-| out_z  | TIMESTAMP |     | validTo    |
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|------------|
+| sym    | VARCHAR   | PK  | N        | symbol     |
+| price  | DOUBLE    |     | Y        | price      |
+| in_z   | TIMESTAMP |     | Y        | validFrom  |
+| out_z  | TIMESTAMP |     | Y        | validTo    |

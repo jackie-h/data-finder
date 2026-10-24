@@ -129,22 +129,22 @@ A **Mapping** file connects the logical model to the physical relational schema.
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|-------------|
-| ID        | INT     | PK  | id          |
-| ACCT_NAME | VARCHAR |     | name        |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| ID        | INT     | PK  | N        | id          |
+| ACCT_NAME | VARCHAR |     | Y        | name        |
 
 ### Schema: trading
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Type      | Key | Property ID |
-|------------|-----------|-----|-------------|
-| sym        | VARCHAR   |     | symbol      |
-| price      | DOUBLE    |     | price       |
-| account_id | INT       | FK  | account     |
-| in_z       | TIMESTAMP |     | validFrom   |
-| out_z      | TIMESTAMP |     | validTo     |
+| Column     | Type      | Key | Nullable | Property ID |
+|------------|-----------|-----|----------|-------------|
+| sym        | VARCHAR   |     | Y        | symbol      |
+| price      | DOUBLE    |     | Y        | price       |
+| account_id | INT       | FK  | Y        | account     |
+| in_z       | TIMESTAMP |     | Y        | validFrom   |
+| out_z      | TIMESTAMP |     | Y        | validTo     |
 
 #### Association: TradeAccount
 

@@ -8,14 +8,14 @@
 
 #### Table: employees → Employee
 
-| Column     | Type    | Key | Property ID |
-|------------|---------|-----|------------|
-| emp_id     | INT     | PK  | id         |
-| first_name | VARCHAR |     | firstName  |
-| last_name  | VARCHAR |     | lastName   |
-| email      | VARCHAR |     | email      |
-| department | VARCHAR |     | department |
-| manager_id | INT     | FK  | manager    |
+| Column     | Type    | Key | Nullable | Property ID |
+|------------|---------|-----|----------|------------|
+| emp_id     | INT     | PK  | N        | id         |
+| first_name | VARCHAR |     | Y        | firstName  |
+| last_name  | VARCHAR |     | Y        | lastName   |
+| email      | VARCHAR |     | Y        | email      |
+| department | VARCHAR |     | Y        | department |
+| manager_id | INT     | FK  | Y        | manager    |
 
 #### Association: EmployeeManager
 
@@ -25,12 +25,12 @@
 
 #### Table: projects → Project
 
-| Column      | Type    | Key | Property ID |
-|-------------|---------|-----|----------|
-| project_id  | INT     | PK  | id       |
-| name        | VARCHAR |     | name     |
-| code        | VARCHAR |     | code     |
-| assignee_id | INT     | FK  | assignee |
+| Column      | Type    | Key | Nullable | Property ID |
+|-------------|---------|-----|----------|----------|
+| project_id  | INT     | PK  | N        | id       |
+| name        | VARCHAR |     | Y        | name     |
+| code        | VARCHAR |     | Y        | code     |
+| assignee_id | INT     | FK  | Y        | assignee |
 
 #### Association: EmployeeProject
 

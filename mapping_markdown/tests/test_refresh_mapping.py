@@ -30,10 +30,10 @@ SIMPLE_MAPPING = """\
 
 #### Table: my_table → MyClass
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|----------|
-| id     | INT     | PK  | id       |
-| name   | VARCHAR |     | name     |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|----------|
+| id     | INT     | PK  | N        | id       |
+| name   | VARCHAR |     | Y        | name     |
 """
 
 
@@ -237,9 +237,9 @@ class TestAssociationsPreserved:
 
 #### Table: trades → Trade
 
-| Column     | Type | Key | Property ID   |
-|------------|------|-----|------------|
-| account_id | INT  | FK  | account    |
+| Column     | Type | Key | Nullable | Property ID   |
+|------------|------|-----|----------|------------|
+| account_id | INT  | FK  | Y        | account    |
 
 #### Association: TradeAccount
 
@@ -282,11 +282,11 @@ class TestMilestoningPreserved:
 
 #### Table: price → Instrument (milestoning: processing_only)
 
-| Column | Type      | Key | Property ID   |
-|--------|-----------|-----|------------|
-| SYM    | VARCHAR   | PK  | symbol     |
-| in_z   | TIMESTAMP |     | validFrom  |
-| out_z  | TIMESTAMP |     | validTo    |
+| Column | Type      | Key | Nullable | Property ID   |
+|--------|-----------|-----|----------|------------|
+| SYM    | VARCHAR   | PK  | N        | symbol     |
+| in_z   | TIMESTAMP |     | Y        | validFrom  |
+| out_z  | TIMESTAMP |     | Y        | validTo    |
 """
 
     def test_milestoning_heading_preserved(self):
@@ -316,19 +316,19 @@ class TestMultipleSchemas:
 
 #### Table: table_a → ClassA
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|----------|
-| id     | INT     | PK  | id       |
-| col_a  | VARCHAR |     | col_a    |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|----------|
+| id     | INT     | PK  | N        | id       |
+| col_a  | VARCHAR |     | Y        | col_a    |
 
 ### Schema: schema_b
 
 #### Table: table_b → ClassB
 
-| Column | Type   | Key | Property ID |
-|--------|--------|-----|----------|
-| id     | INT    | PK  | id       |
-| col_b  | DOUBLE |     | col_b    |
+| Column | Type   | Key | Nullable | Property ID |
+|--------|--------|-----|----------|----------|
+| id     | INT    | PK  | N        | id       |
+| col_b  | DOUBLE |     | Y        | col_b    |
 """
 
     def test_both_schemas_present(self):

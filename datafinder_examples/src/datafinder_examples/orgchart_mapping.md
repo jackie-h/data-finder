@@ -8,11 +8,11 @@
 
 #### Table: employees → Employee
 
-| Column     | Type    | Key | Property ID |
-|------------|---------|-----|----------|
-| id         | INT     | PK  | id       |
-| name       | VARCHAR |     | name     |
-| manager_id | INT     | FK  | manager  |
+| Column     | Type    | Key | Nullable | Property ID |
+|------------|---------|-----|----------|----------|
+| id         | INT     | PK  | N        | id       |
+| name       | VARCHAR |     | Y        | name     |
+| manager_id | INT     | FK  | Y        | manager  |
 
 #### Association: EmployeeManager
 

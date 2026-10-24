@@ -15,11 +15,11 @@
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|----------|
-| ID        | INT     | PK  | id       |
-| ACCT_NAME | VARCHAR |     | name     |
-| BRANCH_ID | INT     | FK  | branch   |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|----------|
+| ID        | INT     | PK  | N        | id       |
+| ACCT_NAME | VARCHAR |     | Y        | name     |
+| BRANCH_ID | INT     | FK  | Y        | branch   |
 
 #### Association: AccountBranch
 
@@ -29,34 +29,34 @@
 
 #### Table: branch_master → Branch
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|-------------|
-| ID     | INT     | PK  | id          |
-| CITY   | VARCHAR |     | city        |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|-------------|
+| ID     | INT     | PK  | N        | id          |
+| CITY   | VARCHAR |     | Y        | city        |
 
 #### Table: price → Instrument (milestoning: processing_only)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|------------|
-| SYM    | VARCHAR   | PK  | symbol     |
-| PRICE  | DOUBLE    |     | price      |
-| in_z   | TIMESTAMP |     | validFrom  |
-| out_z  | TIMESTAMP |     | validTo    |
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|------------|
+| SYM    | VARCHAR   | PK  | N        | symbol     |
+| PRICE  | DOUBLE    |     | Y        | price      |
+| in_z   | TIMESTAMP |     | Y        | validFrom  |
+| out_z  | TIMESTAMP |     | Y        | validTo    |
 
 ### Schema: trading
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column      | Type      | Key | Property ID          |
-|-------------|-----------|-----|------------------------|
-| sym         | VARCHAR   |     | symbol                 |
-| price       | DOUBLE    |     | price                  |
-| is_settled  | BOOLEAN   |     | isSettled              |
-| account_id  | INT       | FK  | account                |
-| in_z        | TIMESTAMP |     | validFrom              |
-| out_z       | TIMESTAMP |     | validTo                |
-| acct_name   | VARCHAR   |     | account.name           |
-| branch_city | VARCHAR   |     | account.branch.city    |
+| Column      | Type      | Key | Nullable | Property ID          |
+|-------------|-----------|-----|----------|------------------------|
+| sym         | VARCHAR   |     | Y        | symbol                 |
+| price       | DOUBLE    |     | Y        | price                  |
+| is_settled  | BOOLEAN   |     | Y        | isSettled              |
+| account_id  | INT       | FK  | Y        | account                |
+| in_z        | TIMESTAMP |     | Y        | validFrom              |
+| out_z       | TIMESTAMP |     | Y        | validTo                |
+| acct_name   | VARCHAR   |     | Y        | account.name           |
+| branch_city | VARCHAR   |     | Y        | account.branch.city    |
 
 #### Association: TradeAccount
 
@@ -66,10 +66,10 @@
 
 #### Table: contractualposition → ContractualPosition (milestoning: business_date_processing)
 
-| Column   | Type      | Key | Property ID   |
-|----------|-----------|-----|---------------|
-| DATE     | DATE      |     | businessDate  |
-| QUANTITY | DOUBLE    |     | quantity      |
-| NPV      | DOUBLE    |     | npv           |
-| in_z     | TIMESTAMP |     | validFrom     |
-| out_z    | TIMESTAMP |     | validTo       |
+| Column   | Type      | Key | Nullable | Property ID   |
+|----------|-----------|-----|----------|---------------|
+| DATE     | DATE      |     | Y        | businessDate  |
+| QUANTITY | DOUBLE    |     | Y        | quantity      |
+| NPV      | DOUBLE    |     | Y        | npv           |
+| in_z     | TIMESTAMP |     | Y        | validFrom     |
+| out_z    | TIMESTAMP |     | Y        | validTo       |

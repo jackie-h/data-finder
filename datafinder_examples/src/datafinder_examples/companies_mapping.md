@@ -8,8 +8,8 @@
 
 #### Table: companies → Company
 
-| Column   | Type    | Key | Property ID |
-|----------|---------|-----|----------|
-| id       | INT     | PK  | id       |
-| name     | VARCHAR |     | name     |
-| category | VARCHAR |     | category |
+| Column   | Type    | Key | Nullable | Property ID |
+|----------|---------|-----|----------|----------|
+| id       | INT     | PK  | N        | id       |
+| name     | VARCHAR |     | Y        | name     |
+| category | VARCHAR |     | Y        | category |
