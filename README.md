@@ -315,6 +315,8 @@ A date can be cut back to the first day of its week (a Monday), month, quarter o
 `PositionFinder.trade_date().first_day_of_month()`. The result is a date, so it can be compared:
 `PositionFinder.trade_date().first_day_of_month() == datetime.date(2024, 7, 1)`.
 
+Sort by an aggregate the same way as by a column: `.order_by(CompanyFinder.id_().count().descending())`.
+
 `coalesce` replaces a missing (NULL) value: `EmployeeFinder.manager().name().coalesce("nobody")`. Several defaults are tried
 in order.
 

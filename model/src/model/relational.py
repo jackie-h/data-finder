@@ -14,6 +14,18 @@ class RelationalOperationElement:
         return self
 
 
+class Sortable:
+    """Something the result can be ordered by: ``f.id_().count().ascending()``."""
+
+    def ascending(self) -> 'SortOperation':
+        """Sort by this expression, smallest first."""
+        return SortOperation(self, SortDirection.ASC)  # type: ignore[arg-type]
+
+    def descending(self) -> 'SortOperation':
+        """Sort by this expression, largest first."""
+        return SortOperation(self, SortDirection.DESC)  # type: ignore[arg-type]
+
+
 class Aliasable:
     """Something that can be a column of the result, so can be given a name there: ``f.price().sum().alias("Total")``.
     As in Pure, the name is held by an ``Alias`` that wraps the column."""
@@ -36,7 +48,7 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
-class ConstantOperation(RelationalOperationElement, Aliasable):
+class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
     def __init__(self):
         super().__init__()
 
@@ -298,7 +310,7 @@ class Arithmetic:
         return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
 
 
-class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Aliasable):
+class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Aliasable, Sortable):
     """``left operator right`` on numbers, e.g. ``price * quantity``."""
     operator: ArithmeticOperator
 
@@ -309,7 +321,7 @@ class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Aliasable):
         self.display_name = display_name
 
 
-class ConcatOperation(Operation, Comparable, Aliasable):
+class ConcatOperation(Operation, Comparable, Aliasable, Sortable):
     """Text joined end to end: ``first + " " + last``. NULL in any part makes the whole NULL, as with SQL's ``||``."""
     parts: list[RelationalOperationElement]
 
@@ -353,7 +365,7 @@ class WindowSpecification:
         self.order_by = order_by or []
 
 
-class AggregateOperation(UnaryOperation, Arithmetic, Aliasable):
+class AggregateOperation(UnaryOperation, Arithmetic, Aliasable, Sortable):
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
@@ -404,7 +416,7 @@ class WindowFunction(Enum):
     PERCENT_RANK = 10
 
 
-class WindowFunctionOperation(Operation, Aliasable):
+class WindowFunctionOperation(Operation, Aliasable, Sortable):
     element: RelationalOperationElement | None
 
     def __init__(self, element: RelationalOperationElement | None, function: WindowFunction,
@@ -427,7 +439,7 @@ _NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction
                       ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH}
 
 
-class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Aliasable):
+class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Aliasable, Sortable):
     def _numeric(self) -> None:
         if self.function not in _NUMERIC_FUNCTIONS:
             raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")
@@ -460,14 +472,14 @@ class DatePart(Enum):
     DOW = 'DOW'
 
 
-class DateExtractOperation(UnaryOperation, Aliasable):
+class DateExtractOperation(UnaryOperation, Aliasable, Sortable):
     def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.part = part
         self.display_name = display_name
 
 
-class DateTruncOperation(UnaryOperation, Comparable, Aliasable):
+class DateTruncOperation(UnaryOperation, Comparable, Aliasable, Sortable):
     """The first day of the week, month, quarter or year that the date falls in, as a date."""
 
     def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
@@ -476,7 +488,7 @@ class DateTruncOperation(UnaryOperation, Comparable, Aliasable):
         self.display_name = display_name
 
 
-class DateArithmeticOperation(UnaryOperation, Aliasable):
+class DateArithmeticOperation(UnaryOperation, Aliasable, Sortable):
     def __init__(self, element: RelationalOperationElement, n: int, unit: DatePart,
                  is_add: bool = True, display_name: str | None = None):
         super().__init__(element)
@@ -486,7 +498,7 @@ class DateArithmeticOperation(UnaryOperation, Aliasable):
         self.display_name = display_name
 
 
-class DateDiffOperation(UnaryOperation, Aliasable):
+class DateDiffOperation(UnaryOperation, Aliasable, Sortable):
     def __init__(self, element: RelationalOperationElement, other, unit: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.other = other
@@ -648,20 +660,20 @@ class SortDirection(Enum):
 
 
 class SortOperation(RelationalOperationElement):
-    def __init__(self, column: ColumnWithJoin, direction: SortDirection):
+    def __init__(self, column: RelationalOperationElement, direction: SortDirection):
         super().__init__()
         self.column = column
         self.direction = direction
 
 
-class CountAllOperation(RelationalOperationElement, Aliasable):
+class CountAllOperation(RelationalOperationElement, Aliasable, Sortable):
     """Represents COUNT(*) — counts all rows without reference to a specific column."""
     def __init__(self, table: str):
         super().__init__()
         self.table = table
 
 
-class Alias(RelationalOperationElement, Aliasable):
+class Alias(RelationalOperationElement, Aliasable, Sortable):
     def __init__(self, element: RelationalOperationElement, name: str):
         super().__init__()
         self.element = element
