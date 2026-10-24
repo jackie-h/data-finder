@@ -1307,6 +1307,53 @@ class TestOffset:
         assert "OFFSET" not in self._sql(limit=2)
 
 
+class TestIf:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "INT", "t"), Column("b", "VARCHAR", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    @staticmethod
+    def _ab():
+        return IntegerAttribute("A", "a", "INT", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+
+    def test_two_values(self):
+        from datafinder import if_
+        a, _ = self._ab()
+        assert self._sql(if_(a > 3, "big", "small")) == \
+            """SELECT CASE WHEN t0.a > 3 THEN 'big' ELSE 'small' END AS "Expression" FROM t AS t0"""
+
+    def test_without_otherwise(self):
+        from datafinder import if_
+        a, _ = self._ab()
+        assert self._sql(if_(a > 3, 1)) == 'SELECT CASE WHEN t0.a > 3 THEN 1 END AS "Expression" FROM t AS t0'
+
+    def test_nested_and_with_columns_as_values(self):
+        from datafinder import if_
+        a, b = self._ab()
+        assert self._sql(if_(a < 1, b, if_(a < 5, "mid", 7))) == \
+            """SELECT CASE WHEN t0.a < 1 THEN t0.b ELSE CASE WHEN t0.a < 5 THEN 'mid' ELSE 7 END END AS "Expression" FROM t AS t0"""
+
+    def test_a_combined_condition(self):
+        from datafinder import if_
+        a, b = self._ab()
+        assert self._sql(if_(a.eq(1).or_(b.is_none()), True, False)) == \
+            'SELECT CASE WHEN t0.a = 1 OR t0.b IS NULL THEN TRUE ELSE FALSE END AS "Expression" FROM t AS t0'
+
+    def test_the_condition_must_be_a_condition(self):
+        from datafinder import if_
+        a, _ = self._ab()
+        with pytest.raises(TypeError, match="condition"):
+            if_(a, 1, 2)  # type: ignore[arg-type]
+
+    def test_a_branch_must_be_a_value(self):
+        from datafinder import if_
+        a, _ = self._ab()
+        with pytest.raises(TypeError, match="branch"):
+            if_(a > 1, [1])
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
