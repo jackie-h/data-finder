@@ -211,6 +211,9 @@ def _eval_leaf(op_name: str, raw: Any, target: Any) -> bool:
         coerced = raw
     else:
         coerced, target = _comparable(raw, target)
+    if op_name in ('_in', '_nin'):
+        member = any(_comparable(raw, t)[0] == _comparable(raw, t)[1] for t in target)
+        return member if op_name == '_in' else not member
     if op_name == '_eq':
         return coerced == target
     if op_name == '_neq':

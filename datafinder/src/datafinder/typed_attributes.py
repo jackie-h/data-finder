@@ -124,6 +124,9 @@ class StringAttribute(Attribute):
                 return self.substring(start, stop - start)
         raise ValueError(f"Unsupported slice: [{start}:{stop}:{step}]")
 
+    def _to_constant(self, value):
+        return StringConstantOperation(value)
+
     def eq(self, value: str) -> Operation:
         """Return equality comparison with a string value."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.EQUAL, StringConstantOperation(value))
@@ -236,6 +239,9 @@ class DoubleAttribute(NumericAttribute):
         """Create a floating-point attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded)
 
+    def _to_constant(self, value):
+        return FloatConstantOperation(value)
+
     def eq(self, value: float) -> Operation:
         """Return equality comparison with a floating-point value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, FloatConstantOperation(value))
@@ -273,6 +279,9 @@ class DecimalAttribute(NumericAttribute):
         """Create a decimal attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded)
 
+    def _to_constant(self, value):
+        return DecimalConstantOperation(value)
+
     def eq(self, value: decimal.Decimal) -> Operation:
         """Return equality comparison with a decimal value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, DecimalConstantOperation(value))
@@ -306,6 +315,9 @@ class BooleanAttribute(Attribute):
         """Create a boolean attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded)
 
+    def _to_constant(self, value):
+        return BooleanConstantOperation(value)
+
     def eq(self, value: bool) -> Operation:
         """Return equality comparison with a boolean value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(value))
@@ -330,6 +342,9 @@ class IntegerAttribute(NumericAttribute):
                  embedded: 'Attribute | None' = None):
         """Create an integer attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded)
+
+    def _to_constant(self, value):
+        return IntegerConstantOperation(value)
 
     def eq(self, value: int) -> Operation:
         """Return equality comparison with an integer value."""
@@ -383,6 +398,9 @@ class DateAttribute(Attribute):
                  embedded: 'Attribute | None' = None):
         """Create a date attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded)
+
+    def _to_constant(self, value):
+        return DateConstantOperation(value)
 
     def eq(self, value: datetime.date) -> Operation:
         """Return equality comparison with a date value."""
@@ -511,6 +529,9 @@ class DateTimeAttribute(Attribute):
                  embedded: 'Attribute | None' = None):
         """Create a datetime attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded)
+
+    def _to_constant(self, value):
+        return _temporal_constant(value)
 
     def eq(self, value: datetime.datetime | datetime.date) -> Operation:
         """Return equality comparison with a datetime value (a plain date is rendered as a date literal)."""

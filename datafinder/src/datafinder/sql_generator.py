@@ -15,7 +15,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
-    IsNullOperation, IsNotNullOperation, \
+    IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
     SelectOperation, QueryExpression
 
@@ -214,7 +214,7 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
     elif isinstance(op, ComparisonOperation):
         collect_required_joins(op.left, required_joins, node_refs)
         collect_required_joins(op.right, required_joins, node_refs)
-    elif isinstance(op, (IsNullOperation, IsNotNullOperation)):
+    elif isinstance(op, (IsNullOperation, IsNotNullOperation, InOperation, NotInOperation)):
         collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, (ExistsOperation, NotExistsOperation)):
         # The join must be constrained like any other. It isn't recorded in node_refs: it is not an
@@ -649,6 +649,8 @@ class SQLQueryGenerator:
         elif isinstance(op, ComparisonOperation):
             self.__collect_required_joins(op.left, required_joins)
             self.__collect_required_joins(op.right, required_joins)
+        elif isinstance(op, (InOperation, NotInOperation)):
+            self.__collect_required_joins(op.element, required_joins)
 
     def select(self, cols: Sequence[RelationalOperationElement]):
         required_joins: dict = {}
@@ -694,6 +696,9 @@ class SQLQueryGenerator:
         elif isinstance(op, NotExistsOperation):
             col = op.node.join.right
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NULL'
+        elif isinstance(op, (InOperation, NotInOperation)):
+            keyword = ' IN ' if isinstance(op, InOperation) else ' NOT IN '
+            return self.build_filter(op.element) + keyword + '(' + ', '.join(constant_value_string(v) for v in op.values) + ')'
         elif isinstance(op, IsNotNullOperation):
             return self.build_filter(op.element) + ' IS NOT NULL'
         elif isinstance(op, IsNullOperation):
