@@ -168,7 +168,16 @@ _SCALAR_FUNCS: dict = {
     ScalarFunction.REPEAT:    lambda s, c: s.str.repeat(c.extra_args[0]),
     ScalarFunction.REPLACE:   lambda s, c: s.str.replace(c.extra_args[0], c.extra_args[1], regex=False),
     ScalarFunction.SUBSTRING: lambda s, c: _substring(s, c.extra_args),
+    ScalarFunction.COALESCE:  lambda s, c: _coalesce(s, c.extra_args),
 }
+
+
+def _coalesce(values: pd.Series, defaults: list) -> pd.Series:
+    """The value, or else the first default; a missing value is NaN/None/NA."""
+    result = values.astype(object).where(values.notna(), None)
+    for default in defaults:
+        result = result.where(result.notna(), default)
+    return result
 
 
 def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
@@ -178,6 +187,9 @@ def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
         func = _SCALAR_FUNCS.get(col.function)
         if func is None:
             raise GraphQLUnsupportedError(f"The GraphQL engine does not support the function {col.function.name}")
+        if fn and fn not in df.columns and col.function == ScalarFunction.COALESCE:
+            # a nested field is absent from every row when its parent object is null in all of them
+            return pd.Series(func(pd.Series([None] * len(df), dtype=object), col))
         if not fn or fn not in df.columns:
             return None
         return pd.Series(func(df[fn], col))

@@ -403,6 +403,7 @@ _SCALAR_SQL_NAMES = {
     ScalarFunction.REPEAT:    'REPEAT',
     ScalarFunction.REPLACE:   'REPLACE',
     ScalarFunction.SUBSTRING: 'SUBSTRING',
+    ScalarFunction.COALESCE:  'COALESCE',
 }
 
 _WINDOW_SQL_NAMES = {

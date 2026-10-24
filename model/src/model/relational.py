@@ -208,6 +208,7 @@ class ScalarFunction(Enum):
     REPEAT = 17
     REPLACE = 18
     SUBSTRING = 19
+    COALESCE = 20
 
 
 class WindowFunction(Enum):
