@@ -377,7 +377,7 @@ def _gql_value(val) -> str:
     if isinstance(val, datetime.date):
         return f'"{val.isoformat()}"'
     if isinstance(val, str):
-        return f'"{val}"'
+        return json.dumps(val)
     return str(val)
 
 
