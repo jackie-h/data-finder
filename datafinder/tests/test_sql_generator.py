@@ -801,6 +801,39 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestAlias:
+    """alias() names a column in the result."""
+
+    @staticmethod
+    def _select(*columns):
+        return to_sql(None, None, list(columns), Table("t", [Column("a", "INT", "t")]), NoOperation())
+
+    def test_an_attribute_takes_the_alias_as_its_name(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._select(attr.alias("Key")) == 'SELECT t0.id AS "Key" FROM t AS t0'
+
+    def test_an_aggregate_takes_the_alias(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._select(attr.sum().alias("Total")) == 'SELECT SUM(t0.id) AS "Total" FROM t AS t0'
+
+    def test_a_function_of_a_column_takes_the_alias(self):
+        attr = StringAttribute("Name", "name", "VARCHAR", "t")
+        assert self._select(attr.upper().alias("Loud")) == 'SELECT UPPER(t0.name) AS "Loud" FROM t AS t0'
+
+    def test_the_same_column_can_be_named_twice(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._select(attr.alias("A"), attr.alias("B")) == 'SELECT t0.id AS "A",t0.id AS "B" FROM t AS t0'
+
+    def test_aliasing_again_replaces_the_name(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._select(attr.alias("A").alias("B")) == 'SELECT t0.id AS "B" FROM t AS t0'
+
+    def test_an_alias_does_not_change_the_aliased_column(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr.alias("Key")
+        assert self._select(attr) == 'SELECT t0.id AS "Id" FROM t AS t0'
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 

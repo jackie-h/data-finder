@@ -16,6 +16,48 @@ COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
     expectations=[
+        # --- Aliases: a column can be given the name it has in the result ---
+        TestExpectation(
+            name="alias_names_the_columns",
+            query=lambda f: f.find_all(
+                None, None, [f.name().alias("Company"), f.category().alias("Sector")]
+            ).order_by(f.name().ascending()).limit(2),
+            expected_columns=["Company", "Sector"],
+            expected_result=np.array([["Acme Corp", "Technology"], ["Acme Industries", "Manufacturing"]], dtype=object),
+            expected_sql={"duckdb": 't0.name AS "Company"'},
+        ),
+        TestExpectation(
+            name="alias_names_the_same_column_twice",
+            query=lambda f: f.find_all(
+                None, None, [f.name().alias("A"), f.name().alias("B")]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["A", "B"],
+            expected_result=np.array([["Acme Corp", "Acme Corp"]], dtype=object),
+        ),
+        TestExpectation(
+            name="alias_again_replaces_the_name",
+            query=lambda f: f.find_all(
+                None, None, [f.name().alias("First").alias("Second")]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Second"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+        ),
+        TestExpectation(
+            name="alias_names_an_aggregate",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
+            query=lambda f: f.find_all(None, None, [f.id_().count().alias("Companies")]),
+            expected_columns=["Companies"],
+            expected_result=np.array([[5]], dtype=object),
+        ),
+        TestExpectation(
+            name="alias_names_a_function_of_a_column",
+            skip_backends={"graphql": "The GraphQL finder has no scalar functions"},
+            query=lambda f: f.find_all(
+                None, None, [f.name().upper().alias("Loud")]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Loud"],
+            expected_result=np.array([["ACME CORP"]], dtype=object),
+        ),
         # --- Count ---
         TestExpectation(
             name="count_all",

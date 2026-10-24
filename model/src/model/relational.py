@@ -9,6 +9,10 @@ class RelationalOperationElement:
     def __init__(self):
         pass
 
+    def alias(self, name: str) -> 'Alias':
+        """Name this column in the result: ``f.price().sum().alias("Total")``."""
+        return Alias(self, name)
+
 class Operation(RelationalOperationElement):
     def __init__(self):
         super().__init__()
@@ -458,6 +462,9 @@ class Alias(RelationalOperationElement):
         super().__init__()
         self.element = element
         self.name = name
+
+    def alias(self, name: str) -> 'Alias':
+        return Alias(self.element, name)
 
 
 class ExistsOperation(RelationalOperationElement):
