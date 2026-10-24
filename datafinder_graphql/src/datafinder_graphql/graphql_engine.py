@@ -613,7 +613,8 @@ class GraphQLConnect(QueryRunnerBase):
     def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,  # type: ignore[override]
                columns: list, table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
-               timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
+               timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,
+               distinct: bool = False) -> DataFrame:
 
         filter_conv = getattr(table.endpoint, 'filter_convention', None)
         fields_str = _build_fields_str(columns, filter_conv)
@@ -631,7 +632,7 @@ class GraphQLConnect(QueryRunnerBase):
         sort_expanded = bool(order_by) and not has_agg and expands and \
             any(isinstance(so, SortOperation) and _is_many(so.column) for so in order_by)
         server_args = _build_server_args(
-            op, None if has_agg or sort_expanded else order_by, None if has_agg else limit, filter_conv)
+            op, None if has_agg or sort_expanded else order_by, None if has_agg or distinct else limit, filter_conv)
 
         # Fetch rows — iterate dates for date-range queries
         if business_date_to is not None and business_date is not None:
@@ -654,8 +655,13 @@ class GraphQLConnect(QueryRunnerBase):
             aggregated = _apply_aggregation(df, columns, group_by)
             if order_by:
                 aggregated = _sort_aggregated(aggregated, order_by, group_by)
+            aggregated = aggregated.drop_duplicates().reset_index(drop=True) if distinct else aggregated
             return GraphQLOutput(aggregated.head(limit) if limit is not None else aggregated)
 
         if sort_expanded:
             df = _sort_expanded(df, order_by or [])
-        return GraphQLOutput(_project_columns(df, columns))
+        projected = _project_columns(df, columns)
+        if distinct:  # the limit is applied here, after the duplicates are gone, not on the server before
+            projected = projected.drop_duplicates().reset_index(drop=True)
+            projected = projected.head(limit) if limit is not None else projected
+        return GraphQLOutput(projected)

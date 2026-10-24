@@ -165,6 +165,21 @@ class TestOrderByAccumulates:
         assert self._result()._order_by == []
 
 
+class TestDistinct:
+
+    def test_not_distinct_by_default(self):
+        assert _make_result()._distinct is False
+
+    def test_distinct_returns_the_result_for_chaining(self):
+        result = _make_result()
+        assert result.distinct() is result and result._distinct is True
+
+    def test_a_view_cannot_be_distinct(self):
+        from model.view import ViewDefinitionError
+        with pytest.raises(ViewDefinitionError, match="distinct"):
+            _make_result().distinct().to_view("v", "s")
+
+
 class TestDuckDbTimeout:
     """DuckDbConnect.select() only builds the (unexecuted) query plan — the timeout can only
     fire once something actually materializes it, via to_pandas() or to_numpy()."""
