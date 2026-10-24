@@ -16,12 +16,12 @@ RENAME_COLUMNS_SPECS = FinderSpec(
     expectations=[
         unsupported("testRenameColumns", f"{_SRC}::testRenameColumns",
                     'select "persontable_0"."firstName" as "First Name", "persontable_0"."hello" as "Other" from (select "root".FIRSTNAME as "firstName", \'Hello\' as "hello" from personTable as "root") as "persontable_0"',
-                    'output columns cannot be renamed'),
+                    'renameColumns wraps the query in a subselect; alias names a column only where it is selected'),
         unsupported("testRenameColumnsAfterGroupBy", f"{_SRC}::testRenameColumnsAfterGroupBy",
                     'select "persontable_0"."firstName" as "First Name", "persontable_0"."count" as "People Count" from (select "root".FIRSTNAME as "firstName", count(*) as "count" from personTable as "root" group by "firstName" order by "firstName" asc) as "persontable_0"',
-                    'output columns cannot be renamed'),
+                    'renameColumns wraps the query in a subselect; alias names a column only where it is selected'),
         unsupported("testRenameColumnsAfterConcatenate", f"{_SRC}::testRenameColumnsAfterConcatenate",
                     'select "unionalias_0"."firstName" as "First Name" from (select "unionalias_1"."firstName" as "firstName" from (select "root".FIRSTNAME as "firstName" from personTable as "root" union all select "root".FIRSTNAME as "firstName" from personTable as "root") as "unionalias_1") as "unionalias_0"',
-                    'output columns cannot be renamed'),
+                    'renameColumns wraps the query in a subselect; alias names a column only where it is selected'),
     ],
 )

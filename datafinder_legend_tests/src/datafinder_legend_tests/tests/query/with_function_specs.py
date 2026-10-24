@@ -16,9 +16,9 @@ WITH_FUNCTION_SPECS = FinderSpec(
     expectations=[
         unsupported("testDayOfWeekFunction", f"{_SRC}::testDayOfWeekFunction",
                     'select formatdatetime("root".tradeDate, \'EEEE\') as "Day Of Week Name" from tradeTable as "root" where formatdatetime("root".tradeDate, \'EEEE\') <> \'Monday\' or formatdatetime("root".tradeDate, \'EEEE\') is null',
-                    'no date functions such as adjust or firstDayOf...'),
+                    'no adjust, day-of-week names, or dates relative to now'),
         unsupported("testDayOfWeekNumberFunction", f"{_SRC}::testDayOfWeekNumberFunction",
                     'select extract(dow from "root".tradeDate) as "Day Of Week Number" from tradeTable as "root" where extract(isodow from "root".tradeDate) <> \'2\' or extract(isodow from "root".tradeDate) is null',
-                    'no date functions such as adjust or firstDayOf...'),
+                    'no adjust, day-of-week names, or dates relative to now'),
     ],
 )
