@@ -17,6 +17,19 @@ RESTRICT_AFTER_GROUP_BY = (
     "Legend restricts the columns of a group by in a derived table around it; here the group by selects only the "
     "columns that are kept, which returns the same rows"
 )
+# Known-gap keys are backend names. This one marks a gap in the rows a query returns rather than in its SQL.
+ROWS = f"{BACKEND}/rows"
+
+CHAINED_ORDER_BY = (
+    "chained order_by calls replace the earlier ordering; Legend's chained sorts accumulate, the later sort being "
+    "primary and the earlier one breaking its ties"
+)
+JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY = f"{JOIN_OPERAND_ORDER}; and {CHAINED_ORDER_BY}"
+
+OPTIONAL_PROPERTY = (
+    "Legend adds `col IS NOT NULL` before a comparison on an optional property; the model has no multiplicity, and "
+    "the extra predicate does not change the result"
+)
 
 
 def _unsupported_query(finder):
