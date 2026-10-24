@@ -66,7 +66,7 @@ class TestIsNoneE2E:
 
     def test_is_none_combined_with_equality(self, con):
         table, id_attr, notes_attr, qty_attr = _make_attrs()
-        sql = to_sql(None, None, [id_attr], table, notes_attr.is_none().and_op(qty_attr.is_none()))
+        sql = to_sql(None, None, [id_attr], table, notes_attr.is_none().and_(qty_attr.is_none()))
         rows = con.sql(sql).fetchall()
         ids = [r[0] for r in rows]
         assert ids == [4]

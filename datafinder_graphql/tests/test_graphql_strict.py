@@ -88,7 +88,7 @@ def test_or_with_an_unpushable_side_fails_rather_than_narrowing():
 
 def test_and_with_an_unpushable_side_fails():
     with pytest.raises(GraphQLPushdownError):
-        _build_server_args(_price().eq(2.0).and_op(_field_compared_to_field()), None, None, CONVENTION)
+        _build_server_args(_price().eq(2.0).and_(_field_compared_to_field()), None, None, CONVENTION)
 
 
 def test_an_unsupported_column_expression_fails_rather_than_disappearing():
