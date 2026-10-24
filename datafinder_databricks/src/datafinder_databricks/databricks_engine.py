@@ -13,7 +13,7 @@ import pandas as pd
 import pyarrow as pa
 
 
-def _to_databricks_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
+def _to_databricks_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
                        columns: Sequence, table: Table, op: Operation,
                        order_by: list | None = None, group_by: list | None = None,
                        limit: int | None = None, business_date_to: datetime.date | None = None) -> str:
@@ -45,7 +45,7 @@ class DatabricksConnect(QueryRunnerBase):
         cls._access_token = access_token
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime,
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,
                columns: Sequence[Attribute], table: Table, op: Operation,
                order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000,

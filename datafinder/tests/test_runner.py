@@ -5,7 +5,8 @@ import pandas as pd
 import pytest
 
 from datafinder import DataFrame, QueryRunnerBase
-from datafinder.runner import FinderResult, ViewResult, _DEFAULT_TIMEOUT_MS, convert_inputs_and_select_for_date_range
+from datafinder.runner import FinderResult, ViewResult, _DEFAULT_TIMEOUT_MS, convert_date_time, \
+    convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from model.relational import Alias, Column, NoOperation, Table
 from model.view import View
 
@@ -77,6 +78,45 @@ class TestFindForDateRangeValidation:
             "2024-01-01", "2024-12-31", "2024-06-01 00:00:00", [], self._table(), NoOperation())
         assert result._business_date == datetime.date(2024, 1, 1)
         assert result._business_date_to == datetime.date(2024, 12, 31)
+
+
+class TestConvertDateTime:
+    """A processing date input keeps the precision it was given: a date stays a date, a datetime a datetime."""
+
+    def test_datetime_string_is_a_datetime(self):
+        result = convert_date_time("2024-06-01 10:30:00")
+        assert result == datetime.datetime(2024, 6, 1, 10, 30)
+        assert isinstance(result, datetime.datetime)
+
+    def test_date_string_is_a_date(self):
+        result = convert_date_time("2024-06-01")
+        assert result == datetime.date(2024, 6, 1)
+        assert not isinstance(result, datetime.datetime)
+
+    def test_datetime_is_unchanged(self):
+        dt = datetime.datetime(2024, 6, 1, 0, 0, 0)
+        result = convert_date_time(dt)
+        assert result == dt and isinstance(result, datetime.datetime)
+
+    def test_date_is_unchanged(self):
+        result = convert_date_time(datetime.date(2024, 6, 1))
+        assert result == datetime.date(2024, 6, 1) and not isinstance(result, datetime.datetime)
+
+    def test_midnight_datetime_stays_a_datetime(self):
+        assert isinstance(convert_date_time("2024-06-01 00:00:00"), datetime.datetime)
+
+    def test_bad_string_raises(self):
+        with pytest.raises(ValueError, match="Processing date string"):
+            convert_date_time("01/06/2024")
+
+    def test_bad_type_raises(self):
+        with pytest.raises(TypeError):
+            convert_date_time(20240601)
+
+    def test_find_all_keeps_a_date_processing_date(self):
+        result = convert_inputs_and_select(None, "2024-06-01", [], Table("trades", []), NoOperation())
+        assert result._processing_datetime == datetime.date(2024, 6, 1)
+        assert not isinstance(result._processing_datetime, datetime.datetime)
 
 
 class TestDuckDbTimeout:

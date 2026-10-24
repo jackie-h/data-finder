@@ -755,6 +755,49 @@ class TestNullEndMilestoning:
         assert "IS NULL" in sql
 
 
+class TestProcessingDateRendering:
+    """A processing date renders as a date literal, a processing datetime as a timestamp literal."""
+
+    def _table(self):
+        from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
+                                       infinite_datetime="9999-12-31 23:59:59")
+        return MilestonedTable("trades", [], mc)
+
+    def _sql(self, processing):
+        from datafinder.typed_attributes import DateTimeAttribute as DTA
+        return to_sql(None, processing, [DTA("start_at", "in_z", "TIMESTAMP", "trades")], self._table(), NoOperation())
+
+    def test_date_is_a_date_literal(self):
+        sql = self._sql(datetime.date(2017, 6, 11))
+        assert "in_z <= '2017-06-11'" in sql
+        assert "out_z > '2017-06-11'" in sql
+        assert "00:00:00" not in sql
+
+    def test_datetime_is_a_timestamp_literal(self):
+        sql = self._sql(datetime.datetime(2017, 6, 11, 10, 30, 0))
+        assert "in_z <= '2017-06-11 10:30:00'" in sql
+        assert "out_z > '2017-06-11 10:30:00'" in sql
+
+    def test_midnight_datetime_is_still_a_timestamp_literal(self):
+        sql = self._sql(datetime.datetime(2017, 6, 11, 0, 0, 0))
+        assert "in_z <= '2017-06-11 00:00:00'" in sql
+
+    def test_date_on_a_joined_milestoned_table(self):
+        from datafinder.sql_generator import build_milestoning_filter_operation
+        op = build_milestoning_filter_operation(None, datetime.date(2017, 6, 11), self._table())
+        assert op is not None
+        sql = SQLQueryGenerator().build_filter(op)
+        assert "'2017-06-11'" in sql and "00:00:00" not in sql
+
+    def test_datetime_attribute_compares_with_a_date(self):
+        from datafinder.typed_attributes import DateTimeAttribute as DTA
+        attr = DTA("start_at", "in_z", "TIMESTAMP", "trades")
+        for op, text in ((attr <= datetime.date(2017, 6, 11), "<="), (attr > datetime.date(2017, 6, 11), ">"),
+                         (attr == datetime.date(2017, 6, 11), "=")):
+            assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
+
+
 class TestMilestoningOnJoinedTable:
     """Verify that milestoning is applied as a JOIN ON condition, not a WHERE clause,
     when the milestoned table is reached via a join rather than being the root table."""

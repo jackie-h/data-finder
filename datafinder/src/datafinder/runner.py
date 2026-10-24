@@ -31,17 +31,22 @@ class RegistryBase(type):
     def clear(cls):
         RegistryBase.REGISTRY = {}
 
-def convert_date_time(maybe_datetime) -> datetime.datetime:
+def convert_date_time(maybe_datetime) -> datetime.datetime | datetime.date:
+    """Convert a processing date input. A date (or "%Y-%m-%d" string) stays a date, so it is rendered as a date
+    literal in SQL; a datetime (or "%Y-%m-%d %H:%M:%S" string) stays a timestamp."""
     if isinstance(maybe_datetime, str):
-        # Assume a specific format for string input, or try multiple formats
-        try:
-            return datetime.datetime.strptime(maybe_datetime, "%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            raise ValueError("Date time string must be in the format '%Y-%m-%d %H:%M:%S'")
-    elif isinstance(maybe_datetime, datetime.datetime):
+        for fmt, to_value in (("%Y-%m-%d %H:%M:%S", lambda dt: dt), ("%Y-%m-%d", lambda dt: dt.date())):
+            try:
+                return to_value(datetime.datetime.strptime(maybe_datetime, fmt))
+            except ValueError:
+                pass
+        raise ValueError("Processing date string must be in the format '%Y-%m-%d %H:%M:%S' or '%Y-%m-%d'")
+    elif isinstance(maybe_datetime, datetime.datetime):  # before date: datetime is a subclass of date
+        return maybe_datetime
+    elif isinstance(maybe_datetime, datetime.date):
         return maybe_datetime
     else:
-        raise TypeError("Input must be a string or a datetime object.")
+        raise TypeError("Input must be a string, a datetime object or a date object.")
 
 def convert_date(maybe_date) -> datetime.date:
     if isinstance(maybe_date, str):
@@ -63,7 +68,7 @@ _DEFAULT_TIMEOUT_MS = 60_000
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
-                 processing_datetime: datetime.datetime | None,
+                 processing_datetime: datetime.datetime | datetime.date | None,
                  columns: Sequence, table: Table, op: Operation,
                  business_date_to: datetime.date | None = None):
         self._business_date = business_date
@@ -191,7 +196,7 @@ class ViewResult(DataFrame):
 
 
 def convert_inputs_and_select(business_date: Union[datetime.date, str] | None,
-                              processing_datetime: Union[datetime.datetime, str] | None,
+                              processing_datetime: Union[datetime.datetime, datetime.date, str] | None,
                               columns: Sequence[Attribute], table: Table, op: Operation) -> FinderResult:
     bd = None if business_date is None else convert_date(business_date)
     pdt = None if processing_datetime is None else convert_date_time(processing_datetime)
@@ -201,7 +206,7 @@ def convert_inputs_and_select(business_date: Union[datetime.date, str] | None,
 def convert_inputs_and_select_for_date_range(
         business_date_from: Union[datetime.date, str],
         business_date_to: Union[datetime.date, str],
-        processing_datetime: Union[datetime.datetime, str],
+        processing_datetime: Union[datetime.datetime, datetime.date, str],
         columns: Sequence[Attribute], table: Table, op: Operation) -> FinderResult:
     if business_date_from is None:
         raise ValueError("business_date_from is required for find_for_date_range")
@@ -218,7 +223,7 @@ def convert_inputs_and_select_for_date_range(
 class QueryRunnerBase(metaclass=RegistryBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime,
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,
                columns: Sequence[Attribute], table: Table, op: Operation,
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
