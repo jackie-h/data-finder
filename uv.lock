@@ -270,7 +270,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'test'", specifier = ">=9.0.0" },
     { name = "sqlalchemy", marker = "extra == 'iceberg-test'", specifier = ">=2.0.0" },
     { name = "sqlalchemy", marker = "extra == 'test'", specifier = ">=2.0.0" },
-    { name = "sqlglot", specifier = ">=23.12.2" },
+    { name = "sqlglot", specifier = ">=30.24.0" },
 ]
 provides-extras = ["test", "ibis", "duckdb", "databricks", "linkml", "iceberg", "iceberg-test", "markdown"]
 
@@ -1910,11 +1910,11 @@ wheels = [
 
 [[package]]
 name = "sqlglot"
-version = "23.12.2"
+version = "30.24.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/af/d3/9a44fc000a6b693389d0baa7759a97265701270abcc3d909a1c04f95e952/sqlglot-23.12.2.tar.gz", hash = "sha256:3d887c3841d615fc97f02df73b441514ebe20576afffdf145019212a4c37e4a8", size = 13030682, upload-time = "2024-04-30T02:58:07.656Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/7c/9fd907983ff041692399bf855d344e1fcc9a02c8d92a5fee6dbdf139d19e/sqlglot-30.24.0.tar.gz", hash = "sha256:6451aabd1c9994d0f73355c962a5eaf9258381b3f2554e53db916cd9a605552a", size = 6131857, upload-time = "2026-10-20T17:14:03.987Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/da/52/ed9a44f3c4d397d882615a6fcb63c9f1e74711c3c3170a6e626e35bbb392/sqlglot-23.12.2-py3-none-any.whl", hash = "sha256:5d63006a802482ab49a4f2e848cecb17edc4ba920395c1f226c8e7ad48fac874", size = 390227, upload-time = "2024-04-30T02:57:59.27Z" },
+    { url = "https://files.pythonhosted.org/packages/68/5f/d78f74306cc026c5f40f8808a47356dfd37461eb15eb759a20e5e9efe7d7/sqlglot-30.24.0-py3-none-any.whl", hash = "sha256:9488828cc018453b7a3ba01e65d2749c9a731314c14583695163ca1f358203fe", size = 792162, upload-time = "2026-10-20T17:14:02.053Z" },
 ]
 
 [[package]]
