@@ -883,6 +883,35 @@ class TestImplicitGroupBy:
         assert sql.endswith("GROUP BY t0.LEGALNAME")
 
 
+class TestStringLiteralsAreEscaped:
+    """A quote in a string value is doubled, so the value cannot end the literal and change the query."""
+
+    @staticmethod
+    def _where(op):
+        table = Table("t", [Column("name", "VARCHAR", "t")])
+        attr = StringAttribute("Name", "name", "VARCHAR", "t")
+        return to_sql(None, None, [attr], table, op(attr)).split(" WHERE ")[1]
+
+    def test_eq(self):
+        assert self._where(lambda a: a.eq("O'Brien")) == "t0.name = 'O''Brien'"
+
+    def test_a_value_that_tries_to_end_the_literal(self):
+        assert self._where(lambda a: a.eq("x' OR '1'='1")) == "t0.name = 'x'' OR ''1''=''1'"
+
+    def test_contains(self):
+        assert self._where(lambda a: a.contains("a'b")) == "t0.name LIKE '%a''b%'"
+
+    def test_is_in(self):
+        assert self._where(lambda a: a.is_in(["a'b", "c"])) == "t0.name IN ('a''b', 'c')"
+
+    def test_function_arguments(self):
+        table = Table("t", [Column("name", "VARCHAR", "t")])
+        attr = StringAttribute("Name", "name", "VARCHAR", "t")
+        quote, doubled = "'" * 4, "'" * 6
+        sql = to_sql(None, None, [attr.replace("'", "''")], table, NoOperation())
+        assert sql.startswith(f"SELECT REPLACE(t0.name, {quote}, {doubled})")
+
+
 class TestAlias:
     """alias() names a column in the result."""
 
