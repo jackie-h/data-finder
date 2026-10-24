@@ -16,6 +16,58 @@ COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
     expectations=[
+        # --- join_strings: the values of a group joined into one text ---
+        TestExpectation(
+            name="join_strings_per_group_in_an_order",
+            skip_backends={"graphql": "The GraphQL engine cannot order the values it joins"},
+            query=lambda f: f.find_all(
+                None, None, [f.category(), f.name().join_strings(", ", order_by=[f.name().ascending()])]
+            ).group_by(f.category()).order_by(f.category().ascending()),
+            expected_columns=["Category", "Join Name"],
+            expected_result=np.array(
+                [
+                    ["Finance", "Delta Ltd, Gamma LLC"],
+                    ["Manufacturing", "Acme Industries"],
+                    ["Technology", "Acme Corp, Beta Corp"],
+                ],
+                dtype=object,
+            ),
+            expected_sql={"duckdb": "STRING_AGG(t0.name, ', ' ORDER BY t0.name ASC)"},
+        ),
+        TestExpectation(
+            name="join_strings_descending",
+            skip_backends={"graphql": "The GraphQL engine cannot order the values it joins"},
+            query=lambda f: f.find_all(
+                None, None, [f.category(), f.name().join_strings("|", order_by=[f.name().descending()])]
+            ).group_by(f.category()).order_by(f.category().ascending()),
+            expected_columns=["Category", "Join Name"],
+            expected_result=np.array(
+                [
+                    ["Finance", "Gamma LLC|Delta Ltd"],
+                    ["Manufacturing", "Acme Industries"],
+                    ["Technology", "Beta Corp|Acme Corp"],
+                ],
+                dtype=object,
+            ),
+        ),
+        TestExpectation(
+            name="join_strings_of_the_whole_result",
+            skip_backends={"graphql": "The GraphQL engine cannot order the values it joins"},
+            query=lambda f: f.find_all(
+                None, None, [f.category().join_strings("/", order_by=[f.id_().ascending()])]
+            ),
+            expected_columns=["Join Category"],
+            expected_result=np.array([["Technology/Manufacturing/Technology/Finance/Finance"]], dtype=object),
+        ),
+        TestExpectation(
+            name="join_strings_without_an_order_joins_every_value",
+            query=lambda f: f.find_all(
+                None, None, [f.category(), f.name().join_strings(",")], f.category().eq("Manufacturing")
+            ).group_by(f.category()),
+            expected_columns=["Category", "Join Name"],
+            expected_result=np.array([["Manufacturing", "Acme Industries"]], dtype=object),
+            expected_sql={"duckdb": "STRING_AGG(t0.name, ',')"},
+        ),
         # --- Count ---
         TestExpectation(
             name="count_all",

@@ -801,6 +801,40 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestJoinStrings:
+
+    @staticmethod
+    def _sql(*columns, **kwargs):
+        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "VARCHAR", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation(), **kwargs)
+
+    @staticmethod
+    def _ab():
+        return StringAttribute("A", "a", "VARCHAR", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+
+    def test_separator_only(self):
+        a, _ = self._ab()
+        assert self._sql(a.join_strings(",")) == """SELECT STRING_AGG(t0.a, ',') AS "Join A" FROM t AS t0"""
+
+    def test_no_separator_joins_end_to_end(self):
+        a, _ = self._ab()
+        assert self._sql(a.join_strings()) == """SELECT STRING_AGG(t0.a, '') AS "Join A" FROM t AS t0"""
+
+    def test_in_an_order(self):
+        a, b = self._ab()
+        assert self._sql(a.join_strings(" ", order_by=[b.descending(), a.ascending()])) == \
+            """SELECT STRING_AGG(t0.a, ' ' ORDER BY t0.b DESC, t0.a ASC) AS "Join A" FROM t AS t0"""
+
+    def test_a_quote_in_the_separator_does_not_end_it(self):
+        a, _ = self._ab()
+        assert "', ''" in self._sql(a.join_strings("', '"))
+
+    def test_grouped_by_the_other_columns(self):
+        a, b = self._ab()
+        sql = self._sql(b, a.join_strings(","), group_by=[b])
+        assert sql.endswith("GROUP BY t0.b")
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
