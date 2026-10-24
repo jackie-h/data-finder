@@ -264,6 +264,12 @@ Text joins with `+`: `CompanyFinder.name() + " (" + CompanyFinder.category() + "
 Functions chain: the result of a function has the functions of its type, so `CompanyFinder.name().upper().length()` and
 `TradeFinder.price().sqrt().floor()` both work, and a number from a text function can be used in arithmetic.
 
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
+`offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
+first: without an order, which rows come first is not defined.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:

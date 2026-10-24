@@ -940,6 +940,39 @@ class TestChainedFunctions:
         assert self._sql(upper) == 'SELECT UPPER(t0.name) AS "Upper Name" FROM t AS t0'
 
 
+class TestDistinct:
+
+    def test_select_distinct(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        sql = to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation(), distinct=True)
+        assert sql == 'SELECT DISTINCT t0.id AS "Id" FROM t AS t0'
+
+    def test_not_distinct_by_default(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert "DISTINCT" not in to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation())
+
+
+class TestOffset:
+
+    @staticmethod
+    def _sql(**kwargs):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        return to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation(), **kwargs)
+
+    def test_offset_alone(self):
+        assert self._sql(offset=5).endswith("FROM t AS t0 OFFSET 5")
+
+    def test_limit_then_offset(self):
+        assert self._sql(limit=2, offset=1).endswith("FROM t AS t0 LIMIT 2 OFFSET 1")
+
+    def test_offset_after_order_by(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._sql(order_by=[attr.ascending()], limit=3, offset=2).endswith("ORDER BY t0.id ASC LIMIT 3 OFFSET 2")
+
+    def test_no_offset_by_default(self):
+        assert "OFFSET" not in self._sql(limit=2)
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
