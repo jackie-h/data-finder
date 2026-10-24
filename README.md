@@ -232,6 +232,17 @@ result = AccountFinder.find_all(
 df = result.to_pandas()
 ```
 
+Combine filters with `and_op` and `or_`. A chain reads left to right, each call taking everything before it as its
+left side, so the first line below is `(symbol is AAPL or symbol is MSFT) and price > 100`:
+
+```python
+TradeFinder.symbol().eq("AAPL").or_(TradeFinder.symbol().eq("MSFT")).and_op(TradeFinder.price() > 100)
+TradeFinder.symbol().eq("AAPL").and_op(TradeFinder.price() > 100).or_(TradeFinder.symbol().eq("MSFT"))
+```
+
+The second is `(symbol is AAPL and price > 100) or symbol is MSFT`. To group differently, build the part that should
+bind first and combine it on the other side, e.g. `a.or_(b.and_op(c))`.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:

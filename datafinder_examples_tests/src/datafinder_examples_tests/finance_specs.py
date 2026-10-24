@@ -490,6 +490,121 @@ TRADE_EXISTS_FINDER_SPECS = FinderSpec(
     ],
 )
 
+# or_() combines filters like and_op(), and a chain is read left to right: each call takes everything before it as
+# its left side. With both trades live (AAPL 84.11 on account 1, MSFT 300.0 on account 2), a wrong grouping or an OR
+# treated as an AND changes which symbols come back.
+TRADE_OR_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    expectations=[
+        TestExpectation(
+            name="or_returns_rows_matching_either_side",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.symbol().eq("AAPL").or_(f.symbol().eq("MSFT")),
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
+            expected_sql={"duckdb": " OR "},
+        ),
+        TestExpectation(
+            name="or_where_only_the_right_side_matches",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.symbol().eq("NOSUCH").or_(f.symbol().eq("MSFT")),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="or_where_neither_side_matches",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.symbol().eq("NOSUCH").or_(f.symbol().eq("ALSONOSUCH")),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.empty((0, 1), dtype=object),
+        ),
+        TestExpectation(
+            name="or_on_different_properties",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.symbol().eq("NOSUCH").or_(f.price() > 200.0),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="or_then_and_applies_the_and_to_the_whole_or",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.symbol().eq("AAPL").or_(f.symbol().eq("MSFT")).and_op(f.price() > 200.0),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+            expected_sql={"duckdb": "(t0.sym = 'AAPL' OR t0.sym = 'MSFT') AND t0.price > 200.0"},
+        ),
+        TestExpectation(
+            name="and_then_or_applies_the_or_to_the_whole_and",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.symbol().eq("AAPL").and_op(f.price() > 1000.0).or_(f.symbol().eq("MSFT")),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+            expected_sql={"duckdb": "(t0.sym = 'AAPL' AND t0.price > 1000.0) OR t0.sym = 'MSFT'"},
+        ),
+        TestExpectation(
+            name="or_chain_of_three",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.symbol().eq("AAPL").or_(f.symbol().eq("GOOG")).or_(f.symbol().eq("MSFT")),
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
+            expected_sql={"duckdb": "t0.sym = 'AAPL' OR t0.sym = 'GOOG' OR t0.sym = 'MSFT'"},
+        ),
+        TestExpectation(
+            name="or_across_a_property_and_a_related_property",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.account().name().eq("Beta Inc").or_(f.symbol().eq("AAPL")),
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="or_where_only_the_related_property_matches",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.account().name().eq("Beta Inc").or_(f.symbol().eq("NOSUCH")),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_or_a_filter",
+            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
+            query=lambda f: f.find_all(
+                None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.account().exists().or_(f.symbol().eq("MSFT")),
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_exists_or_a_filter",
+            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
+            query=lambda f: f.find_all(
+                None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
+                f.account().not_exists().or_(f.symbol().eq("NOSUCH")),
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["MSFT"]], dtype=object),
+        ),
+    ],
+)
+
 # is_none() / is_not_none() read a column through the join, so the join has to be constrained to the version of
 # the related row applicable at the query time. With the same data as the exists() specs: an unconstrained join
 # returns each of account 1's trades twice and finds a name for MSFT while its account is not yet live.

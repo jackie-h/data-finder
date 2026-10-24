@@ -25,6 +25,7 @@ from datafinder_examples_tests.finance_specs import (
     TRADE_FINDER_SPECS,
     TRADE_MULTI_HOP_FINDER_SPECS,
     TRADE_EXISTS_FINDER_SPECS,
+    TRADE_OR_FINDER_SPECS,
     TRADE_IS_NONE_FINDER_SPECS,
     TRADE_VIEW_FINDER_SPECS,
     CONTRACTUAL_POSITION_FINDER_SPECS,
@@ -141,6 +142,13 @@ def test_trade_exists(expectation, finance_finders):
 
 
 @pytest.mark.parametrize(
+    "expectation", TRADE_OR_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_trade_or(expectation, finance_finders):
+    expectation.run(finance_finders[1], backend="duckdb")
+
+
+@pytest.mark.parametrize(
     "expectation", TRADE_IS_NONE_FINDER_SPECS.expectations, ids=lambda e: e.name
 )
 def test_trade_is_none(expectation, finance_finders):
@@ -206,6 +214,7 @@ _TRADE_EXPECTATIONS = [
     *TRADE_FINDER_SPECS.expectations,
     *TRADE_MULTI_HOP_FINDER_SPECS.expectations,
     *TRADE_EXISTS_FINDER_SPECS.expectations,
+    *TRADE_OR_FINDER_SPECS.expectations,
     *TRADE_IS_NONE_FINDER_SPECS.expectations,
 ]
 

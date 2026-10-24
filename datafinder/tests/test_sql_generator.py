@@ -801,6 +801,50 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestOrFilter:
+    """or_() builds an OR like and_op() builds an AND, and renders with the parentheses the operators need."""
+
+    def _where(self, op):
+        table = Table("t", [Column("id", "INT", "t")])
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        return to_sql(None, None, [attr], table, op).split(" WHERE ")[1]
+
+    def test_or_of_two_comparisons(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._where(attr.eq(1).or_(attr.eq(2))) == "t0.id = 1 OR t0.id = 2"
+
+    def test_a_chain_of_ors_is_flat(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._where(attr.eq(1).or_(attr.eq(2)).or_(attr.eq(3))) == "t0.id = 1 OR t0.id = 2 OR t0.id = 3"
+
+    def test_and_after_or_applies_to_the_whole_or(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._where(attr.eq(1).or_(attr.eq(2)).and_op(attr.eq(3))) == "(t0.id = 1 OR t0.id = 2) AND t0.id = 3"
+
+    def test_or_after_and_applies_to_the_whole_and(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._where(attr.eq(1).and_op(attr.eq(2)).or_(attr.eq(3))) == "(t0.id = 1 AND t0.id = 2) OR t0.id = 3"
+
+    def test_or_of_ands(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        op = attr.eq(1).and_op(attr.eq(2)).or_(attr.eq(3).and_op(attr.eq(4)))
+        assert self._where(op) == "(t0.id = 1 AND t0.id = 2) OR (t0.id = 3 AND t0.id = 4)"
+
+    def test_or_of_null_checks(self):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        assert self._where(attr.is_none().or_(attr.eq(1))) == "t0.id IS NULL OR t0.id = 1"
+
+    def test_or_is_combined_with_milestoning_as_a_group(self):
+        from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", "t"), Column("out_z", "TIMESTAMP", "t"),
+                                       infinite_datetime="9999-12-31 23:59:59")
+        table = MilestonedTable("t", [Column("id", "INT", "t")], mc)
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        sql = to_sql(None, datetime.datetime(2024, 1, 1), [attr], table, attr.eq(1).or_(attr.eq(2)))
+        assert sql.endswith("WHERE (t0.id = 1 OR t0.id = 2) AND t0.in_z <= '2024-01-01 00:00:00' "
+                            "AND t0.out_z > '2024-01-01 00:00:00'")
+
+
 class TestMilestoningFilterShape:
     """The milestoning predicates are one flat AND, processing range first and business range second, in a WHERE
     clause and in a join's ON clause alike. A join's whole ON condition is parenthesised for readability."""
