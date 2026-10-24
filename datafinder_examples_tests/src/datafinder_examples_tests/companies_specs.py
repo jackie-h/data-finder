@@ -16,6 +16,35 @@ COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
     expectations=[
+        # --- count_distinct: the different values ---
+        TestExpectation(
+            name="count_distinct_of_the_whole_result",
+            query=lambda f: f.find_all(None, None, [f.category().count_distinct()]),
+            expected_columns=["Category Count Distinct"],
+            expected_result=np.array([[3]], dtype=object),
+            expected_sql={"duckdb": "COUNT(DISTINCT t0.category)"},
+        ),
+        TestExpectation(
+            name="count_distinct_is_less_than_count_where_values_repeat",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
+            query=lambda f: f.find_all(None, None, [f.category().count(), f.category().count_distinct()]),
+            expected_columns=["Category Count", "Category Count Distinct"],
+            expected_result=np.array([[5, 3]], dtype=object),
+        ),
+        TestExpectation(
+            name="count_distinct_per_group",
+            query=lambda f: f.find_all(
+                None, None, [f.category(), f.name().count_distinct()]
+            ).group_by(f.category()).order_by(f.category().ascending()),
+            expected_columns=["Category", "Name Count Distinct"],
+            expected_result=np.array([["Finance", 2], ["Manufacturing", 1], ["Technology", 2]], dtype=object),
+        ),
+        TestExpectation(
+            name="count_distinct_with_a_filter",
+            query=lambda f: f.find_all(None, None, [f.category().count_distinct()], f.name().starts_with("Acme")),
+            expected_columns=["Category Count Distinct"],
+            expected_result=np.array([[2]], dtype=object),
+        ),
         # --- Count ---
         TestExpectation(
             name="count_all",

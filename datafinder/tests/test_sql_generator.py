@@ -801,6 +801,21 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestCountDistinct:
+
+    def test_count_distinct(self):
+        a = StringAttribute("A", "a", "VARCHAR", "t")
+        sql = to_sql(None, None, [a.count_distinct()], Table("t", [Column("a", "VARCHAR", "t")]), NoOperation())
+        assert sql == 'SELECT COUNT(DISTINCT t0.a) AS "A Count Distinct" FROM t AS t0'
+
+    def test_with_group_by(self):
+        a = StringAttribute("A", "a", "VARCHAR", "t")
+        b = StringAttribute("B", "b", "VARCHAR", "t")
+        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "VARCHAR", "t")])
+        sql = to_sql(None, None, [b, a.count_distinct()], table, NoOperation(), group_by=[b])
+        assert "COUNT(DISTINCT t0.a)" in sql and sql.endswith("GROUP BY t0.b")
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
