@@ -7,3 +7,6 @@ rust/
 *.egg-info/
 todo.txt
 example/generated/
+# Coverage
+.coverage
+coverage.json
