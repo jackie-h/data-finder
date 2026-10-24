@@ -885,6 +885,8 @@ class TestImplicitGroupBy:
 
 class TestAlias:
     """alias() names a column in the result."""
+class TestConstantColumns:
+    """constant() selects a fixed value next to the columns."""
 
     @staticmethod
     def _select(*columns):
@@ -914,6 +916,30 @@ class TestAlias:
         attr = IntegerAttribute("Id", "id", "INT", "t")
         attr.alias("Key")
         assert self._select(attr) == 'SELECT t0.id AS "Id" FROM t AS t0'
+    def test_types(self):
+        from datafinder import constant
+        assert self._select(constant("x").alias("S"), constant(1).alias("I"), constant(1.5).alias("F"),
+                            constant(True).alias("B")) == \
+            """SELECT 'x' AS "S",1 AS "I",1.5 AS "F",TRUE AS "B" FROM t AS t0"""
+
+    def test_dates_are_typed(self):
+        from datafinder import constant
+        sql = self._select(constant(datetime.date(2016, 8, 10)).alias("D"),
+                           constant(datetime.datetime(2016, 8, 10, 8, 55)).alias("T"))
+        assert sql == """SELECT DATE '2016-08-10' AS "D",TIMESTAMP '2016-08-10 08:55:00' AS "T" FROM t AS t0"""
+
+    def test_bool_is_not_an_integer(self):
+        from datafinder import constant
+        assert self._select(constant(False).alias("B")) == 'SELECT FALSE AS "B" FROM t AS t0'
+
+    def test_default_name(self):
+        from datafinder import constant
+        assert self._select(constant(1)) == 'SELECT 1 AS "Constant" FROM t AS t0'
+
+    def test_other_types_are_refused(self):
+        from datafinder import constant
+        with pytest.raises(TypeError):
+            constant([1])  # type: ignore[arg-type]
 
 
 class TestCoalesce:
