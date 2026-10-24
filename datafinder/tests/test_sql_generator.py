@@ -929,8 +929,6 @@ class TestCountDistinct:
 
 class TestAlias:
     """alias() names a column in the result."""
-class TestConstantColumns:
-    """constant() selects a fixed value next to the columns."""
 
     @staticmethod
     def _select(*columns):
@@ -960,6 +958,15 @@ class TestConstantColumns:
         attr = IntegerAttribute("Id", "id", "INT", "t")
         attr.alias("Key")
         assert self._select(attr) == 'SELECT t0.id AS "Id" FROM t AS t0'
+
+
+class TestConstantColumns:
+    """constant() selects a fixed value next to the columns."""
+
+    @staticmethod
+    def _select(*columns):
+        return to_sql(None, None, list(columns), Table("t", [Column("a", "INT", "t")]), NoOperation())
+
     def test_types(self):
         from datafinder import constant
         assert self._select(constant("x").alias("S"), constant(1).alias("I"), constant(1.5).alias("F"),
