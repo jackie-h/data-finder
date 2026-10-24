@@ -1,10 +1,13 @@
 import datetime
 
+import pytest
+
 from datafinder import StringAttribute, to_sql
 from datafinder import IntegerAttribute
-from datafinder.sql_generator import SQLQueryGenerator
+from datafinder.sql_generator import SQLQueryGenerator, needs_parentheses
 from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute
-from model.relational import Table, Column, NoOperation, CountAllOperation, JoinOperation, JoinTreeNodeOperation
+from model.relational import Table, Column, NoOperation, CountAllOperation, JoinOperation, JoinTreeNodeOperation, \
+    LogicalOperation, LogicalOperator
 
 
 def _make_table_and_attr():
@@ -796,6 +799,131 @@ class TestProcessingDateRendering:
         for op, text in ((attr <= datetime.date(2017, 6, 11), "<="), (attr > datetime.date(2017, 6, 11), ">"),
                          (attr == datetime.date(2017, 6, 11), "=")):
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
+
+
+class TestMilestoningFilterShape:
+    """The milestoning predicates are one flat AND, processing range first and business range second, in a WHERE
+    clause and in a join's ON clause alike. A join's whole ON condition is parenthesised for readability."""
+
+    _P = datetime.datetime(2017, 6, 11, 0, 0, 0)
+    _B = datetime.date(2017, 6, 10)
+
+    def _bitemporal(self, name="trades", infinite_datetime: str | None = "9999-12-31 23:59:59"):
+        from model.milestoning import BiTemporalColumns, MilestonedTable
+        mc = BiTemporalColumns(Column("from_z", "DATE", name), Column("thru_z", "DATE", name),
+                               Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+                               infinite_datetime=infinite_datetime)
+        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+
+    def _processing_only(self, name="trades"):
+        from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+                                       infinite_datetime="9999-12-31 23:59:59")
+        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+
+    def _joined(self, target):
+        root = Table("parent", [Column("id", "INT", "parent")])
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", target.name))
+        return root, StringAttribute("Child Id", "id", "VARCHAR", target.name, JoinTreeNodeOperation(join))
+
+    def test_bitemporal_where_is_one_flat_and_with_processing_first(self):
+        sql = to_sql(self._B, self._P, [IntegerAttribute("Id", "id", "INT", "trades")], self._bitemporal(), NoOperation())
+        assert sql.endswith(
+            "WHERE t0.in_z <= '2017-06-11 00:00:00' AND t0.out_z > '2017-06-11 00:00:00' "
+            "AND t0.from_z <= '2017-06-10' AND t0.thru_z > '2017-06-10'")
+
+    def test_user_filter_and_milestoning_are_one_flat_and(self):
+        attr = IntegerAttribute("Id", "id", "INT", "trades")
+        sql = to_sql(self._B, self._P, [attr], self._bitemporal(), attr.eq(1))
+        assert sql.endswith(
+            "WHERE t0.id = 1 AND t0.in_z <= '2017-06-11 00:00:00' AND t0.out_z > '2017-06-11 00:00:00' "
+            "AND t0.from_z <= '2017-06-10' AND t0.thru_z > '2017-06-10'")
+
+    def test_or_in_a_user_filter_keeps_its_parentheses(self):
+        attr = IntegerAttribute("Id", "id", "INT", "trades")
+        user_filter = LogicalOperation(attr.eq(1), LogicalOperator.OR, attr.eq(2))
+        sql = to_sql(None, self._P, [attr], self._processing_only(), user_filter)
+        assert sql.endswith(
+            "WHERE (t0.id = 1 OR t0.id = 2) AND t0.in_z <= '2017-06-11 00:00:00' AND t0.out_z > '2017-06-11 00:00:00'")
+
+    def test_null_end_keeps_the_parentheses_around_its_or(self):
+        sql = to_sql(None, self._P, [IntegerAttribute("Id", "id", "INT", "trades")],
+                     self._bitemporal(infinite_datetime=None), NoOperation())
+        assert sql.endswith("WHERE t0.in_z <= '2017-06-11 00:00:00' "
+                            "AND (t0.out_z > '2017-06-11 00:00:00' OR t0.out_z IS NULL)")
+
+    def test_bitemporal_join_is_flat_inside_the_on_parentheses(self):
+        root, attr = self._joined(self._bitemporal("child"))
+        sql = to_sql(self._B, self._P, [attr], root, NoOperation())
+        assert sql.endswith(
+            " ON (t0.id = t1.fk AND t1.in_z <= '2017-06-11 00:00:00' AND t1.out_z > '2017-06-11 00:00:00' "
+            "AND t1.from_z <= '2017-06-10' AND t1.thru_z > '2017-06-10')")
+
+    def test_plain_join_has_its_condition_in_parentheses(self):
+        root, attr = self._joined(self._processing_only("child"))
+        sql = to_sql(None, None, [attr], root, NoOperation())
+        assert sql.endswith(" ON (t0.id = t1.fk)")
+
+    def test_processing_only_join_is_flat_inside_the_on_parentheses(self):
+        root, attr = self._joined(self._processing_only("child"))
+        sql = to_sql(None, self._P, [attr], root, NoOperation())
+        assert sql.endswith(" ON (t0.id = t1.fk AND t1.in_z <= '2017-06-11 00:00:00' AND t1.out_z > '2017-06-11 00:00:00')")
+
+    def test_date_range_filter_is_flat_with_processing_first(self):
+        from datafinder.sql_generator import build_milestoning_filter_operation_for_date_range
+        op = build_milestoning_filter_operation_for_date_range(
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), self._P, self._bitemporal())
+        assert op is not None
+        sql = SQLQueryGenerator().build_filter(op)
+        assert "(" not in sql
+        assert sql.index("in_z") < sql.index("out_z") < sql.index("from_z") < sql.index("thru_z")
+
+
+class TestNeedsParentheses:
+    """A nested logical operation is parenthesised only when its operator differs from its parent's."""
+
+    @staticmethod
+    def _cmp(n):
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        return attr.eq(n)
+
+    @classmethod
+    def _op(cls, left, operator, right):
+        return LogicalOperation(left, operator, right)
+
+    @pytest.mark.parametrize("parent_operator", [LogicalOperator.AND, LogicalOperator.OR])
+    def test_same_operator_needs_none_on_either_side(self, parent_operator):
+        a, b, c = self._cmp(1), self._cmp(2), self._cmp(3)
+        nested = self._op(a, parent_operator, b)
+        assert not needs_parentheses(self._op(nested, parent_operator, c), nested)
+        assert not needs_parentheses(self._op(c, parent_operator, nested), nested)
+
+    @pytest.mark.parametrize("parent_operator,child_operator", [
+        (LogicalOperator.AND, LogicalOperator.OR), (LogicalOperator.OR, LogicalOperator.AND)])
+    def test_different_operator_needs_them_on_either_side(self, parent_operator, child_operator):
+        a, b, c = self._cmp(1), self._cmp(2), self._cmp(3)
+        nested = self._op(a, child_operator, b)
+        assert needs_parentheses(self._op(nested, parent_operator, c), nested)
+        assert needs_parentheses(self._op(c, parent_operator, nested), nested)
+
+    def test_a_comparison_needs_none(self):
+        a, b = self._cmp(1), self._cmp(2)
+        assert not needs_parentheses(self._op(a, LogicalOperator.AND, b), a)
+
+    def test_rendering_follows_the_rule(self):
+        table = Table("t", [Column("id", "INT", "t")])
+        attr = IntegerAttribute("Id", "id", "INT", "t")
+        a, b, c, d = (attr.eq(n) for n in (1, 2, 3, 4))
+        and_, or_ = LogicalOperator.AND, LogicalOperator.OR
+
+        def where(op):
+            return to_sql(None, None, [attr], table, op).split(" WHERE ")[1]
+
+        assert where(self._op(self._op(a, and_, b), and_, self._op(c, and_, d))) == \
+            "t0.id = 1 AND t0.id = 2 AND t0.id = 3 AND t0.id = 4"
+        assert where(self._op(self._op(a, or_, b), or_, c)) == "t0.id = 1 OR t0.id = 2 OR t0.id = 3"
+        assert where(self._op(self._op(a, or_, b), and_, c)) == "(t0.id = 1 OR t0.id = 2) AND t0.id = 3"
+        assert where(self._op(self._op(a, and_, b), or_, c)) == "(t0.id = 1 AND t0.id = 2) OR t0.id = 3"
 
 
 class TestMilestoningOnJoinedTable:
