@@ -1,4 +1,5 @@
 import datetime
+from typing import Any
 import json
 from dataclasses import dataclass, field
 import urllib.request
@@ -297,15 +298,25 @@ _AGG_FUNCS = {
 }
 
 
+def _joiner(separator: str):
+    """Aggregates a group's values into one text, skipping missing ones."""
+    return lambda values: separator.join(str(v) for v in values.dropna())
+
+
 def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -> pd.DataFrame:
-    agg_specs: list[tuple[str, str, str]] = []
+    agg_specs: list[tuple[str, Any, str]] = []
     gb_fields: list[str] = []
 
     for col in columns:
         if isinstance(col, AggregateOperation):
             fn = _col_field_name(col)
             if fn:
-                agg_specs.append((fn, _AGG_FUNCS.get(col.operator, 'sum'), _col_display_name(col)))
+                if col.operator == AggregateOperator.STRING_AGG:
+                    if col.order_by:
+                        raise GraphQLUnsupportedError("The GraphQL engine cannot order the values it joins")
+                    agg_specs.append((fn, _joiner(col.separator or ''), _col_display_name(col)))
+                else:
+                    agg_specs.append((fn, _AGG_FUNCS.get(col.operator, 'sum'), _col_display_name(col)))
 
     if group_by:
         for gb in group_by:

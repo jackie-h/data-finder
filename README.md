@@ -297,6 +297,13 @@ result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.categor
 `fill_null` replaces a missing (NULL) value: `EmployeeFinder.manager().name().fill_null("nobody")`, as `fillna` does for a
 pandas column.
 
+`join_strings(separator, order_by=...)` is an aggregate that joins a group's text values into one:
+`CompanyFinder.name().join_strings(", ", order_by=[CompanyFinder.name().ascending()])`. Without `order_by` the order the
+
+`join(separator, order_by=...)` is an aggregate that joins a group's text values into one:
+`CompanyFinder.name().join(", ", order_by=[CompanyFinder.name().ascending()])`. Without `order_by` the order the
+values are joined in is not defined. Missing values are skipped.
+
 Numeric columns combine with `+ - * /` and with numbers: `TradeFinder.price() * 2`, `100 - TradeFinder.price()`,
 `TradeFinder.price() * TradeFinder.account().id_()`. Parentheses follow the usual precedence, so `(price + 1) * 2` needs
 them in Python as it does in SQL. The column is named `Expression`.

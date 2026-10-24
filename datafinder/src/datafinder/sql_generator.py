@@ -475,6 +475,16 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return table_alias_column_string(operation)
     elif isinstance(operation, AggregateOperation) and operation.operator == AggregateOperator.COUNT_DISTINCT:
         return 'COUNT(DISTINCT ' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, AggregateOperation) and operation.operator == AggregateOperator.STRING_AGG:
+        sql = 'STRING_AGG(' + sql_operation_to_string(operation.element) + ", '" + (operation.separator or '').replace("'", "''") + "'"
+        if operation.order_by:
+            sql += ' ORDER BY ' + ', '.join(
+                sql_operation_to_string(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+                for s in operation.order_by)
+        sql += ')'
+        if operation.window is not None:
+            sql += ' ' + _window_spec_to_string(operation.window)
+        return sql
     elif isinstance(operation, AggregateOperation):
         fn = _AGGREGATE_SQL_NAMES.get(operation.operator, operation.operator.name)
         sql = fn + '(' + sql_operation_to_string(operation.element) + ')'
@@ -688,7 +698,8 @@ class SQLQueryGenerator:
             return TableAliasColumn(op, self.__table_alias_for_table(op.owner))
         elif isinstance(op, AggregateOperation):
             return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,
-                                      self.__rewrite_window_spec(op.window))
+                                      self.__rewrite_window_spec(op.window), op.separator,
+                                      [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in op.order_by])
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
                                            second_arg=op.second_arg, extra_args=list(op.extra_args))
@@ -725,6 +736,8 @@ class SQLQueryGenerator:
         elif isinstance(op, AggregateOperation):
             self.__collect_required_joins(op.element, required_joins)
             self.__collect_required_joins(op.window, required_joins)
+            for sort_op in op.order_by:
+                self.__collect_required_joins(sort_op.column, required_joins)
         elif isinstance(op, ScalarFunctionOperation):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, ArithmeticOperation):
