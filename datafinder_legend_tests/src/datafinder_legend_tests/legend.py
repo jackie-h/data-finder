@@ -20,11 +20,15 @@ RESTRICT_AFTER_GROUP_BY = (
 # Known-gap keys are backend names. This one marks a gap in the rows a query returns rather than in its SQL.
 ROWS = f"{BACKEND}/rows"
 
-CHAINED_ORDER_BY = (
-    "chained order_by calls replace the earlier ordering; Legend's chained sorts accumulate, the later sort being "
-    "primary and the earlier one breaking its ties"
+TYPED_DATE_LITERAL = (
+    "a date constant in the select list is written `DATE '2016-08-10'` so it comes back as a date; Legend writes the "
+    "bare string literal, which comes back as text"
 )
-JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY = f"{JOIN_OPERAND_ORDER}; and {CHAINED_ORDER_BY}"
+
+CONCAT_FUNCTION = (
+    "Legend writes `+` on text as concat(a, b), which treats a NULL part as empty in DuckDB; the finder writes a || b, "
+    "which is NULL when any part is"
+)
 
 OPTIONAL_PROPERTY = (
     "Legend adds `col IS NOT NULL` before a comparison on an optional property; the model has no multiplicity, and "

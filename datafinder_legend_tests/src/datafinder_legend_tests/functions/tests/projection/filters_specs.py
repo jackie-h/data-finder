@@ -33,11 +33,11 @@ FILTERS_PERSON_SPECS = FinderSpec(
                'select "root".FIRSTNAME as "firstName", "root".AGE as "age" from personTable as "root" '
                'where "root".AGE > 30 and "root".AGE is null',
                lambda f: f.find_all(None, None, [f.first_name(), f.age()],
-                                    (f.age() > 30).and_op(f.age().is_none()))),
+                                    (f.age() > 30).and_(f.age().is_none()))),
         ported("testIsNotNullColumn", f"{_FILTER}::testIsNotNullColumn",
                'select "root".FIRSTNAME as "firstName", "root".AGE as "age" from personTable as "root" '
                'where "root".AGE > 30 and "root".AGE is not null',
                lambda f: f.find_all(None, None, [f.first_name(), f.age()],
-                                    (f.age() > 30).and_op(f.age().is_not_none()))),
+                                    (f.age() > 30).and_(f.age().is_not_none()))),
     ],
 )
