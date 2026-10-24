@@ -262,6 +262,23 @@ from datafinder import constant
 CompanyFinder.find_all(None, None, [CompanyFinder.name(), constant("EU").alias("Region")])
 ```
 
+
+
+Sort with `order_by`, and limit with `limit`. Several `order_by` calls accumulate: the latest call takes priority
+and the earlier ones break its ties, so the two lines below sort by category and then by name. Sorting a column again
+replaces its earlier direction.
+
+```python
+result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder.category()])
+result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
+```
+
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
+`offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
+first: without an order, which rows come first is not defined.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
