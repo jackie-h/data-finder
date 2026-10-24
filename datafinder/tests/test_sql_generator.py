@@ -801,6 +801,33 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestConditionAsColumn:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "INT", "t"), Column("b", "VARCHAR", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    def test_a_comparison(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a > 3) == 'SELECT t0.a > 3 AS "Expression" FROM t AS t0'
+
+    def test_and_or_and_null_checks(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        b = StringAttribute("B", "b", "VARCHAR", "t")
+        assert self._sql(a.eq(1).or_(b.eq("x")).and_(a > 0), b.is_none(), b.is_not_none()) == \
+            """SELECT (t0.a = 1 OR t0.b = 'x') AND t0.a > 0 AS "Expression",t0.b IS NULL AS "Expression",""" \
+            """t0.b IS NOT NULL AS "Expression" FROM t AS t0"""
+
+    def test_is_in(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a.is_in([1, 2])) == 'SELECT t0.a IN (1, 2) AS "Expression" FROM t AS t0'
+
+    def test_next_to_a_plain_column(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a, a > 3) == 'SELECT t0.a AS "A",t0.a > 3 AS "Expression" FROM t AS t0'
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
