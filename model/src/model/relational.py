@@ -446,6 +446,15 @@ class DateExtractOperation(UnaryOperation):
         self.display_name = display_name
 
 
+class DateTruncOperation(UnaryOperation, Comparable):
+    """The first day of the week, month, quarter or year that the date falls in, as a date."""
+
+    def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
+        super().__init__(element)
+        self.part = part
+        self.display_name = display_name
+
+
 class DateArithmeticOperation(UnaryOperation):
     def __init__(self, element: RelationalOperationElement, n: int, unit: DatePart,
                  is_add: bool = True, display_name: str | None = None):
