@@ -8,7 +8,7 @@ Mapping: milestoning/tests/milestoning_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, JOIN_OPERAND_ORDER
 
 _SRC = "milestoning/tests/testBiTemporalDateMilestoning.pure"
 
@@ -27,7 +27,8 @@ BITEMPORAL_PRODUCT_SPECS = FinderSpec(
                '"bitemporalproductclassificationtable_0".thru_z > \'2017-06-10\')) '
                'where "root".in_z <= \'2017-06-11\' and "root".out_z > \'2017-06-11\' and '
                '"root".from_z <= \'2017-06-10\' and "root".thru_z > \'2017-06-10\'',
-               lambda f: f.find_all("2017-06-10", "2017-06-11", [f.bi_temporal_classification().type_()])),
+               lambda f: f.find_all("2017-06-10", "2017-06-11", [f.bi_temporal_classification().type_()]),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
         ported("testPopulationOfMilestonedThisBiTemporalDatesInProject",
                f"{_SRC}::testPopulationOfMilestonedThisBiTemporalDatesInProject",
                'select "root".id as "id", "bitemporalproductclassificationtable_0".type as "classificationType" '
@@ -41,7 +42,8 @@ BITEMPORAL_PRODUCT_SPECS = FinderSpec(
                'where "root".in_z <= \'9999-12-31\' and "root".out_z > \'9999-12-31\' and '
                '"root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                lambda f: f.find_all("2015-10-16", "9999-12-31",
-                                    [f.id_(), f.bi_temporal_classification().type_()])),
+                                    [f.id_(), f.bi_temporal_classification().type_()]),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
         unsupported("testBiTemporalToBiTemporalSingleDatePropagationForAll",
                     f"{_SRC}::testBiTemporalToBiTemporalSingleDatePropagationForAll",
                     'select "bitemporalproductclassificationtable_0".type as "type" from BiTemporalProductTable as "root" '
