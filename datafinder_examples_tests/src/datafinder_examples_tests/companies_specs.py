@@ -16,6 +16,35 @@ COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
     expectations=[
+        # --- Joining text with + ---
+        TestExpectation(
+            name="concat_columns_and_text",
+            skip_backends={"graphql": "The GraphQL finder cannot join text"},
+            query=lambda f: f.find_all(
+                None, None, [f.name() + " (" + f.category() + ")"]
+            ).order_by(f.name().ascending()).limit(2),
+            expected_columns=["Expression"],
+            expected_result=np.array([["Acme Corp (Technology)"], ["Acme Industries (Manufacturing)"]], dtype=object),
+            expected_sql={"duckdb": "t0.name || ' (' || t0.category || ')'"},
+        ),
+        TestExpectation(
+            name="concat_text_before_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot join text"},
+            query=lambda f: f.find_all(
+                None, None, ["Company: " + f.name()]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Expression"],
+            expected_result=np.array([["Company: Acme Corp"]], dtype=object),
+        ),
+        TestExpectation(
+            name="concat_a_function_of_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot join text"},
+            query=lambda f: f.find_all(
+                None, None, [f.name().upper() + "/" + f.category().lower()]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Expression"],
+            expected_result=np.array([["ACME CORP/technology"]], dtype=object),
+        ),
         # --- Count ---
         TestExpectation(
             name="count_all",

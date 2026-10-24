@@ -3,7 +3,7 @@ import datetime
 from datafinder import Attribute
 import decimal
 
-from model.relational import Arithmetic, ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
+from model.relational import Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
@@ -36,6 +36,13 @@ class StringAttribute(Attribute):
                  embedded: 'Attribute | None' = None, nullable: bool = True):
         """Create a string attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+
+    def __add__(self, other) -> ConcatOperation:
+        """Join text: ``first_name() + " " + last_name()``. A NULL part makes the whole NULL."""
+        return concat(self, other)
+
+    def __radd__(self, other) -> ConcatOperation:
+        return concat(other, self)
 
     def upper(self):
         """Return the value converted to uppercase. Equivalent to ``str.upper()``."""

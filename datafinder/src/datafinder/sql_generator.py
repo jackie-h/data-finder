@@ -17,7 +17,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation, QueryExpression, ArithmeticOperation, ArithmeticOperator
+    SelectOperation, QueryExpression, ArithmeticOperation, ArithmeticOperator, ConcatOperation
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -487,6 +487,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
+    elif isinstance(operation, ConcatOperation):
+        return ' || '.join(_operand_string(part) for part in operation.parts)
     elif isinstance(operation, ArithmeticOperation):
         left = _operand_string(operation.left)
         right = _operand_string(operation.right)
@@ -506,7 +508,7 @@ def display_alias(col: RelationalOperationElement) -> str:
         return 'Count'
     if isinstance(col, Attribute):
         return col.display_name()
-    if isinstance(col, ArithmeticOperation):
+    if isinstance(col, (ArithmeticOperation, ConcatOperation)):
         return col.display_name if col.display_name else 'Expression'
     if isinstance(col, AggregateOperation):
         return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
@@ -628,6 +630,8 @@ class SQLQueryGenerator:
         elif isinstance(op, ArithmeticOperation):
             return ArithmeticOperation(self.__rewrite_operation(op.left), op.operator,
                                        self.__rewrite_operation(op.right), op.display_name)
+        elif isinstance(op, ConcatOperation):
+            return ConcatOperation([self.__rewrite_operation(part) for part in op.parts], op.display_name)
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateArithmeticOperation):
@@ -659,6 +663,9 @@ class SQLQueryGenerator:
         elif isinstance(op, ArithmeticOperation):
             self.__collect_required_joins(op.left, required_joins)
             self.__collect_required_joins(op.right, required_joins)
+        elif isinstance(op, ConcatOperation):
+            for part in op.parts:
+                self.__collect_required_joins(part, required_joins)
         elif isinstance(op, DateExtractOperation):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateArithmeticOperation):
