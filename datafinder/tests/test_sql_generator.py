@@ -801,7 +801,6 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
-<<<<<<< HEAD
 class TestCoalesce:
 
     def test_a_default(self):
@@ -821,7 +820,8 @@ class TestCoalesce:
     def test_a_default_is_a_string_number_or_bool(self):
         with pytest.raises(TypeError):
             StringAttribute("Name", "name", "VARCHAR", "t").coalesce(datetime.date(2020, 1, 1))  # type: ignore[arg-type]
-=======
+
+
 class TestDistinct:
 
     def test_select_distinct(self):
@@ -853,7 +853,6 @@ class TestOffset:
 
     def test_no_offset_by_default(self):
         assert "OFFSET" not in self._sql(limit=2)
->>>>>>> origin/main
 
 
 class TestOrFilter:
