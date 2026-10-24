@@ -801,6 +801,27 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestCoalesce:
+
+    def test_a_default(self):
+        attr = StringAttribute("Name", "name", "VARCHAR", "t")
+        sql = to_sql(None, None, [attr.coalesce("N/A")], Table("t", [Column("name", "VARCHAR", "t")]), NoOperation())
+        assert sql == """SELECT COALESCE(t0.name, 'N/A') AS "Coalesce Name" FROM t AS t0"""
+
+    def test_several_defaults_and_numbers(self):
+        attr = IntegerAttribute("Age", "age", "INT", "t")
+        sql = to_sql(None, None, [attr.coalesce(0, 1)], Table("t", [Column("age", "INT", "t")]), NoOperation())
+        assert sql == """SELECT COALESCE(t0.age, 0, 1) AS "Coalesce Age" FROM t AS t0"""
+
+    def test_a_default_is_needed(self):
+        with pytest.raises(ValueError):
+            StringAttribute("Name", "name", "VARCHAR", "t").coalesce()
+
+    def test_a_default_is_a_string_number_or_bool(self):
+        with pytest.raises(TypeError):
+            StringAttribute("Name", "name", "VARCHAR", "t").coalesce(datetime.date(2020, 1, 1))  # type: ignore[arg-type]
+
+
 class TestDistinct:
 
     def test_select_distinct(self):
