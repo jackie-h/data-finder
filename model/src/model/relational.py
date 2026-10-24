@@ -523,7 +523,10 @@ class SelectOperation(QueryExpression):
 
     def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
                  order_by: list[SortOperation] | None = None, group_by: list | None = None,
-                 limit: int | None = None, table: 'Table | None' = None):
+                 limit: int | None = None, table: 'Table | None' = None, distinct: bool = False,
+                 offset: int | None = None):
         super().__init__(display, filter, group_by, table)
         self.order_by = order_by or []
         self.limit = limit
+        self.distinct = distinct
+        self.offset = offset
