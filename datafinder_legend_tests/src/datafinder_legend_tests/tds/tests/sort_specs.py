@@ -1,12 +1,12 @@
 """
 Ported from legend-engine core_relational ``tds/tests/testSort.pure``.
 
-Sorting.
+Sorting, including several sorts in a row.
 Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY, CHAINED_ORDER_BY
 
 _SRC = "tds/tests/testSort.pure"
 
@@ -17,5 +17,68 @@ SORT_SPECS = FinderSpec(
         ported("testSimpleSortAscInputToProject", f"{_SRC}::testSimpleSortAscInputToProject",
                'select "root".LASTNAME as "LASTNAME" from personTable as "root" order by "root".LASTNAME asc',
                lambda f: f.find_all(None, None, [f.last_name()]).order_by(f.last_name().ascending())),
+        ported("testSimpleSortAsc", f"{_SRC}::testSimpleSortAsc",
+               'select "root".FIRSTNAME as "name" from personTable as "root" order by "name" asc',
+               lambda f: f.find_all(None, None, [f.first_name()]).order_by(f.first_name().ascending())),
+        ported("testSimpleSortAscWithPreval", f"{_SRC}::testSimpleSortAscWithPreval",
+               'select "root".FIRSTNAME as "name" from personTable as "root" order by "name" asc',
+               lambda f: f.find_all(None, None, [f.first_name()]).order_by(f.first_name().ascending())),
+        ported("testSimpleSortAscHelper", f"{_SRC}::testSimpleSortAscHelper",
+               'select "root".FIRSTNAME as "name" from personTable as "root" order by "name" asc',
+               lambda f: f.find_all(None, None, [f.first_name()]).order_by(f.first_name().ascending())),
+        ported("testSimpleSortDesc", f"{_SRC}::testSimpleSortDesc",
+               'select "root".FIRSTNAME as "name" from personTable as "root" order by "name" desc',
+               lambda f: f.find_all(None, None, [f.first_name()]).order_by(f.first_name().descending())),
+        ported("testSimpleSortDescHelper", f"{_SRC}::testSimpleSortDescHelper",
+               'select "root".FIRSTNAME as "name" from personTable as "root" order by "name" desc',
+               lambda f: f.find_all(None, None, [f.first_name()]).order_by(f.first_name().descending())),
+        ported("testDoubleSortAsc1", f"{_SRC}::testDoubleSortAsc1",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "name" asc, "address" asc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.first_name().ascending(), f.address().name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("testDoubleSortAsc1Helper", f"{_SRC}::testDoubleSortAsc1Helper",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "name" asc, "address" asc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.first_name().ascending(), f.address().name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("testDoubleSortAsc1Chain", f"{_SRC}::testDoubleSortAsc1Chain",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "address" asc, "name" asc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.first_name().ascending()).order_by(f.address().name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY, ROWS: CHAINED_ORDER_BY}),
+        ported("testDoubleSortAsc2", f"{_SRC}::testDoubleSortAsc2",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "address" asc, "name" asc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.address().name().ascending(), f.first_name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("testDoubleSortAsc2Helper", f"{_SRC}::testDoubleSortAsc2Helper",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "address" asc, "name" asc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.address().name().ascending(), f.first_name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("testDoubleSortAsc2Chain", f"{_SRC}::testDoubleSortAsc2Chain",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "name" asc, "address" asc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.address().name().ascending()).order_by(f.first_name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY}),
+        ported("testDoubleSortDesc1Helper", f"{_SRC}::testDoubleSortDesc1Helper",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "name" desc, "address" desc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.first_name().descending(), f.address().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("testDoubleSortDesc1Chain", f"{_SRC}::testDoubleSortDesc1Chain",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "address" desc, "name" desc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.first_name().descending()).order_by(f.address().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY, ROWS: CHAINED_ORDER_BY}),
+        ported("testDoubleSortDesc2Helper", f"{_SRC}::testDoubleSortDesc2Helper",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "address" desc, "name" desc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.address().name().descending(), f.first_name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("testDoubleSortDesc2Chain", f"{_SRC}::testDoubleSortDesc2Chain",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "name" desc, "address" desc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.address().name().descending()).order_by(f.first_name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY}),
+        ported("testDoubleSortMixed", f"{_SRC}::testDoubleSortMixed",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "address" desc, "name" asc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.address().name().descending(), f.first_name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("testDoubleSortMixedChain", f"{_SRC}::testDoubleSortMixedChain",
+               'select "root".FIRSTNAME as "name", "addresstable_0".NAME as "address" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) order by "name" asc, "address" desc',
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name()]).order_by(f.address().name().descending()).order_by(f.first_name().ascending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY}),
     ],
 )

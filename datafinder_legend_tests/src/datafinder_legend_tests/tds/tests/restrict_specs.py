@@ -26,11 +26,9 @@ RESTRICT_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.firm().legal_name(), f.first_name().count()])
                       .group_by(f.firm().legal_name()).order_by(f.firm().legal_name().ascending()),
                known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
-        ported("testRestrictOnGroupByColumn_SubSetOfGroupByColumns", f"{_SRC}::testRestrictOnGroupByColumn_SubSetOfGroupByColumns",
-               'select "persontable_0"."Firm" as "Firm", "persontable_0"."People count" as "People count" from (select "firmtable_0".LEGALNAME as "Firm", "locationtable_0".PLACE as "Place", count("root".FIRSTNAME) as "People count" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID) group by "Firm", "Place") as "persontable_0" order by "Firm" asc, "People count" asc',
-               lambda f: f.find_all(None, None, [f.firm().legal_name(), f.first_name().count()])
-                      .group_by(f.firm().legal_name(), f.locations().place()),
-               known_gaps={BACKEND: RESTRICT_AFTER_GROUP_BY}),
+        unsupported("testRestrictOnGroupByColumn_SubSetOfGroupByColumns", f"{_SRC}::testRestrictOnGroupByColumn_SubSetOfGroupByColumns",
+                    'select "persontable_0"."Firm" as "Firm", "persontable_0"."People count" as "People count" from (select "firmtable_0".LEGALNAME as "Firm", "locationtable_0".PLACE as "Place", count("root".FIRSTNAME) as "People count" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID) group by "Firm", "Place") as "persontable_0" order by "Firm" asc, "People count" asc',
+                    'cannot sort by an aggregate (People count)'),
         ported("testRestrictOnGroupByColumn_DropAllAggColumns", f"{_SRC}::testRestrictOnGroupByColumn_DropAllAggColumns",
                'select "persontable_0"."Firm" as "Firm" from (select "firmtable_0".LEGALNAME as "Firm", "locationtable_0".PLACE as "Place" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID) group by "Firm", "Place") as "persontable_0" order by "Firm" asc',
                lambda f: f.find_all(None, None, [f.firm().legal_name()])
