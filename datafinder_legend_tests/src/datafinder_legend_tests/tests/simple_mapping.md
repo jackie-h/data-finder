@@ -11,15 +11,15 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: personTable → Person
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|-------------|
-| ID        | INT     | PK  | id          |
-| FIRSTNAME | VARCHAR |     | firstName   |
-| LASTNAME  | VARCHAR |     | lastName    |
-| AGE       | INT     |     | age         |
-| ADDRESSID | INT     | FK  | address     |
-| FIRMID    | INT     | FK  | firm        |
-| MANAGERID | INT     | FK  | manager     |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| FIRSTNAME | VARCHAR |  | Y | firstName |
+| LASTNAME | VARCHAR |  | Y | lastName |
+| AGE | INT |  | Y | age |
+| ADDRESSID | INT | FK | Y | address |
+| FIRMID | INT | FK | Y | firm |
+| MANAGERID | INT | FK | Y | manager |
 
 #### Association: PersonAddress
 
@@ -41,11 +41,11 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: firmTable → Firm
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|-------------|
-| ID        | INT     | PK  | id          |
-| LEGALNAME | VARCHAR |     | legalName   |
-| ADDRESSID | INT     | FK  | address     |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| LEGALNAME | VARCHAR |  | Y | legalName |
+| ADDRESSID | INT | FK | Y | address |
 
 #### Association: FirmAddress
 
@@ -55,21 +55,21 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: addressTable → Address
 
-| Column   | Type    | Key | Property ID |
-|----------|---------|-----|-------------|
-| ID       | INT     | PK  | id          |
-| NAME     | VARCHAR |     | name        |
-| STREET   | VARCHAR |     | street      |
-| COMMENTS | VARCHAR |     | comments    |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| NAME | VARCHAR |  | Y | name |
+| STREET | VARCHAR |  | Y | street |
+| COMMENTS | VARCHAR |  | Y | comments |
 
 #### Table: locationTable → Location
 
-| Column   | Type    | Key | Property ID |
-|----------|---------|-----|-------------|
-| ID       | INT     | PK  | id          |
-| PERSONID | INT     | FK  | person      |
-| PLACE    | VARCHAR |     | place       |
-| date     | DATE    |     | censusdate  |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| PERSONID | INT | FK | Y | person |
+| PLACE | VARCHAR |  | Y | place |
+| date | DATE |  | Y | censusdate |
 
 #### Association: PersonLocations
 
@@ -79,22 +79,22 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: accountTable → Account
 
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| ID | INT | PK | id |
-| name | VARCHAR |  | name |
-| createDate | DATE |  | createDate |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| name | VARCHAR |  | Y | name |
+| createDate | DATE |  | Y | createDate |
 
 #### Table: tradeTable → Trade
 
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| ID | INT | PK | id |
-| prodId | INT | FK | product |
-| accountID | INT | FK | account |
-| quantity | DOUBLE |  | quantity |
-| tradeDate | DATE |  | date |
-| settlementDateTime | TIMESTAMP |  | settlementDateTime |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| prodId | INT | FK | Y | product |
+| accountID | INT | FK | Y | account |
+| quantity | DOUBLE |  | Y | quantity |
+| tradeDate | DATE |  | Y | date |
+| settlementDateTime | TIMESTAMP |  | Y | settlementDateTime |
 
 #### Association: TradeAccount
 
@@ -110,13 +110,13 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: orderTable → Order
 
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| ID | INT | PK | id |
-| accountID | INT | FK | account |
-| quantity | DOUBLE |  | quantity |
-| orderDate | DATE |  | date |
-| settlementDateTime | TIMESTAMP |  | settlementDateTime |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| accountID | INT | FK | Y | account |
+| quantity | DOUBLE |  | Y | quantity |
+| orderDate | DATE |  | Y | date |
+| settlementDateTime | TIMESTAMP |  | Y | settlementDateTime |
 
 #### Association: OrderAccount
 
@@ -126,13 +126,13 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: tradeEventTable → TradeEvent
 
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| EVENT_ID | INT | PK | id |
-| trade_id | INT | FK | trade |
-| eventType | VARCHAR |  | eventType |
-| eventDate | DATE |  | date |
-| person_id | INT | FK | initiator |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| EVENT_ID | INT | PK | N | id |
+| trade_id | INT | FK | Y | trade |
+| eventType | VARCHAR |  | Y | eventType |
+| eventDate | DATE |  | Y | date |
+| person_id | INT | FK | Y | initiator |
 
 #### Association: TradeEventTrade
 
@@ -148,12 +148,12 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: interactionTable → Interaction
 
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| ID | INT | PK | id |
-| sourceId | INT | FK | source |
-| targetId | INT | FK | target |
-| time | INT |  | time |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| sourceId | INT | FK | Y | source |
+| targetId | INT | FK | Y | target |
+| time | INT |  | Y | time |
 
 #### Association: InteractionSource
 
@@ -171,19 +171,19 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 #### Table: productTable → Product
 
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| ID | INT | PK | id |
-| NAME | VARCHAR |  | name |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| NAME | VARCHAR |  | Y | name |
 
 #### Table: synonymTable → Synonym
 
-| Column | Type | Key | Property ID |
-|--------|------|-----|-------------|
-| ID | INT | PK | id |
-| PRODID | INT | FK | product |
-| TYPE | VARCHAR |  | typeAsString |
-| NAME | VARCHAR |  | name |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| ID | INT | PK | N | id |
+| PRODID | INT | FK | Y | product |
+| TYPE | VARCHAR |  | Y | typeAsString |
+| NAME | VARCHAR |  | Y | name |
 
 #### Association: SynonymProduct
 

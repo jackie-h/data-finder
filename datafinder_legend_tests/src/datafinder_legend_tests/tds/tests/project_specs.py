@@ -4,9 +4,12 @@ Ported from legend-engine core_relational ``tds/tests/testTDSProject.pure``.
 Projecting columns, with sorting and limits.
 Mapping: tests/simple_mapping.md.
 """
+import datetime
+
+from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, TYPED_DATE_LITERAL
 
 _SRC = "tds/tests/testTDSProject.pure"
 
@@ -23,9 +26,9 @@ TDS_PROJECT_SPECS = FinderSpec(
         ported("testProjectFunctionOnStringColumn", f"{_SRC}::testProjectFunctionOnStringColumn",
                'select "root".FIRSTNAME as "first_name", char_length("root".FIRSTNAME) as "name_length" from personTable as "root"',
                lambda f: f.find_all(None, None, [f.first_name(), f.first_name().length()])),
-        unsupported("testProjectOnDynaFunctionColumn", f"{_SRC}::testProjectOnDynaFunctionColumn",
-                    'select "root".FIRSTNAME as "first", upper("root".LASTNAME) as "LAST", char_length(upper("root".LASTNAME)) as "name_length" from personTable as "root"',
-                    'scalar functions cannot be chained (upper(...).length())'),
+        ported("testProjectOnDynaFunctionColumn", f"{_SRC}::testProjectOnDynaFunctionColumn",
+               'select "root".FIRSTNAME as "first", upper("root".LASTNAME) as "LAST", char_length(upper("root".LASTNAME)) as "name_length" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name(), f.last_name().upper(), f.last_name().upper().length()])),
         ported("testGetNumber", f"{_SRC}::testGetNumber",
                'select "root".AGE as "age" from personTable as "root" where "root".AGE > 25 order by "age" asc',
                lambda f: f.find_all(None, None, [f.age()], f.age() > 25).order_by(f.age().ascending())),
@@ -35,21 +38,22 @@ TDS_PROJECT_SPECS = FinderSpec(
         ported("testOptionalLimit_WithValue", f"{_SRC}::testOptionalLimit_WithValue",
                'select top 1 "root".AGE as "age" from personTable as "root" order by "age" asc',
                lambda f: f.find_all(None, None, [f.age()]).order_by(f.age().ascending()).limit(1)),
-        unsupported("testProjectStringLiteral", f"{_SRC}::testProjectStringLiteral",
-                    'select "root".FIRSTNAME as "firstName", \'Hello\' as "hello" from personTable as "root"',
-                    'no constant columns'),
+        ported("testProjectStringLiteral", f"{_SRC}::testProjectStringLiteral",
+               'select "root".FIRSTNAME as "firstName", \'Hello\' as "hello" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name(), constant("Hello")])),
         unsupported("testProjectFunctionOnStringLiteral", f"{_SRC}::testProjectFunctionOnStringLiteral",
                     'select "root".FIRSTNAME as "first_name", char_length(\'Hello\') as "hello_length" from personTable as "root"',
-                    'no constant columns'),
-        unsupported("testProjectMultipleFunctions", f"{_SRC}::testProjectMultipleFunctions",
-                    'select "root".FIRSTNAME as "first_name", \'Hello\' as "const", char_length("root".FIRSTNAME) as "name_length" from personTable as "root"',
-                    'no constant columns'),
-        unsupported("testDateLiteral", f"{_SRC}::testDateLiteral",
-                    'select "root".FIRSTNAME as "firstName", \'2016-08-10\' as "dateLiteral" from personTable as "root"',
-                    'no constant columns'),
-        unsupported("testProjectOnMultiple", f"{_SRC}::testProjectOnMultiple",
-                    'select "root".FIRSTNAME as "first_name", "root".LASTNAME as "last_name", char_length("root".FIRSTNAME) + char_length("root".LASTNAME) as "combined_length" from personTable as "root"',
-                    'no arithmetic between columns'),
+                    'no functions of a constant'),
+        ported("testProjectMultipleFunctions", f"{_SRC}::testProjectMultipleFunctions",
+               'select "root".FIRSTNAME as "first_name", \'Hello\' as "const", char_length("root".FIRSTNAME) as "name_length" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name(), constant("Hello"), f.first_name().length()])),
+        ported("testDateLiteral", f"{_SRC}::testDateLiteral",
+               'select "root".FIRSTNAME as "firstName", \'2016-08-10\' as "dateLiteral" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name(), constant(datetime.date(2016, 8, 10))]),
+               known_gaps={BACKEND: TYPED_DATE_LITERAL, ROWS: TYPED_DATE_LITERAL}),
+        ported("testProjectOnMultiple", f"{_SRC}::testProjectOnMultiple",
+               'select "root".FIRSTNAME as "first_name", "root".LASTNAME as "last_name", char_length("root".FIRSTNAME) + char_length("root".LASTNAME) as "combined_length" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name(), f.last_name(), f.first_name().length() + f.last_name().length()])),
         unsupported("testFilterAfterLimit", f"{_SRC}::testFilterAfterLimit",
                     'select "subselect"."age" as "age" from (select top 3 "root".AGE as "age" from personTable as "root" order by "age" asc) as "subselect" where "subselect"."age" > 25',
                     'a filter cannot be applied after a limit'),
@@ -61,15 +65,15 @@ TDS_PROJECT_SPECS = FinderSpec(
                     'operations cannot be applied after a limit'),
         unsupported("testSliceAfterLimit", f"{_SRC}::testSliceAfterLimit",
                     'select "subselect"."age" as "age" from (select top 2 "root".AGE as "age" from personTable as "root" order by "age" asc) as "subselect" offset 2 rows fetch next 98 rows only',
-                    'no offset / slice'),
+                    'an offset or slice before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
         unsupported("testLimitAfterSlice", f"{_SRC}::testLimitAfterSlice",
                     'select top 100 "subselect"."age" as "age" from (select "root".AGE as "age" from personTable as "root" order by "age" asc offset 1 rows fetch next 2 rows only) as "subselect"',
-                    'no offset / slice'),
+                    'an offset or slice before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
         unsupported("testDropAfterLimit", f"{_SRC}::testDropAfterLimit",
                     'select "subselect"."age" as "age" from (select top 5 "root".AGE as "age" from personTable as "root" order by "age" asc) as "subselect" offset 2 rows',
-                    'no offset / drop'),
+                    'an offset before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
         unsupported("testLimitAfterDrop", f"{_SRC}::testLimitAfterDrop",
                     'select top 5 "subselect"."age" as "age" from (select "root".AGE as "age" from personTable as "root" order by "age" asc offset 2 rows) as "subselect"',
-                    'no offset / drop'),
+                    'an offset before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
     ],
 )

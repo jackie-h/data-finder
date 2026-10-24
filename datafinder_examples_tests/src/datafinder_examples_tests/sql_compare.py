@@ -105,6 +105,14 @@ def _resolve_output_aliases(select: exp.Select) -> None:
 
 def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
     tree = parse(sql, dialect)
+    # LISTAGG(x, sep) is the string aggregate that STRING_AGG(x, sep) is
+    for call in list(tree.find_all(exp.Anonymous)):
+        if call.name.lower() == "listagg" and len(call.expressions) == 2:
+            call.replace(exp.GroupConcat(this=call.expressions[0].copy(), separator=call.expressions[1].copy()))
+    # ``FETCH NEXT n ROWS ONLY`` is ``LIMIT n``
+    for fetch in list(tree.find_all(exp.Fetch)):
+        if fetch.args.get("count") is not None:
+            fetch.replace(exp.Limit(expression=fetch.args["count"].copy()))
     for select in tree.find_all(exp.Select):
         _resolve_output_aliases(select)
     for table in tree.find_all(exp.Table):
