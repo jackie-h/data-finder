@@ -272,6 +272,12 @@ A date can be cut back to the first day of its week (a Monday), month, quarter o
 `PositionFinder.trade_date().first_day_of_month()`. The result is a date, so it can be compared:
 `PositionFinder.trade_date().first_day_of_month() == datetime.date(2024, 7, 1)`.
 
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
+`offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
+first: without an order, which rows come first is not defined.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
