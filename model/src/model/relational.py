@@ -184,6 +184,7 @@ class AggregateOperator(Enum):
     MIN = 3
     MAX = 4
     AVERAGE = 5
+    COUNT_DISTINCT = 7
 
 
 class WindowSpecification:

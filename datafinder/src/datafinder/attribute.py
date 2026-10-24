@@ -146,6 +146,12 @@ class Attribute(RelationalOperationElement, Aliasable):
         """Return a count aggregation for this Attribute."""
         return AggregateOperation(self._column_with_join(), AggregateOperator.COUNT, self.__display_name + ' Count')
 
+    def count_distinct(self) -> AggregateOperation:
+        """Return the number of different non-NULL values in the group: ``COUNT(DISTINCT column)``."""
+        return AggregateOperation(self._column_with_join(), AggregateOperator.COUNT_DISTINCT,
+                                  self.__display_name + ' Count Distinct')
+
+
     def coalesce(self, *defaults: str | int | float | bool) -> ScalarFunctionOperation:
         """Return the value, or the first default that is not NULL when it is NULL: ``name().coalesce("N/A")``."""
         if not defaults:

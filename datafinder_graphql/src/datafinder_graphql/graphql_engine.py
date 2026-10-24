@@ -284,6 +284,7 @@ _AGG_FUNCS = {
     AggregateOperator.MAX: 'max',
     AggregateOperator.COUNT: 'count',
     AggregateOperator.AVERAGE: 'mean',
+    AggregateOperator.COUNT_DISTINCT: 'nunique',
 }
 
 

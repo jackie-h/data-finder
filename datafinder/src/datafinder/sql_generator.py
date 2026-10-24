@@ -448,6 +448,8 @@ def _selected_constant_string(operation: ConstantOperation) -> str:
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
+    elif isinstance(operation, AggregateOperation) and operation.operator == AggregateOperator.COUNT_DISTINCT:
+        return 'COUNT(DISTINCT ' + sql_operation_to_string(operation.element) + ')'
     elif isinstance(operation, AggregateOperation):
         fn = _AGGREGATE_SQL_NAMES.get(operation.operator, operation.operator.name)
         sql = fn + '(' + sql_operation_to_string(operation.element) + ')'
