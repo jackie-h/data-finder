@@ -5,7 +5,7 @@ Test specifications for the simple org chart domain (orgchart_mapping.md).
 """
 import numpy as np
 
-from datafinder import if_
+from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 ORGCHART_MAPPING = "orgchart_mapping.md"
@@ -95,7 +95,7 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             name="if_on_a_related_column_with_a_fallback",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [f.name(), if_(f.manager().name().is_none(), "top", f.manager().name())]
+                None, None, [f.name(), when(f.manager().name().is_none()).then("top").otherwise(f.manager().name())]
             ).order_by(f.id_().ascending()),
             expected_columns=["Name", "Expression"],
             expected_result=np.array(
@@ -105,7 +105,7 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             name="if_whose_condition_is_missing_takes_otherwise",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [f.name(), if_(f.manager().name().eq("Alice"), "alice", "other")]
+                None, None, [f.name(), when(f.manager().name().eq("Alice")).then("alice").otherwise("other")]
             ).order_by(f.id_().ascending()),
             expected_columns=["Name", "Expression"],
             expected_result=np.array(

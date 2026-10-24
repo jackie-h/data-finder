@@ -1269,39 +1269,51 @@ class TestIf:
         return IntegerAttribute("A", "a", "INT", "t"), StringAttribute("B", "b", "VARCHAR", "t")
 
     def test_two_values(self):
-        from datafinder import if_
+        from datafinder import when
         a, _ = self._ab()
-        assert self._sql(if_(a > 3, "big", "small")) == \
+        assert self._sql(when(a > 3).then("big").otherwise("small")) == \
             """SELECT CASE WHEN t0.a > 3 THEN 'big' ELSE 'small' END AS "Expression" FROM t AS t0"""
 
     def test_without_otherwise(self):
-        from datafinder import if_
+        from datafinder import when
         a, _ = self._ab()
-        assert self._sql(if_(a > 3, 1)) == 'SELECT CASE WHEN t0.a > 3 THEN 1 END AS "Expression" FROM t AS t0'
+        assert self._sql(when(a > 3).then(1)) == 'SELECT CASE WHEN t0.a > 3 THEN 1 END AS "Expression" FROM t AS t0'
 
-    def test_nested_and_with_columns_as_values(self):
-        from datafinder import if_
+    def test_several_cases_and_columns_as_values(self):
+        from datafinder import when
         a, b = self._ab()
-        assert self._sql(if_(a < 1, b, if_(a < 5, "mid", 7))) == \
+        assert self._sql(when(a < 1).then(b).when(a < 5).then("mid").otherwise(7)) == \
             """SELECT CASE WHEN t0.a < 1 THEN t0.b ELSE CASE WHEN t0.a < 5 THEN 'mid' ELSE 7 END END AS "Expression" FROM t AS t0"""
 
+    def test_several_cases_without_otherwise_are_missing_when_none_hold(self):
+        from datafinder import when
+        a, _ = self._ab()
+        assert self._sql(when(a < 1).then("low").when(a < 5).then("mid")) == \
+            """SELECT CASE WHEN t0.a < 1 THEN 'low' ELSE CASE WHEN t0.a < 5 THEN 'mid' END END AS "Expression" FROM t AS t0"""
+
+    def test_a_case_can_be_named(self):
+        from datafinder import when
+        a, _ = self._ab()
+        assert self._sql(when(a < 1).then("low").otherwise("high").alias("Size")) == \
+            """SELECT CASE WHEN t0.a < 1 THEN 'low' ELSE 'high' END AS "Size" FROM t AS t0"""
+
     def test_a_combined_condition(self):
-        from datafinder import if_
+        from datafinder import when
         a, b = self._ab()
-        assert self._sql(if_(a.eq(1).or_(b.is_none()), True, False)) == \
+        assert self._sql(when(a.eq(1).or_(b.is_none())).then(True).otherwise(False)) == \
             'SELECT CASE WHEN t0.a = 1 OR t0.b IS NULL THEN TRUE ELSE FALSE END AS "Expression" FROM t AS t0'
 
     def test_the_condition_must_be_a_condition(self):
-        from datafinder import if_
+        from datafinder import when
         a, _ = self._ab()
         with pytest.raises(TypeError, match="condition"):
-            if_(a, 1, 2)  # type: ignore[arg-type]
+            when(a)  # type: ignore[arg-type]
 
     def test_a_branch_must_be_a_value(self):
-        from datafinder import if_
+        from datafinder import when
         a, _ = self._ab()
         with pytest.raises(TypeError, match="branch"):
-            if_(a > 1, [1])
+            when(a > 1).then([1])
 
 
 class TestOrFilter:

@@ -704,8 +704,8 @@ class SQLQueryGenerator:
             return constant_value_string(value) if isinstance(value, ConstantOperation) \
                 else sql_operation_to_string(self.__rewrite_operation(value))
         sql = 'CASE WHEN ' + self.build_filter(case.condition) + ' THEN ' + branch(case.then)
-        if case.otherwise is not None:
-            sql += ' ELSE ' + branch(case.otherwise)
+        if case.default is not None:
+            sql += ' ELSE ' + branch(case.default)
         return sql + ' END'
 
     def __rewrite_operation(self, op: RelationalOperationElement):
@@ -766,8 +766,8 @@ class SQLQueryGenerator:
         elif isinstance(op, CaseOperation):
             self.__collect_required_joins(op.condition, required_joins)
             self.__collect_required_joins(op.then, required_joins)
-            if op.otherwise is not None:
-                self.__collect_required_joins(op.otherwise, required_joins)
+            if op.default is not None:
+                self.__collect_required_joins(op.default, required_joins)
         elif isinstance(op, (DateExtractOperation, DateTruncOperation)):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateArithmeticOperation):

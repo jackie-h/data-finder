@@ -11,7 +11,7 @@ import pandas as pd
 from datafinder import constant
 
 
-from datafinder import if_
+from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 COMPANIES_MAPPING = "companies_mapping.md"
@@ -358,12 +358,12 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Category"],
             expected_result=np.array([["Manufacturing"]], dtype=object),
         ),
-        # --- if_: a value that depends on a condition ---
+        # --- when / then / otherwise: a value that depends on a condition ---
         TestExpectation(
             name="if_chooses_between_two_values",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [f.name(), if_(f.category().eq("Technology"), "tech", "other")]
+                None, None, [f.name(), when(f.category().eq("Technology")).then("tech").otherwise("other")]
             ).order_by(f.id_().ascending()).limit(3),
             expected_columns=["Name", "Expression"],
             expected_result=np.array(
@@ -374,7 +374,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_nests_for_several_cases",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [if_(f.id_() < 2, "low", if_(f.id_() < 4, "mid", "high"))]
+                None, None, [when(f.id_() < 2).then("low").when(f.id_() < 4).then("mid").otherwise("high")]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([["low"], ["mid"], ["mid"], ["high"], ["high"]], dtype=object),
@@ -383,7 +383,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_with_numbers_as_the_values",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [if_(f.name().starts_with("Acme"), 1, 0)]
+                None, None, [when(f.name().starts_with("Acme")).then(1).otherwise(0)]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([[1], [1], [0], [0], [0]], dtype=object),
@@ -392,7 +392,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_with_columns_as_the_values",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [if_(f.id_() > 3, f.name(), f.category())]
+                None, None, [when(f.id_() > 3).then(f.name()).otherwise(f.category())]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array(
@@ -402,7 +402,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_without_otherwise_is_missing_where_the_condition_fails",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [if_(f.category().eq("Finance"), "F")]
+                None, None, [when(f.category().eq("Finance")).then("F")]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([[None], [None], [None], ["F"], ["F"]], dtype=object),
@@ -411,7 +411,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_with_a_combined_condition",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [if_(f.category().eq("Technology").or_(f.id_().eq(5)), "yes", "no")]
+                None, None, [when(f.category().eq("Technology").or_(f.id_().eq(5))).then("yes").otherwise("no")]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([["yes"], ["no"], ["yes"], ["no"], ["yes"]], dtype=object),
