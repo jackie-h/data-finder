@@ -17,20 +17,20 @@ _EXISTING_MAPPING = """\
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|----------|
-| ID        | INT     | PK  | id       |
-| ACCT_NAME | VARCHAR |     | name     |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|----------|
+| ID        | INT     | PK  | N        | id       |
+| ACCT_NAME | VARCHAR |     | Y        | name     |
 
 ### Schema: trading
 
 #### Table: trades → Trade
 
-| Column | Type      | Key | Property ID   |
-|--------|-----------|-----|------------|
-| sym    | VARCHAR   |     | symbol     |
-| in_z   | TIMESTAMP |     | valid_from |
-| out_z  | TIMESTAMP |     | valid_to   |
+| Column | Type      | Key | Nullable | Property ID   |
+|--------|-----------|-----|----------|------------|
+| sym    | VARCHAR   |     | Y        | symbol     |
+| in_z   | TIMESTAMP |     | Y        | valid_from |
+| out_z  | TIMESTAMP |     | Y        | valid_to   |
 """
 
 
@@ -147,10 +147,10 @@ class TestPrimaryKeyRefresh:
 
 #### Table: trades → Trade
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|----------|
-| id     | INT     | PK  | id       |
-| sym    | VARCHAR |     | symbol   |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|----------|
+| id     | INT     | PK  | N        | id       |
+| sym    | VARCHAR |     | Y        | symbol   |
 """
         cat = InMemoryCatalog("test", **{})
         cat.create_namespace("main")
@@ -178,10 +178,10 @@ class TestPrimaryKeyRefresh:
 
 #### Table: trades → Trade
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|----------|
-| id     | INT     |     | id       |
-| sym    | VARCHAR |     | symbol   |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|----------|
+| id     | INT     |     | Y        | id       |
+| sym    | VARCHAR |     | Y        | symbol   |
 """
         cat = InMemoryCatalog("test", **{})
         cat.create_namespace("main")
@@ -208,9 +208,9 @@ class TestPrimaryKeyRefresh:
 
 #### Table: trades → Trade
 
-| Column     | Type | Key | Property ID |
-|------------|------|-----|----------|
-| account_id | INT  | FK  | account  |
+| Column     | Type | Key | Nullable | Property ID |
+|------------|------|-----|----------|----------|
+| account_id | INT  | FK  | Y        | account  |
 """
         cat = InMemoryCatalog("test", **{})
         cat.create_namespace("main")
@@ -236,9 +236,9 @@ class TestPrimaryKeyRefresh:
 
 #### Table: trades → Trade
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|----------|
-| sym    | VARCHAR |     | symbol   |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|----------|
+| sym    | VARCHAR |     | Y        | symbol   |
 """
         cat = InMemoryCatalog("test", **{})
         cat.create_namespace("main")
@@ -264,10 +264,10 @@ _MAPPING_WITH_ONE_SCHEMA = """\
 
 #### Table: accounts → Account
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|----------|
-| id     | INT     | PK  | id       |
-| name   | VARCHAR |     | name     |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|----------|
+| id     | INT     | PK  | N        | id       |
+| name   | VARCHAR |     | Y        | name     |
 """
 
 

@@ -110,3 +110,15 @@ class TestQualifiedName:
     def test_schema_with_datacatalog(self):
         table = Table("trades", [], Schema("trading", DataCatalog("my_catalog")))
         assert table.qualified_name == "my_catalog.trading.trades"
+
+
+class TestColumnNullable:
+
+    def test_nullable_by_default(self):
+        assert Column("name", "VARCHAR").nullable is True
+
+    def test_not_null(self):
+        assert Column("name", "VARCHAR", nullable=False).nullable is False
+
+    def test_primary_key_is_not_nullable(self):
+        assert Column("id", "INTEGER", primary_key=True).nullable is False

@@ -226,7 +226,7 @@ class TestMarkdownMappingSave:
 
     def test_generated_markdown_has_pk_column(self):
         content = to_markdown("Finance Mapping", self.mapping)
-        assert "| ID        | INT       | PK  | id          |" in content
+        assert "| ID        | INT       | PK  | N        | id          |" in content
 
     def test_generated_markdown_has_fk_column(self):
         content = to_markdown("Finance Mapping", self.mapping)
@@ -348,20 +348,20 @@ class TestAssociationWithoutFkInTableSection:
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|----------|
-| ID        | INT     | PK  | id       |
-| ACCT_NAME | VARCHAR |     | name     |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|----------|
+| ID        | INT     | PK  | N        | id       |
+| ACCT_NAME | VARCHAR |     | Y        | name     |
 
 ### Schema: trading
 
 #### Table: trades → Trade
 
-| Column     | Type    | Key | Property ID   |
-|------------|---------|-----|------------|
-| sym        | VARCHAR |     | symbol     |
-| price      | DOUBLE  |     | price      |
-| is_settled | BOOLEAN |     | isSettled  |
+| Column     | Type    | Key | Nullable | Property ID   |
+|------------|---------|-----|----------|------------|
+| sym        | VARCHAR |     | Y        | symbol     |
+| price      | DOUBLE  |     | Y        | price      |
+| is_settled | BOOLEAN |     | Y        | isSettled  |
 
 #### Association: TradeAccount
 
@@ -437,10 +437,10 @@ class TestInfiniteDatetimeMarkdownParsing:
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|----------|
-| in_z   | TIMESTAMP |     | validFrom  |
-| out_z  | TIMESTAMP |     | validTo    |
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|----------|
+| in_z   | TIMESTAMP |     | Y        | validFrom  |
+| out_z  | TIMESTAMP |     | Y        | validTo    |
 """
 
     def setup_method(self):
@@ -486,17 +486,17 @@ class TestDuplicateClassMappingValidation:
 
 #### Table: accounts → Account
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|-------------|
-| id     | INT     | PK  | id          |
-| name   | VARCHAR |     | name        |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|-------------|
+| id     | INT     | PK  | N        | id          |
+| name   | VARCHAR |     | Y        | name        |
 
 #### Table: accounts_copy → Account
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|-------------|
-| id     | INT     | PK  | id          |
-| name   | VARCHAR |     | name        |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|-------------|
+| id     | INT     | PK  | N        | id          |
+| name   | VARCHAR |     | Y        | name        |
 """
 
     def test_duplicate_class_in_markdown_raises(self):
@@ -530,10 +530,10 @@ class TestUnknownPropertyValidation:
 
 #### Table: accounts → Account
 
-| Column  | Type    | Key | Property ID |
-|---------|---------|-----|-------------|
-| id      | INT     | PK  | id          |
-| bogus   | VARCHAR |     | bogus       |
+| Column  | Type    | Key | Nullable | Property ID |
+|---------|---------|-----|----------|-------------|
+| id      | INT     | PK  | N        | id          |
+| bogus   | VARCHAR |     | Y        | bogus       |
 """
 
     def test_unknown_property_raises(self):
@@ -565,19 +565,19 @@ class TestDuplicateAssociationMapping:
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|-------------|
-| ID        | INT     | PK  | id          |
-| ACCT_NAME | VARCHAR |     | name        |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| ID        | INT     | PK  | N        | id          |
+| ACCT_NAME | VARCHAR |     | Y        | name        |
 
 ### Schema: trading
 
 #### Table: trades → Trade
 
-| Column     | Type    | Key | Property ID |
-|------------|---------|-----|-------------|
-| sym        | VARCHAR |     | symbol      |
-| price      | DOUBLE  |     | price       |
+| Column     | Type    | Key | Nullable | Property ID |
+|------------|---------|-----|----------|-------------|
+| sym        | VARCHAR |     | Y        | symbol      |
+| price      | DOUBLE  |     | Y        | price       |
 
 #### Association: TradeAccount
 
@@ -631,10 +631,10 @@ class TestAssociationBeforeTableRaises:
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|-------------|
-| ID        | INT     | PK  | id          |
-| ACCT_NAME | VARCHAR |     | name        |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| ID        | INT     | PK  | N        | id          |
+| ACCT_NAME | VARCHAR |     | Y        | name        |
 
 ### Schema: trading
 
@@ -646,10 +646,10 @@ class TestAssociationBeforeTableRaises:
 
 #### Table: trades → Trade
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|-------------|
-| sym    | VARCHAR |     | symbol      |
-| price  | DOUBLE  |     | price       |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|-------------|
+| sym    | VARCHAR |     | Y        | symbol      |
+| price  | DOUBLE  |     | Y        | price       |
 """
 
     def setup_method(self):
@@ -687,7 +687,7 @@ class TestColumnMappingHeaderValidation:
 
 {header_row}
 {separator_row}
-| id     | INT | PK  | id   |
+| id     | INT | PK  | N        | id   |
 """
 
     def _make_repo_and_pkg(self):
@@ -701,8 +701,8 @@ class TestColumnMappingHeaderValidation:
 
     def test_property_column_raises(self):
         content = self._mapping_with_headers(
-            "| Column | Type | Key | Property |",
-            "|--------|------|-----|----------|",
+            "| Column | Type | Key | Nullable | Property |",
+            "|--------|------|-----|----------|----------|",
         )
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="unexpected headers.*'Property'.*expected.*'Property ID'"):
@@ -710,8 +710,8 @@ class TestColumnMappingHeaderValidation:
 
     def test_wrong_order_raises(self):
         content = self._mapping_with_headers(
-            "| Type | Column | Key | Property ID |",
-            "|------|--------|-----|-------------|",
+            "| Type | Column | Key | Nullable | Property ID |",
+            "|------|--------|-----|----------|-------------|",
         )
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="unexpected headers"):
@@ -719,8 +719,8 @@ class TestColumnMappingHeaderValidation:
 
     def test_missing_property_id_raises(self):
         content = self._mapping_with_headers(
-            "| Column | Type | Key |",
-            "|--------|------|-----|",
+            "| Column | Type | Key | Nullable |",
+            "|--------|------|-----|----------|",
         )
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="unexpected headers"):
@@ -728,12 +728,44 @@ class TestColumnMappingHeaderValidation:
 
     def test_correct_headers_accepted(self):
         content = self._mapping_with_headers(
-            "| Column | Type | Key | Property ID |",
-            "|--------|------|-----|-------------|",
+            "| Column | Type | Key | Nullable | Property ID |",
+            "|--------|------|-----|----------|-------------|",
         )
         pkg, db = self._make_repo_and_pkg()
         mapping = loads(content, packages=[pkg], datastore=db)
         assert len(mapping.mappings) == 1
+
+    def test_nullable_is_read_and_written(self):
+        content = self._mapping_with_headers(
+            "| Column | Type | Key | Nullable | Property ID |",
+            "|--------|------|-----|----------|-------------|",
+        ) + "| name   | VARCHAR |  | Y        | name |\n| code   | VARCHAR |  | N        | code |\n"
+        from model.m3 import Package, Class, Property, Integer, String
+        pkg = Package("test")
+        Class("Account", [Property("Id", "id", Integer), Property("Name", "name", String),
+                          Property("Code", "code", String)], pkg)
+        mapping = loads(content, packages=[pkg])
+        cols = {pm.target.name: pm.target for pm in mapping.mappings[0].property_mappings}
+        assert (cols["id"].nullable, cols["name"].nullable, cols["code"].nullable) == (False, True, False)
+        assert "| code" in to_markdown("Test Mapping", mapping)
+
+    def test_missing_nullable_raises(self):
+        content = self._mapping_with_headers(
+            "| Column | Type | Key | Property ID |",
+            "|--------|------|-----|-------------|",
+        )
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="unexpected headers.*'Nullable'"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_invalid_nullable_value_raises(self):
+        content = self._mapping_with_headers(
+            "| Column | Type | Key | Nullable | Property ID |",
+            "|--------|------|-----|----------|-------------|",
+        ).replace("| N        |", "| maybe    |")
+        pkg, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="Nullable 'maybe' — expected Y or N"):
+            loads(content, packages=[pkg], datastore=db)
 
 
 class TestMilestonedWithMissingColumns:
@@ -772,10 +804,10 @@ class TestMilestonedWithMissingColumns:
         content = self._BASE + """\
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|-------------|
-| sym    | VARCHAR   |     | symbol      |
-| out_z  | TIMESTAMP |     | validTo     |
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|-------------|
+| sym    | VARCHAR   |     | Y        | symbol      |
+| out_z  | TIMESTAMP |     | Y        | validTo     |
 """
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="missing required column 'in_z'"):
@@ -785,10 +817,10 @@ class TestMilestonedWithMissingColumns:
         content = self._BASE + """\
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|-------------|
-| sym    | VARCHAR   |     | symbol      |
-| in_z   | TIMESTAMP |     | validFrom   |
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|-------------|
+| sym    | VARCHAR   |     | Y        | symbol      |
+| in_z   | TIMESTAMP |     | Y        | validFrom   |
 """
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="missing required column 'out_z'"):
@@ -798,9 +830,9 @@ class TestMilestonedWithMissingColumns:
         content = self._BASE + """\
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|-------------|
-| sym    | VARCHAR |     | symbol      |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|-------------|
+| sym    | VARCHAR |     | Y        | symbol      |
 """
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="missing required column"):
@@ -810,11 +842,11 @@ class TestMilestonedWithMissingColumns:
         content = self._BASE + """\
 #### Table: trades → Trade (milestoning: no_such_scheme)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|-------------|
-| sym    | VARCHAR   |     | symbol      |
-| in_z   | TIMESTAMP |     | validFrom   |
-| out_z  | TIMESTAMP |     | validTo     |
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|-------------|
+| sym    | VARCHAR   |     | Y        | symbol      |
+| in_z   | TIMESTAMP |     | Y        | validFrom   |
+| out_z  | TIMESTAMP |     | Y        | validTo     |
 """
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="milestoning scheme 'no_such_scheme' not found"):
@@ -824,9 +856,9 @@ class TestMilestonedWithMissingColumns:
         content = self._BASE + """\
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column | Type    | Key | Property ID |
-|--------|---------|-----|-------------|
-| sym    | VARCHAR |     | symbol      |
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|-------------|
+| sym    | VARCHAR |     | Y        | symbol      |
 """
         pkg, db = self._make_repo_and_pkg()
         with pytest.raises(ValueError, match="Table 'trades'.*'Trade'"):
@@ -836,11 +868,11 @@ class TestMilestonedWithMissingColumns:
         content = self._BASE + """\
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|-------------|
-| sym    | VARCHAR   |     | symbol      |
-| in_z   | TIMESTAMP |     | validFrom   |
-| out_z  | TIMESTAMP |     | validTo     |
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|-------------|
+| sym    | VARCHAR   |     | Y        | symbol      |
+| in_z   | TIMESTAMP |     | Y        | validFrom   |
+| out_z  | TIMESTAMP |     | Y        | validTo     |
 """
         pkg, db = self._make_repo_and_pkg()
         mapping = loads(content, packages=[pkg], datastore=db)
@@ -925,21 +957,21 @@ class TestEmbeddedMappingErrors:
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|-------------|
-| ID        | INT     | PK  | id          |
-| ACCT_NAME | VARCHAR |     | name        |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| ID        | INT     | PK  | N        | id          |
+| ACCT_NAME | VARCHAR |     | Y        | name        |
 
 ### Schema: trading
 
 #### Table: trades → Trade
 
-| Column     | Type    | Key | Property ID  |
-|------------|---------|-----|--------------|
-| sym        | VARCHAR |     | symbol       |
-| price      | DOUBLE  |     | price        |
-| account_id | INT     | FK  | account      |
-| acct_name  | VARCHAR |     | account.name |
+| Column     | Type    | Key | Nullable | Property ID  |
+|------------|---------|-----|----------|--------------|
+| sym        | VARCHAR |     | Y        | symbol       |
+| price      | DOUBLE  |     | Y        | price        |
+| account_id | INT     | FK  | Y        | account      |
+| acct_name  | VARCHAR |     | Y        | account.name |
 
 #### Association: TradeAccount
 

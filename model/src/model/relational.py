@@ -348,13 +348,15 @@ class Column(RelationalOperationElement):
     table: 'Table | None'
 
     #TODO owner should be Relation
-    def __init__(self, name: str, _type: str, owner: str | None = None, primary_key: bool = False):
+    def __init__(self, name: str, _type: str, owner: str | None = None, primary_key: bool = False,
+                 nullable: bool = True):
         self.table = None
         super().__init__()
         self.name = name
         self.type = _type
         self.owner = owner
         self.primary_key = primary_key
+        self.nullable = nullable and not primary_key  # as in Legend, a primary key is never null
 
     def qualified_name(self) -> str:
         assert self.table is not None, f"Column {self.name} has no table"

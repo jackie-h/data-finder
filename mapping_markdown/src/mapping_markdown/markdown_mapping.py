@@ -109,7 +109,8 @@ def _build_repository_from_content(nodes: list) -> DataStore | None:
                             col_type = row.get("Type", "").strip()
                             key = row.get("Key", "").strip().upper()
                             if col_name:
-                                columns.append(Column(col_name, col_type, primary_key=(key == "PK")))
+                                columns.append(Column(col_name, col_type, primary_key=(key == "PK"),
+                                                      nullable=_parse_nullable(row, col_name)))
                     Table(table_name, columns, current_schema)
                     continue
         i += 1
@@ -223,6 +224,8 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         key = row.get("Key", "").strip().upper()
                         if key == "PK":
                             col.primary_key = True
+                        if not _parse_nullable(row, col_name) or key == "PK":
+                            col.nullable = False
                         if "." in prop_name:
                             embedded_rows.append((col, prop_name.split(".")))
                             continue
@@ -419,14 +422,26 @@ def _flatten_embedded_rows(esm: EmbeddedSetMapping, prefix: str) -> list[list[st
     for pm in esm.property_mappings:
         dotted = f"{prefix}.{pm.property.id}"
         if isinstance(pm.target, Column):
-            rows.append([pm.target.name, pm.target.type or "", "", dotted])
+            rows.append([pm.target.name, pm.target.type or "", "", _nullable_cell(pm.target), dotted])
         elif isinstance(pm.target, EmbeddedSetMapping):
             rows.extend(_flatten_embedded_rows(pm.target, dotted))
     return rows
 
 
-_COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Property ID"]
+_COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Nullable", "Property ID"]
 _ASSOCIATION_HEADERS = ["Source Column", "Target Table", "Target Column"]
+
+
+def _parse_nullable(row: dict, col_name: str) -> bool:
+    """Read a column table row's Nullable cell: Y (nullable) or N (not null)."""
+    value = row.get("Nullable", "").strip().upper()
+    if value not in ("Y", "N"):
+        raise ValueError(f"Column '{col_name}' has Nullable {row.get('Nullable', '')!r} — expected Y or N")
+    return value == "Y"
+
+
+def _nullable_cell(col: Column) -> str:
+    return "Y" if col.nullable else "N"
 
 
 def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str] | None = None) -> list[dict]:
@@ -638,14 +653,14 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Column):
                         key = "PK" if pm.target.primary_key else ""
-                        col_rows.append([pm.target.name, pm.target.type or "", key, pm.property.id])
+                        col_rows.append([pm.target.name, pm.target.type or "", key, _nullable_cell(pm.target), pm.property.id])
                     elif isinstance(pm.target, Join):
                         lhs = pm.target.lhs
                         key = "FK" if lhs.name in fk_cols else ""
-                        col_rows.append([lhs.name, lhs.type or "", key, pm.property.id])
+                        col_rows.append([lhs.name, lhs.type or "", key, _nullable_cell(lhs), pm.property.id])
                         if pm.target.embedded is not None:
                             col_rows.extend(_flatten_embedded_rows(pm.target.embedded, pm.property.id))
-                lines.append(_md_table(["Column", "Type", "Key", "Property ID"], col_rows))
+                lines.append(_md_table(_COLUMN_MAPPING_HEADERS, col_rows))
                 lines.append("")
 
             for rcm in rcms:
@@ -692,10 +707,10 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
             lines.append(f"#### Table: {table.name} → ?")
             lines.append("")
             col_rows = [
-                [col.name, col.type or "", "PK" if col.primary_key else "", ""]
+                [col.name, col.type or "", "PK" if col.primary_key else "", _nullable_cell(col), ""]
                 for col in table.columns
             ]
-            lines.append(_md_table(["Column", "Type", "Key", "Property ID"], col_rows))
+            lines.append(_md_table(_COLUMN_MAPPING_HEADERS, col_rows))
             lines.append("")
 
     return "\n".join(lines)

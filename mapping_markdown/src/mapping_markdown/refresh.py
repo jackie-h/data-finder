@@ -181,6 +181,8 @@ def _update_column_table(table_lines: list[str], new_table: Table) -> str:
                 updated["Type"] = new_cols[col_name].type or ""
             if "Key" in updated and updated["Key"] != "FK":
                 updated["Key"] = "PK" if new_cols[col_name].primary_key else ""
+            if "Nullable" in updated:
+                updated["Nullable"] = "Y" if new_cols[col_name].nullable else "N"
             merged.append(updated)
         else:
             _log.info("Removing deleted column '%s' from table '%s'", col_name, new_table.name)
@@ -194,6 +196,8 @@ def _update_column_table(table_lines: list[str], new_table: Table) -> str:
                 new_row["Type"] = col.type or ""
             if "Key" in new_row:
                 new_row["Key"] = "PK" if col.primary_key else ""
+            if "Nullable" in new_row:
+                new_row["Nullable"] = "Y" if col.nullable else "N"
             merged.append(new_row)
 
     return _md_table(headers, [[r.get(h, "") for h in headers] for r in merged])
@@ -201,11 +205,11 @@ def _update_column_table(table_lines: list[str], new_table: Table) -> str:
 
 def _draft_table_lines(table: Table) -> list[str]:
     col_rows = [
-        [col.name, col.type or "", "PK" if col.primary_key else "", ""]
+        [col.name, col.type or "", "PK" if col.primary_key else "", "Y" if col.nullable else "N", ""]
         for col in table.columns
     ]
     lines = [f"#### Table: {table.name} → ?", ""]
-    lines.extend(_md_table(["Column", "Type", "Key", "Property ID"], col_rows).splitlines())
+    lines.extend(_md_table(["Column", "Type", "Key", "Nullable", "Property ID"], col_rows).splitlines())
     lines.append("")
     return lines
 

@@ -8,8 +8,8 @@
 
 #### Table: positions → Position
 
-| Column     | Type   | Key | Property ID |
-|------------|--------|-----|------------|
-| id         | INT    | PK  | id         |
-| trade_date | DATE   |     | tradeDate  |
-| npv        | DOUBLE |     | npv        |
+| Column     | Type   | Key | Nullable | Property ID |
+|------------|--------|-----|----------|------------|
+| id         | INT    | PK  | N        | id         |
+| trade_date | DATE   |     | Y        | tradeDate  |
+| npv        | DOUBLE |     | Y        | npv        |

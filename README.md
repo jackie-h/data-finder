@@ -129,22 +129,22 @@ A **Mapping** file connects the logical model to the physical relational schema.
 
 #### Table: account_master → Account
 
-| Column    | Type    | Key | Property ID |
-|-----------|---------|-----|-------------|
-| ID        | INT     | PK  | id          |
-| ACCT_NAME | VARCHAR |     | name        |
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| ID        | INT     | PK  | N        | id          |
+| ACCT_NAME | VARCHAR |     | Y        | name        |
 
 ### Schema: trading
 
 #### Table: trades → Trade (milestoning: processing_only)
 
-| Column     | Type      | Key | Property ID |
-|------------|-----------|-----|-------------|
-| sym        | VARCHAR   |     | symbol      |
-| price      | DOUBLE    |     | price       |
-| account_id | INT       | FK  | account     |
-| in_z       | TIMESTAMP |     | validFrom   |
-| out_z      | TIMESTAMP |     | validTo     |
+| Column     | Type      | Key | Nullable | Property ID |
+|------------|-----------|-----|----------|-------------|
+| sym        | VARCHAR   |     | Y        | symbol      |
+| price      | DOUBLE    |     | Y        | price       |
+| account_id | INT       | FK  | Y        | account     |
+| in_z       | TIMESTAMP |     | Y        | validFrom   |
+| out_z      | TIMESTAMP |     | Y        | validTo     |
 
 #### Association: TradeAccount
 
@@ -156,6 +156,8 @@ A **Mapping** file connects the logical model to the physical relational schema.
 ### Table mapping
 
 `#### Table: <table_name> → <ClassName>` maps a database table to a class. The `Property ID` column references the property `Id` defined in the model.
+
+Every column row needs a `Nullable` value: `Y` if the column can hold NULL, `N` if it is `NOT NULL`. A `PK` column is never nullable, so it should be `N`.
 
 For foreign-key columns that represent association navigations, set `Key` to `FK` and use the association's `Target Property ID` as the property name. Follow the table block immediately with an `#### Association:` block that provides the join target.
 
