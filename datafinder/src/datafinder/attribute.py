@@ -151,16 +151,12 @@ class Attribute(RelationalOperationElement, Aliasable):
         return AggregateOperation(self._column_with_join(), AggregateOperator.COUNT_DISTINCT,
                                   self.__display_name + ' Count Distinct')
 
-
-    def coalesce(self, *defaults: str | int | float | bool) -> ScalarFunctionOperation:
-        """Return the value, or the first default that is not NULL when it is NULL: ``name().coalesce("N/A")``."""
-        if not defaults:
-            raise ValueError("coalesce needs at least one default")
-        for default in defaults:
-            if not isinstance(default, (str, int, float, bool)):
-                raise TypeError(f"A coalesce default is a string, number or bool, not {type(default).__name__}")
+    def fill_null(self, default: str | int | float | bool) -> ScalarFunctionOperation:
+        """Return the value, or ``default`` when it is NULL: ``name().fill_null("N/A")``. Like ``Series.fillna``."""
+        if not isinstance(default, (str, int, float, bool)):
+            raise TypeError(f"A fill_null default is a string, number or bool, not {type(default).__name__}")
         return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.COALESCE,
-                                       'Coalesce ' + self.__display_name, extra_args=list(defaults))
+                                       'Fill Null ' + self.__display_name, extra_args=[default])
 
     def ascending(self) -> SortOperation:
         """Return an ascending sort operation for this Attribute."""

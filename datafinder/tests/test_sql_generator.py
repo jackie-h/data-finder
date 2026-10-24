@@ -929,8 +929,6 @@ class TestCountDistinct:
 
 class TestAlias:
     """alias() names a column in the result."""
-class TestConstantColumns:
-    """constant() selects a fixed value next to the columns."""
 
     @staticmethod
     def _select(*columns):
@@ -960,6 +958,15 @@ class TestConstantColumns:
         attr = IntegerAttribute("Id", "id", "INT", "t")
         attr.alias("Key")
         assert self._select(attr) == 'SELECT t0.id AS "Id" FROM t AS t0'
+
+
+class TestConstantColumns:
+    """constant() selects a fixed value next to the columns."""
+
+    @staticmethod
+    def _select(*columns):
+        return to_sql(None, None, list(columns), Table("t", [Column("a", "INT", "t")]), NoOperation())
+
     def test_types(self):
         from datafinder import constant
         assert self._select(constant("x").alias("S"), constant(1).alias("I"), constant(1.5).alias("F"),
@@ -986,25 +993,21 @@ class TestConstantColumns:
             constant([1])  # type: ignore[arg-type]
 
 
-class TestCoalesce:
+class TestFillNull:
 
     def test_a_default(self):
         attr = StringAttribute("Name", "name", "VARCHAR", "t")
-        sql = to_sql(None, None, [attr.coalesce("N/A")], Table("t", [Column("name", "VARCHAR", "t")]), NoOperation())
-        assert sql == """SELECT COALESCE(t0.name, 'N/A') AS "Coalesce Name" FROM t AS t0"""
+        sql = to_sql(None, None, [attr.fill_null("N/A")], Table("t", [Column("name", "VARCHAR", "t")]), NoOperation())
+        assert sql == """SELECT COALESCE(t0.name, 'N/A') AS "Fill Null Name" FROM t AS t0"""
 
-    def test_several_defaults_and_numbers(self):
+    def test_a_number(self):
         attr = IntegerAttribute("Age", "age", "INT", "t")
-        sql = to_sql(None, None, [attr.coalesce(0, 1)], Table("t", [Column("age", "INT", "t")]), NoOperation())
-        assert sql == """SELECT COALESCE(t0.age, 0, 1) AS "Coalesce Age" FROM t AS t0"""
-
-    def test_a_default_is_needed(self):
-        with pytest.raises(ValueError):
-            StringAttribute("Name", "name", "VARCHAR", "t").coalesce()
+        sql = to_sql(None, None, [attr.fill_null(0)], Table("t", [Column("age", "INT", "t")]), NoOperation())
+        assert sql == """SELECT COALESCE(t0.age, 0) AS "Fill Null Age" FROM t AS t0"""
 
     def test_a_default_is_a_string_number_or_bool(self):
         with pytest.raises(TypeError):
-            StringAttribute("Name", "name", "VARCHAR", "t").coalesce(datetime.date(2020, 1, 1))  # type: ignore[arg-type]
+            StringAttribute("Name", "name", "VARCHAR", "t").fill_null(datetime.date(2020, 1, 1))  # type: ignore[arg-type]
 
 
 class TestDistinct:

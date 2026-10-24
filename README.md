@@ -294,8 +294,8 @@ result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.categor
 
 `count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
 
-`coalesce` replaces a missing (NULL) value: `EmployeeFinder.manager().name().coalesce("nobody")`. Several defaults are tried
-in order.
+`fill_null` replaces a missing (NULL) value: `EmployeeFinder.manager().name().fill_null("nobody")`, as `fillna` does for a
+pandas column.
 
 `distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
