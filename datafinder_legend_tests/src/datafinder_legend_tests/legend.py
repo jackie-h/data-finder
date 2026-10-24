@@ -7,7 +7,8 @@ BACKEND = "duckdb"
 
 # Differences from Legend that the strict comparison reports. The SQL means the same; the text does not match.
 JOIN_OPERAND_ORDER = (
-    "to-one join conditions are written child.fk = parent.pk; Legend writes parent.pk = child.fk"
+    "join conditions are written with the primary key column first; Legend writes them in the order the join was defined, "
+    "here foreign key first"
 )
 SUB_AGGREGATION_SHAPE = (
     "Legend aggregates a to-many association per root object in a derived table joined back to the root; here the "
