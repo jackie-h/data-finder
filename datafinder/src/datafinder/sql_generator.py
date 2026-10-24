@@ -38,6 +38,14 @@ class Join:
         self.target = target
         self.filter_op = filter_op
 
+    def condition(self) -> str:
+        """``source = target``, written with the key column first as Legend writes a join defined as key = foreign key."""
+        first, second = self.source, self.target
+        if second.column.primary_key and not first.column.primary_key:
+            first, second = second, first
+        return (first.table_alias.alias + '.' + first.column.name + ' = ' +
+                second.table_alias.alias + '.' + second.column.name)
+
 def _open_end_clause(end_attr, value, infinite_datetime: str | None) -> Operation:
     """Returns `end > value` normally, or `(end > value OR end IS NULL)` when infinite_datetime is None."""
     gt_op = end_attr > value
@@ -926,8 +934,7 @@ class SQLQueryGenerator:
 
     def build_query_string(self) -> str:
         joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
-                              ' ON (' + j.source.table_alias.alias + '.' + j.source.column.name + ' = ' +
-                              j.target.table_alias.alias + '.' + j.target.column.name
+                              ' ON (' + j.condition()
                               + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')', self._join)
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
