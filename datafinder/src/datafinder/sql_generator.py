@@ -358,9 +358,14 @@ def logical_operator_string(op:LogicalOperator) -> str:
 def comparison_operator_string(op:ComparisonOperator) -> str:
     return COMPARISON_OPERATOR_STR[op]
 
+def sql_string_literal(value: str) -> str:
+    """A string as a SQL literal: a quote inside it is doubled, so a value can never end the literal early."""
+    return "'" + value.replace("'", "''") + "'"
+
+
 def constant_value_string(op:ConstantOperation) -> str:
     if isinstance(op, StringConstantOperation):
-        return "'" + op.value + "'"
+        return sql_string_literal(op.value)
     elif isinstance(op, DateConstantOperation):
         return sql_format_date(op.value)
     elif isinstance(op, DateTimeConstantOperation):
@@ -446,7 +451,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         if operation.second_arg is not None:
             parts.append(str(operation.second_arg))
         for arg in operation.extra_args:
-            parts.append("'" + arg + "'" if isinstance(arg, str) else str(arg))
+            parts.append(sql_string_literal(arg) if isinstance(arg, str) else str(arg))
         sql = fn + '(' + ', '.join(parts) + ')'
         sql += ' ' + _window_spec_to_string(operation.window) if operation.window is not None else ' OVER ()'
         return sql
@@ -456,7 +461,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         if operation.second_arg is not None:
             parts.append(str(operation.second_arg))
         for arg in operation.extra_args:
-            parts.append("'" + arg + "'" if isinstance(arg, str) else str(arg))
+            parts.append(sql_string_literal(arg) if isinstance(arg, str) else str(arg))
         return fn + '(' + ', '.join(parts) + ')'
     elif isinstance(operation, DateExtractOperation):
         return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
