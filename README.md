@@ -157,6 +157,8 @@ A **Mapping** file connects the logical model to the physical relational schema.
 
 `#### Table: <table_name> → <ClassName>` maps a database table to a class. The `Property ID` column references the property `Id` defined in the model.
 
+Every column row needs a `Nullable` value: `Y` if the column can hold NULL, `N` if it is `NOT NULL`. A `PK` column is never nullable, so it should be `N`.
+
 For foreign-key columns that represent association navigations, set `Key` to `FK` and use the association's `Target Property ID` as the property name. Follow the table block immediately with an `#### Association:` block that provides the join target.
 
 ### Association mapping
