@@ -356,6 +356,7 @@ class AggregateOperator(Enum):
     MIN = 3
     MAX = 4
     AVERAGE = 5
+    STRING_AGG = 6
     COUNT_DISTINCT = 7
 
 
@@ -369,15 +370,18 @@ class AggregateOperation(UnaryOperation, Arithmetic, Aliasable, Sortable):
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
-                 window=None):
+                 window=None, separator: str | None = None, order_by: list | None = None):
         super().__init__(element)
         self.operator = operator
         self.display_name = display_name
         self.window = window
+        # for STRING_AGG: what goes between the values, and the order they are joined in
+        self.separator = separator
+        self.order_by = order_by or []
 
     def over(self, partition_by=None, order_by=None):
         return AggregateOperation(self.element, self.operator, self.display_name,
-                                  WindowSpecification(partition_by, order_by))
+                                  WindowSpecification(partition_by, order_by), self.separator, self.order_by)
 
 
 class ScalarFunction(Enum):
