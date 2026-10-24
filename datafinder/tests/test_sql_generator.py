@@ -1164,6 +1164,33 @@ class TestSortByAnAggregate:
         assert sql.endswith("ORDER BY SUM(t0.id) ASC")
 
 
+class TestConditionAsColumn:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "INT", "t"), Column("b", "VARCHAR", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    def test_a_comparison(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a > 3) == 'SELECT t0.a > 3 AS "Expression" FROM t AS t0'
+
+    def test_and_or_and_null_checks(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        b = StringAttribute("B", "b", "VARCHAR", "t")
+        assert self._sql(a.eq(1).or_(b.eq("x")).and_(a > 0), b.is_none(), b.is_not_none()) == \
+            """SELECT (t0.a = 1 OR t0.b = 'x') AND t0.a > 0 AS "Expression",t0.b IS NULL AS "Expression",""" \
+            """t0.b IS NOT NULL AS "Expression" FROM t AS t0"""
+
+    def test_is_in(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a.is_in([1, 2])) == 'SELECT t0.a IN (1, 2) AS "Expression" FROM t AS t0'
+
+    def test_next_to_a_plain_column(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a, a > 3) == 'SELECT t0.a AS "A",t0.a > 3 AS "Expression" FROM t AS t0'
+
+
 class TestAlias:
     """alias() names a column in the result."""
 
@@ -1278,6 +1305,65 @@ class TestOffset:
 
     def test_no_offset_by_default(self):
         assert "OFFSET" not in self._sql(limit=2)
+
+
+class TestIf:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "INT", "t"), Column("b", "VARCHAR", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    @staticmethod
+    def _ab():
+        return IntegerAttribute("A", "a", "INT", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+
+    def test_two_values(self):
+        from datafinder import when
+        a, _ = self._ab()
+        assert self._sql(when(a > 3).then("big").otherwise("small")) == \
+            """SELECT CASE WHEN t0.a > 3 THEN 'big' ELSE 'small' END AS "Expression" FROM t AS t0"""
+
+    def test_without_otherwise(self):
+        from datafinder import when
+        a, _ = self._ab()
+        assert self._sql(when(a > 3).then(1)) == 'SELECT CASE WHEN t0.a > 3 THEN 1 END AS "Expression" FROM t AS t0'
+
+    def test_several_cases_and_columns_as_values(self):
+        from datafinder import when
+        a, b = self._ab()
+        assert self._sql(when(a < 1).then(b).when(a < 5).then("mid").otherwise(7)) == \
+            """SELECT CASE WHEN t0.a < 1 THEN t0.b ELSE CASE WHEN t0.a < 5 THEN 'mid' ELSE 7 END END AS "Expression" FROM t AS t0"""
+
+    def test_several_cases_without_otherwise_are_missing_when_none_hold(self):
+        from datafinder import when
+        a, _ = self._ab()
+        assert self._sql(when(a < 1).then("low").when(a < 5).then("mid")) == \
+            """SELECT CASE WHEN t0.a < 1 THEN 'low' ELSE CASE WHEN t0.a < 5 THEN 'mid' END END AS "Expression" FROM t AS t0"""
+
+    def test_a_case_can_be_named(self):
+        from datafinder import when
+        a, _ = self._ab()
+        assert self._sql(when(a < 1).then("low").otherwise("high").alias("Size")) == \
+            """SELECT CASE WHEN t0.a < 1 THEN 'low' ELSE 'high' END AS "Size" FROM t AS t0"""
+
+    def test_a_combined_condition(self):
+        from datafinder import when
+        a, b = self._ab()
+        assert self._sql(when(a.eq(1).or_(b.is_none())).then(True).otherwise(False)) == \
+            'SELECT CASE WHEN t0.a = 1 OR t0.b IS NULL THEN TRUE ELSE FALSE END AS "Expression" FROM t AS t0'
+
+    def test_the_condition_must_be_a_condition(self):
+        from datafinder import when
+        a, _ = self._ab()
+        with pytest.raises(TypeError, match="condition"):
+            when(a)  # type: ignore[arg-type]
+
+    def test_a_branch_must_be_a_value(self):
+        from datafinder import when
+        a, _ = self._ab()
+        with pytest.raises(TypeError, match="branch"):
+            when(a > 1).then([1])
 
 
 class TestOrFilter:

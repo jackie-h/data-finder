@@ -324,6 +324,10 @@ A date can be cut back to the first day of its week (a Monday), month, quarter o
 
 Sort by an aggregate the same way as by a column: `.order_by(CompanyFinder.id_().count().descending())`.
 
+A condition can be a column too, true or false for each row: `CompanyFinder.find_all(None, None, [CompanyFinder.name(),
+CompanyFinder.category().eq("Technology")])`. As in SQL, a comparison with a missing (NULL) value is missing, not false.
+Two unnamed conditions have the same column name, so select them in separate queries (or give them names).
+
 `coalesce` replaces a missing (NULL) value: `EmployeeFinder.manager().name().coalesce("nobody")`. Several defaults are tried
 in order.
 
@@ -332,6 +336,12 @@ distinct query has to use a selected column.
 
 `offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
 first: without an order, which rows come first is not defined.
+
+`when(condition).then(value).otherwise(value)` chooses a value for each row, as in polars:
+`when(CompanyFinder.category().eq("Technology")).then("tech").otherwise("other")`. Python's own `if` cannot build a query
+(it needs a real `True` or `False`), so the condition goes through `when`. Add cases with `.when(...).then(...)`. A value is
+a column, an expression or a Python value. With no `otherwise` the value is missing where no condition holds. A condition
+that is missing for a row (a comparison with NULL) is not true, so that row takes the next case or `otherwise`.
 
 ### Temporal queries
 

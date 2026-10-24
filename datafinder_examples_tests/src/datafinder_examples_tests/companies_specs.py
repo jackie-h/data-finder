@@ -9,6 +9,9 @@ import numpy as np
 import pandas as pd
 
 from datafinder import constant
+
+
+from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 COMPANIES_MAPPING = "companies_mapping.md"
@@ -233,6 +236,50 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Category", "Id Count"],
             expected_result=np.array([["Manufacturing", 1], ["Technology", 2], ["Finance", 2]], dtype=object),
         ),
+        # --- A condition as a column: true or false for each row ---
+        TestExpectation(
+            name="a_comparison_as_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.category().eq("Technology")]
+            ).order_by(f.id_().ascending()).limit(3),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Acme Corp", True], ["Acme Industries", False], ["Beta Corp", True]], dtype=object),
+            expected_sql={"duckdb": "t0.category = 'Technology' AS \"Expression\""},
+        ),
+        TestExpectation(
+            name="a_combined_condition_as_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(
+                None, None, [f.id_(), f.category().eq("Finance").or_(f.name().starts_with("Acme"))]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Expression"],
+            expected_result=np.array([[1, True], [2, True], [3, False], [4, True], [5, True]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_null_check_as_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(None, None, [f.name().is_none()]).order_by(f.id_().ascending()).limit(2),
+            expected_columns=["Expression"],
+            expected_result=np.array([[False], [False]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_membership_test_as_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(None, None, [f.id_().is_in([1, 3])]).order_by(f.id_().ascending()).limit(3),
+            expected_columns=["Expression"],
+            expected_result=np.array([[True], [False], [True]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_condition_as_a_column_next_to_a_filter",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.id_() > 3], f.category().eq("Finance")
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array([["Gamma LLC", True], ["Delta Ltd", True]], dtype=object),
+        ),
         # --- Aliases: a column can be given the name it has in the result ---
         TestExpectation(
             name="alias_names_the_columns",
@@ -382,6 +429,64 @@ COMPANY_FINDER_SPECS = FinderSpec(
             .order_by(f.category().ascending()).offset(1).limit(1),
             expected_columns=["Category"],
             expected_result=np.array([["Manufacturing"]], dtype=object),
+        ),
+        # --- when / then / otherwise: a value that depends on a condition ---
+        TestExpectation(
+            name="if_chooses_between_two_values",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), when(f.category().eq("Technology")).then("tech").otherwise("other")]
+            ).order_by(f.id_().ascending()).limit(3),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Acme Corp", "tech"], ["Acme Industries", "other"], ["Beta Corp", "tech"]], dtype=object),
+            expected_sql={"duckdb": "CASE WHEN t0.category = 'Technology' THEN 'tech' ELSE 'other' END"},
+        ),
+        TestExpectation(
+            name="if_nests_for_several_cases",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [when(f.id_() < 2).then("low").when(f.id_() < 4).then("mid").otherwise("high")]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Expression"],
+            expected_result=np.array([["low"], ["mid"], ["mid"], ["high"], ["high"]], dtype=object),
+        ),
+        TestExpectation(
+            name="if_with_numbers_as_the_values",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [when(f.name().starts_with("Acme")).then(1).otherwise(0)]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Expression"],
+            expected_result=np.array([[1], [1], [0], [0], [0]], dtype=object),
+        ),
+        TestExpectation(
+            name="if_with_columns_as_the_values",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [when(f.id_() > 3).then(f.name()).otherwise(f.category())]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Expression"],
+            expected_result=np.array(
+                [["Technology"], ["Manufacturing"], ["Technology"], ["Gamma LLC"], ["Delta Ltd"]], dtype=object),
+        ),
+        TestExpectation(
+            name="if_without_otherwise_is_missing_where_the_condition_fails",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [when(f.category().eq("Finance")).then("F")]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Expression"],
+            expected_result=np.array([[None], [None], [None], ["F"], ["F"]], dtype=object),
+        ),
+        TestExpectation(
+            name="if_with_a_combined_condition",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [when(f.category().eq("Technology").or_(f.id_().eq(5))).then("yes").otherwise("no")]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Expression"],
+            expected_result=np.array([["yes"], ["no"], ["yes"], ["no"], ["yes"]], dtype=object),
         ),
         # --- Count ---
         TestExpectation(

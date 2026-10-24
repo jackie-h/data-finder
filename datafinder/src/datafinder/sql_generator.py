@@ -17,7 +17,7 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation, QueryExpression, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation
+    SelectOperation, QueryExpression, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -470,6 +470,20 @@ def _operand_string(operation: RelationalOperationElement) -> str:
         else sql_operation_to_string(operation)
 
 
+class _RenderedSql(RelationalOperationElement):
+    """A condition already written as SQL, to be selected as a column. A condition is rendered where its columns can
+    be resolved to table aliases, which is while the query is being built, not when its text is put together."""
+
+    def __init__(self, sql: str):
+        super().__init__()
+        self.sql = sql
+
+
+def _is_condition(op: RelationalOperationElement) -> bool:
+    return isinstance(op, (ComparisonOperation, LogicalOperation, IsNullOperation, IsNotNullOperation, InOperation,
+                           NotInOperation, ExistsOperation, NotExistsOperation))
+
+
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
@@ -535,6 +549,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         if arithmetic_needs_parentheses(operation, operation.right, True):
             right = '(' + right + ')'
         return left + ' ' + operation.operator.value + ' ' + right
+    elif isinstance(operation, _RenderedSql):
+        return operation.sql
     elif isinstance(operation, Alias):
         return sql_operation_to_string(operation.element) + ' AS "' + operation.name + '"'
     else:
@@ -550,6 +566,8 @@ def display_alias(col: RelationalOperationElement) -> str:
         return col.display_name()
     if isinstance(col, (ArithmeticOperation, ConcatOperation)):
         return col.display_name if col.display_name else 'Expression'
+    if _is_condition(col) or isinstance(col, CaseOperation):
+        return 'Expression'
     if isinstance(col, AggregateOperation):
         return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
     if isinstance(col, ScalarFunctionOperation):
@@ -696,6 +714,16 @@ class SQLQueryGenerator:
         order_by = [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in window.order_by]
         return WindowSpecification(partition_by, order_by)
 
+    def __case_sql(self, case: CaseOperation) -> str:
+        """The CASE written out now: its condition can only be rendered while the query is being built."""
+        def branch(value: RelationalOperationElement) -> str:
+            return constant_value_string(value) if isinstance(value, ConstantOperation) \
+                else sql_operation_to_string(self.__rewrite_operation(value))
+        sql = 'CASE WHEN ' + self.build_filter(case.condition) + ' THEN ' + branch(case.then)
+        if case.default is not None:
+            sql += ' ELSE ' + branch(case.default)
+        return sql + ' END'
+
     def __rewrite_operation(self, op: RelationalOperationElement):
         if isinstance(op, (Attribute, ColumnWithJoin)):
             column, parent = self.__resolve(op)
@@ -714,6 +742,8 @@ class SQLQueryGenerator:
                                        self.__rewrite_operation(op.right), op.display_name)
         elif isinstance(op, ConcatOperation):
             return ConcatOperation([self.__rewrite_operation(part) for part in op.parts], op.display_name)
+        elif isinstance(op, CaseOperation):
+            return _RenderedSql(self.__case_sql(op))
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateTruncOperation):
@@ -752,6 +782,11 @@ class SQLQueryGenerator:
         elif isinstance(op, ConcatOperation):
             for part in op.parts:
                 self.__collect_required_joins(part, required_joins)
+        elif isinstance(op, CaseOperation):
+            self.__collect_required_joins(op.condition, required_joins)
+            self.__collect_required_joins(op.then, required_joins)
+            if op.default is not None:
+                self.__collect_required_joins(op.default, required_joins)
         elif isinstance(op, (DateExtractOperation, DateTruncOperation)):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateArithmeticOperation):
@@ -788,9 +823,13 @@ class SQLQueryGenerator:
         for col in cols:
             self.__collect_required_joins(col, required_joins)
             rewritten = self.__rewrite_operation(col)
+            if _is_condition(col):
+                rewritten = _RenderedSql(self.build_filter(col))
 
             if isinstance(col, Alias):
-                self._select.append(Alias(self.__rewrite_operation(col.element), col.name))
+                inner = _RenderedSql(self.build_filter(col.element)) if _is_condition(col.element) \
+                    else self.__rewrite_operation(col.element)
+                self._select.append(Alias(inner, col.name))
             else:
                 self._select.append(Alias(rewritten, display_alias(col)))
 

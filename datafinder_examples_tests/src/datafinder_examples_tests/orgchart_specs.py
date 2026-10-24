@@ -5,6 +5,7 @@ Test specifications for the simple org chart domain (orgchart_mapping.md).
 """
 import numpy as np
 
+from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 ORGCHART_MAPPING = "orgchart_mapping.md"
@@ -55,6 +56,26 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
         ),
         TestExpectation(
+            name="a_condition_on_a_related_column_as_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.manager().name().is_none()]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Alice", True], ["Bob", False], ["Carol", False], ["Dave", False]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_comparison_with_a_missing_value_is_missing",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.manager().name().eq("Alice")]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Alice", None], ["Bob", True], ["Carol", True], ["Dave", False]], dtype=object),
+        ),
+        TestExpectation(
             name="alias_names_a_column_reached_through_an_association",
             query=lambda f: f.find_all(
                 None, None, [f.name().alias("Employee"), f.manager().name().alias("Boss")], f.name().eq("Bob")
@@ -69,6 +90,27 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             ),
             expected_columns=["Fill Null Name"],
             expected_result=np.array([["Bob"]], dtype=object),
+        ),
+        TestExpectation(
+            name="if_on_a_related_column_with_a_fallback",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), when(f.manager().name().is_none()).then("top").otherwise(f.manager().name())]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Alice", "top"], ["Bob", "Alice"], ["Carol", "Alice"], ["Dave", "Bob"]], dtype=object),
+        ),
+        TestExpectation(
+            name="if_whose_condition_is_missing_takes_otherwise",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), when(f.manager().name().eq("Alice")).then("alice").otherwise("other")]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Alice", "other"], ["Bob", "alice"], ["Carol", "alice"], ["Dave", "other"]],
+                dtype=object),
         ),
         TestExpectation(
             name="manager_name_for_dave",
