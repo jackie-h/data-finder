@@ -254,6 +254,15 @@ function of a column:
 CompanyFinder.find_all(None, None, [CompanyFinder.name().alias("Company"), CompanyFinder.id_().count().alias("N")])
 ```
 
+A fixed value can be a column too. `constant` takes a bool, number, string, date or datetime:
+
+```python
+from datafinder import constant
+
+CompanyFinder.find_all(None, None, [CompanyFinder.name(), constant("EU").alias("Region")])
+```
+
+
 
 Sort with `order_by`, and limit with `limit`. Several `order_by` calls accumulate: the latest call takes priority
 and the earlier ones break its ties, so the two lines below sort by category and then by name. Sorting a column again
