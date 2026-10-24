@@ -27,6 +27,8 @@ from model.relational import (
     DateExtractOperation,
     DatePart,
     IsNotNullOperation,
+    InOperation,
+    NotInOperation,
     IsNullOperation,
     LogicalOperation,
     LogicalOperator,
@@ -372,6 +374,10 @@ def _op_to_where_clause(op) -> str | None:
         right = _op_to_where_clause(op.right)
         logical = "_and" if op.operator == LogicalOperator.AND else "_or"
         return f"{{ {logical}: [{left}, {right}] }}"
+    if isinstance(op, (InOperation, NotInOperation)):
+        gql_op = "_in" if isinstance(op, InOperation) else "_nin"
+        values = ", ".join(_gql_value(_constant_value(v)) for v in op.values)
+        return _nest(_field_name(op.element, "a filter"), f"{{ {gql_op}: [{values}] }}")
     if isinstance(op, IsNullOperation):
         return _nest(_field_name(op.element, "a null check"), "{ _is_null: true }")
     if isinstance(op, IsNotNullOperation):
@@ -423,7 +429,8 @@ def _op_raw_names(op) -> set[str]:
         return {op.left.column.name}
     if isinstance(op, LogicalOperation):
         return _op_raw_names(op.left) | _op_raw_names(op.right)
-    if isinstance(op, (IsNullOperation, IsNotNullOperation)) and isinstance(op.element, ColumnWithJoin):
+    if isinstance(op, (IsNullOperation, IsNotNullOperation, InOperation, NotInOperation)) \
+            and isinstance(op.element, ColumnWithJoin):
         return {op.element.column.name}
     return set()
 

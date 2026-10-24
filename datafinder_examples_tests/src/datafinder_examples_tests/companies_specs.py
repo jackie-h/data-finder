@@ -172,6 +172,22 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Gamma LLC"]], dtype=object),
         ),
         TestExpectation(
+            name="string_is_in",
+            query=lambda f: f.find_all(
+                None, None, [f.name()], f.name().is_in(["Acme Corp", "Gamma LLC"])
+            ).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"], ["Gamma LLC"]], dtype=object),
+        ),
+        TestExpectation(
+            name="string_is_not_in",
+            query=lambda f: f.find_all(
+                None, None, [f.name()], f.name().is_not_in(["Acme Corp", "Acme Industries", "Gamma LLC"])
+            ).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Beta Corp"], ["Delta Ltd"]], dtype=object),
+        ),
+        TestExpectation(
             name="string_category_starts_with_fin",
             query=lambda f: f.find_all(
                 None, None, [f.name()], f.category().starts_with("Fin")

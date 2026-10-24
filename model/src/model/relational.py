@@ -101,6 +101,24 @@ class IsNotNullOperation(UnaryOperation):
     pass
 
 
+class InOperation(UnaryOperation):
+    """The element is one of ``values`` (``element IN (...)``)."""
+    values: list[ConstantOperation]
+
+    def __init__(self, element: RelationalOperationElement, values: list[ConstantOperation]):
+        super().__init__(element)
+        self.values = values
+
+
+class NotInOperation(UnaryOperation):
+    """The element is none of ``values`` (``element NOT IN (...)``)."""
+    values: list[ConstantOperation]
+
+    def __init__(self, element: RelationalOperationElement, values: list[ConstantOperation]):
+        super().__init__(element)
+        self.values = values
+
+
 class BooleanOperation:
     def __init__(self):
         pass

@@ -1,7 +1,7 @@
 from typing import Any
 
 from model.relational import Column, Operation, ComparisonOperation, ComparisonOperator, RelationalOperationElement, \
-    ColumnWithJoin, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
+    ColumnWithJoin, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, ConstantOperation, \
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
 
@@ -159,3 +159,21 @@ class Attribute(RelationalOperationElement):
     def is_not_none(self) -> Operation:
         """Return a filter that matches rows where this column is not NULL. Equivalent to ``is not None`` in Python."""
         return IsNotNullOperation(self._column_with_join())
+
+    def _to_constant(self, value: Any) -> ConstantOperation:
+        """Wrap a Python value as a constant of this attribute's type. Overridden by the typed attributes."""
+        raise TypeError(f"{type(self).__name__} does not support is_in / is_not_in")
+
+    def _constants(self, values) -> list[ConstantOperation]:
+        constants = [self._to_constant(v) for v in values]
+        if not constants:
+            raise ValueError("is_in / is_not_in need at least one value")
+        return constants
+
+    def is_in(self, values) -> Operation:
+        """Return a filter that matches rows where this column equals any of ``values``."""
+        return InOperation(self._column_with_join(), self._constants(values))
+
+    def is_not_in(self, values) -> Operation:
+        """Return a filter that matches rows where this column equals none of ``values``."""
+        return NotInOperation(self._column_with_join(), self._constants(values))
