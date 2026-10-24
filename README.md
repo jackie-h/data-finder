@@ -315,6 +315,10 @@ A date can be cut back to the first day of its week (a Monday), month, quarter o
 `PositionFinder.trade_date().first_day_of_month()`. The result is a date, so it can be compared:
 `PositionFinder.trade_date().first_day_of_month() == datetime.date(2024, 7, 1)`.
 
+A condition can be a column too, true or false for each row: `CompanyFinder.find_all(None, None, [CompanyFinder.name(),
+CompanyFinder.category().eq("Technology")])`. As in SQL, a comparison with a missing (NULL) value is missing, not false.
+Two unnamed conditions have the same column name, so select them in separate queries (or give them names).
+
 `coalesce` replaces a missing (NULL) value: `EmployeeFinder.manager().name().coalesce("nobody")`. Several defaults are tried
 in order.
 
