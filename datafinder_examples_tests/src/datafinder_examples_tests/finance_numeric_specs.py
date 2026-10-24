@@ -161,6 +161,25 @@ TRADE_ARITHMETIC_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["AAPL", 51.0]], dtype=object),
         ),
         TestExpectation(
+            name="numeric_functions_chain",
+            query=lambda f: f.find_all(None, _AT, [f.price().sqrt().floor()], f.symbol().eq("GOOG")),
+            expected_columns=["Floor Sqrt Price"],
+            expected_result=np.array([[6.0]], dtype=object),
+            expected_sql={"duckdb": "FLOOR(SQRT(t0.price))"},
+        ),
+        TestExpectation(
+            name="numeric_functions_chain_with_an_argument",
+            query=lambda f: f.find_all(None, _AT, [f.price().sqrt().power(2)], f.symbol().eq("GOOG")),
+            expected_columns=["Power Sqrt Price"],
+            expected_result=np.array([[36.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="text_to_number_to_arithmetic",
+            query=lambda f: f.find_all(None, _AT, [f.symbol().lower().length() + 1], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[5]], dtype=object),
+        ),
+        TestExpectation(
             name="arithmetic_on_the_length_of_a_string",
             query=lambda f: f.find_all(None, _AT, [f.symbol().length() * 10], f.symbol().eq("GOOG")),
             expected_columns=["Expression"],

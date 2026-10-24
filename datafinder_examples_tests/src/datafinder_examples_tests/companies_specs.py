@@ -45,6 +45,35 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Expression"],
             expected_result=np.array([["ACME CORP/technology"]], dtype=object),
         ),
+        # --- Functions chain: the result of one has the functions of its type ---
+        TestExpectation(
+            name="text_functions_chain",
+            skip_backends={"graphql": "The GraphQL finder cannot chain functions"},
+            query=lambda f: f.find_all(
+                None, None, [f.name().upper().length()]
+            ).order_by(f.name().ascending()).limit(2),
+            expected_columns=["Length Upper Name"],
+            expected_result=np.array([[9], [15]], dtype=object),
+            expected_sql={"duckdb": "LENGTH(UPPER(t0.name))"},
+        ),
+        TestExpectation(
+            name="a_text_function_of_a_text_function",
+            skip_backends={"graphql": "The GraphQL finder cannot chain functions"},
+            query=lambda f: f.find_all(
+                None, None, [f.name().upper().replace("ACME", "X")]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Replace Upper Name"],
+            expected_result=np.array([["X CORP"]], dtype=object),
+        ),
+        TestExpectation(
+            name="slice_the_result_of_a_function",
+            skip_backends={"graphql": "The GraphQL finder cannot chain functions"},
+            query=lambda f: f.find_all(
+                None, None, [f.name().lower()[:4]]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Left Lower Name"],
+            expected_result=np.array([["acme"]], dtype=object),
+        ),
         # --- Count ---
         TestExpectation(
             name="count_all",
