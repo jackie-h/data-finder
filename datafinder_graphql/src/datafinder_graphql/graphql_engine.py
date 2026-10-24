@@ -96,6 +96,8 @@ def _col_field_name(col) -> str | None:
 
 
 def _col_display_name(col) -> str:
+    if isinstance(col, ConstantOperation):
+        return "Constant"
     if isinstance(col, Attribute):
         return col.display_name()
     if isinstance(col, (AggregateOperation, WindowFunctionOperation, ScalarFunctionOperation,
@@ -238,7 +240,9 @@ def _project_columns(df: pd.DataFrame, columns: list, names: list[str] | None = 
     for i, col in enumerate(columns):
         dn = names[i] if names else _col_display_name(col)
         derived = _compute_derived(col, df)
-        if derived is not None:
+        if isinstance(col, ConstantOperation):
+            result[dn] = [col.value] * len(df)
+        elif derived is not None:
             result[dn] = derived.values
         elif isinstance(col, Attribute):
             fn = _plain(col.column().name)

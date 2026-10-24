@@ -429,6 +429,15 @@ def _window_spec_to_string(window: WindowSpecification) -> str:
         ))
     return 'OVER (' + ' '.join(parts) + ')'
 
+def _selected_constant_string(operation: ConstantOperation) -> str:
+    """A constant in the select list. A bare quoted literal would come back as text, so dates are typed."""
+    if isinstance(operation, DateTimeConstantOperation):
+        return 'TIMESTAMP ' + constant_value_string(operation)
+    if isinstance(operation, DateConstantOperation):
+        return 'DATE ' + constant_value_string(operation)
+    return constant_value_string(operation)
+
+
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
@@ -468,6 +477,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
+    elif isinstance(operation, ConstantOperation):
+        return _selected_constant_string(operation)
     elif isinstance(operation, Alias):
         return sql_operation_to_string(operation.element) + ' AS "' + operation.name + '"'
     else:
@@ -477,6 +488,8 @@ def display_alias(col: RelationalOperationElement) -> str:
     """The name a display expression gets in a SELECT when it has not been given an explicit alias."""
     if isinstance(col, CountAllOperation):
         return 'Count'
+    if isinstance(col, ConstantOperation):
+        return 'Constant'
     if isinstance(col, Attribute):
         return col.display_name()
     if isinstance(col, AggregateOperation):

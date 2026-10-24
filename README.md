@@ -254,6 +254,14 @@ function of a column:
 CompanyFinder.find_all(None, None, [CompanyFinder.name().alias("Company"), CompanyFinder.id_().count().alias("N")])
 ```
 
+A fixed value can be a column too. `constant` takes a bool, number, string, date or datetime:
+
+```python
+from datafinder import constant
+
+CompanyFinder.find_all(None, None, [CompanyFinder.name(), constant("EU").alias("Region")])
+```
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
