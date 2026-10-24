@@ -16,8 +16,10 @@ from model.graphql_mapping import (
     GraphQLBiTemporalMilestone,
 )
 from model.relational import (
+    LIKE_ESCAPE,
     AggregateOperation,
     AggregateOperator,
+    Alias,
     ColumnWithJoin,
     ComparisonOperation,
     ComparisonOperator,
@@ -242,11 +244,12 @@ def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
     return None
 
 
-def _project_columns(df: pd.DataFrame, columns: list) -> pd.DataFrame:
-    """Project and rename columns, computing derived expressions as needed."""
+def _project_columns(df: pd.DataFrame, columns: list, names: list[str] | None = None) -> pd.DataFrame:
+    """Project and rename columns, computing derived expressions as needed. ``names`` are the result's column names,
+    which differ from the display names where a column has been given an alias."""
     result: dict = {}
-    for col in columns:
-        dn = _col_display_name(col)
+    for i, col in enumerate(columns):
+        dn = names[i] if names else _col_display_name(col)
         derived = _compute_derived(col, df)
         if derived is not None:
             result[dn] = derived.values
@@ -347,6 +350,20 @@ _CMP_OPS = {
 }
 
 
+def _like_for_server(pattern: str) -> str:
+    """A LIKE pattern in the escape convention of the model (``!``) in the server's (backslash)."""
+    out, i = [], 0
+    while i < len(pattern):
+        c = pattern[i]
+        if c == LIKE_ESCAPE and i + 1 < len(pattern):
+            out.append(('' if pattern[i + 1] == LIKE_ESCAPE else '\\') + pattern[i + 1])
+            i += 2
+            continue
+        out.append('\\\\' if c == '\\' else c)
+        i += 1
+    return ''.join(out)
+
+
 def _gql_value(val) -> str:
     """Serialize a Python value to an inline GraphQL argument literal."""
     if isinstance(val, bool):
@@ -386,7 +403,10 @@ def _op_to_where_clause(op) -> str | None:
         field = _field_name(op.left, "a filter")
         if isinstance(op.right, RelationalOperationElement) and not isinstance(op.right, ConstantOperation):
             raise GraphQLPushdownError("Cannot push a filter comparing two fields to the server")
-        return _nest(field, f"{{ {gql_op}: {_gql_value(_constant_value(op.right))} }}")
+        value = _constant_value(op.right)
+        if op.operator in (ComparisonOperator.LIKE, ComparisonOperator.NOT_LIKE) and isinstance(value, str):
+            value = _like_for_server(value)
+        return _nest(field, f"{{ {gql_op}: {_gql_value(value)} }}")
     if isinstance(op, LogicalOperation):
         left = _op_to_where_clause(op.left)
         right = _op_to_where_clause(op.right)
@@ -634,13 +654,17 @@ class GraphQLConnect(QueryRunnerBase):
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,
                distinct: bool = False, offset: int | None = None) -> DataFrame:
 
+        # an alias only names the column in the result: read the column, then name it
+        names = [col.name if isinstance(col, Alias) else _col_display_name(col) for col in columns]
+        renames = {_col_display_name(col.element): col.name for col in columns if isinstance(col, Alias)}
+        columns = [col.element if isinstance(col, Alias) else col for col in columns]
+
         filter_conv = getattr(table.endpoint, 'filter_convention', None)
         fields_str = _build_fields_str(columns, filter_conv)
         has_agg = any(isinstance(col, AggregateOperation) for col in columns)
         if has_agg and not group_by:
             # as in the SQL finders, the columns that are not aggregated are what the aggregates are grouped by
             group_by = [col for col in columns if isinstance(col, Attribute)]
-        display_names = [_col_display_name(col) for col in columns]
 
         is_date_range = business_date_to is not None and business_date is not None
         if is_date_range and (order_by or limit is not None):
@@ -667,7 +691,7 @@ class GraphQLConnect(QueryRunnerBase):
             rows = _fetch_rows(table, fields_str, business_date, processing_datetime, timeout_ms, server_args)
 
         if not rows:
-            return GraphQLOutput(pd.DataFrame({name: [] for name in display_names}))
+            return GraphQLOutput(pd.DataFrame({name: [] for name in names}))
 
         df = pd.DataFrame([flat for row in rows for flat in _flatten_rows(row)])
 
@@ -676,12 +700,13 @@ class GraphQLConnect(QueryRunnerBase):
             aggregated = _apply_aggregation(df, columns, group_by)
             if order_by:
                 aggregated = _sort_aggregated(aggregated, order_by, group_by)
+            aggregated = aggregated.rename(columns=renames)
             aggregated = aggregated.drop_duplicates().reset_index(drop=True) if distinct else aggregated
             return GraphQLOutput(_slice_rows(aggregated, offset, limit))
 
         if sort_expanded:
             df = _sort_expanded(df, order_by or [])
-        projected = _project_columns(df, columns)
+        projected = _project_columns(df, columns, names)
         if distinct:  # the limit is applied here, after the duplicates are gone, not on the server before
             projected = projected.drop_duplicates().reset_index(drop=True)
         return GraphQLOutput(_slice_rows(projected, offset, limit) if distinct or offset else projected)

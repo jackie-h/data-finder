@@ -264,6 +264,16 @@ EmployeeFinder.find_all(None, None, [EmployeeFinder.name(), EmployeeFinder.emplo
 A query that selects only aggregates over the root's own columns covers every row and is not grouped. Pass `group_by`
 to choose the grouping yourself; it is used as given.
 
+### Naming columns
+
+A column is named in the result after its property. Give it another name with `alias`, on an attribute, an aggregate or a
+function of a column:
+
+```python
+CompanyFinder.find_all(None, None, [CompanyFinder.name().alias("Company"), CompanyFinder.id_().count().alias("N")])
+```
+
+
 Sort with `order_by`, and limit with `limit`. Several `order_by` calls accumulate: the latest call takes priority
 and the earlier ones break its ties, so the two lines below sort by category and then by name. Sorting a column again
 replaces its earlier direction.

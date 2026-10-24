@@ -3,7 +3,7 @@ import datetime
 from datafinder import Attribute
 import decimal
 
-from model.relational import ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
+from model.relational import escape_like, ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
@@ -141,15 +141,15 @@ class StringAttribute(Attribute):
 
     def contains(self, value: str) -> Operation:
         """Return a substring match comparison."""
-        return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{value}%"))
+        return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(value)}%"))
 
     def starts_with(self, prefix: str) -> Operation:
         """Return a prefix match comparison."""
-        return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"{prefix}%"))
+        return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"{escape_like(prefix)}%"))
 
     def ends_with(self, suffix: str) -> Operation:
         """Return a suffix match comparison."""
-        return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{suffix}"))
+        return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(suffix)}"))
 
 class NumericAttribute(Attribute):
     """A numeric attribute supporting aggregate and scalar functions.
