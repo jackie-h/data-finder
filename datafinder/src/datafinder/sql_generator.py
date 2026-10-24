@@ -10,7 +10,7 @@ from datafinder.attribute import Attribute
 from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from model.view import View, ViewDefinitionError
-from model.relational import Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
+from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
@@ -722,7 +722,11 @@ class SQLQueryGenerator:
                 right_str = '(' + right_str + ')'
             return left_str + logical_operator_string(op.operator) + right_str
         elif isinstance(op, ComparisonOperation):
-            return self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)
+            sql = self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)
+            if op.operator in (ComparisonOperator.LIKE, ComparisonOperator.NOT_LIKE) \
+                    and isinstance(op.right, StringConstantOperation) and LIKE_ESCAPE in op.right.value:
+                sql += " ESCAPE '" + LIKE_ESCAPE + "'"  # the pattern has a literal %, _ or escape character in it
+            return sql
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
         elif isinstance(op, ColumnWithJoin):

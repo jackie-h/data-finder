@@ -16,6 +16,7 @@ from model.graphql_mapping import (
     GraphQLBiTemporalMilestone,
 )
 from model.relational import (
+    LIKE_ESCAPE,
     AggregateOperation,
     AggregateOperator,
     ColumnWithJoin,
@@ -347,6 +348,20 @@ _CMP_OPS = {
 }
 
 
+def _like_for_server(pattern: str) -> str:
+    """A LIKE pattern in the escape convention of the model (``!``) in the server's (backslash)."""
+    out, i = [], 0
+    while i < len(pattern):
+        c = pattern[i]
+        if c == LIKE_ESCAPE and i + 1 < len(pattern):
+            out.append(('' if pattern[i + 1] == LIKE_ESCAPE else '\\') + pattern[i + 1])
+            i += 2
+            continue
+        out.append('\\\\' if c == '\\' else c)
+        i += 1
+    return ''.join(out)
+
+
 def _gql_value(val) -> str:
     """Serialize a Python value to an inline GraphQL argument literal."""
     if isinstance(val, bool):
@@ -386,7 +401,10 @@ def _op_to_where_clause(op) -> str | None:
         field = _field_name(op.left, "a filter")
         if isinstance(op.right, RelationalOperationElement) and not isinstance(op.right, ConstantOperation):
             raise GraphQLPushdownError("Cannot push a filter comparing two fields to the server")
-        return _nest(field, f"{{ {gql_op}: {_gql_value(_constant_value(op.right))} }}")
+        value = _constant_value(op.right)
+        if op.operator in (ComparisonOperator.LIKE, ComparisonOperator.NOT_LIKE) and isinstance(value, str):
+            value = _like_for_server(value)
+        return _nest(field, f"{{ {gql_op}: {_gql_value(value)} }}")
     if isinstance(op, LogicalOperation):
         left = _op_to_where_clause(op.left)
         right = _op_to_where_clause(op.right)

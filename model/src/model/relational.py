@@ -138,6 +138,16 @@ class ComparisonOperator(Enum):
     NOT_LIKE = 8
 
 
+# The character that makes the next one literal in a LIKE pattern built from a value (contains, starts_with, ...).
+LIKE_ESCAPE = '!'
+
+
+def escape_like(value: str) -> str:
+    """``value`` as part of a LIKE pattern that matches it literally: %, _ and the escape character itself would
+    otherwise be wildcards."""
+    return value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2).replace('%', LIKE_ESCAPE + '%').replace('_', LIKE_ESCAPE + '_')
+
+
 class ComparisonOperation(BinaryOperation, BooleanOperation):
     operator: ComparisonOperator
 
