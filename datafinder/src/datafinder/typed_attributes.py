@@ -37,6 +37,12 @@ class StringAttribute(Attribute):
         """Create a string attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
 
+    def join_strings(self, separator: str = "", order_by: list | None = None) -> AggregateOperation:
+        """Join the values of a group into one text with ``separator`` between them. ``order_by`` is the order they
+        are joined in (``[f.name().ascending()]``); without it the order is not defined. Missing values are skipped."""
+        return AggregateOperation(self._column_with_join(), AggregateOperator.STRING_AGG,
+                                  'Join ' + self.display_name(), separator=separator, order_by=order_by)
+
     def upper(self):
         """Return the value converted to uppercase. Equivalent to ``str.upper()``."""
         return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.UPPER, 'Upper ' + self.display_name())

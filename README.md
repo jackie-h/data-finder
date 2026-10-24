@@ -254,6 +254,10 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+`join_strings(separator, order_by=...)` is an aggregate that joins a group's text values into one:
+`CompanyFinder.name().join_strings(", ", order_by=[CompanyFinder.name().ascending()])`. Without `order_by` the order the
+values are joined in is not defined. Missing values are skipped.
+
 `distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
 
