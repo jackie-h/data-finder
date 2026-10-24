@@ -54,6 +54,46 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Category"],
             expected_result=np.array([["Finance"], ["Manufacturing"]], dtype=object),
         ),
+        # --- Offset and slice: skip rows, counting from 0, in the order given ---
+        TestExpectation(
+            name="offset_skips_the_first_rows",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(2),
+            expected_columns=["Name"],
+            expected_result=np.array([["Beta Corp"], ["Delta Ltd"], ["Gamma LLC"]], dtype=object),
+            expected_sql={"duckdb": "OFFSET 2"},
+        ),
+        TestExpectation(
+            name="offset_then_limit_is_a_page",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(1).limit(2),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Industries"], ["Beta Corp"]], dtype=object),
+            expected_sql={"duckdb": "LIMIT 2 OFFSET 1"},
+        ),
+        TestExpectation(
+            name="slice_is_start_up_to_stop",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).slice(1, 4),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Industries"], ["Beta Corp"], ["Delta Ltd"]], dtype=object),
+        ),
+        TestExpectation(
+            name="offset_past_the_end_is_empty",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(10),
+            expected_columns=["Name"],
+            expected_result=np.empty((0, 1), dtype=object),
+        ),
+        TestExpectation(
+            name="offset_zero_changes_nothing",
+            query=lambda f: f.find_all(None, None, [f.id_()]).order_by(f.id_().ascending()).offset(0).limit(2),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2]], dtype=object),
+        ),
+        TestExpectation(
+            name="offset_applies_after_distinct",
+            query=lambda f: f.find_all(None, None, [f.category()]).distinct()
+            .order_by(f.category().ascending()).offset(1).limit(1),
+            expected_columns=["Category"],
+            expected_result=np.array([["Manufacturing"]], dtype=object),
+        ),
         # --- Count ---
         TestExpectation(
             name="count_all",
