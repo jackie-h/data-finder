@@ -161,6 +161,26 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Id"],
             expected_result=np.array([[2], [3]], dtype=object),
         ),
+        # --- Sorting by an aggregate ---
+        TestExpectation(
+            name="sort_by_an_aggregate_descending_then_a_column",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
+            query=lambda f: f.find_all(
+                None, None, [f.category(), f.id_().count()]
+            ).group_by(f.category()).order_by(f.id_().count().descending(), f.category().ascending()),
+            expected_columns=["Category", "Id Count"],
+            expected_result=np.array([["Finance", 2], ["Technology", 2], ["Manufacturing", 1]], dtype=object),
+            expected_sql={"duckdb": "ORDER BY COUNT(t0.id) DESC, t0.category ASC"},
+        ),
+        TestExpectation(
+            name="sort_by_an_aggregate_ascending",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
+            query=lambda f: f.find_all(
+                None, None, [f.category(), f.id_().count()]
+            ).group_by(f.category()).order_by(f.id_().count().ascending(), f.category().descending()),
+            expected_columns=["Category", "Id Count"],
+            expected_result=np.array([["Manufacturing", 1], ["Technology", 2], ["Finance", 2]], dtype=object),
+        ),
         # --- Aliases: a column can be given the name it has in the result ---
         TestExpectation(
             name="alias_names_the_columns",
