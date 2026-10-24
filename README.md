@@ -292,6 +292,8 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+`count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
+
 `coalesce` replaces a missing (NULL) value: `EmployeeFinder.manager().name().coalesce("nobody")`. Several defaults are tried
 in order.
 
