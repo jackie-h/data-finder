@@ -299,6 +299,12 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
     return result
 
 
+def _slice_rows(df: pd.DataFrame, offset: int | None, limit: int | None) -> pd.DataFrame:
+    """Skip ``offset`` rows, then keep ``limit`` of the rest."""
+    start = offset or 0
+    return pd.DataFrame(df.iloc[start:start + limit] if limit is not None else df.iloc[start:]).reset_index(drop=True)
+
+
 def _sort_aggregated(df: pd.DataFrame, order_by: list, group_by: list | None) -> pd.DataFrame:
     """Sort an aggregation's result, which only exists on the client. It can be sorted by its group-by columns."""
     display_by_field = {_plain(gb.column().name): gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)}
@@ -614,7 +620,7 @@ class GraphQLConnect(QueryRunnerBase):
                columns: list, table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,
-               distinct: bool = False) -> DataFrame:
+               distinct: bool = False, offset: int | None = None) -> DataFrame:
 
         filter_conv = getattr(table.endpoint, 'filter_convention', None)
         fields_str = _build_fields_str(columns, filter_conv)
@@ -632,7 +638,7 @@ class GraphQLConnect(QueryRunnerBase):
         sort_expanded = bool(order_by) and not has_agg and expands and \
             any(isinstance(so, SortOperation) and _is_many(so.column) for so in order_by)
         server_args = _build_server_args(
-            op, None if has_agg or sort_expanded else order_by, None if has_agg or distinct else limit, filter_conv)
+            op, None if has_agg or sort_expanded else order_by, None if has_agg or distinct or offset else limit, filter_conv)
 
         # Fetch rows — iterate dates for date-range queries
         if business_date_to is not None and business_date is not None:
@@ -656,12 +662,11 @@ class GraphQLConnect(QueryRunnerBase):
             if order_by:
                 aggregated = _sort_aggregated(aggregated, order_by, group_by)
             aggregated = aggregated.drop_duplicates().reset_index(drop=True) if distinct else aggregated
-            return GraphQLOutput(aggregated.head(limit) if limit is not None else aggregated)
+            return GraphQLOutput(_slice_rows(aggregated, offset, limit))
 
         if sort_expanded:
             df = _sort_expanded(df, order_by or [])
         projected = _project_columns(df, columns)
         if distinct:  # the limit is applied here, after the duplicates are gone, not on the server before
             projected = projected.drop_duplicates().reset_index(drop=True)
-            projected = projected.head(limit) if limit is not None else projected
-        return GraphQLOutput(projected)
+        return GraphQLOutput(_slice_rows(projected, offset, limit) if distinct or offset else projected)

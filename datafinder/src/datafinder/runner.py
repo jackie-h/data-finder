@@ -91,6 +91,7 @@ class FinderResult(DataFrame):
         self._group_by: list = []
         self._limit: int | None = None
         self._distinct = False
+        self._offset: int | None = None
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
 
     def group_by(self, *attrs) -> 'FinderResult':
@@ -109,6 +110,19 @@ class FinderResult(DataFrame):
         self._limit = n
         return self
 
+    def offset(self, n: int) -> 'FinderResult':
+        """Skip the first ``n`` rows. Sort the rows first: without an order, which rows are first is not defined."""
+        if n < 0:
+            raise ValueError("offset cannot be negative")
+        self._offset = n
+        return self
+
+    def slice(self, start: int, stop: int) -> 'FinderResult':
+        """Rows ``start`` up to but not including ``stop``, counting from 0: ``offset(start).limit(stop - start)``."""
+        if start < 0 or stop < start:
+            raise ValueError("slice needs 0 <= start <= stop")
+        return self.offset(start).limit(stop - start)
+
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""
         self._distinct = True
@@ -122,7 +136,7 @@ class FinderResult(DataFrame):
         return QueryRunnerBase.get_runner().select(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
-            self._timeout_ms, business_date_to=self._business_date_to, distinct=self._distinct,
+            self._timeout_ms, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
         )
 
     def to_view(self, name: str, schema: str) -> 'ViewDefinition':
@@ -140,6 +154,8 @@ class FinderResult(DataFrame):
                 "expose the milestoning columns instead")
         if self._distinct:
             raise ViewDefinitionError("A view cannot be distinct")
+        if self._offset is not None:
+            raise ViewDefinitionError("A view has no row offset")
         if self._order_by or self._limit is not None:
             raise ViewDefinitionError(
                 "A view has no ORDER BY or row limit; order the rows when you read them with result().order_by()")
@@ -153,7 +169,7 @@ class FinderResult(DataFrame):
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op,
             self._order_by, self._group_by, self._limit,
-            business_date_to=self._business_date_to, distinct=self._distinct,
+            business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
         )
 
     def to_pandas(self):
@@ -249,7 +265,8 @@ class QueryRunnerBase(metaclass=RegistryBase):
                columns: Sequence[Attribute], table: Table, op: Operation,
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
-               business_date_to: datetime.date | None = None, distinct: bool = False) -> DataFrame:
+               business_date_to: datetime.date | None = None, distinct: bool = False,
+               offset: int | None = None) -> DataFrame:
         raise NotImplementedError()
 
     @staticmethod
