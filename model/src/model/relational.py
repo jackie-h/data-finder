@@ -13,8 +13,11 @@ class Operation(RelationalOperationElement):
     def __init__(self):
         super().__init__()
 
-    def and_op(self, other) -> RelationalOperationElement:
+    def and_op(self, other) -> 'LogicalOperation':
         return LogicalOperation(self, LogicalOperator.AND, other)
+
+    def or_(self, other) -> 'LogicalOperation':
+        return LogicalOperation(self, LogicalOperator.OR, other)
 
 class NoOperation(Operation):
     def __init__(self):
@@ -464,8 +467,11 @@ class ExistsOperation(RelationalOperationElement):
         super().__init__()
         self.node = node
 
-    def and_op(self, other):
+    def and_op(self, other) -> 'LogicalOperation':
         return LogicalOperation(self, LogicalOperator.AND, other)
+
+    def or_(self, other) -> 'LogicalOperation':
+        return LogicalOperation(self, LogicalOperator.OR, other)
 
 
 class NotExistsOperation(RelationalOperationElement):
@@ -475,8 +481,11 @@ class NotExistsOperation(RelationalOperationElement):
         super().__init__()
         self.node = node
 
-    def and_op(self, other):
+    def and_op(self, other) -> 'LogicalOperation':
         return LogicalOperation(self, LogicalOperator.AND, other)
+
+    def or_(self, other) -> 'LogicalOperation':
+        return LogicalOperation(self, LogicalOperator.OR, other)
 
 
 class QueryExpression:
