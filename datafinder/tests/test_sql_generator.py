@@ -801,7 +801,6 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
-<<<<<<< HEAD
 class TestArithmetic:
 
     @staticmethod
@@ -894,7 +893,8 @@ class TestConcat:
     def test_numbers_still_add(self):
         n = IntegerAttribute("N", "n", "INT", "t")
         assert self._sql(n + 1) == 'SELECT t0.n + 1 AS "Expression" FROM t AS t0'
-=======
+
+
 class TestDistinct:
 
     def test_select_distinct(self):
@@ -926,7 +926,6 @@ class TestOffset:
 
     def test_no_offset_by_default(self):
         assert "OFFSET" not in self._sql(limit=2)
->>>>>>> origin/main
 
 
 class TestOrFilter:
