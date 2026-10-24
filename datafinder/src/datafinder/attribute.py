@@ -1,11 +1,11 @@
 from typing import Any
 
-from model.relational import Column, Operation, ComparisonOperation, ComparisonOperator, RelationalOperationElement, \
+from model.relational import Aliasable, Column, Operation, ComparisonOperation, ComparisonOperator, RelationalOperationElement, \
     ColumnWithJoin, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, ConstantOperation, \
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
 
-class Attribute(RelationalOperationElement):
+class Attribute(RelationalOperationElement, Aliasable):
     """Base wrapper for a table column exposed through the finder API."""
 
     __display_name: str
