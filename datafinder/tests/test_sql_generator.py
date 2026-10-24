@@ -801,6 +801,100 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestArithmetic:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "DOUBLE", "t"), Column("b", "DOUBLE", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    @staticmethod
+    def _ab():
+        return DoubleAttribute("A", "a", "DOUBLE", "t"), DoubleAttribute("B", "b", "DOUBLE", "t")
+
+    def test_operators(self):
+        a, b = self._ab()
+        assert self._sql(a + b, a - b, a * b, a / b) == \
+            'SELECT t0.a + t0.b AS "Expression",t0.a - t0.b AS "Expression",t0.a * t0.b AS "Expression",' \
+            't0.a / t0.b AS "Expression" FROM t AS t0'
+
+    def test_a_number_on_either_side(self):
+        a, _ = self._ab()
+        assert self._sql(a * 2, 2 * a, 1 - a, 1.5 / a) == \
+            'SELECT t0.a * 2 AS "Expression",2 * t0.a AS "Expression",1 - t0.a AS "Expression",' \
+            '1.5 / t0.a AS "Expression" FROM t AS t0'
+
+    @pytest.mark.parametrize("build,expected", [
+        (lambda a, b: (a + b) * 2, "(t0.a + t0.b) * 2"),
+        (lambda a, b: a + b * 2, "t0.a + t0.b * 2"),
+        (lambda a, b: a * (b + 1), "t0.a * (t0.b + 1)"),
+        (lambda a, b: a - (b - 1), "t0.a - (t0.b - 1)"),
+        (lambda a, b: (a - b) - 1, "t0.a - t0.b - 1"),
+        (lambda a, b: a / (b * 2), "t0.a / (t0.b * 2)"),
+        (lambda a, b: (a / b) * 2, "t0.a / t0.b * 2"),
+        (lambda a, b: a + (b + 1), "t0.a + t0.b + 1"),
+    ])
+    def test_parentheses_only_where_the_meaning_needs_them(self, build, expected):
+        a, b = self._ab()
+        assert self._sql(build(a, b)) == f'SELECT {expected} AS "Expression" FROM t AS t0'
+
+    def test_aggregates_and_functions_are_operands(self):
+        a, b = self._ab()
+        assert self._sql(a.sum() * 2, a.abs() + b) == \
+            'SELECT SUM(t0.a) * 2 AS "Expression",ABS(t0.a) + t0.b AS "Expression" FROM t AS t0'
+
+    def test_a_string_is_not_a_number(self):
+        a, _ = self._ab()
+        with pytest.raises(TypeError):
+            a + "x"  # type: ignore[operator]
+        with pytest.raises(TypeError):
+            a * True  # type: ignore[operator]
+
+    def test_a_function_that_gives_text_is_not_a_number(self):
+        with pytest.raises(TypeError, match="Text is joined with text"):
+            StringAttribute("Name", "name", "VARCHAR", "t").upper() + 1  # type: ignore[operator]
+
+
+class TestConcat:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "VARCHAR", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    @staticmethod
+    def _ab():
+        return StringAttribute("A", "a", "VARCHAR", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+
+    def test_two_columns(self):
+        a, b = self._ab()
+        assert self._sql(a + b) == 'SELECT t0.a || t0.b AS "Expression" FROM t AS t0'
+
+    def test_a_string_on_either_side_and_a_chain_is_flat(self):
+        a, b = self._ab()
+        assert self._sql(a + " " + b, ">" + a, a + "!") == \
+            """SELECT t0.a || ' ' || t0.b AS "Expression",'>' || t0.a AS "Expression",t0.a || '!' AS "Expression" FROM t AS t0"""
+
+    def test_concatenations_join_into_one(self):
+        a, b = self._ab()
+        assert self._sql((a + "-") + (b + "-")) == \
+            """SELECT t0.a || '-' || t0.b || '-' AS "Expression" FROM t AS t0"""
+
+    def test_functions_that_give_text_are_parts(self):
+        a, b = self._ab()
+        assert self._sql(a.upper() + b, "x" + b.lower()) == \
+            """SELECT UPPER(t0.a) || t0.b AS "Expression",'x' || LOWER(t0.b) AS "Expression" FROM t AS t0"""
+
+    def test_a_number_is_not_text(self):
+        a, _ = self._ab()
+        with pytest.raises(TypeError, match="Text is joined with text"):
+            a + 1  # type: ignore[operator]
+
+    def test_numbers_still_add(self):
+        n = IntegerAttribute("N", "n", "INT", "t")
+        assert self._sql(n + 1) == 'SELECT t0.n + 1 AS "Expression" FROM t AS t0'
+
+
 class TestDistinct:
 
     def test_select_distinct(self):

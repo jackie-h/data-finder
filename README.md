@@ -254,6 +254,13 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+Numeric columns combine with `+ - * /` and with numbers: `TradeFinder.price() * 2`, `100 - TradeFinder.price()`,
+`TradeFinder.price() * TradeFinder.account().id_()`. Parentheses follow the usual precedence, so `(price + 1) * 2` needs
+them in Python as it does in SQL. The column is named `Expression`.
+
+Text joins with `+`: `CompanyFinder.name() + " (" + CompanyFinder.category() + ")"`. As with SQL's `||`, a missing
+(NULL) part makes the whole value missing.
+
 `distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
 

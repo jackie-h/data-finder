@@ -26,6 +26,16 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Bob", "Alice"]], dtype=object),
         ),
         TestExpectation(
+            name="concat_with_a_missing_part_is_missing",
+            skip_backends={"graphql": "The GraphQL finder cannot join text"},
+            query=lambda f: f.find_all(
+                None, None, [f.name() + " reports to " + f.manager().name()]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Expression"],
+            expected_result=np.array(
+                [[None], ["Bob reports to Alice"], ["Carol reports to Alice"], ["Dave reports to Bob"]], dtype=object),
+        ),
+        TestExpectation(
             name="manager_name_for_dave",
             query=lambda f: f.find_all(None, None, [f.name(), f.manager().name()], f.name().eq("Dave")),
             expected_columns=["Name", "Manager Name"],

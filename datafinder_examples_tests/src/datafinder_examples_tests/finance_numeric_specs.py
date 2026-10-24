@@ -86,3 +86,85 @@ TRADE_NUMERIC_FINDER_SPECS = FinderSpec(
         ),
     ],
 )
+
+
+# Numeric expressions combine with + - * / and a number or another numeric expression. GOOG's price is 36.0 and
+# AAPL's is -25.5. The GraphQL finder cannot compute arithmetic.
+TRADE_ARITHMETIC_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": "The GraphQL finder has no arithmetic between columns"},
+    expectations=[
+        TestExpectation(
+            name="multiply_by_a_number",
+            query=lambda f: f.find_all(None, _AT, [f.symbol(), f.price() * 2], f.symbol().eq("GOOG")),
+            expected_columns=["Symbol", "Expression"],
+            expected_result=np.array([["GOOG", 72.0]], dtype=object),
+            expected_sql={"duckdb": "t0.price * 2"},
+        ),
+        TestExpectation(
+            name="add_a_number",
+            query=lambda f: f.find_all(None, _AT, [f.price() + 1.5], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[37.5]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_number_minus_a_column",
+            query=lambda f: f.find_all(None, _AT, [100 - f.price()], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[64.0]], dtype=object),
+            expected_sql={"duckdb": "100 - t0.price"},
+        ),
+        TestExpectation(
+            name="divide_by_a_number",
+            query=lambda f: f.find_all(None, _AT, [f.price() / 4], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[9.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_number_divided_by_a_column",
+            query=lambda f: f.find_all(None, _AT, [72 / f.price()], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[2.0]], dtype=object),
+            expected_sql={"duckdb": "72 / t0.price"},
+        ),
+        TestExpectation(
+            name="one_column_times_another",
+            query=lambda f: f.find_all(None, _AT, [f.price() * f.account().id_()], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[36.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="parentheses_where_the_operators_need_them",
+            query=lambda f: f.find_all(None, _AT, [(f.price() + 1) * 2], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[74.0]], dtype=object),
+            expected_sql={"duckdb": "(t0.price + 1) * 2"},
+        ),
+        TestExpectation(
+            name="no_parentheses_where_they_are_not_needed",
+            query=lambda f: f.find_all(None, _AT, [f.price() + 1 * 2], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[38.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_right_side_of_a_subtraction_is_parenthesised",
+            query=lambda f: f.find_all(None, _AT, [f.price() - (f.price() - 2)], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[2.0]], dtype=object),
+            expected_sql={"duckdb": "t0.price - (t0.price - 2)"},
+        ),
+        TestExpectation(
+            name="arithmetic_on_a_function_of_a_column",
+            query=lambda f: f.find_all(None, _AT, [f.symbol(), f.price().abs() * 2], f.symbol().eq("AAPL")),
+            expected_columns=["Symbol", "Expression"],
+            expected_result=np.array([["AAPL", 51.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="arithmetic_on_the_length_of_a_string",
+            query=lambda f: f.find_all(None, _AT, [f.symbol().length() * 10], f.symbol().eq("GOOG")),
+            expected_columns=["Expression"],
+            expected_result=np.array([[40]], dtype=object),
+        ),
+    ],
+)
