@@ -245,6 +245,16 @@ TradeFinder.symbol().eq("AAPL").and_(TradeFinder.price() > 100).or_(TradeFinder.
 The second is `(symbol is AAPL and price > 100) or symbol is MSFT`. To group differently, build the part that should
 bind first and combine it on the other side, e.g. `a.or_(b.and_(c))`.
 
+### Naming columns
+
+A column is named in the result after its property. Give it another name with `alias`, on an attribute, an aggregate or a
+function of a column:
+
+```python
+CompanyFinder.find_all(None, None, [CompanyFinder.name().alias("Company"), CompanyFinder.id_().count().alias("N")])
+```
+
+
 Sort with `order_by`, and limit with `limit`. Several `order_by` calls accumulate: the latest call takes priority
 and the earlier ones break its ties, so the two lines below sort by category and then by name. Sorting a column again
 replaces its earlier direction.
