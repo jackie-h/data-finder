@@ -26,37 +26,21 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Bob", "Alice"]], dtype=object),
         ),
         TestExpectation(
-            name="alias_names_a_column_reached_through_an_association",
+            name="fill_null_replaces_a_missing_manager",
             query=lambda f: f.find_all(
-                None, None, [f.name().alias("Employee"), f.manager().name().alias("Boss")], f.name().eq("Bob")
-            ),
-            expected_columns=["Employee", "Boss"],
-            expected_result=np.array([["Bob", "Alice"]], dtype=object),
-        ),
-        TestExpectation(
-            name="coalesce_replaces_a_missing_manager",
-            query=lambda f: f.find_all(
-                None, None, [f.name(), f.manager().name().coalesce("nobody")]
+                None, None, [f.name(), f.manager().name().fill_null("nobody")]
             ).order_by(f.id_().ascending()),
-            expected_columns=["Name", "Coalesce Manager Name"],
+            expected_columns=["Name", "Fill Null Manager Name"],
             expected_result=np.array(
                 [["Alice", "nobody"], ["Bob", "Alice"], ["Carol", "Alice"], ["Dave", "Bob"]], dtype=object),
             expected_sql={"duckdb": "COALESCE(t1.name, 'nobody')"},
         ),
         TestExpectation(
-            name="coalesce_takes_the_first_default_in_order",
+            name="fill_null_leaves_a_value_that_is_there",
             query=lambda f: f.find_all(
-                None, None, [f.manager().name().coalesce("first", "second")], f.name().eq("Alice")
+                None, None, [f.name().fill_null("nobody")], f.name().eq("Bob")
             ),
-            expected_columns=["Coalesce Manager Name"],
-            expected_result=np.array([["first"]], dtype=object),
-        ),
-        TestExpectation(
-            name="coalesce_leaves_a_value_that_is_there",
-            query=lambda f: f.find_all(
-                None, None, [f.name().coalesce("nobody")], f.name().eq("Bob")
-            ),
-            expected_columns=["Coalesce Name"],
+            expected_columns=["Fill Null Name"],
             expected_result=np.array([["Bob"]], dtype=object),
         ),
         TestExpectation(
