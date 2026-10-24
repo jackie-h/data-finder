@@ -1,4 +1,4 @@
-"""A value that depends on a condition: ``if_(f.age() > 30, "senior", "junior")``."""
+"""A value that depends on a condition, written as in polars: ``when(f.age() > 30).then("senior").otherwise("junior")``."""
 import datetime
 import decimal
 
@@ -29,12 +29,50 @@ def _value(value) -> RelationalOperationElement:
     raise TypeError(f"A branch is a column, an expression or a value, not {type(value).__name__}")
 
 
-def if_(condition, then, otherwise=None) -> CaseOperation:
-    """``then`` where ``condition`` holds, else ``otherwise``; with no ``otherwise`` the value is missing (NULL).
-
-    A branch is a column, an expression or a Python value, and may itself be a conditional, so several cases nest:
-    ``if_(a, 1, if_(b, 2, 3))``. A condition that is NULL for a row (a comparison with a missing value) is not true,
-    so that row takes ``otherwise``."""
+def _condition(condition):
     if not isinstance(condition, _CONDITIONS):
         raise TypeError("The condition is a comparison, a null check, a membership test, exists, or and_/or_ of those")
-    return CaseOperation(condition, _value(then), None if otherwise is None else _value(otherwise))
+    return condition
+
+
+def _chain(branches: list, default) -> CaseOperation:
+    """The cases in order as a conditional: each later case is what the one before falls back to."""
+    condition, then = branches[0]
+    rest = _chain(branches[1:], default) if len(branches) > 1 else default
+    return CaseOperation(condition, then, rest)
+
+
+class Then(CaseOperation):
+    """``when(condition).then(value)``: a column on its own (missing where the condition does not hold), or continued
+    with another ``when`` or closed with ``otherwise``."""
+
+    def __init__(self, branches: list):
+        self._branches = branches
+        case = _chain(branches, None)
+        super().__init__(case.condition, case.then, case.default)
+
+    def when(self, condition) -> 'When':
+        """Another case, tried when the ones before it do not hold."""
+        return When(_condition(condition), self._branches)
+
+    def otherwise(self, value) -> CaseOperation:  # type: ignore[override]
+        """The value when none of the cases hold."""
+        return _chain(self._branches, _value(value))
+
+
+class When:
+    def __init__(self, condition, earlier: list | None = None):
+        self._condition = condition
+        self._earlier = earlier or []
+
+    def then(self, value) -> Then:
+        """The value where the condition holds. A value is a column, an expression or a Python value."""
+        return Then([*self._earlier, (self._condition, _value(value))])
+
+
+def when(condition) -> When:
+    """Start a conditional: ``when(f.category().eq("Technology")).then("tech").otherwise("other")``.
+
+    Further cases follow with ``.when(...).then(...)``; with no ``otherwise`` the value is missing (NULL). A condition
+    that is NULL for a row (a comparison with a missing value) is not true, so that row takes the next case."""
+    return When(_condition(condition))

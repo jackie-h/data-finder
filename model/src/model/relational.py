@@ -351,15 +351,15 @@ def concat(left, right) -> ConcatOperation:
 
 
 
-class CaseOperation(Operation, Aliasable, Sortable):
-    """``CASE WHEN condition THEN then ELSE otherwise END``; without ``otherwise`` the value is NULL."""
+class CaseOperation(Operation, Aliasable):
+    """``CASE WHEN condition THEN then ELSE default END``; without a ``default`` the value is NULL."""
 
     def __init__(self, condition: RelationalOperationElement, then: RelationalOperationElement,
-                 otherwise: RelationalOperationElement | None = None, display_name: str | None = None):
+                 default: RelationalOperationElement | None = None, display_name: str | None = None):
         super().__init__()
         self.condition = condition
         self.then = then
-        self.otherwise = otherwise
+        self.default = default
         self.display_name = display_name
 
 

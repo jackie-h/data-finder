@@ -337,10 +337,11 @@ distinct query has to use a selected column.
 `offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
 first: without an order, which rows come first is not defined.
 
-`if_(condition, then, otherwise)` chooses a value for each row: `if_(CompanyFinder.category().eq("Technology"), "tech", "other")`.
-A branch is a column, an expression or a value, and may be another `if_` for several cases. With no `otherwise` the value
-is missing where the condition does not hold. A condition that is missing for a row (a comparison with NULL) is not true,
-so that row takes `otherwise`.
+`when(condition).then(value).otherwise(value)` chooses a value for each row, as in polars:
+`when(CompanyFinder.category().eq("Technology")).then("tech").otherwise("other")`. Python's own `if` cannot build a query
+(it needs a real `True` or `False`), so the condition goes through `when`. Add cases with `.when(...).then(...)`. A value is
+a column, an expression or a Python value. With no `otherwise` the value is missing where no condition holds. A condition
+that is missing for a row (a comparison with NULL) is not true, so that row takes the next case or `otherwise`.
 
 ### Temporal queries
 
