@@ -263,6 +263,12 @@ A branch is a column, an expression or a value, and may be another `if_` for sev
 is missing where the condition does not hold. A condition that is missing for a row (a comparison with NULL) is not true,
 so that row takes `otherwise`.
 
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
+`offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
+first: without an order, which rows come first is not defined.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
