@@ -801,6 +801,23 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestSortByAnAggregate:
+
+    def test_order_by_an_aggregate(self):
+        key = StringAttribute("Category", "category", "VARCHAR", "t")
+        n = IntegerAttribute("Id", "id", "INT", "t")
+        table = Table("t", [Column("category", "VARCHAR", "t"), Column("id", "INT", "t")])
+        sql = to_sql(None, None, [key, n.count()], table, NoOperation(), order_by=[n.count().descending(), key.ascending()],
+                     group_by=[key])
+        assert sql.endswith("GROUP BY t0.category ORDER BY COUNT(t0.id) DESC, t0.category ASC")
+
+    def test_order_by_a_sum(self):
+        n = IntegerAttribute("Id", "id", "INT", "t")
+        table = Table("t", [Column("id", "INT", "t")])
+        sql = to_sql(None, None, [n.sum()], table, NoOperation(), order_by=[n.sum().ascending()])
+        assert sql.endswith("ORDER BY SUM(t0.id) ASC")
+
+
 class TestDistinct:
 
     def test_select_distinct(self):

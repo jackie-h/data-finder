@@ -254,6 +254,8 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+Sort by an aggregate the same way as by a column: `.order_by(CompanyFinder.id_().count().descending())`.
+
 `distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
 

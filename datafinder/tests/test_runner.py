@@ -8,7 +8,7 @@ from datafinder import DataFrame, QueryRunnerBase
 from datafinder.runner import FinderResult, ViewResult, _DEFAULT_TIMEOUT_MS, convert_date_time, \
     convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from datafinder import IntegerAttribute, StringAttribute
-from model.relational import Alias, Column, JoinOperation, JoinTreeNodeOperation, NoOperation, SortDirection, Table
+from model.relational import Alias, Column, ColumnWithJoin, JoinOperation, JoinTreeNodeOperation, NoOperation, SortDirection, Table
 from model.view import View
 
 
@@ -129,7 +129,8 @@ class TestOrderByAccumulates:
 
     @staticmethod
     def _columns(result: FinderResult) -> list[tuple[str, SortDirection]]:
-        return [(s.column.column.name, s.direction) for s in result._order_by]
+        assert all(isinstance(s.column, ColumnWithJoin) for s in result._order_by)
+        return [(s.column.column.name, s.direction) for s in result._order_by]  # type: ignore[attr-defined]
 
     def test_the_later_call_is_primary(self):
         a = StringAttribute("A", "a", "VARCHAR", "t")

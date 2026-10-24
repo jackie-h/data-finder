@@ -553,12 +553,18 @@ class SQLQueryGenerator:
             self.__attr_to_col_string(a) for a in select.group_by
         ]
         self._order_by_parts = [
-            self.build_filter(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+            self.__sort_expression(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
             for s in select.order_by
         ]
         self._limit = select.limit
         self._distinct = isinstance(select, SelectOperation) and select.distinct
         self._offset = select.offset if isinstance(select, SelectOperation) else None
+
+    def __sort_expression(self, expression: RelationalOperationElement) -> str:
+        """What a sort orders by: a column, or an expression such as an aggregate."""
+        if isinstance(expression, (ColumnWithJoin, Attribute)):
+            return self.build_filter(expression)
+        return sql_operation_to_string(self.__rewrite_operation(expression))
 
     def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
         if isinstance(attr, Column):

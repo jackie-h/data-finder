@@ -9,6 +9,14 @@ class RelationalOperationElement:
     def __init__(self):
         pass
 
+    def ascending(self) -> 'SortOperation':
+        """Sort by this expression, smallest first: ``f.id_().count().ascending()``."""
+        return SortOperation(self, SortDirection.ASC)
+
+    def descending(self) -> 'SortOperation':
+        """Sort by this expression, largest first."""
+        return SortOperation(self, SortDirection.DESC)
+
 class Operation(RelationalOperationElement):
     def __init__(self):
         super().__init__()
@@ -440,7 +448,7 @@ class SortDirection(Enum):
 
 
 class SortOperation(RelationalOperationElement):
-    def __init__(self, column: ColumnWithJoin, direction: SortDirection):
+    def __init__(self, column: RelationalOperationElement, direction: SortDirection):
         super().__init__()
         self.column = column
         self.direction = direction
