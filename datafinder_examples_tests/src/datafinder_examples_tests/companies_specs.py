@@ -8,6 +8,7 @@ Backends must seed their database with COMPANIES before running these specs.
 import numpy as np
 import pandas as pd
 
+from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 COMPANIES_MAPPING = "companies_mapping.md"
@@ -57,6 +58,36 @@ COMPANY_FINDER_SPECS = FinderSpec(
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Loud"],
             expected_result=np.array([["ACME CORP"]], dtype=object),
+        ),
+        # --- Constants: a fixed value as a column ---
+        TestExpectation(
+            name="constant_string_column",
+            query=lambda f: f.find_all(
+                None, None, [f.name(), constant("Hello").alias("Greeting")]
+            ).order_by(f.name().ascending()).limit(2),
+            expected_columns=["Name", "Greeting"],
+            expected_result=np.array([["Acme Corp", "Hello"], ["Acme Industries", "Hello"]], dtype=object),
+            expected_sql={"duckdb": "'Hello' AS \"Greeting\""},
+        ),
+        TestExpectation(
+            name="constant_number_and_boolean_columns",
+            query=lambda f: f.find_all(
+                None, None, [f.name(), constant(7).alias("Seven"), constant(1.5).alias("Ratio"), constant(True).alias("Flag")]
+            ).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Name", "Seven", "Ratio", "Flag"],
+            expected_result=np.array([["Acme Corp", 7, 1.5, True]], dtype=object),
+        ),
+        TestExpectation(
+            name="constant_column_is_named_constant_by_default",
+            query=lambda f: f.find_all(None, None, [f.name(), constant(1)]).order_by(f.name().ascending()).limit(1),
+            expected_columns=["Name", "Constant"],
+            expected_result=np.array([["Acme Corp", 1]], dtype=object),
+        ),
+        TestExpectation(
+            name="constant_column_with_a_filter_and_no_matches",
+            query=lambda f: f.find_all(None, None, [f.name(), constant("x").alias("X")], f.name().eq("Nobody")),
+            expected_columns=["Name", "X"],
+            expected_result=np.empty((0, 2), dtype=object),
         ),
         # --- Distinct: each row once ---
         TestExpectation(
