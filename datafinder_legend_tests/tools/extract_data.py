@@ -1,10 +1,11 @@
 """Dev-time tool: pull the test data for some tables out of a legend-engine setup function.
 
 Usage: uv run datafinder_legend_tests/tools/extract_data.py <pure file> <function> <table>... > data.sql
+(tables in another schema are named schema.table)
 
 The Legend setup functions run SQL through ``executeInDb('...', $connection)`` and call other ``...AndFillDb``
 functions. This follows those calls and prints, in order, the statements (drop, create, insert) that touch the named
-tables (not those in another schema), ready to run against DuckDB.
+tables; name a table in another schema as schema.table, ready to run against DuckDB.
 """
 from __future__ import annotations
 
@@ -17,7 +18,8 @@ from extract_legend import LEGEND_ROOT, _read_string, _strip_comments
 _STEP = re.compile(r"executeInDb\s*\(\s*'|(?:[\w:]*::)?(\w*AndFillDb|initDatabase)\s*\(\s*\$connection"
                    r"|dropAndCreateTableInDb\s*\(\s*\w+\s*,\s*'(\w+)'")
 _DB_TABLE = re.compile(r"^\s*Table\s+(\w+)\s*\((.*)\)\s*$", re.M)
-_TABLE = re.compile(r"^\s*(?:drop\s+table\s+if\s+exists|create\s+table|insert\s+into)\s+(\w+)\b(?!\.)", re.I)
+_TABLE = re.compile(r"^\s*(?:drop\s+table\s+if\s+exists|create\s+table|insert\s+into)\s+((?:\w+\.)?\w+)", re.I)
+_SCHEMA = re.compile(r"^\s*(?:drop\s+schema\s+if\s+exists|create\s+schema)\s+(\w+)", re.I)
 
 
 def _function_bodies(root: Path) -> dict[str, str]:
@@ -67,9 +69,11 @@ def main(argv: list[str]) -> None:
     print(f"-- Test data from legend-engine core_relational {Path(pure_file).name}::{function}")
     print(f"-- Tables: {', '.join(tables)}")
     for sql in statements(function, bodies, _database_tables(LEGEND_ROOT)):
-        m = _TABLE.match(sql)
-        if m and m.group(1).lower() in wanted:
+        table, schema = _TABLE.match(sql), _SCHEMA.match(sql)
+        if table and table.group(1).lower() in wanted:
             print(sql + ";")
+        elif schema and any(name.startswith(schema.group(1).lower() + ".") for name in wanted):
+            print(sql.replace(" cascade", "") + ";")
 
 
 if __name__ == "__main__":

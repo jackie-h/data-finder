@@ -8,11 +8,12 @@ import duckdb
 import numpy as np
 import pandas as pd
 import pytest
+from sqlglot import exp
 
 from datafinder_examples_tests.spec import TestExpectation
 from datafinder_examples_tests.sql_compare import parse
 
-from datafinder_legend_tests.legend import BACKEND
+from datafinder_legend_tests.legend import BACKEND, ROWS
 
 
 def _canonical(value: Any) -> Any:
@@ -31,8 +32,34 @@ def _canonical(value: Any) -> Any:
 
 
 def canonical_rows(rows) -> list[tuple]:
-    """The rows as an order-independent list: the specs compare sets of rows, not their order."""
-    return sorted((tuple(_canonical(v) for v in row) for row in rows), key=repr)
+    """The rows with each value in one canonical spelling, in the order given."""
+    return [tuple(_canonical(v) for v in row) for row in rows]
+
+
+def as_set_of_rows(rows: list[tuple]) -> list[tuple]:
+    """The rows as an order-independent list."""
+    return sorted(rows, key=repr)
+
+
+def _sort_key_positions(legend_sql: str) -> list[int] | None:
+    """Positions in the select list of Legend's ORDER BY expressions, or None if there is no ORDER BY or one of its
+    expressions is not a selected column (so the order cannot be compared by column position)."""
+    select = parse(legend_sql)
+    order = select.args.get("order")
+    if order is None:
+        return None
+    selected = [e.this if isinstance(e, exp.Alias) else e for e in select.expressions]
+    aliases = [e.alias.lower() if isinstance(e, exp.Alias) else None for e in select.expressions]
+    positions = []
+    for ordered in order.expressions:
+        key = ordered.this
+        found = next((i for i, (e, alias) in enumerate(zip(selected, aliases))
+                      if (alias is not None and isinstance(key, exp.Column) and not key.table and key.name.lower() == alias)
+                      or e == key), None)
+        if found is None:
+            return None
+        positions.append(found)
+    return positions
 
 
 def _for_duckdb(legend_sql: str) -> str:
@@ -41,6 +68,7 @@ def _for_duckdb(legend_sql: str) -> str:
 
 
 def legend_rows(database: Any, expectation: TestExpectation) -> list[tuple]:
+    """Legend's rows, in the order its SQL returns them."""
     conn = duckdb.connect(str(database), read_only=False)
     try:
         return canonical_rows(conn.execute(_for_duckdb(expectation.equivalent_sql[BACKEND])).fetchall())
@@ -49,18 +77,34 @@ def legend_rows(database: Any, expectation: TestExpectation) -> list[tuple]:
 
 
 def our_rows(finder: Any, expectation: TestExpectation) -> list[tuple]:
+    """Our rows, in the order our query returns them."""
     df = expectation.query(finder).to_pandas()
     return canonical_rows(df.itertuples(index=False, name=None))
 
 
 def assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:
-    """Our query returns the same rows as Legend's SQL does on the same data (columns by position)."""
+    """Our query returns the same rows as Legend's SQL does on the same data (columns by position). When Legend's SQL
+    sorts, the rows must also come in the same order of the sorted columns."""
     if BACKEND in expectation.skip_backends:
         pytest.skip(expectation.skip_backends[BACKEND])
+    gap = expectation.known_gaps.get(ROWS)
+    if gap is not None:
+        try:
+            _assert_same_rows(database, finder, expectation)
+        except AssertionError:
+            pytest.xfail(gap)
+        pytest.fail(f"[{expectation.name}] now returns Legend's rows: remove its {ROWS} known_gaps entry ({gap})")
+    _assert_same_rows(database, finder, expectation)
+
+
+def _assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:
+    legend_sql = expectation.equivalent_sql[BACKEND]
     expected = legend_rows(database, expectation)
     actual = our_rows(finder, expectation)
-    assert actual == expected, (
-        f"[{expectation.name}] rows differ from Legend's SQL on the same data.\n"
-        f"Legend SQL: {expectation.equivalent_sql[BACKEND]}\n"
-        f"Legend rows ({len(expected)}): {expected}\nOur rows ({len(actual)}): {actual}"
-    )
+    context = (f"[{expectation.name}] rows differ from Legend's SQL on the same data.\n"
+               f"Legend SQL: {legend_sql}\nLegend rows ({len(expected)}): {expected}\nOur rows ({len(actual)}): {actual}")
+    assert as_set_of_rows(actual) == as_set_of_rows(expected), context
+    keys = _sort_key_positions(legend_sql)
+    if keys:
+        assert [tuple(row[i] for i in keys) for row in actual] == [tuple(row[i] for i in keys) for row in expected], \
+            context + f"\nThe rows are not in the same order of columns {keys}."
