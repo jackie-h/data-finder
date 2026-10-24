@@ -802,7 +802,7 @@ class TestProcessingDateRendering:
 
 
 class TestOrFilter:
-    """or_() builds an OR like and_op() builds an AND, and renders with the parentheses the operators need."""
+    """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
     def _where(self, op):
         table = Table("t", [Column("id", "INT", "t")])
@@ -819,15 +819,15 @@ class TestOrFilter:
 
     def test_and_after_or_applies_to_the_whole_or(self):
         attr = IntegerAttribute("Id", "id", "INT", "t")
-        assert self._where(attr.eq(1).or_(attr.eq(2)).and_op(attr.eq(3))) == "(t0.id = 1 OR t0.id = 2) AND t0.id = 3"
+        assert self._where(attr.eq(1).or_(attr.eq(2)).and_(attr.eq(3))) == "(t0.id = 1 OR t0.id = 2) AND t0.id = 3"
 
     def test_or_after_and_applies_to_the_whole_and(self):
         attr = IntegerAttribute("Id", "id", "INT", "t")
-        assert self._where(attr.eq(1).and_op(attr.eq(2)).or_(attr.eq(3))) == "(t0.id = 1 AND t0.id = 2) OR t0.id = 3"
+        assert self._where(attr.eq(1).and_(attr.eq(2)).or_(attr.eq(3))) == "(t0.id = 1 AND t0.id = 2) OR t0.id = 3"
 
     def test_or_of_ands(self):
         attr = IntegerAttribute("Id", "id", "INT", "t")
-        op = attr.eq(1).and_op(attr.eq(2)).or_(attr.eq(3).and_op(attr.eq(4)))
+        op = attr.eq(1).and_(attr.eq(2)).or_(attr.eq(3).and_(attr.eq(4)))
         assert self._where(op) == "(t0.id = 1 AND t0.id = 2) OR (t0.id = 3 AND t0.id = 4)"
 
     def test_or_of_null_checks(self):
@@ -1219,7 +1219,7 @@ class TestIsNoneIsNotNone:
         qty_col = Column("QUANTITY", "INT")
         table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
         qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
-        combined = attr.is_none().and_op(qty_attr > 0)
+        combined = attr.is_none().and_(qty_attr > 0)
         sql = to_sql(None, None, [attr], table2, combined)
         assert "IS NULL" in sql
         assert ">" in sql
@@ -1227,7 +1227,7 @@ class TestIsNoneIsNotNone:
     def test_is_not_none_combined_with_other_filter(self):
         table, attr = self._make_table_and_string_attr()
         qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
-        combined = attr.is_not_none().and_op(qty_attr > 0)
+        combined = attr.is_not_none().and_(qty_attr > 0)
         qty_col = Column("QUANTITY", "INT")
         table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
         sql = to_sql(None, None, [attr], table2, combined)
@@ -1275,7 +1275,7 @@ class TestExistsNotExists:
 
     def test_not_exists_can_be_combined_with_other_filter(self):
         trade_table, sym_attr, account_finder, _ = self._make_trade_with_account_join()
-        combined = account_finder.not_exists().and_op(sym_attr.eq("AAPL"))
+        combined = account_finder.not_exists().and_(sym_attr.eq("AAPL"))
         sql = to_sql(None, None, [sym_attr], trade_table, combined)
         assert "IS NULL" in sql
         assert "AAPL" in sql

@@ -482,7 +482,7 @@ TRADE_EXISTS_FINDER_SPECS = FinderSpec(
             name="exists_combined_with_a_filter",
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
-                f.account().exists().and_op(f.symbol().eq("AAPL")),
+                f.account().exists().and_(f.symbol().eq("AAPL")),
             ),
             expected_columns=["Symbol"],
             expected_result=np.array([["AAPL"]], dtype=object),
@@ -490,7 +490,7 @@ TRADE_EXISTS_FINDER_SPECS = FinderSpec(
     ],
 )
 
-# or_() combines filters like and_op(), and a chain is read left to right: each call takes everything before it as
+# or_() combines filters like and_(), and a chain is read left to right: each call takes everything before it as
 # its left side. With both trades live (AAPL 84.11 on account 1, MSFT 300.0 on account 2), a wrong grouping or an OR
 # treated as an AND changes which symbols come back.
 TRADE_OR_FINDER_SPECS = FinderSpec(
@@ -538,7 +538,7 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
             name="or_then_and_applies_the_and_to_the_whole_or",
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
-                f.symbol().eq("AAPL").or_(f.symbol().eq("MSFT")).and_op(f.price() > 200.0),
+                f.symbol().eq("AAPL").or_(f.symbol().eq("MSFT")).and_(f.price() > 200.0),
             ),
             expected_columns=["Symbol"],
             expected_result=np.array([["MSFT"]], dtype=object),
@@ -548,7 +548,7 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
             name="and_then_or_applies_the_or_to_the_whole_and",
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
-                f.symbol().eq("AAPL").and_op(f.price() > 1000.0).or_(f.symbol().eq("MSFT")),
+                f.symbol().eq("AAPL").and_(f.price() > 1000.0).or_(f.symbol().eq("MSFT")),
             ),
             expected_columns=["Symbol"],
             expected_result=np.array([["MSFT"]], dtype=object),
@@ -669,7 +669,7 @@ TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
             skip_backends={"graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"},
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
-                f.account().name().is_none().and_op(f.symbol().eq("MSFT")),
+                f.account().name().is_none().and_(f.symbol().eq("MSFT")),
             ),
             expected_columns=["Symbol"],
             expected_result=np.array([["MSFT"]], dtype=object),

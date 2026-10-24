@@ -21,7 +21,7 @@ def find_trades(trade_finder):
 
     trades = trade_finder.find_all(None, datetime.datetime.today(),
                                    [trade_finder.symbol(), trade_finder.price()],
-                                   (trade_finder.symbol() == "AAPL").and_op(trade_finder.price() == 84.11))
+                                   (trade_finder.symbol() == "AAPL").and_(trade_finder.price() == 84.11))
     np_trades = trades.to_numpy()
     print(np_trades)
     df = trades.to_pandas()

@@ -46,7 +46,7 @@ def test_the_view_renders_ddl_and_wraps_itself_in_a_result():
 
 
 def test_the_filter_becomes_the_views_where_clause():
-    sql = _query([_symbol()], _symbol().eq("AAPL").and_op(_price() > 10.0)).to_view("v", "reporting").to_sql()
+    sql = _query([_symbol()], _symbol().eq("AAPL").and_(_price() > 10.0)).to_view("v", "reporting").to_sql()
     assert "WHERE t0.sym = 'AAPL' AND t0.price > 10.0" in sql
 
 

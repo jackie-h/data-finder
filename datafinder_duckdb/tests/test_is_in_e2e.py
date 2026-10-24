@@ -50,7 +50,7 @@ class TestIsInE2E:
 
     def test_is_in_combines_with_other_filters(self, con):
         table, id_attr, name_attr = _make_attrs()
-        op = name_attr.is_in(["John", "Peter"]).and_op(id_attr.is_not_in([1]))
+        op = name_attr.is_in(["John", "Peter"]).and_(id_attr.is_not_in([1]))
         rows = con.sql(to_sql(None, None, [id_attr], table, op)).fetchall()
         assert [r[0] for r in rows] == [2]
 
