@@ -2024,3 +2024,22 @@ class TestAliasOfExpressions:
         table = Table("t", [Column("price", "DOUBLE", "t"), Column("name", "VARCHAR", "t")])
         sql = to_sql(None, None, [(price * 2).alias("Double"), (name + "!").alias("Shout")], table, NoOperation())
         assert sql == 'SELECT t0.price * 2 AS "Double",t0.name || \'!\' AS "Shout" FROM t AS t0'
+
+
+class TestJoinConditionOrder:
+    """A join condition is written with the key column first, as Legend writes it."""
+
+    @staticmethod
+    def _sql(key_on_target: bool):
+        person = Table("person", [])
+        firm = Table("firm", [])
+        join = JoinOperation("Firm", firm, Column("FIRMID", "INT", "person"),
+                             Column("ID", "INT", "firm", primary_key=key_on_target))
+        name = StringAttribute("Name", "NAME", "VARCHAR", "firm", JoinTreeNodeOperation(join))
+        return to_sql(None, None, [name], person, NoOperation())
+
+    def test_the_key_column_comes_first(self):
+        assert self._sql(True).endswith("ON (t1.ID = t0.FIRMID)")
+
+    def test_without_a_key_the_source_comes_first(self):
+        assert self._sql(False).endswith("ON (t0.FIRMID = t1.ID)")
