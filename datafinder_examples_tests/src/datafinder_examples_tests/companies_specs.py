@@ -16,6 +16,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
     expectations=[
+<<<<<<< HEAD
         # --- Aliases: a column can be given the name it has in the result ---
         TestExpectation(
             name="alias_names_the_columns",
@@ -57,6 +58,85 @@ COMPANY_FINDER_SPECS = FinderSpec(
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Loud"],
             expected_result=np.array([["ACME CORP"]], dtype=object),
+=======
+        # --- Distinct: each row once ---
+        TestExpectation(
+            name="distinct_removes_repeated_rows",
+            query=lambda f: f.find_all(None, None, [f.category()]).distinct().order_by(f.category().ascending()),
+            expected_columns=["Category"],
+            expected_result=np.array([["Finance"], ["Manufacturing"], ["Technology"]], dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+        TestExpectation(
+            name="without_distinct_rows_repeat",
+            query=lambda f: f.find_all(None, None, [f.category()]).order_by(f.category().ascending()),
+            expected_columns=["Category"],
+            expected_result=np.array(
+                [["Finance"], ["Finance"], ["Manufacturing"], ["Technology"], ["Technology"]], dtype=object),
+            unexpected_sql={"duckdb": "DISTINCT"},
+        ),
+        TestExpectation(
+            name="distinct_keeps_rows_that_differ_in_any_column",
+            query=lambda f: f.find_all(None, None, [f.category(), f.name()]).distinct()
+            .order_by(f.category().ascending(), f.name().ascending()).limit(3),
+            expected_columns=["Category", "Name"],
+            expected_result=np.array(
+                [["Finance", "Delta Ltd"], ["Finance", "Gamma LLC"], ["Manufacturing", "Acme Industries"]], dtype=object),
+        ),
+        TestExpectation(
+            name="distinct_with_a_filter",
+            query=lambda f: f.find_all(None, None, [f.category()], f.name().starts_with("Acme")).distinct()
+            .order_by(f.category().ascending()),
+            expected_columns=["Category"],
+            expected_result=np.array([["Manufacturing"], ["Technology"]], dtype=object),
+        ),
+        TestExpectation(
+            name="distinct_applies_before_the_limit",
+            query=lambda f: f.find_all(None, None, [f.category()]).distinct()
+            .order_by(f.category().ascending()).limit(2),
+            expected_columns=["Category"],
+            expected_result=np.array([["Finance"], ["Manufacturing"]], dtype=object),
+        ),
+        # --- Offset and slice: skip rows, counting from 0, in the order given ---
+        TestExpectation(
+            name="offset_skips_the_first_rows",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(2),
+            expected_columns=["Name"],
+            expected_result=np.array([["Beta Corp"], ["Delta Ltd"], ["Gamma LLC"]], dtype=object),
+            expected_sql={"duckdb": "OFFSET 2"},
+        ),
+        TestExpectation(
+            name="offset_then_limit_is_a_page",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(1).limit(2),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Industries"], ["Beta Corp"]], dtype=object),
+            expected_sql={"duckdb": "LIMIT 2 OFFSET 1"},
+        ),
+        TestExpectation(
+            name="slice_is_start_up_to_stop",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).slice(1, 4),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Industries"], ["Beta Corp"], ["Delta Ltd"]], dtype=object),
+        ),
+        TestExpectation(
+            name="offset_past_the_end_is_empty",
+            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(10),
+            expected_columns=["Name"],
+            expected_result=np.empty((0, 1), dtype=object),
+        ),
+        TestExpectation(
+            name="offset_zero_changes_nothing",
+            query=lambda f: f.find_all(None, None, [f.id_()]).order_by(f.id_().ascending()).offset(0).limit(2),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2]], dtype=object),
+        ),
+        TestExpectation(
+            name="offset_applies_after_distinct",
+            query=lambda f: f.find_all(None, None, [f.category()]).distinct()
+            .order_by(f.category().ascending()).offset(1).limit(1),
+            expected_columns=["Category"],
+            expected_result=np.array([["Manufacturing"]], dtype=object),
+>>>>>>> origin/main
         ),
         # --- Count ---
         TestExpectation(
@@ -117,6 +197,54 @@ COMPANY_FINDER_SPECS = FinderSpec(
             ).order_by(f.id_().descending()),
             expected_columns=["Id"],
             expected_result=np.array([[5], [4], [3], [2], [1]], dtype=object),
+        ),
+        # order_by calls accumulate: the latest call takes priority and earlier ones break its ties.
+        TestExpectation(
+            name="chained_order_by_makes_the_later_sort_primary",
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.category()]
+            ).order_by(f.name().ascending()).order_by(f.category().ascending()),
+            expected_columns=["Name", "Category"],
+            expected_result=np.array(
+                [
+                    ["Delta Ltd", "Finance"],
+                    ["Gamma LLC", "Finance"],
+                    ["Acme Industries", "Manufacturing"],
+                    ["Acme Corp", "Technology"],
+                    ["Beta Corp", "Technology"],
+                ],
+                dtype=object,
+            ),
+            expected_sql={"duckdb": "ORDER BY t0.category ASC, t0.name ASC"},
+        ),
+        TestExpectation(
+            name="chained_order_by_replaces_the_direction_of_a_column_sorted_again",
+            query=lambda f: f.find_all(
+                None, None, [f.name()]
+            ).order_by(f.name().ascending()).order_by(f.name().descending()),
+            expected_columns=["Name"],
+            expected_result=np.array(
+                [["Gamma LLC"], ["Delta Ltd"], ["Beta Corp"], ["Acme Industries"], ["Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "ORDER BY t0.name DESC"},
+            unexpected_sql={"duckdb": "ASC"},
+        ),
+        TestExpectation(
+            name="chained_order_by_of_three_calls",
+            query=lambda f: f.find_all(
+                None, None, [f.id_(), f.name(), f.category()]
+            ).order_by(f.id_().ascending()).order_by(f.name().descending()).order_by(f.category().ascending()),
+            expected_columns=["Id", "Name", "Category"],
+            expected_result=np.array(
+                [
+                    [4, "Gamma LLC", "Finance"],
+                    [5, "Delta Ltd", "Finance"],
+                    [2, "Acme Industries", "Manufacturing"],
+                    [3, "Beta Corp", "Technology"],
+                    [1, "Acme Corp", "Technology"],
+                ],
+                dtype=object,
+            ),
+            expected_sql={"duckdb": "ORDER BY t0.category ASC, t0.name DESC, t0.id ASC"},
         ),
         TestExpectation(
             name="sort_by_category_asc_name_desc",

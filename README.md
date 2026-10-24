@@ -245,6 +245,7 @@ TradeFinder.symbol().eq("AAPL").and_(TradeFinder.price() > 100).or_(TradeFinder.
 The second is `(symbol is AAPL and price > 100) or symbol is MSFT`. To group differently, build the part that should
 bind first and combine it on the other side, e.g. `a.or_(b.and_(c))`.
 
+<<<<<<< HEAD
 ### Naming columns
 
 A column is named in the result after its property. Give it another name with `alias`, on an attribute, an aggregate or a
@@ -254,6 +255,23 @@ function of a column:
 CompanyFinder.find_all(None, None, [CompanyFinder.name().alias("Company"), CompanyFinder.id_().count().alias("N")])
 ```
 
+=======
+Sort with `order_by`, and limit with `limit`. Several `order_by` calls accumulate: the latest call takes priority
+and the earlier ones break its ties, so the two lines below sort by category and then by name. Sorting a column again
+replaces its earlier direction.
+
+```python
+result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder.category()])
+result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
+```
+
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
+`offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
+first: without an order, which rows come first is not defined.
+
+>>>>>>> origin/main
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
