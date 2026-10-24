@@ -1,0 +1,112 @@
+"""Strict structural comparison of SQL produced by different generators.
+
+Both statements are parsed. Within each SELECT the table instances are paired up in order of appearance (FROM, then
+each JOIN) and renamed to a shared alias, which must refer to the same table on both sides. The expressions are then
+compared as trees: columns, join type and condition, predicates, grouping, ordering and literals must all match,
+operand order and the order of AND/OR operands included.
+
+Only these are ignored, because they name things rather than say what the query does:
+  - output column names (the alias after AS in the select list)
+  - table aliases (paired up as above)
+  - identifier quoting and case
+  - the ``default`` schema qualifier
+  - parentheses around a single predicate, e.g. ON (a = b), or around a whole ON or WHERE condition
+  - parentheses around an AND directly inside an OR, which binds tighter anyway: x OR (y AND z) is x OR y AND z
+  - how a run of the same operator is grouped: AND and OR are associative, so (a AND b) AND c is a AND (b AND c) is
+    a AND b AND c. The order of the operands still matters.
+"""
+from __future__ import annotations
+
+from functools import reduce
+
+import sqlglot
+from sqlglot import exp
+
+# Schema that carries no meaning: Legend tables live in the default schema and are written unqualified.
+_DEFAULT_SCHEMAS = {"default"}
+
+
+def _own(select: exp.Select, node: exp.Expr) -> bool:
+    return node.find_ancestor(exp.Select) is select
+
+
+def _scope_tables(select: exp.Select) -> list[exp.Table]:
+    """The table instances of one SELECT in the order they appear: FROM first, then each JOIN."""
+    tables = [t for t in select.find_all(exp.Table) if _own(select, t)]
+    order = {id(t): i for i, t in enumerate(select.find_all(exp.Table))}
+    return sorted(tables, key=lambda t: order[id(t)])
+
+
+def _canonical_aliases(tree: exp.Expr) -> None:
+    """Rename the table aliases of each SELECT to t0, t1, ... in order of appearance."""
+    for select in tree.find_all(exp.Select):
+        mapping: dict[str, str] = {}
+        tables = _scope_tables(select)
+        for table in tables:
+            mapping.setdefault(table.alias_or_name.lower(), f"t{len(mapping)}")
+        for table in tables:
+            table.set("alias", exp.TableAlias(this=exp.to_identifier(mapping[table.alias_or_name.lower()])))
+        for column in select.find_all(exp.Column):
+            if _own(select, column) and column.table:
+                column.set("table", exp.to_identifier(mapping.get(column.table.lower(), column.table.lower())))
+
+
+def _operands(node: exp.Expr, connector: type[exp.Connector]) -> list[exp.Expr]:
+    """The operands of a run of the same connector, through nesting and parentheses, in order."""
+    if isinstance(node, exp.Paren) and isinstance(node.this, connector):
+        return _operands(node.this, connector)
+    if isinstance(node, connector):
+        return _operands(node.left, connector) + _operands(node.right, connector)
+    return [node]
+
+
+def _connect(connector: type[exp.Connector], left: exp.Expr, right: exp.Expr) -> exp.Expr:
+    return connector(this=left, expression=right)
+
+
+def _flatten_connectors(tree: exp.Expr) -> None:
+    """Rewrite every run of AND (or OR) as a left-nested chain of its operands, whatever its original grouping."""
+    for connector in (exp.And, exp.Or):
+        for node in reversed(list(tree.find_all(connector))):  # innermost first
+            parent = node.parent
+            if isinstance(parent, connector) or (isinstance(parent, exp.Paren) and isinstance(parent.parent, connector)):
+                continue  # inside a run that is flattened from its outermost node
+            operands = [operand.copy() for operand in _operands(node, connector)]
+            node.replace(reduce(lambda left, right: _connect(connector, left, right), operands[1:], operands[0]))
+
+
+def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
+    tree = sqlglot.parse_one(sql, read=dialect)
+    for table in tree.find_all(exp.Table):
+        if table.args.get("db") and table.args["db"].name.lower() in _DEFAULT_SCHEMAS:
+            table.set("db", None)
+    for select in tree.find_all(exp.Select):
+        select.set("expressions", [e.this if isinstance(e, exp.Alias) else e for e in select.expressions])
+    _canonical_aliases(tree)
+    for ident in tree.find_all(exp.Identifier):
+        ident.set("this", ident.name.lower())
+        ident.set("quoted", False)
+    for paren in list(tree.find_all(exp.Paren)):
+        if isinstance(paren.this, exp.Predicate | exp.Binary) and not isinstance(paren.this, exp.Connector):
+            paren.replace(paren.this)
+    # AND binds tighter than OR, so parentheses around an AND directly inside an OR group nothing.
+    for paren in list(tree.find_all(exp.Paren)):
+        if isinstance(paren.this, exp.And) and isinstance(paren.parent, exp.Or):
+            paren.replace(paren.this)
+    _flatten_connectors(tree)
+    # Parentheses around the whole ON or WHERE condition group nothing.
+    for clause in list(tree.find_all(exp.Join, exp.Where)):
+        key = "on" if isinstance(clause, exp.Join) else "this"
+        condition = clause.args.get(key)
+        if isinstance(condition, exp.Paren):
+            clause.set(key, condition.this)
+    return tree
+
+
+def normalize_sql(sql: str, dialect: str | None = None) -> str:
+    """The normalized form as text, for failure messages."""
+    return normalize(sql, dialect).sql()
+
+
+def sql_equivalent(actual: str, expected: str, dialect: str | None = None) -> bool:
+    return normalize(actual) == normalize(expected, dialect)

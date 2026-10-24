@@ -24,7 +24,8 @@
     "datafinder_graphql/src",
     "datafinder_graphql/tests",
     "datafinder_examples/src",
-    "datafinder_examples_tests/src"
+    "datafinder_examples_tests/src",
+    "datafinder_legend_tests/src"
   ],
   "reportUnnecessaryTypeIgnoreComment": "error",
   "enableTypeIgnoreComments": false
