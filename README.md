@@ -258,6 +258,12 @@ A condition can be a column too, true or false for each row: `CompanyFinder.find
 CompanyFinder.category().eq("Technology")])`. As in SQL, a comparison with a missing (NULL) value is missing, not false.
 Two unnamed conditions have the same column name, so select them in separate queries (or give them names).
 
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
+`offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
+first: without an order, which rows come first is not defined.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
