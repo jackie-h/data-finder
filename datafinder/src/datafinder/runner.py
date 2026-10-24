@@ -65,6 +65,16 @@ def convert_date(maybe_date) -> datetime.date:
 _DEFAULT_TIMEOUT_MS = 60_000
 
 
+def _sort_target(sort_op: SortOperation) -> tuple:
+    """What a sort orders by: the column and the joins to reach it."""
+    joins = []
+    node = sort_op.column.parent
+    while node is not None:
+        joins.append(node.join.name)
+        node = node.parent
+    return sort_op.column.column.owner, sort_op.column.column.name, tuple(joins)
+
+
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
@@ -87,7 +97,11 @@ class FinderResult(DataFrame):
         return self
 
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
-        self._order_by = list(sort_ops)
+        """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
+        rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
+        direction."""
+        resorted = {_sort_target(sort_op) for sort_op in sort_ops}
+        self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
         return self
 
     def limit(self, n: int) -> 'FinderResult':

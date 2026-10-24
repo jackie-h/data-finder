@@ -7,7 +7,8 @@ import pytest
 from datafinder import DataFrame, QueryRunnerBase
 from datafinder.runner import FinderResult, ViewResult, _DEFAULT_TIMEOUT_MS, convert_date_time, \
     convert_inputs_and_select, convert_inputs_and_select_for_date_range
-from model.relational import Alias, Column, NoOperation, Table
+from datafinder import IntegerAttribute, StringAttribute
+from model.relational import Alias, Column, JoinOperation, JoinTreeNodeOperation, NoOperation, SortDirection, Table
 from model.view import View
 
 
@@ -117,6 +118,51 @@ class TestConvertDateTime:
         result = convert_inputs_and_select(None, "2024-06-01", [], Table("trades", []), NoOperation())
         assert result._processing_datetime == datetime.date(2024, 6, 1)
         assert not isinstance(result._processing_datetime, datetime.datetime)
+
+
+class TestOrderByAccumulates:
+    """Chained order_by calls accumulate: the latest call's sorts are primary and earlier ones break their ties."""
+
+    @staticmethod
+    def _result() -> FinderResult:
+        return _make_result()
+
+    @staticmethod
+    def _columns(result: FinderResult) -> list[tuple[str, SortDirection]]:
+        return [(s.column.column.name, s.direction) for s in result._order_by]
+
+    def test_the_later_call_is_primary(self):
+        a = StringAttribute("A", "a", "VARCHAR", "t")
+        b = StringAttribute("B", "b", "VARCHAR", "t")
+        result = self._result().order_by(a.ascending()).order_by(b.descending())
+        assert self._columns(result) == [("b", SortDirection.DESC), ("a", SortDirection.ASC)]
+
+    def test_one_call_keeps_the_order_it_was_given(self):
+        a = StringAttribute("A", "a", "VARCHAR", "t")
+        b = StringAttribute("B", "b", "VARCHAR", "t")
+        result = self._result().order_by(a.ascending(), b.descending())
+        assert self._columns(result) == [("a", SortDirection.ASC), ("b", SortDirection.DESC)]
+
+    def test_three_calls_run_newest_first(self):
+        a, b, c = (StringAttribute(n.upper(), n, "VARCHAR", "t") for n in "abc")
+        result = self._result().order_by(a.ascending()).order_by(b.ascending()).order_by(c.ascending())
+        assert [name for name, _ in self._columns(result)] == ["c", "b", "a"]
+
+    def test_sorting_a_column_again_replaces_its_earlier_direction(self):
+        a = StringAttribute("A", "a", "VARCHAR", "t")
+        b = StringAttribute("B", "b", "VARCHAR", "t")
+        result = self._result().order_by(a.ascending(), b.ascending()).order_by(a.descending())
+        assert self._columns(result) == [("a", SortDirection.DESC), ("b", SortDirection.ASC)]
+
+    def test_the_same_column_reached_through_a_join_is_a_different_sort(self):
+        join = JoinOperation("Other", Table("other", []), Column("fk", "INT", "t"), Column("id", "INT", "other"))
+        own = StringAttribute("Name", "name", "VARCHAR", "t")
+        joined = StringAttribute("Other Name", "name", "VARCHAR", "other", JoinTreeNodeOperation(join))
+        result = self._result().order_by(own.ascending()).order_by(joined.ascending())
+        assert len(result._order_by) == 2
+
+    def test_no_calls_means_no_ordering(self):
+        assert self._result()._order_by == []
 
 
 class TestDuckDbTimeout:
