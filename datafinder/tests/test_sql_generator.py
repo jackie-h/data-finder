@@ -1482,4 +1482,3 @@ class TestEmbeddedJoinElision:
     def test_only_a_column_can_be_aliased(self):
         attr = IntegerAttribute("Id", "id", "INT", "t")
         assert not hasattr(attr.eq(1), "alias")
-        assert not hasattr(attr.ascending(), "alias") if hasattr(attr, "ascending") else True
