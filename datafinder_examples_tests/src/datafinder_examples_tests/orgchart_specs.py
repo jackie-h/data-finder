@@ -36,6 +36,33 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_sql={"duckdb": "COALESCE(t1.name, 'nobody')"},
         ),
         TestExpectation(
+            name="concat_with_a_missing_part_is_missing",
+            skip_backends={"graphql": "The GraphQL finder cannot join text"},
+            query=lambda f: f.find_all(
+                None, None, [f.name() + " reports to " + f.manager().name()]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Expression"],
+            expected_result=np.array(
+                [[None], ["Bob reports to Alice"], ["Carol reports to Alice"], ["Dave reports to Bob"]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_a_function_of_a_related_column",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(
+                None, None, [f.name()], f.manager().name().upper().eq("ALICE")
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
+        ),
+        TestExpectation(
+            name="alias_names_a_column_reached_through_an_association",
+            query=lambda f: f.find_all(
+                None, None, [f.name().alias("Employee"), f.manager().name().alias("Boss")], f.name().eq("Bob")
+            ),
+            expected_columns=["Employee", "Boss"],
+            expected_result=np.array([["Bob", "Alice"]], dtype=object),
+        ),
+        TestExpectation(
             name="fill_null_leaves_a_value_that_is_there",
             query=lambda f: f.find_all(
                 None, None, [f.name().fill_null("nobody")], f.name().eq("Bob")

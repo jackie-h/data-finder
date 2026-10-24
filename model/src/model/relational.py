@@ -9,6 +9,10 @@ class RelationalOperationElement:
     def __init__(self):
         pass
 
+    def _arithmetic_operand(self) -> 'RelationalOperationElement':
+        """This expression as an operand of arithmetic; an attribute reads its column."""
+        return self
+
 
 class Aliasable:
     """Something that can be a column of the result, so can be given a name there: ``f.price().sum().alias("Total")``.
@@ -178,6 +182,162 @@ class LogicalOperation(BinaryOperation, BooleanOperation):
         self.operator = op
 
 
+def _value_operand(value) -> 'ConstantOperation':
+    """A Python value as the constant it compares with."""
+    if isinstance(value, bool):  # before int: bool is a subclass of int
+        return BooleanConstantOperation(value)
+    if isinstance(value, int):
+        return IntegerConstantOperation(value)
+    if isinstance(value, float):
+        return FloatConstantOperation(value)
+    if isinstance(value, decimal.Decimal):
+        return DecimalConstantOperation(value)
+    if isinstance(value, str):
+        return StringConstantOperation(value)
+    if isinstance(value, datetime.datetime):  # before date: datetime is a subclass of date
+        return DateTimeConstantOperation(value)
+    if isinstance(value, datetime.date):
+        return DateConstantOperation(value)
+    raise TypeError(f"A value to compare with is a bool, number, string, date or datetime, not {type(value).__name__}")
+
+
+class Comparable:
+    """Comparisons for an expression, as for a column: ``f.name().upper().eq("ACME")``, ``f.price() * 2 > 10``,
+    ``f.first() + f.last() == "AnnLee"``. The other side is a value or another expression. Each gives a filter.
+    ``==`` and ``!=`` build a comparison too, as they do on attributes."""
+
+    def _compared(self, operator: 'ComparisonOperator', other) -> 'ComparisonOperation':
+        right = other._arithmetic_operand() if isinstance(other, RelationalOperationElement) else _value_operand(other)
+        return ComparisonOperation(self._arithmetic_operand(), operator, right)  # type: ignore[attr-defined]
+
+    def eq(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.EQUAL, other)
+
+    def ne(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.NOT_EQUAL, other)
+
+    def __eq__(self, other) -> 'ComparisonOperation':  # type: ignore[override]
+        return self.eq(other)
+
+    def __ne__(self, other) -> 'ComparisonOperation':  # type: ignore[override]
+        return self.ne(other)
+
+    __hash__ = object.__hash__  # defining __eq__ would otherwise make an expression unhashable
+
+    def __lt__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.LESS_THAN, other)
+
+    def __le__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, other)
+
+    def __gt__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.GREATER_THAN, other)
+
+    def __ge__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, other)
+
+
+class ArithmeticOperator(Enum):
+    ADD = '+'
+    SUBTRACT = '-'
+    MULTIPLY = '*'
+    DIVIDE = '/'
+
+
+def _constant_operand(value) -> 'ConstantOperation':
+    if isinstance(value, bool) or not isinstance(value, (int, float, decimal.Decimal)):
+        raise TypeError(f"Arithmetic is between numbers and numeric columns, not {type(value).__name__}")
+    if isinstance(value, int):
+        return IntegerConstantOperation(value)
+    if isinstance(value, float):
+        return FloatConstantOperation(value)
+    return DecimalConstantOperation(value)
+
+
+class Arithmetic:
+    """The operators ``+ - * /`` for an expression that holds a number: ``a + b``, ``a * 2``, ``1 - a``. The other
+    operand is a number or another numeric expression."""
+
+    def _numeric(self) -> None:
+        """Raise if this expression is not a number."""
+
+    def _arithmetic(self, operator: 'ArithmeticOperator', other, reflected: bool) -> 'ArithmeticOperation':
+        self._numeric()
+        if isinstance(other, RelationalOperationElement):
+            if isinstance(other, Arithmetic):
+                other._numeric()
+            operand = other._arithmetic_operand()
+        else:
+            operand = _constant_operand(other)
+        me = self._arithmetic_operand()  # type: ignore[attr-defined]
+        left, right = (operand, me) if reflected else (me, operand)
+        return ArithmeticOperation(left, operator, right)
+
+    def __add__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.ADD, other, False)
+
+    def __radd__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.ADD, other, True)
+
+    def __sub__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.SUBTRACT, other, False)
+
+    def __rsub__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.SUBTRACT, other, True)
+
+    def __mul__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.MULTIPLY, other, False)
+
+    def __rmul__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.MULTIPLY, other, True)
+
+    def __truediv__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.DIVIDE, other, False)
+
+    def __rtruediv__(self, other) -> 'ArithmeticOperation':
+        return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
+
+
+class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Aliasable):
+    """``left operator right`` on numbers, e.g. ``price * quantity``."""
+    operator: ArithmeticOperator
+
+    def __init__(self, left: RelationalOperationElement, operator: ArithmeticOperator,
+                 right: RelationalOperationElement, display_name: str | None = None):
+        super().__init__(left, right)
+        self.operator = operator
+        self.display_name = display_name
+
+
+class ConcatOperation(Operation, Comparable, Aliasable):
+    """Text joined end to end: ``first + " " + last``. NULL in any part makes the whole NULL, as with SQL's ``||``."""
+    parts: list[RelationalOperationElement]
+
+    def __init__(self, parts: list[RelationalOperationElement], display_name: str | None = None):
+        super().__init__()
+        self.parts = parts
+        self.display_name = display_name
+
+    def __add__(self, other) -> 'ConcatOperation':
+        return concat(self, other)
+
+    def __radd__(self, other) -> 'ConcatOperation':
+        return concat(other, self)
+
+
+def concat(left, right) -> ConcatOperation:
+    """``left + right`` for text. A string is a constant; a concatenation on either side is flattened into one."""
+    def parts_of(value) -> list[RelationalOperationElement]:
+        if isinstance(value, ConcatOperation):
+            return value.parts
+        if isinstance(value, str):
+            return [StringConstantOperation(value)]
+        if isinstance(value, RelationalOperationElement):
+            return [value._arithmetic_operand()]
+        raise TypeError(f"Text is joined with text, not {type(value).__name__}")
+    return ConcatOperation([*parts_of(left), *parts_of(right)])
+
+
 class AggregateOperator(Enum):
     COUNT = 1
     SUM = 2
@@ -193,7 +353,7 @@ class WindowSpecification:
         self.order_by = order_by or []
 
 
-class AggregateOperation(UnaryOperation, Aliasable):
+class AggregateOperation(UnaryOperation, Arithmetic, Aliasable):
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
@@ -263,7 +423,22 @@ class WindowFunctionOperation(Operation, Aliasable):
                                        window=WindowSpecification(partition_by, order_by))
 
 
-class ScalarFunctionOperation(UnaryOperation, Aliasable):
+_NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction.FLOOR, ScalarFunction.MOD,
+                      ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH}
+
+
+class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Aliasable):
+    def _numeric(self) -> None:
+        if self.function not in _NUMERIC_FUNCTIONS:
+            raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")
+
+    def __add__(self, other):  # type: ignore[override]
+        # a function that gives text joins text; one that gives a number adds
+        return Arithmetic.__add__(self, other) if self.function in _NUMERIC_FUNCTIONS else concat(self, other)
+
+    def __radd__(self, other):  # type: ignore[override]
+        return Arithmetic.__radd__(self, other) if self.function in _NUMERIC_FUNCTIONS else concat(other, self)
+
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
                  display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None):
         super().__init__(element)
@@ -286,6 +461,15 @@ class DatePart(Enum):
 
 
 class DateExtractOperation(UnaryOperation, Aliasable):
+    def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
+        super().__init__(element)
+        self.part = part
+        self.display_name = display_name
+
+
+class DateTruncOperation(UnaryOperation, Comparable, Aliasable):
+    """The first day of the week, month, quarter or year that the date falls in, as a date."""
+
     def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.part = part

@@ -32,7 +32,7 @@ from datafinder_examples_tests.companies_string_scalar_specs import COMPANIES_ST
 from datafinder_examples_tests.diamond_specs import DIAMOND_FINDER_SPECS
 from datafinder_examples_tests.embedded_specs import EMBEDDED_TRADE_FINDER_SPECS
 from datafinder_examples_tests.finance_group_by_specs import TRADE_GROUP_BY_FINDER_SPECS
-from datafinder_examples_tests.finance_numeric_specs import TRADE_NUMERIC_FINDER_SPECS
+from datafinder_examples_tests.finance_numeric_specs import TRADE_ARITHMETIC_FINDER_SPECS, TRADE_NUMERIC_FINDER_SPECS
 from datafinder_examples_tests.finance_specs import (
     ACCOUNT_FINDER_SPECS,
     CONTRACTUAL_POSITION_FINDER_SPECS,
@@ -131,7 +131,7 @@ _SCENARIOS = [
     Scenario("finance_group_by", _FINANCE_MAPPING, lambda: finance_tables(**_GROUP_BY),
              [("group_by", TRADE_GROUP_BY_FINDER_SPECS)]),
     Scenario("finance_numeric", _FINANCE_MAPPING, lambda: finance_tables(**_NUMERIC),
-             [("numeric", TRADE_NUMERIC_FINDER_SPECS)]),
+             [("numeric", TRADE_NUMERIC_FINDER_SPECS), ("arithmetic", TRADE_ARITHMETIC_FINDER_SPECS)]),
     Scenario("finance_embedded", _FINANCE_MAPPING, lambda: finance_tables(**_EMBEDDED),
              [("embedded", EMBEDDED_TRADE_FINDER_SPECS)]),
     Scenario("companies", "companies_graphql_mapping.md", _companies("companies.csv"),
