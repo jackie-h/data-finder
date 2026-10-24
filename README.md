@@ -254,6 +254,8 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+Sort by an aggregate the same way as by a column: `.order_by(CompanyFinder.id_().count().descending())`.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:

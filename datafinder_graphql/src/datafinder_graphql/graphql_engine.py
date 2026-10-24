@@ -305,6 +305,10 @@ def _sort_aggregated(df: pd.DataFrame, order_by: list, group_by: list | None) ->
     sort_cols: list[str] = []
     ascending: list[bool] = []
     for so in order_by:
+        if isinstance(so, SortOperation) and isinstance(so.column, AggregateOperation):
+            sort_cols.append(_col_display_name(so.column))
+            ascending.append(so.direction == SortDirection.ASC)
+            continue
         field = _field_name(so.column, "a sort") if isinstance(so, SortOperation) else None
         if field not in display_by_field:
             raise GraphQLPushdownError("An aggregation can only be sorted by its group-by columns")

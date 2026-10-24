@@ -4,7 +4,7 @@ from typing import Optional, Sequence, Union
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
 from model.naming import to_snake_case
-from model.relational import Table, SortOperation, Alias
+from model.relational import Table, SortOperation, Alias, ColumnWithJoin
 from model.view import View, ViewDefinitionError
 
 
@@ -66,13 +66,17 @@ _DEFAULT_TIMEOUT_MS = 60_000
 
 
 def _sort_target(sort_op: SortOperation) -> tuple:
-    """What a sort orders by: the column and the joins to reach it."""
+    """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
+    own target, so sorting by an expression again adds a sort."""
+    column = sort_op.column
+    if not isinstance(column, ColumnWithJoin):
+        return ("expression", id(column))
     joins = []
-    node = sort_op.column.parent
+    node = column.parent
     while node is not None:
         joins.append(node.join.name)
         node = node.parent
-    return sort_op.column.column.owner, sort_op.column.column.name, tuple(joins)
+    return column.column.owner, column.column.name, tuple(joins)
 
 
 class FinderResult(DataFrame):
