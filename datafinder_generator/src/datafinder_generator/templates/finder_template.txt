@@ -62,8 +62,8 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 
     def __init__(self, relation_name: str, source: Column, target: Column, parent_join: JoinTreeNodeOperation | None = None,
                  embedded: dict | None = None, many: bool = False, **kwargs):
-        join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target, many=many)
-        self.__node = JoinTreeNodeOperation(join, parent_join)
+        join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
+        self.__node = JoinTreeNodeOperation(join, parent_join, many=many)
         RelatedFinder.__init__(self, self.__node)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}

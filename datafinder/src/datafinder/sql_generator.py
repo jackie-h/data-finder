@@ -501,7 +501,7 @@ def _reaches_to_many(op: RelationalOperationElement) -> bool:
     if isinstance(op, ColumnWithJoin):
         node = op.parent
         while node is not None:
-            if node.join.many:
+            if node.many:
                 return True
             node = node.parent
         return False

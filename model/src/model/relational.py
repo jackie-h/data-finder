@@ -406,11 +406,8 @@ class Table(Relation):
 
 
 class JoinOperation:
-    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement | None = None,
-                 many: bool = False):
+    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement | None = None):
         self.name = name
-        # True when one row can join to many (a to-many association), so a value read through it repeats the row.
-        self.many = many
         self.target = target
         self.left = lhs
         self.right = rhs
@@ -425,9 +422,12 @@ class JoinTreeNodeOperation:
     Enables multi-hop traversal (e.g. Employee.manager.reports) by ensuring
     intermediate joins are emitted before the joins that depend on them.
     """
-    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None):
+    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None, many: bool = False):
         self.join = join
         self.parent = parent
+        # True when the property this step follows is to-many, so a value read through it repeats the row. As in
+        # Pure, that is the multiplicity of the property, not something the join itself says.
+        self.many = many
 
 
 class ColumnWithJoin(RelationalOperationElement):

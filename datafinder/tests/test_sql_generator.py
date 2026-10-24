@@ -810,9 +810,8 @@ class TestImplicitGroupBy:
         id_col = Column("ID", "INT", "firm", primary_key=root_key)
         root = Table("firm", [id_col, Column("LEGALNAME", "VARCHAR", "firm")])
         employees = Table("person", [])
-        join = JoinOperation("Employees", employees, Column("ID", "INT", "firm"), Column("FIRMID", "INT", "person"),
-                             many=many)
-        node = JoinTreeNodeOperation(join)
+        join = JoinOperation("Employees", employees, Column("ID", "INT", "firm"), Column("FIRMID", "INT", "person"))
+        node = JoinTreeNodeOperation(join, many=many)
         name = StringAttribute("Legal Name", "LEGALNAME", "VARCHAR", "firm")
         age = IntegerAttribute("Employees Age", "AGE", "INT", "person", node)
         return root, name, age
