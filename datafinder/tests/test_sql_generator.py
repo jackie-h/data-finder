@@ -851,8 +851,48 @@ class TestArithmetic:
             a * True  # type: ignore[operator]
 
     def test_a_function_that_gives_text_is_not_a_number(self):
-        with pytest.raises(TypeError, match="UPPER"):
+        with pytest.raises(TypeError, match="Text is joined with text"):
             StringAttribute("Name", "name", "VARCHAR", "t").upper() + 1  # type: ignore[operator]
+
+
+class TestConcat:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "VARCHAR", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    @staticmethod
+    def _ab():
+        return StringAttribute("A", "a", "VARCHAR", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+
+    def test_two_columns(self):
+        a, b = self._ab()
+        assert self._sql(a + b) == 'SELECT t0.a || t0.b AS "Expression" FROM t AS t0'
+
+    def test_a_string_on_either_side_and_a_chain_is_flat(self):
+        a, b = self._ab()
+        assert self._sql(a + " " + b, ">" + a, a + "!") == \
+            """SELECT t0.a || ' ' || t0.b AS "Expression",'>' || t0.a AS "Expression",t0.a || '!' AS "Expression" FROM t AS t0"""
+
+    def test_concatenations_join_into_one(self):
+        a, b = self._ab()
+        assert self._sql((a + "-") + (b + "-")) == \
+            """SELECT t0.a || '-' || t0.b || '-' AS "Expression" FROM t AS t0"""
+
+    def test_functions_that_give_text_are_parts(self):
+        a, b = self._ab()
+        assert self._sql(a.upper() + b, "x" + b.lower()) == \
+            """SELECT UPPER(t0.a) || t0.b AS "Expression",'x' || LOWER(t0.b) AS "Expression" FROM t AS t0"""
+
+    def test_a_number_is_not_text(self):
+        a, _ = self._ab()
+        with pytest.raises(TypeError, match="Text is joined with text"):
+            a + 1  # type: ignore[operator]
+
+    def test_numbers_still_add(self):
+        n = IntegerAttribute("N", "n", "INT", "t")
+        assert self._sql(n + 1) == 'SELECT t0.n + 1 AS "Expression" FROM t AS t0'
 
 
 class TestOrFilter:

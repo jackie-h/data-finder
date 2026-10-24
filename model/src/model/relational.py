@@ -235,6 +235,35 @@ class ArithmeticOperation(BinaryOperation, Arithmetic):
         self.display_name = display_name
 
 
+class ConcatOperation(Operation):
+    """Text joined end to end: ``first + " " + last``. NULL in any part makes the whole NULL, as with SQL's ``||``."""
+    parts: list[RelationalOperationElement]
+
+    def __init__(self, parts: list[RelationalOperationElement], display_name: str | None = None):
+        super().__init__()
+        self.parts = parts
+        self.display_name = display_name
+
+    def __add__(self, other) -> 'ConcatOperation':
+        return concat(self, other)
+
+    def __radd__(self, other) -> 'ConcatOperation':
+        return concat(other, self)
+
+
+def concat(left, right) -> ConcatOperation:
+    """``left + right`` for text. A string is a constant; a concatenation on either side is flattened into one."""
+    def parts_of(value) -> list[RelationalOperationElement]:
+        if isinstance(value, ConcatOperation):
+            return value.parts
+        if isinstance(value, str):
+            return [StringConstantOperation(value)]
+        if isinstance(value, RelationalOperationElement):
+            return [value._arithmetic_operand()]
+        raise TypeError(f"Text is joined with text, not {type(value).__name__}")
+    return ConcatOperation([*parts_of(left), *parts_of(right)])
+
+
 class AggregateOperator(Enum):
     COUNT = 1
     SUM = 2
@@ -326,6 +355,13 @@ class ScalarFunctionOperation(UnaryOperation, Arithmetic):
     def _numeric(self) -> None:
         if self.function not in _NUMERIC_FUNCTIONS:
             raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")
+
+    def __add__(self, other):  # type: ignore[override]
+        # a function that gives text joins text; one that gives a number adds
+        return Arithmetic.__add__(self, other) if self.function in _NUMERIC_FUNCTIONS else concat(self, other)
+
+    def __radd__(self, other):  # type: ignore[override]
+        return Arithmetic.__radd__(self, other) if self.function in _NUMERIC_FUNCTIONS else concat(other, self)
 
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
                  display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None):
