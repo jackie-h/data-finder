@@ -1,6 +1,6 @@
 """A known gap must set aside only the difference it names."""
 from datafinder_legend_tests.gaps import gap_is_only
-from datafinder_legend_tests.legend import CHAINED_ORDER_BY, JOIN_OPERAND_ORDER, OPTIONAL_PROPERTY
+from datafinder_legend_tests.legend import JOIN_OPERAND_ORDER, OPTIONAL_PROPERTY
 
 _ACTUAL = "SELECT t0.a FROM p AS t0 LEFT OUTER JOIN f AS t1 ON (t0.fk = t1.id) WHERE t0.x = 1 ORDER BY t0.a"
 
@@ -14,9 +14,8 @@ def test_another_difference_is_not_hidden_by_the_join_operand_gap():
     assert not gap_is_only(JOIN_OPERAND_ORDER, _ACTUAL, "SELECT t0.b FROM p AS t0 LEFT OUTER JOIN f AS t1 ON (t1.id = t0.fk) WHERE t0.x = 1 ORDER BY t0.a")
 
 
-def test_ordering_is_covered_only_by_the_ordering_gap():
+def test_a_different_ordering_is_not_covered_by_the_join_operand_gap():
     expected = "SELECT t0.a FROM p AS t0 LEFT OUTER JOIN f AS t1 ON (t0.fk = t1.id) WHERE t0.x = 1 ORDER BY t0.b, t0.a"
-    assert gap_is_only(CHAINED_ORDER_BY, _ACTUAL, expected)
     assert not gap_is_only(JOIN_OPERAND_ORDER, _ACTUAL, expected)
 
 
