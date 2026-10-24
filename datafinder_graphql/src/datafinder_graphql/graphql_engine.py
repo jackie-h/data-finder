@@ -241,7 +241,7 @@ def _project_columns(df: pd.DataFrame, columns: list, names: list[str] | None = 
         dn = names[i] if names else _col_display_name(col)
         derived = _compute_derived(col, df)
         if isinstance(col, ConstantOperation):
-            result[dn] = [col.value] * len(df)
+            result[dn] = [_constant_value(col)] * len(df)
         elif derived is not None:
             result[dn] = derived.values
         elif isinstance(col, Attribute):
