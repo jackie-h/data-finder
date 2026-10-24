@@ -17,7 +17,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation, QueryExpression
+    SelectOperation, QueryExpression, CaseOperation
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -496,7 +496,7 @@ def display_alias(col: RelationalOperationElement) -> str:
         return 'Count'
     if isinstance(col, Attribute):
         return col.display_name()
-    if _is_condition(col):
+    if _is_condition(col) or isinstance(col, CaseOperation):
         return 'Expression'
     if isinstance(col, AggregateOperation):
         return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
@@ -605,6 +605,16 @@ class SQLQueryGenerator:
         order_by = [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in window.order_by]
         return WindowSpecification(partition_by, order_by)
 
+    def __case_sql(self, case: CaseOperation) -> str:
+        """The CASE written out now: its condition can only be rendered while the query is being built."""
+        def branch(value: RelationalOperationElement) -> str:
+            return constant_value_string(value) if isinstance(value, ConstantOperation) \
+                else sql_operation_to_string(self.__rewrite_operation(value))
+        sql = 'CASE WHEN ' + self.build_filter(case.condition) + ' THEN ' + branch(case.then)
+        if case.otherwise is not None:
+            sql += ' ELSE ' + branch(case.otherwise)
+        return sql + ' END'
+
     def __rewrite_operation(self, op: RelationalOperationElement):
         if isinstance(op, (Attribute, ColumnWithJoin)):
             column, parent = self.__resolve(op)
@@ -617,6 +627,8 @@ class SQLQueryGenerator:
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
                                            second_arg=op.second_arg, extra_args=list(op.extra_args))
+        elif isinstance(op, CaseOperation):
+            return _RenderedSql(self.__case_sql(op))
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateArithmeticOperation):
@@ -645,6 +657,11 @@ class SQLQueryGenerator:
             self.__collect_required_joins(op.window, required_joins)
         elif isinstance(op, ScalarFunctionOperation):
             self.__collect_required_joins(op.element, required_joins)
+        elif isinstance(op, CaseOperation):
+            self.__collect_required_joins(op.condition, required_joins)
+            self.__collect_required_joins(op.then, required_joins)
+            if op.otherwise is not None:
+                self.__collect_required_joins(op.otherwise, required_joins)
         elif isinstance(op, DateExtractOperation):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateArithmeticOperation):
