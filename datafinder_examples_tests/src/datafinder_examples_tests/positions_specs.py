@@ -55,6 +55,46 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             expected_columns=["Week Trade Date"],
             expected_result=np.array([[_D1.isocalendar().week]], dtype=object),
         ),
+        # --- First day of the week, month, quarter or year ---
+        TestExpectation(
+            name="first_day_of_week",
+            skip_backends={"graphql": "The GraphQL finder cannot truncate dates"},
+            query=lambda f: f.find_all(None, None, [f.trade_date().first_day_of_week()], f.id_().eq(1)),
+            expected_columns=["First Day Of Week Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 3, 11)]], dtype=object),
+            expected_sql={"duckdb": "CAST(DATE_TRUNC('week', t0.trade_date) AS DATE)"},
+        ),
+        TestExpectation(
+            name="first_day_of_month",
+            skip_backends={"graphql": "The GraphQL finder cannot truncate dates"},
+            query=lambda f: f.find_all(None, None, [f.trade_date().first_day_of_month()], f.id_().eq(2)),
+            expected_columns=["First Day Of Month Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 7, 1)]], dtype=object),
+        ),
+        TestExpectation(
+            name="first_day_of_quarter",
+            skip_backends={"graphql": "The GraphQL finder cannot truncate dates"},
+            query=lambda f: f.find_all(None, None, [f.trade_date().first_day_of_quarter()], f.id_().eq(3)),
+            expected_columns=["First Day Of Quarter Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 10, 1)]], dtype=object),
+        ),
+        TestExpectation(
+            name="first_day_of_year",
+            skip_backends={"graphql": "The GraphQL finder cannot truncate dates"},
+            query=lambda f: f.find_all(None, None, [f.trade_date().first_day_of_year()], f.id_().eq(3)),
+            expected_columns=["First Day Of Year Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 1, 1)]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_first_day_of_month",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(
+                None, None, [f.id_()], f.trade_date().first_day_of_month() == datetime.date(2024, 7, 1)
+            ),
+            expected_columns=["Id"],
+            expected_result=np.array([[2]], dtype=object),
+            expected_sql={"duckdb": "CAST(DATE_TRUNC('month', t0.trade_date) AS DATE) = '2024-07-01'"},
+        ),
         # --- Date arithmetic ---
         # ibis/DuckDB returns date arithmetic results as datetime64[us], not datetime.date
         TestExpectation(

@@ -268,6 +268,10 @@ An expression compares like a column, in a filter: `CompanyFinder.name().upper()
 `TradeFinder.price() * 2 > 10`, `CompanyFinder.name().length() > CompanyFinder.category().length()`. Use `eq` / `ne` or
 `==` / `!=` and `< <= > >=`; the other side is a value or another expression.
 
+A date can be cut back to the first day of its week (a Monday), month, quarter or year:
+`PositionFinder.trade_date().first_day_of_month()`. The result is a date, so it can be compared:
+`PositionFinder.trade_date().first_day_of_month() == datetime.date(2024, 7, 1)`.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
