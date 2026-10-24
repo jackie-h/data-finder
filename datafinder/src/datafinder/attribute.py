@@ -1,7 +1,7 @@
 from typing import Any
 
 from model.relational import Column, Operation, ComparisonOperation, ComparisonOperator, RelationalOperationElement, \
-    ColumnWithJoin, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, ConstantOperation, \
+    ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, ConstantOperation, \
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
 
@@ -145,6 +145,16 @@ class Attribute(RelationalOperationElement):
     def count(self) -> AggregateOperation:
         """Return a count aggregation for this Attribute."""
         return AggregateOperation(self._column_with_join(), AggregateOperator.COUNT, self.__display_name + ' Count')
+
+    def coalesce(self, *defaults: str | int | float | bool) -> ScalarFunctionOperation:
+        """Return the value, or the first default that is not NULL when it is NULL: ``name().coalesce("N/A")``."""
+        if not defaults:
+            raise ValueError("coalesce needs at least one default")
+        for default in defaults:
+            if not isinstance(default, (str, int, float, bool)):
+                raise TypeError(f"A coalesce default is a string, number or bool, not {type(default).__name__}")
+        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.COALESCE,
+                                       'Coalesce ' + self.__display_name, extra_args=list(defaults))
 
     def ascending(self) -> SortOperation:
         """Return an ascending sort operation for this Attribute."""
