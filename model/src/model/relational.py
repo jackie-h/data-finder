@@ -9,6 +9,15 @@ class RelationalOperationElement:
     def __init__(self):
         pass
 
+
+class Aliasable:
+    """Something that can be a column of the result, so can be given a name there: ``f.price().sum().alias("Total")``.
+    As in Pure, the name is held by an ``Alias`` that wraps the column."""
+
+    def alias(self, name: str) -> 'Alias':
+        return Alias(self, name)  # type: ignore[arg-type]
+
+
 class Operation(RelationalOperationElement):
     def __init__(self):
         super().__init__()
@@ -23,7 +32,7 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
-class ConstantOperation(RelationalOperationElement):
+class ConstantOperation(RelationalOperationElement, Aliasable):
     def __init__(self):
         super().__init__()
 
@@ -173,7 +182,7 @@ class WindowSpecification:
         self.order_by = order_by or []
 
 
-class AggregateOperation(UnaryOperation):
+class AggregateOperation(UnaryOperation, Aliasable):
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
@@ -223,7 +232,7 @@ class WindowFunction(Enum):
     PERCENT_RANK = 10
 
 
-class WindowFunctionOperation(Operation):
+class WindowFunctionOperation(Operation, Aliasable):
     element: RelationalOperationElement | None
 
     def __init__(self, element: RelationalOperationElement | None, function: WindowFunction,
@@ -242,7 +251,7 @@ class WindowFunctionOperation(Operation):
                                        window=WindowSpecification(partition_by, order_by))
 
 
-class ScalarFunctionOperation(UnaryOperation):
+class ScalarFunctionOperation(UnaryOperation, Aliasable):
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
                  display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None):
         super().__init__(element)
@@ -264,14 +273,14 @@ class DatePart(Enum):
     DOW = 'DOW'
 
 
-class DateExtractOperation(UnaryOperation):
+class DateExtractOperation(UnaryOperation, Aliasable):
     def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.part = part
         self.display_name = display_name
 
 
-class DateArithmeticOperation(UnaryOperation):
+class DateArithmeticOperation(UnaryOperation, Aliasable):
     def __init__(self, element: RelationalOperationElement, n: int, unit: DatePart,
                  is_add: bool = True, display_name: str | None = None):
         super().__init__(element)
@@ -281,7 +290,7 @@ class DateArithmeticOperation(UnaryOperation):
         self.display_name = display_name
 
 
-class DateDiffOperation(UnaryOperation):
+class DateDiffOperation(UnaryOperation, Aliasable):
     def __init__(self, element: RelationalOperationElement, other, unit: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.other = other
@@ -446,18 +455,21 @@ class SortOperation(RelationalOperationElement):
         self.direction = direction
 
 
-class CountAllOperation(RelationalOperationElement):
+class CountAllOperation(RelationalOperationElement, Aliasable):
     """Represents COUNT(*) — counts all rows without reference to a specific column."""
     def __init__(self, table: str):
         super().__init__()
         self.table = table
 
 
-class Alias(RelationalOperationElement):
+class Alias(RelationalOperationElement, Aliasable):
     def __init__(self, element: RelationalOperationElement, name: str):
         super().__init__()
         self.element = element
         self.name = name
+
+    def alias(self, name: str) -> 'Alias':
+        return Alias(self.element, name)
 
 
 class ExistsOperation(RelationalOperationElement):
