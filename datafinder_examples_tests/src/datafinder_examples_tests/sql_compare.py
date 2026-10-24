@@ -6,10 +6,11 @@ compared as trees: columns, join type and condition, predicates, grouping, order
 operand order and the order of AND/OR operands included.
 
 Only these are ignored, because they name things rather than say what the query does:
-  - output column names (the alias after AS in the select list)
+  - output column names (the alias after AS in the select list); an ORDER BY, GROUP BY or HAVING that names one is
+    compared as the expression it stands for
   - table aliases (paired up as above)
   - identifier quoting and case
-  - the ``default`` schema qualifier
+  - the ``default`` or ``main`` schema qualifier
   - parentheses around a single predicate, e.g. ON (a = b), or around a whole ON or WHERE condition
   - parentheses around an AND directly inside an OR, which binds tighter anyway: x OR (y AND z) is x OR y AND z
   - how a run of the same operator is grouped: AND and OR are associative, so (a AND b) AND c is a AND (b AND c) is
@@ -20,10 +21,11 @@ from __future__ import annotations
 from functools import reduce
 
 import sqlglot
+import sqlglot.errors
 from sqlglot import exp
 
 # Schema that carries no meaning: Legend tables live in the default schema and are written unqualified.
-_DEFAULT_SCHEMAS = {"default"}
+_DEFAULT_SCHEMAS = {"default", "main"}
 
 
 def _own(select: exp.Select, node: exp.Expr) -> bool:
@@ -75,8 +77,36 @@ def _flatten_connectors(tree: exp.Expr) -> None:
             node.replace(reduce(lambda left, right: _connect(connector, left, right), operands[1:], operands[0]))
 
 
+# Legend writes row limits as ``select top N``, which only the T-SQL grammar reads.
+_FALLBACK_DIALECT = "tsql"
+
+
+def parse(sql: str, dialect: str | None = None) -> exp.Expr:
+    """Parse ``sql`` in ``dialect``; if that fails, in the T-SQL grammar (for ``select top N``)."""
+    try:
+        return sqlglot.parse_one(sql, read=dialect)
+    except sqlglot.errors.ParseError:
+        return sqlglot.parse_one(sql, read=_FALLBACK_DIALECT)
+
+
+def _resolve_output_aliases(select: exp.Select) -> None:
+    """ORDER BY / GROUP BY / HAVING can name a select-list alias; replace it with the expression it stands for, so
+    ``ORDER BY age`` and ``ORDER BY t0.AGE`` compare equal when ``age`` is ``t0.AGE AS age``."""
+    aliased = {e.alias.lower(): e.this for e in select.expressions if isinstance(e, exp.Alias)}
+    if not aliased:
+        return
+    for clause in (select.args.get("order"), select.args.get("group"), select.args.get("having")):
+        if clause is None:
+            continue
+        for column in list(clause.find_all(exp.Column)):
+            if not column.table and column.name.lower() in aliased:
+                column.replace(aliased[column.name.lower()].copy())
+
+
 def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
-    tree = sqlglot.parse_one(sql, read=dialect)
+    tree = parse(sql, dialect)
+    for select in tree.find_all(exp.Select):
+        _resolve_output_aliases(select)
     for table in tree.find_all(exp.Table):
         if table.args.get("db") and table.args["db"].name.lower() in _DEFAULT_SCHEMAS:
             table.set("db", None)
