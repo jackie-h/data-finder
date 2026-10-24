@@ -100,3 +100,13 @@ def test_a_clause_that_names_an_output_alias_is_the_expression_it_stands_for():
 
 def test_ordering_by_a_different_expression_is_still_caught():
     assert not sql_equivalent("SELECT t0.AGE AS a FROM t AS t0 ORDER BY t0.OTHER ASC", 'SELECT "r".AGE AS "age" FROM t AS "r" ORDER BY "age" ASC')
+
+
+def test_fetch_next_is_a_limit():
+    assert sql_equivalent("SELECT a FROM t LIMIT 2 OFFSET 1", "select a from t offset 1 rows fetch next 2 rows only")
+    assert not sql_equivalent("SELECT a FROM t LIMIT 3 OFFSET 1", "select a from t offset 1 rows fetch next 2 rows only")
+
+
+def test_listagg_is_a_string_aggregate():
+    assert sql_equivalent("SELECT STRING_AGG(a, '*') FROM t", "select listagg(a, '*') from t")
+    assert not sql_equivalent("SELECT STRING_AGG(a, '-') FROM t", "select listagg(a, '*') from t")

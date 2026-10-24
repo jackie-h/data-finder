@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, JOIN_OPERAND_ORDER
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION, JOIN_OPERAND_ORDER
 
 _SRC = "functions/tests/projection/testFunction.pure"
 
@@ -27,9 +27,10 @@ FUNCTION_PERSON_SPECS = FinderSpec(
                'select "root".LASTNAME as "lastName", "addresstable_0".NAME as "addressName" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID)',
                lambda f: f.find_all(None, None, [f.last_name(), f.address().name()]),
                known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
-        unsupported("testSimpleRealFunction", f"{_SRC}::testSimpleRealFunction",
-                    'select "root".LASTNAME as "lastName", concat("root".FIRSTNAME, \'|\', "root".LASTNAME) as "fullName" from personTable as "root"',
-                    'no string concatenation of attributes'),
+        ported("testSimpleRealFunction", f"{_SRC}::testSimpleRealFunction",
+               'select "root".LASTNAME as "lastName", concat("root".FIRSTNAME, \'|\', "root".LASTNAME) as "fullName" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.last_name(), f.first_name() + "|" + f.last_name()]),
+               known_gaps={BACKEND: CONCAT_FUNCTION}),
     ],
 )
 
@@ -55,21 +56,21 @@ FUNCTION_TRADE_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.quantity().abs()], f.quantity() <= 45)),
         unsupported("testDatePartWithZeroToOne", f"{_SRC}::testDatePartWithZeroToOne",
                     'select cast(truncate("root".settlementDateTime) as date) as "settlementDateTime" from tradeTable as "root" where "root".ID in (9, 10)',
-                    'no `in` / `not in` operator on attributes'),
-        unsupported("testWeekOfYearWithZeroToOne", f"{_SRC}::testWeekOfYearWithZeroToOne",
-                    'select extract(week from "root".settlementDateTime) as "settlementWeekOfYear" from tradeTable as "root" where "root".ID in (9, 10)',
-                    'no `in` / `not in` operator on attributes'),
-        unsupported("testMonthNumberZeroToOne", f"{_SRC}::testMonthNumberZeroToOne",
-                    'select extract(month from "root".settlementDateTime) as "settlementMonthNumber" from tradeTable as "root" where "root".ID in (9, 10)',
-                    'no `in` / `not in` operator on attributes'),
-        unsupported("testDayOfMonth", f"{_SRC}::testDayOfMonth",
-                    'select "root".settlementDateTime as "Date", extract(day from "root".settlementDateTime) as "Settlement Day Of Month" from tradeTable as "root" where "root".ID = 9',
-                    'no `in` / `not in` operator on attributes'),
-        unsupported("testYearZeroToOne", f"{_SRC}::testYearZeroToOne",
-                    'select extract(year from "root".settlementDateTime) as "year" from tradeTable as "root" where "root".ID in (9, 10)',
-                    'no `in` / `not in` operator on attributes'),
+                    'no datePart (truncate to a date)'),
+        ported("testWeekOfYearWithZeroToOne", f"{_SRC}::testWeekOfYearWithZeroToOne",
+               'select extract(week from "root".settlementDateTime) as "settlementWeekOfYear" from tradeTable as "root" where "root".ID in (9, 10)',
+               lambda f: f.find_all(None, None, [f.settlement_date_time().week()], f.id_().is_in([9, 10]))),
+        ported("testMonthNumberZeroToOne", f"{_SRC}::testMonthNumberZeroToOne",
+               'select extract(month from "root".settlementDateTime) as "settlementMonthNumber" from tradeTable as "root" where "root".ID in (9, 10)',
+               lambda f: f.find_all(None, None, [f.settlement_date_time().month()], f.id_().is_in([9, 10]))),
+        ported("testDayOfMonth", f"{_SRC}::testDayOfMonth",
+               'select "root".settlementDateTime as "Date", extract(day from "root".settlementDateTime) as "Settlement Day Of Month" from tradeTable as "root" where "root".ID = 9',
+               lambda f: f.find_all(None, None, [f.settlement_date_time(), f.settlement_date_time().day()], f.id_().eq(9))),
+        ported("testYearZeroToOne", f"{_SRC}::testYearZeroToOne",
+               'select extract(year from "root".settlementDateTime) as "year" from tradeTable as "root" where "root".ID in (9, 10)',
+               lambda f: f.find_all(None, None, [f.settlement_date_time().year()], f.id_().is_in([9, 10]))),
         unsupported("testDateDiffZeroToOne", f"{_SRC}::testDateDiffZeroToOne",
                     'select datediff(day, "root".tradeDate, "root".settlementDateTime) as "daysDiff" from tradeTable as "root" where "root".ID in (9, 10)',
-                    'no `in` / `not in` operator on attributes'),
+                    'no date difference between two columns'),
     ],
 )
