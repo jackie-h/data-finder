@@ -11,7 +11,7 @@ The Legend tables carry in_z/out_z (processing) and from_z/thru_z (business) ran
 |------------|------------------|----------------|---------------|--------------------|------------------|---------------------|
 | bitemporal | in_z             | out_z          |               | from_z             | thru_z           | 9999-12-31 23:59:59 |
 
-### Schema: default
+### Schema: main
 
 #### Table: BiTemporalProductTable → BiTemporalProduct (milestoning: bitemporal)
 

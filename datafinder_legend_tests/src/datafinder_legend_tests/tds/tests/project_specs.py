@@ -1,0 +1,75 @@
+"""
+Ported from legend-engine core_relational ``tds/tests/testTDSProject.pure``.
+
+Projecting columns, with sorting and limits.
+Mapping: tests/simple_mapping.md.
+"""
+from datafinder_examples_tests.spec import FinderSpec
+
+from datafinder_legend_tests.legend import ported, unsupported
+
+_SRC = "tds/tests/testTDSProject.pure"
+
+TDS_PROJECT_SPECS = FinderSpec(
+    finder_name="PersonFinder",
+    mapping_file="tests/simple_mapping.md",
+    expectations=[
+        ported("testProjectStringColumn", f"{_SRC}::testProjectStringColumn",
+               'select "root".FIRSTNAME as "first_name", "root".FIRSTNAME as "name_again" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name(), f.first_name()])),
+        ported("testProjectReduceColumns", f"{_SRC}::testProjectReduceColumns",
+               'select "root".FIRSTNAME as "first" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name()])),
+        ported("testProjectFunctionOnStringColumn", f"{_SRC}::testProjectFunctionOnStringColumn",
+               'select "root".FIRSTNAME as "first_name", char_length("root".FIRSTNAME) as "name_length" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name(), f.first_name().length()])),
+        unsupported("testProjectOnDynaFunctionColumn", f"{_SRC}::testProjectOnDynaFunctionColumn",
+                    'select "root".FIRSTNAME as "first", upper("root".LASTNAME) as "LAST", char_length(upper("root".LASTNAME)) as "name_length" from personTable as "root"',
+                    'scalar functions cannot be chained (upper(...).length())'),
+        ported("testGetNumber", f"{_SRC}::testGetNumber",
+               'select "root".AGE as "age" from personTable as "root" where "root".AGE > 25 order by "age" asc',
+               lambda f: f.find_all(None, None, [f.age()], f.age() > 25).order_by(f.age().ascending())),
+        ported("testOptionalLimit_NoValue", f"{_SRC}::testOptionalLimit_NoValue",
+               'select "root".AGE as "age" from personTable as "root" order by "age" asc',
+               lambda f: f.find_all(None, None, [f.age()]).order_by(f.age().ascending())),
+        ported("testOptionalLimit_WithValue", f"{_SRC}::testOptionalLimit_WithValue",
+               'select top 1 "root".AGE as "age" from personTable as "root" order by "age" asc',
+               lambda f: f.find_all(None, None, [f.age()]).order_by(f.age().ascending()).limit(1)),
+        unsupported("testProjectStringLiteral", f"{_SRC}::testProjectStringLiteral",
+                    'select "root".FIRSTNAME as "firstName", \'Hello\' as "hello" from personTable as "root"',
+                    'no constant columns'),
+        unsupported("testProjectFunctionOnStringLiteral", f"{_SRC}::testProjectFunctionOnStringLiteral",
+                    'select "root".FIRSTNAME as "first_name", char_length(\'Hello\') as "hello_length" from personTable as "root"',
+                    'no constant columns'),
+        unsupported("testProjectMultipleFunctions", f"{_SRC}::testProjectMultipleFunctions",
+                    'select "root".FIRSTNAME as "first_name", \'Hello\' as "const", char_length("root".FIRSTNAME) as "name_length" from personTable as "root"',
+                    'no constant columns'),
+        unsupported("testDateLiteral", f"{_SRC}::testDateLiteral",
+                    'select "root".FIRSTNAME as "firstName", \'2016-08-10\' as "dateLiteral" from personTable as "root"',
+                    'no constant columns'),
+        unsupported("testProjectOnMultiple", f"{_SRC}::testProjectOnMultiple",
+                    'select "root".FIRSTNAME as "first_name", "root".LASTNAME as "last_name", char_length("root".FIRSTNAME) + char_length("root".LASTNAME) as "combined_length" from personTable as "root"',
+                    'no arithmetic between columns'),
+        unsupported("testFilterAfterLimit", f"{_SRC}::testFilterAfterLimit",
+                    'select "subselect"."age" as "age" from (select top 3 "root".AGE as "age" from personTable as "root" order by "age" asc) as "subselect" where "subselect"."age" > 25',
+                    'a filter cannot be applied after a limit'),
+        unsupported("testSortAfterLimit", f"{_SRC}::testSortAfterLimit",
+                    'select "subselect"."age" as "age" from (select top 3 "subselect"."age" as "age" from (select top 3 "root".AGE as "age" from personTable as "root" order by "age" asc) as "subselect" order by "age" desc) as "subselect" order by "age" desc',
+                    'operations cannot be applied after a limit'),
+        unsupported("testLimitAfterLimit", f"{_SRC}::testLimitAfterLimit",
+                    'select top 5 "subselect"."age" as "age" from (select top 2 "root".AGE as "age" from personTable as "root") as "subselect"',
+                    'operations cannot be applied after a limit'),
+        unsupported("testSliceAfterLimit", f"{_SRC}::testSliceAfterLimit",
+                    'select "subselect"."age" as "age" from (select top 2 "root".AGE as "age" from personTable as "root" order by "age" asc) as "subselect" offset 2 rows fetch next 98 rows only',
+                    'no offset / slice'),
+        unsupported("testLimitAfterSlice", f"{_SRC}::testLimitAfterSlice",
+                    'select top 100 "subselect"."age" as "age" from (select "root".AGE as "age" from personTable as "root" order by "age" asc offset 1 rows fetch next 2 rows only) as "subselect"',
+                    'no offset / slice'),
+        unsupported("testDropAfterLimit", f"{_SRC}::testDropAfterLimit",
+                    'select "subselect"."age" as "age" from (select top 5 "root".AGE as "age" from personTable as "root" order by "age" asc) as "subselect" offset 2 rows',
+                    'no offset / drop'),
+        unsupported("testLimitAfterDrop", f"{_SRC}::testLimitAfterDrop",
+                    'select top 5 "subselect"."age" as "age" from (select "root".AGE as "age" from personTable as "root" order by "age" asc offset 2 rows) as "subselect"',
+                    'no offset / drop'),
+    ],
+)

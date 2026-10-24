@@ -6,7 +6,7 @@ Source: legend-engine core_relational `tests/relationalSetUp.pure` (`dbInc` tabl
 
 ## DataStore: dbInc (Database)
 
-### Schema: default
+### Schema: main
 
 #### Table: personTable → Person
 
