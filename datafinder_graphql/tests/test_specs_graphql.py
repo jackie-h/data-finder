@@ -48,7 +48,7 @@ from datafinder_examples_tests.orgchart_inheritance_specs import (
     EMPLOYEE_INHERITANCE_FINDER_SPECS,
     PROJECT_FINDER_SPECS,
 )
-from datafinder_examples_tests.orgchart_specs import ORGCHART_FINDER_SPECS
+from datafinder_examples_tests.orgchart_specs import ORGCHART_AGGREGATE_FINDER_SPECS, ORGCHART_FINDER_SPECS
 from datafinder_examples_tests.positions_specs import POSITION_DATE_FINDER_SPECS
 from datafinder_examples_tests.spec import FinderSpec
 
@@ -145,7 +145,7 @@ _SCENARIOS = [
     Scenario("diamond", "diamond_graphql_mapping.md", _diamond,
              [("diamond", DIAMOND_FINDER_SPECS)]),
     Scenario("orgchart", "orgchart_graphql_mapping.md", _orgchart,
-             [("orgchart", ORGCHART_FINDER_SPECS)]),
+             [("orgchart", ORGCHART_FINDER_SPECS), ("orgchart_aggregate", ORGCHART_AGGREGATE_FINDER_SPECS)]),
     Scenario("orgchart_inheritance", "orgchart_inheritance_graphql_mapping.md", _orgchart_inheritance,
              [("employee", EMPLOYEE_INHERITANCE_FINDER_SPECS), ("project", PROJECT_FINDER_SPECS)]),
 ]

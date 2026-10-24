@@ -801,6 +801,89 @@ class TestProcessingDateRendering:
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
 
 
+class TestImplicitGroupBy:
+    """With no group_by, a query that selects aggregates is grouped by its other columns; an aggregate read through a
+    to-many association is also computed for each row of the root table."""
+
+    @staticmethod
+    def _firm_and_employee_ages(many: bool = True, root_key: bool = True):
+        id_col = Column("ID", "INT", "firm", primary_key=root_key)
+        root = Table("firm", [id_col, Column("LEGALNAME", "VARCHAR", "firm")])
+        employees = Table("person", [])
+        join = JoinOperation("Employees", employees, Column("ID", "INT", "firm"), Column("FIRMID", "INT", "person"),
+                             many=many)
+        node = JoinTreeNodeOperation(join)
+        name = StringAttribute("Legal Name", "LEGALNAME", "VARCHAR", "firm")
+        age = IntegerAttribute("Employees Age", "AGE", "INT", "person", node)
+        return root, name, age
+
+    def _tail(self, sql):
+        return sql[sql.index(" FROM "):]
+
+    def test_aggregate_with_a_plain_column_groups_by_the_plain_column(self):
+        root, name, _ = self._firm_and_employee_ages()
+        price = DoubleAttribute("Price", "PRICE", "DOUBLE", "firm")
+        sql = to_sql(None, None, [name, price.sum()], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.LEGALNAME")
+
+    def test_only_aggregates_over_the_root_are_not_grouped(self):
+        root, _, _ = self._firm_and_employee_ages()
+        price = DoubleAttribute("Price", "PRICE", "DOUBLE", "firm")
+        assert "GROUP BY" not in to_sql(None, None, [price.sum(), price.average()], root, NoOperation())
+
+    def test_count_all_with_a_plain_column_groups_by_the_plain_column(self):
+        root, name, _ = self._firm_and_employee_ages()
+        sql = to_sql(None, None, [name, CountAllOperation("firm")], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.LEGALNAME")
+
+    def test_an_explicit_group_by_is_used_as_given(self):
+        root, name, age = self._firm_and_employee_ages()
+        sql = to_sql(None, None, [name, age.average()], root, NoOperation(), group_by=[name])
+        assert sql.endswith("GROUP BY t0.LEGALNAME")
+        assert "GROUP BY t0.ID" not in sql
+
+    def test_aggregate_over_a_to_many_association_groups_by_the_root_key_and_the_plain_columns(self):
+        root, name, age = self._firm_and_employee_ages()
+        sql = to_sql(None, None, [name, age.average()], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.ID, t0.LEGALNAME")
+
+    def test_aggregate_alone_over_a_to_many_association_groups_by_the_root_key(self):
+        root, _, age = self._firm_and_employee_ages()
+        sql = to_sql(None, None, [age.average()], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.ID")
+
+    def test_aggregate_over_a_to_one_association_is_not_grouped_by_the_root_key(self):
+        root, name, age = self._firm_and_employee_ages(many=False)
+        sql = to_sql(None, None, [name, age.average()], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.LEGALNAME")
+
+    def test_aggregate_alone_over_a_to_one_association_is_not_grouped(self):
+        root, _, age = self._firm_and_employee_ages(many=False)
+        assert "GROUP BY" not in to_sql(None, None, [age.average()], root, NoOperation())
+
+    def test_without_a_known_root_key_only_the_plain_columns_are_grouped(self):
+        root, name, age = self._firm_and_employee_ages(root_key=False)
+        sql = to_sql(None, None, [name, age.average()], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.LEGALNAME")
+
+    def test_a_plain_column_that_is_the_root_key_is_grouped_once(self):
+        root, _, age = self._firm_and_employee_ages()
+        key = IntegerAttribute("Id", "ID", "INT", "firm")
+        sql = to_sql(None, None, [key, age.average()], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.ID")
+
+    def test_a_scalar_function_of_a_column_is_grouped_by_its_expression(self):
+        root, name, age = self._firm_and_employee_ages(many=False)
+        sql = to_sql(None, None, [name.upper(), age.average()], root, NoOperation())
+        assert sql.endswith("GROUP BY UPPER(t0.LEGALNAME)")
+
+    def test_window_functions_are_not_grouped(self):
+        root, name, _ = self._firm_and_employee_ages()
+        price = DoubleAttribute("Price", "PRICE", "DOUBLE", "firm")
+        sql = to_sql(None, None, [name, price.rank(), price.sum()], root, NoOperation())
+        assert sql.endswith("GROUP BY t0.LEGALNAME")
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 

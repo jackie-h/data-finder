@@ -405,8 +405,11 @@ class Table(Relation):
 
 
 class JoinOperation:
-    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement | None = None):
+    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement | None = None,
+                 many: bool = False):
         self.name = name
+        # True when one row can join to many (a to-many association), so a value read through it repeats the row.
+        self.many = many
         self.target = target
         self.left = lhs
         self.right = rhs
