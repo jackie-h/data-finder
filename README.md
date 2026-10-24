@@ -256,6 +256,12 @@ result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.categor
 
 `count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
 
+`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+distinct query has to use a selected column.
+
+`offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
+first: without an order, which rows come first is not defined.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
