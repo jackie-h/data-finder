@@ -338,6 +338,19 @@ def concat(left, right) -> ConcatOperation:
     return ConcatOperation([*parts_of(left), *parts_of(right)])
 
 
+
+class CaseOperation(Operation, Aliasable, Sortable):
+    """``CASE WHEN condition THEN then ELSE otherwise END``; without ``otherwise`` the value is NULL."""
+
+    def __init__(self, condition: RelationalOperationElement, then: RelationalOperationElement,
+                 otherwise: RelationalOperationElement | None = None, display_name: str | None = None):
+        super().__init__()
+        self.condition = condition
+        self.then = then
+        self.otherwise = otherwise
+        self.display_name = display_name
+
+
 class AggregateOperator(Enum):
     COUNT = 1
     SUM = 2
