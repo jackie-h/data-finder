@@ -895,6 +895,51 @@ class TestConcat:
         assert self._sql(n + 1) == 'SELECT t0.n + 1 AS "Expression" FROM t AS t0'
 
 
+class TestChainedFunctions:
+    """The result of a function has the functions of its type, so they chain."""
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("name", "VARCHAR", "t"), Column("n", "DOUBLE", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    @staticmethod
+    def _cols():
+        return StringAttribute("Name", "name", "VARCHAR", "t"), DoubleAttribute("N", "n", "DOUBLE", "t")
+
+    def test_text_functions_chain(self):
+        name, _ = self._cols()
+        assert self._sql(name.upper().length(), name.strip().lower().left(3)) == \
+            'SELECT LENGTH(UPPER(t0.name)) AS "Length Upper Name",LEFT(LOWER(TRIM(t0.name)), 3) AS "Left Lower Strip Name" ' \
+            'FROM t AS t0'
+
+    def test_number_functions_chain(self):
+        _, n = self._cols()
+        assert self._sql(n.abs().sqrt().round(1), n.floor().power(2)) == \
+            'SELECT ROUND(SQRT(ABS(t0.n)), 1) AS "Round Sqrt Abs N",POWER(FLOOR(t0.n), 2) AS "Power Floor N" FROM t AS t0'
+
+    def test_text_to_number_and_on(self):
+        name, _ = self._cols()
+        assert self._sql(name.length().sqrt(), name.length() * 2) == \
+            'SELECT SQRT(LENGTH(t0.name)) AS "Sqrt Length Name",LENGTH(t0.name) * 2 AS "Expression" FROM t AS t0'
+
+    def test_slices_and_repeat_work_on_a_result(self):
+        name, _ = self._cols()
+        assert self._sql(name.upper()[:2], name.lower() * 2) == \
+            'SELECT LEFT(UPPER(t0.name), 2) AS "Left Upper Name",REPEAT(LOWER(t0.name), 2) AS "Repeat Lower Name" FROM t AS t0'
+
+    def test_a_text_function_has_no_number_functions(self):
+        name, _ = self._cols()
+        assert not hasattr(name.upper(), "sqrt")
+        assert not hasattr(name.length(), "upper")
+
+    def test_a_result_is_not_changed_by_chaining_from_it(self):
+        name, _ = self._cols()
+        upper = name.upper()
+        upper.length()
+        assert self._sql(upper) == 'SELECT UPPER(t0.name) AS "Upper Name" FROM t AS t0'
+
+
 class TestDistinct:
 
     def test_select_distinct(self):

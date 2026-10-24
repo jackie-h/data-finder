@@ -261,6 +261,9 @@ them in Python as it does in SQL. The column is named `Expression`.
 Text joins with `+`: `CompanyFinder.name() + " (" + CompanyFinder.category() + ")"`. As with SQL's `||`, a missing
 (NULL) part makes the whole value missing.
 
+Functions chain: the result of a function has the functions of its type, so `CompanyFinder.name().upper().length()` and
+`TradeFinder.price().sqrt().floor()` both work, and a number from a text function can be used in arithmetic.
+
 `distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
 
