@@ -258,6 +258,11 @@ A condition can be a column too, true or false for each row: `CompanyFinder.find
 CompanyFinder.category().eq("Technology")])`. As in SQL, a comparison with a missing (NULL) value is missing, not false.
 Two unnamed conditions have the same column name, so select them in separate queries (or give them names).
 
+`if_(condition, then, otherwise)` chooses a value for each row: `if_(CompanyFinder.category().eq("Technology"), "tech", "other")`.
+A branch is a column, an expression or a value, and may be another `if_` for several cases. With no `otherwise` the value
+is missing where the condition does not hold. A condition that is missing for a row (a comparison with NULL) is not true,
+so that row takes `otherwise`.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:
