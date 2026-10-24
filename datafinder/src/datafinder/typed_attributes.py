@@ -9,6 +9,13 @@ from model.relational import ComparisonOperation, StringConstantOperation, Opera
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
 
 
+def _temporal_constant(value: datetime.datetime | datetime.date):
+    """A datetime is a timestamp literal; a plain date is a date literal."""
+    if isinstance(value, datetime.datetime):  # before date: datetime is a subclass of date
+        return DateTimeConstantOperation(value)
+    return DateConstantOperation(value)
+
+
 class StringAttribute(Attribute):
     """A string attribute supporting scalar functions and filter operations.
 
@@ -505,31 +512,31 @@ class DateTimeAttribute(Attribute):
         """Create a datetime attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded)
 
-    def eq(self, value: datetime.datetime) -> Operation:
-        """Return equality comparison with a datetime value."""
-        return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
+    def eq(self, value: datetime.datetime | datetime.date) -> Operation:
+        """Return equality comparison with a datetime value (a plain date is rendered as a date literal)."""
+        return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, _temporal_constant(value))
 
-    def __eq__(self, value: datetime.datetime) -> Operation:  # type: ignore[override]
-        """Return equality comparison with a datetime value."""
-        return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, DateTimeConstantOperation(value))
+    def __eq__(self, value: datetime.datetime | datetime.date) -> Operation:  # type: ignore[override]
+        """Return equality comparison with a datetime value (a plain date is rendered as a date literal)."""
+        return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, _temporal_constant(value))
 
-    def __gt__(self, value: datetime.datetime) -> Operation:
-        """Return a greater-than comparison with a datetime value."""
-        return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN, DateTimeConstantOperation(value))
+    def __gt__(self, value: datetime.datetime | datetime.date) -> Operation:
+        """Return a greater-than comparison with a datetime value (a plain date is rendered as a date literal)."""
+        return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN, _temporal_constant(value))
 
-    def __lt__(self, value: datetime.datetime):
-        """Return a less-than comparison with a datetime value."""
-        return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN, DateTimeConstantOperation(value))
+    def __lt__(self, value: datetime.datetime | datetime.date):
+        """Return a less-than comparison with a datetime value (a plain date is rendered as a date literal)."""
+        return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN, _temporal_constant(value))
 
-    def __ge__(self, value: datetime.datetime) -> Operation:
-        """Return a greater-than-or-equal comparison with a datetime value."""
+    def __ge__(self, value: datetime.datetime | datetime.date) -> Operation:
+        """Return a greater-than-or-equal comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
-                                   DateTimeConstantOperation(value))
+                                   _temporal_constant(value))
 
-    def __le__(self, value: datetime.datetime):
-        """Return a less-than-or-equal comparison with a datetime value."""
+    def __le__(self, value: datetime.datetime | datetime.date):
+        """Return a less-than-or-equal comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
-                                   DateTimeConstantOperation(value))
+                                   _temporal_constant(value))
 
     def year(self):
         """Extract the year. Equivalent to ``dt.year``."""

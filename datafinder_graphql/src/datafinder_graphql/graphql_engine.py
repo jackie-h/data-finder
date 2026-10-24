@@ -536,8 +536,15 @@ def _build_fields_str(columns: list, filter_conv) -> str:
     return render(root)
 
 
+def _processing_iso(processing: datetime.datetime | datetime.date) -> str:
+    """The server takes a timestamp, so a plain processing date is sent as midnight on that date."""
+    if not isinstance(processing, datetime.datetime):
+        processing = datetime.datetime.combine(processing, datetime.time.min)
+    return processing.isoformat()
+
+
 def _build_temporal_args(business_date: datetime.date | None,
-                         processing_datetime: datetime.datetime | None,
+                         processing_datetime: datetime.datetime | datetime.date | None,
                          milestone) -> list[str]:
     if milestone is None:
         return []
@@ -546,19 +553,19 @@ def _build_temporal_args(business_date: datetime.date | None,
         if business_date is not None:
             args.append(f'{milestone.business_date_argument}: "{business_date}"')
         if processing_datetime is not None:
-            args.append(f'{milestone.processing_argument}: "{processing_datetime.isoformat()}"')
+            args.append(f'{milestone.processing_argument}: "{_processing_iso(processing_datetime)}"')
     elif isinstance(milestone, GraphQLBusinessDateMilestone):
         if business_date is not None:
             args.append(f'{milestone.argument_name}: "{business_date}"')
     elif isinstance(milestone, GraphQLProcessingMilestone):
         if processing_datetime is not None:
-            args.append(f'{milestone.argument_name}: "{processing_datetime.isoformat()}"')
+            args.append(f'{milestone.argument_name}: "{_processing_iso(processing_datetime)}"')
     return args
 
 
 def _fetch_rows(table: GraphQLQuery, fields_str: str,
                 business_date: datetime.date | None,
-                processing_datetime: datetime.datetime | None,
+                processing_datetime: datetime.datetime | datetime.date | None,
                 timeout_ms: int,
                 server_args: list[str] | None = None) -> list[dict]:
     milestone = getattr(table, 'milestone', None)
@@ -590,7 +597,7 @@ def _fetch_rows(table: GraphQLQuery, fields_str: str,
 class GraphQLConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime,  # type: ignore[override]
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,  # type: ignore[override]
                columns: list, table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:

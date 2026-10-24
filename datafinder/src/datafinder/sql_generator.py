@@ -48,7 +48,7 @@ def _open_end_clause(end_attr, value, infinite_datetime: str | None) -> Operatio
 
 def build_milestoning_filter_operation_for_date_range(
         business_date_from: datetime.date | None, business_date_to: datetime.date | None,
-        processing_datetime: datetime.datetime | None,
+        processing_datetime: datetime.datetime | datetime.date | None,
         table: MilestonedTable, join_node: 'JoinTreeNodeOperation | None' = None) -> 'Operation | None':
     """Like build_milestoning_filter_operation but applies a business-date range filter.
 
@@ -92,7 +92,7 @@ def build_milestoning_filter_operation_for_date_range(
     return op
 
 
-def build_milestoning_filter_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
+def build_milestoning_filter_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
                                table:MilestonedTable, join_node:'JoinTreeNodeOperation | None' = None) -> 'Operation | None':
     op = None
     #TODO this should not reference attribute
@@ -302,7 +302,7 @@ def _apply_join_filters(query: QueryExpression,
             query.join_filters[id(node)] = combined
 
 
-def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
+def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
                          columns: Sequence[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
                          limit: int | None = None, business_date_to: datetime.date | None = None) -> SelectOperation:
@@ -766,7 +766,7 @@ class SQLQueryGenerator:
         return ' LIMIT ' + str(self._limit)
 
 
-def to_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | None,
+def to_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
            columns: Sequence, table, op,
            order_by: list | None = None, group_by: list | None = None,
            limit: int | None = None, validate_sqlglot: bool = True,

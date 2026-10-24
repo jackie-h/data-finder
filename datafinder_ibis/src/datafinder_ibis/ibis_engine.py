@@ -21,7 +21,7 @@ from model.view import View
 class IbisConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime, columns: Sequence[Attribute],
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date, columns: Sequence[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None) -> DataFrame:
         # We always connect via the duckdb:// scheme; ibis.connect()'s declared return type is
