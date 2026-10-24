@@ -26,6 +26,26 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Bob", "Alice"]], dtype=object),
         ),
         TestExpectation(
+            name="a_condition_on_a_related_column_as_a_column",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.manager().name().is_none()]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Alice", True], ["Bob", False], ["Carol", False], ["Dave", False]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_comparison_with_a_missing_value_is_missing",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
+            query=lambda f: f.find_all(
+                None, None, [f.name(), f.manager().name().eq("Alice")]
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Expression"],
+            expected_result=np.array(
+                [["Alice", None], ["Bob", True], ["Carol", True], ["Dave", False]], dtype=object),
+        ),
+        TestExpectation(
             name="manager_name_for_dave",
             query=lambda f: f.find_all(None, None, [f.name(), f.manager().name()], f.name().eq("Dave")),
             expected_columns=["Name", "Manager Name"],

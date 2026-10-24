@@ -254,6 +254,10 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+A condition can be a column too, true or false for each row: `CompanyFinder.find_all(None, None, [CompanyFinder.name(),
+CompanyFinder.category().eq("Technology")])`. As in SQL, a comparison with a missing (NULL) value is missing, not false.
+Two unnamed conditions have the same column name, so select them in separate queries (or give them names).
+
 `distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
 

@@ -430,6 +430,20 @@ def _window_spec_to_string(window: WindowSpecification) -> str:
         ))
     return 'OVER (' + ' '.join(parts) + ')'
 
+class _RenderedSql(RelationalOperationElement):
+    """A condition already written as SQL, to be selected as a column. A condition is rendered where its columns can
+    be resolved to table aliases, which is while the query is being built, not when its text is put together."""
+
+    def __init__(self, sql: str):
+        super().__init__()
+        self.sql = sql
+
+
+def _is_condition(op: RelationalOperationElement) -> bool:
+    return isinstance(op, (ComparisonOperation, LogicalOperation, IsNullOperation, IsNotNullOperation, InOperation,
+                           NotInOperation, ExistsOperation, NotExistsOperation))
+
+
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
@@ -469,6 +483,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
+    elif isinstance(operation, _RenderedSql):
+        return operation.sql
     elif isinstance(operation, Alias):
         return sql_operation_to_string(operation.element) + ' AS "' + operation.name + '"'
     else:
@@ -480,6 +496,8 @@ def display_alias(col: RelationalOperationElement) -> str:
         return 'Count'
     if isinstance(col, Attribute):
         return col.display_name()
+    if _is_condition(col):
+        return 'Expression'
     if isinstance(col, AggregateOperation):
         return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
     if isinstance(col, ScalarFunctionOperation):
@@ -663,9 +681,13 @@ class SQLQueryGenerator:
         for col in cols:
             self.__collect_required_joins(col, required_joins)
             rewritten = self.__rewrite_operation(col)
+            if _is_condition(col):
+                rewritten = _RenderedSql(self.build_filter(col))
 
             if isinstance(col, Alias):
-                self._select.append(Alias(self.__rewrite_operation(col.element), col.name))
+                inner = _RenderedSql(self.build_filter(col.element)) if _is_condition(col.element) \
+                    else self.__rewrite_operation(col.element)
+                self._select.append(Alias(inner, col.name))
             else:
                 self._select.append(Alias(rewritten, display_alias(col)))
 
