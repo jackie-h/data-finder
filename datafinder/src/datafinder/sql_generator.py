@@ -299,7 +299,8 @@ def _apply_join_filters(query: QueryExpression,
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
                          columns: Sequence[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
-                         limit: int | None = None, business_date_to: datetime.date | None = None) -> SelectOperation:
+                         limit: int | None = None, business_date_to: datetime.date | None = None,
+                         distinct: bool = False, offset: int | None = None) -> SelectOperation:
     if isinstance(table, MilestonedTable):
         if business_date_to is not None:
             milestoned_op = build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, table)
@@ -308,7 +309,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
         if milestoned_op is not None:
             op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
-    select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table)
+    select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table, distinct, offset)
 
     def milestoning_condition(node):
         if not isinstance(node.join.target, MilestonedTable):
@@ -566,6 +567,8 @@ class SQLQueryGenerator:
             for s in select.order_by
         ]
         self._limit = select.limit
+        self._distinct = isinstance(select, SelectOperation) and select.distinct
+        self._offset = select.offset if isinstance(select, SelectOperation) else None
 
     def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
         if isinstance(attr, Column):
@@ -764,13 +767,14 @@ class SQLQueryGenerator:
                               ' ON (' + j.source.table_alias.alias + '.' + j.source.column.name + ' = ' +
                               j.target.table_alias.alias + '.' + j.target.column.name
                               + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')', self._join)
-        return 'SELECT ' + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
+        return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
             + self.__build_where() \
             + self.__build_group_by() \
             + self.__build_order_by() \
-            + self.__build_limit()
+            + self.__build_limit() \
+            + self.__build_offset()
 
     def __build_where(self) -> str:
         if len(self._where) > 0:
@@ -788,6 +792,9 @@ class SQLQueryGenerator:
             return ''
         return ' ORDER BY ' + ', '.join(self._order_by_parts)
 
+    def __build_offset(self) -> str:
+        return '' if self._offset is None else ' OFFSET ' + str(self._offset)
+
     def __build_limit(self) -> str:
         if self._limit is None:
             return ''
@@ -798,10 +805,11 @@ def to_sql(business_date: datetime.date | None, processing_datetime: datetime.da
            columns: Sequence, table, op,
            order_by: list | None = None, group_by: list | None = None,
            limit: int | None = None, validate_sqlglot: bool = True,
-           business_date_to: datetime.date | None = None) -> str:
+           business_date_to: datetime.date | None = None, distinct: bool = False,
+           offset: int | None = None) -> str:
     select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
                                       order_by or [], group_by or [], limit,
-                                      business_date_to=business_date_to)
+                                      business_date_to=business_date_to, distinct=distinct, offset=offset)
     return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
 
 
