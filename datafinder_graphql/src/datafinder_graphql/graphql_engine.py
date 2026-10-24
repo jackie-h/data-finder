@@ -27,6 +27,7 @@ from model.relational import (
     DateArithmeticOperation,
     DateDiffOperation,
     DateExtractOperation,
+    DateTruncOperation,
     DatePart,
     IsNotNullOperation,
     InOperation,
@@ -84,7 +85,7 @@ def _col_raw_name(col) -> str | None:
     if isinstance(col, Attribute):
         return col.column().name
     if isinstance(col, (AggregateOperation, WindowFunctionOperation, ScalarFunctionOperation,
-                        DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
+                        DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation)):
         if col.element and isinstance(col.element, ColumnWithJoin):
             return col.element.column.name
     return None
@@ -102,7 +103,7 @@ def _col_display_name(col) -> str:
     if isinstance(col, Attribute):
         return col.display_name()
     if isinstance(col, (AggregateOperation, WindowFunctionOperation, ScalarFunctionOperation,
-                        DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
+                        DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation)):
         return col.display_name or ""
     return ""
 
@@ -205,6 +206,14 @@ def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
         dt = pd.to_datetime(df[fn])
         extractor = _DATE_EXTRACT.get(col.part)
         return extractor(dt) if extractor else None
+
+    if isinstance(col, DateTruncOperation):
+        fn = _col_field_name(col)
+        if not fn or fn not in df.columns:
+            return None
+        dt = pd.to_datetime(df[fn])
+        unit = {DatePart.WEEK: 'W', DatePart.MONTH: 'M', DatePart.QUARTER: 'Q', DatePart.YEAR: 'Y'}[col.part]
+        return dt.dt.to_period(unit).dt.start_time.dt.date
 
     if isinstance(col, DateArithmeticOperation):
         fn = _col_field_name(col)

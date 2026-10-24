@@ -14,10 +14,10 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
-    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation, QueryExpression, BinaryOperation
+    SelectOperation, QueryExpression, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -189,7 +189,7 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
         collect_required_joins(op.window, required_joins, node_refs)
     elif isinstance(op, ScalarFunctionOperation):
         collect_required_joins(op.element, required_joins, node_refs)
-    elif isinstance(op, DateExtractOperation):
+    elif isinstance(op, (DateExtractOperation, DateTruncOperation)):
         collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateArithmeticOperation):
         collect_required_joins(op.element, required_joins, node_refs)
@@ -216,6 +216,12 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
         collect_required_joins(op.right, required_joins, node_refs)
     elif isinstance(op, (IsNullOperation, IsNotNullOperation, InOperation, NotInOperation)):
         collect_required_joins(op.element, required_joins, node_refs)
+    elif isinstance(op, ArithmeticOperation):
+        collect_required_joins(op.left, required_joins, node_refs)
+        collect_required_joins(op.right, required_joins, node_refs)
+    elif isinstance(op, ConcatOperation):
+        for part in op.parts:
+            collect_required_joins(part, required_joins, node_refs)
     elif isinstance(op, (ExistsOperation, NotExistsOperation)):
         # The join must be constrained like any other. It isn't recorded in node_refs: it is not an
         # attribute reference, so it doesn't affect whether other references to the node can be embedded.
@@ -445,6 +451,25 @@ def _selected_constant_string(operation: ConstantOperation) -> str:
     return constant_value_string(operation)
 
 
+_ARITHMETIC_PRECEDENCE = {ArithmeticOperator.ADD: 1, ArithmeticOperator.SUBTRACT: 1,
+                          ArithmeticOperator.MULTIPLY: 2, ArithmeticOperator.DIVIDE: 2}
+
+
+def arithmetic_needs_parentheses(parent: ArithmeticOperation, child: RelationalOperationElement, on_right: bool) -> bool:
+    """Whether ``child`` must be parenthesised as an operand of ``parent``: it binds more loosely than the parent, or
+    it is the right operand of a - or / and binds equally (a - (b - c) is not a - b - c)."""
+    if not isinstance(child, ArithmeticOperation):
+        return False
+    here, there = _ARITHMETIC_PRECEDENCE[parent.operator], _ARITHMETIC_PRECEDENCE[child.operator]
+    return there < here or (there == here and on_right and parent.operator in (ArithmeticOperator.SUBTRACT,
+                                                                                 ArithmeticOperator.DIVIDE))
+
+
+def _operand_string(operation: RelationalOperationElement) -> str:
+    return constant_value_string(operation) if isinstance(operation, ConstantOperation) \
+        else sql_operation_to_string(operation)
+
+
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
     if isinstance(operation, TableAliasColumn):
         return table_alias_column_string(operation)
@@ -478,6 +503,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return fn + '(' + ', '.join(parts) + ')'
     elif isinstance(operation, DateExtractOperation):
         return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, DateTruncOperation):
+        return "CAST(DATE_TRUNC('" + operation.part.value.lower() + "', " + sql_operation_to_string(operation.element) + ') AS DATE)'
     elif isinstance(operation, DateArithmeticOperation):
         op = '+' if operation.is_add else '-'
         return sql_operation_to_string(operation.element) + ' ' + op + ' INTERVAL ' + str(operation.n) + ' ' + operation.unit.value
@@ -488,6 +515,16 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return 'COUNT(*)'
     elif isinstance(operation, ConstantOperation):
         return _selected_constant_string(operation)
+    elif isinstance(operation, ConcatOperation):
+        return ' || '.join(_operand_string(part) for part in operation.parts)
+    elif isinstance(operation, ArithmeticOperation):
+        left = _operand_string(operation.left)
+        right = _operand_string(operation.right)
+        if arithmetic_needs_parentheses(operation, operation.left, False):
+            left = '(' + left + ')'
+        if arithmetic_needs_parentheses(operation, operation.right, True):
+            right = '(' + right + ')'
+        return left + ' ' + operation.operator.value + ' ' + right
     elif isinstance(operation, Alias):
         return sql_operation_to_string(operation.element) + ' AS "' + operation.name + '"'
     else:
@@ -501,11 +538,13 @@ def display_alias(col: RelationalOperationElement) -> str:
         return 'Constant'
     if isinstance(col, Attribute):
         return col.display_name()
+    if isinstance(col, (ArithmeticOperation, ConcatOperation)):
+        return col.display_name if col.display_name else 'Expression'
     if isinstance(col, AggregateOperation):
         return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
     if isinstance(col, ScalarFunctionOperation):
         return col.display_name if col.display_name else col.function.name + ' ' + find_column(col).column.name
-    if isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
+    if isinstance(col, (DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation)):
         return col.display_name if col.display_name else find_column(col).column.name
     if isinstance(col, WindowFunctionOperation):
         if col.display_name:
@@ -653,8 +692,15 @@ class SQLQueryGenerator:
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
                                            second_arg=op.second_arg, extra_args=list(op.extra_args))
+        elif isinstance(op, ArithmeticOperation):
+            return ArithmeticOperation(self.__rewrite_operation(op.left), op.operator,
+                                       self.__rewrite_operation(op.right), op.display_name)
+        elif isinstance(op, ConcatOperation):
+            return ConcatOperation([self.__rewrite_operation(part) for part in op.parts], op.display_name)
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
+        elif isinstance(op, DateTruncOperation):
+            return DateTruncOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateArithmeticOperation):
             return DateArithmeticOperation(self.__rewrite_operation(op.element), op.n, op.unit, op.is_add,
                                            op.display_name)
@@ -681,7 +727,13 @@ class SQLQueryGenerator:
             self.__collect_required_joins(op.window, required_joins)
         elif isinstance(op, ScalarFunctionOperation):
             self.__collect_required_joins(op.element, required_joins)
-        elif isinstance(op, DateExtractOperation):
+        elif isinstance(op, ArithmeticOperation):
+            self.__collect_required_joins(op.left, required_joins)
+            self.__collect_required_joins(op.right, required_joins)
+        elif isinstance(op, ConcatOperation):
+            for part in op.parts:
+                self.__collect_required_joins(part, required_joins)
+        elif isinstance(op, (DateExtractOperation, DateTruncOperation)):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateArithmeticOperation):
             self.__collect_required_joins(op.element, required_joins)
@@ -793,6 +845,13 @@ class SQLQueryGenerator:
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
+        elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation)):
+            # an expression compared in a filter: it needs its columns' joins, then it is written as in a select list
+            required_joins: dict = {}
+            self.__collect_required_joins(op, required_joins)
+            for parent in required_joins.values():
+                self.__add_join(parent)
+            return sql_operation_to_string(self.__rewrite_operation(op))
         else:
             raise ValueError(op)
 

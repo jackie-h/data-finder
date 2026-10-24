@@ -3,10 +3,12 @@ import datetime
 from datafinder import Attribute
 import decimal
 
-from model.relational import escape_like, ComparisonOperation, StringConstantOperation, Operation, ComparisonOperator, \
+from datafinder.scalar_functions import NumericFunctions, StringFunctions
+
+from model.relational import escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
-    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation
 
 
 def _temporal_constant(value: datetime.datetime | datetime.date):
@@ -16,7 +18,7 @@ def _temporal_constant(value: datetime.datetime | datetime.date):
     return DateConstantOperation(value)
 
 
-class StringAttribute(Attribute):
+class StringAttribute(StringFunctions, Attribute):
     """A string attribute supporting scalar functions and filter operations.
 
     Scalar functions return a ``ScalarFunctionOperation`` that can be passed as
@@ -37,92 +39,12 @@ class StringAttribute(Attribute):
         """Create a string attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
 
-    def upper(self):
-        """Return the value converted to uppercase. Equivalent to ``str.upper()``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.UPPER, 'Upper ' + self.display_name())
+    def __add__(self, other) -> ConcatOperation:
+        """Join text: ``first_name() + " " + last_name()``. A NULL part makes the whole NULL."""
+        return concat(self, other)
 
-    def lower(self):
-        """Return the value converted to lowercase. Equivalent to ``str.lower()``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.LOWER, 'Lower ' + self.display_name())
-
-    def strip(self):
-        """Remove leading and trailing whitespace. Equivalent to ``str.strip()``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.TRIM, 'Strip ' + self.display_name())
-
-    def lstrip(self):
-        """Remove leading whitespace. Equivalent to ``str.lstrip()``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.LTRIM, 'Lstrip ' + self.display_name())
-
-    def rstrip(self):
-        """Remove trailing whitespace. Equivalent to ``str.rstrip()``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.RTRIM, 'Rstrip ' + self.display_name())
-
-    def length(self):
-        """Return the number of characters. Equivalent to ``len(s)``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.LENGTH, 'Length ' + self.display_name())
-
-    def reverse(self):
-        """Return the value with characters in reverse order. Equivalent to ``s[::-1]``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.REVERSE, 'Reverse ' + self.display_name())
-
-    def left(self, n: int):
-        """Return the first ``n`` characters. Equivalent to ``s[:n]``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.LEFT, 'Left ' + self.display_name(), extra_args=[n])
-
-    def right(self, n: int):
-        """Return the last ``n`` characters. Equivalent to ``s[-n:]``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.RIGHT, 'Right ' + self.display_name(), extra_args=[n])
-
-    def repeat(self, n: int):
-        """Return the value repeated ``n`` times. Equivalent to ``s * n``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.REPEAT, 'Repeat ' + self.display_name(), extra_args=[n])
-
-    def __mul__(self, n: int):
-        """Repeat the value ``n`` times. Equivalent to ``repeat(n)``."""
-        return self.repeat(n)
-
-    def replace(self, from_str: str, to_str: str):
-        """Replace all occurrences of ``from_str`` with ``to_str``. Equivalent to ``str.replace()``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.REPLACE, 'Replace ' + self.display_name(), extra_args=[from_str, to_str])
-
-    def substring(self, start: int, length: int | None = None):
-        """Return a substring using 0-based ``start`` index.
-
-        ``substring(start)`` returns from ``start`` to end of string.
-        ``substring(start, length)`` returns ``length`` characters from ``start``.
-        Equivalent to ``s[start:]`` and ``s[start:start+length]`` respectively.
-        """
-        args = [start + 1] if length is None else [start + 1, length]
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.SUBSTRING, 'Substring ' + self.display_name(), extra_args=args)
-
-    def __getitem__(self, key):
-        """Support Python slice syntax to produce string operations.
-
-        Supported forms::
-
-            s[:n]     → left(n)
-            s[-n:]    → right(n)
-            s[::-1]   → reverse()
-            s[start:] → substring(start)
-            s[a:b]    → substring(a, b - a)
-        """
-        if not isinstance(key, slice):
-            raise TypeError("StringAttribute only supports slice indexing")
-        start, stop, step = key.start, key.stop, key.step
-        if step == -1 and start is None and stop is None:
-            return self.reverse()
-        if step is not None and step != 1:
-            raise ValueError(f"Unsupported slice step: {step}")
-        if start is not None and start < 0 and stop is None:
-            return self.right(-start)
-        if start is None and stop is not None and stop >= 0:
-            return self.left(stop)
-        if start is not None and start >= 0:
-            if stop is None:
-                return self.substring(start)
-            if stop > start:
-                return self.substring(start, stop - start)
-        raise ValueError(f"Unsupported slice: [{start}:{stop}:{step}]")
+    def __radd__(self, other) -> ConcatOperation:
+        return concat(other, self)
 
     def _to_constant(self, value):
         return StringConstantOperation(value)
@@ -151,7 +73,7 @@ class StringAttribute(Attribute):
         """Return a suffix match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(suffix)}"))
 
-class NumericAttribute(Attribute):
+class NumericAttribute(NumericFunctions, Attribute, Arithmetic):
     """A numeric attribute supporting aggregate and scalar functions.
 
     Aggregate functions return an ``AggregateOperation`` for use with
@@ -191,44 +113,6 @@ class NumericAttribute(Attribute):
         """Return the mean of all values in the group."""
         return AggregateOperation(self._column_with_join(), AggregateOperator.AVERAGE, 'Average ' + self.display_name())
 
-    def abs(self):
-        """Return the absolute value. Equivalent to ``abs(n)``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.ABS, 'Abs ' + self.display_name())
-
-    def ceil(self):
-        """Return the smallest integer >= the value. Equivalent to ``math.ceil(n)``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.CEILING, 'Ceil ' + self.display_name())
-
-    def floor(self):
-        """Return the largest integer <= the value. Equivalent to ``math.floor(n)``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.FLOOR, 'Floor ' + self.display_name())
-
-    def sqrt(self):
-        """Return the square root. Equivalent to ``math.sqrt(n)``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.SQRT, 'Sqrt ' + self.display_name())
-
-    def mod(self, n: int):
-        """Return the remainder after division by ``n``. Equivalent to ``value % n``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.MOD, 'Mod ' + self.display_name(), second_arg=n)
-
-    def __mod__(self, n: int):
-        """Return the remainder after division by ``n``. Equivalent to ``mod(n)``."""
-        return self.mod(n)
-
-    def power(self, n: int):
-        """Return the value raised to the power of ``n``. Equivalent to ``value ** n``."""
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.POWER, 'Power ' + self.display_name(), second_arg=n)
-
-    def __pow__(self, n: int):
-        """Return the value raised to the power of ``n``. Equivalent to ``power(n)``."""
-        return self.power(n)
-
-    def round(self, d: int | None = None):
-        """Round to ``d`` decimal places. Equivalent to ``round(value, d)``.
-
-        When ``d`` is omitted, rounds to the nearest integer.
-        """
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.ROUND, 'Round ' + self.display_name(), second_arg=d)
 
 
 class DoubleAttribute(NumericAttribute):
@@ -428,6 +312,22 @@ class DateAttribute(Attribute):
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    DateConstantOperation(value))
 
+    def first_day_of_week(self):
+        """The first day of the week the date falls in (a Monday)."""
+        return DateTruncOperation(self._column_with_join(), DatePart.WEEK, 'First Day Of Week ' + self.display_name())
+
+    def first_day_of_month(self):
+        """The first day of the month the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.MONTH, 'First Day Of Month ' + self.display_name())
+
+    def first_day_of_quarter(self):
+        """The first day of the quarter the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.QUARTER, 'First Day Of Quarter ' + self.display_name())
+
+    def first_day_of_year(self):
+        """The first day of the year the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.YEAR, 'First Day Of Year ' + self.display_name())
+
     def year(self):
         """Extract the year. Equivalent to ``d.year``."""
         return DateExtractOperation(self._column_with_join(), DatePart.YEAR, 'Year ' + self.display_name())
@@ -558,6 +458,22 @@ class DateTimeAttribute(Attribute):
         """Return a less-than-or-equal comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    _temporal_constant(value))
+
+    def first_day_of_week(self):
+        """The date of the first day of the week the date falls in (a Monday)."""
+        return DateTruncOperation(self._column_with_join(), DatePart.WEEK, 'First Day Of Week ' + self.display_name())
+
+    def first_day_of_month(self):
+        """The date of the first day of the month the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.MONTH, 'First Day Of Month ' + self.display_name())
+
+    def first_day_of_quarter(self):
+        """The date of the first day of the quarter the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.QUARTER, 'First Day Of Quarter ' + self.display_name())
+
+    def first_day_of_year(self):
+        """The date of the first day of the year the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.YEAR, 'First Day Of Year ' + self.display_name())
 
     def year(self):
         """Extract the year. Equivalent to ``dt.year``."""
