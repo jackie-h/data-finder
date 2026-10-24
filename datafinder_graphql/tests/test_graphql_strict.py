@@ -32,6 +32,23 @@ def test_nested_filter_is_pushed_as_nested_objects():
     assert args == ['where: { account: { name: { _eq: "Acme" } } }']
 
 
+def test_is_in_is_pushed():
+    args = _build_server_args(_name().is_in(["Acme", "Beta"]), None, None, CONVENTION)
+    assert args == ['where: { account: { name: { _in: ["Acme", "Beta"] } } }']
+
+
+def test_is_not_in_on_a_nullable_field_also_matches_nulls():
+    args = _build_server_args(_name().is_not_in(["Acme"]), None, None, CONVENTION)
+    assert args == ['where: { _or: [{ account: { name: { _nin: ["Acme"] } } }, '
+                    '{ account: { name: { _is_null: true } } }] }']
+
+
+def test_is_not_in_on_a_not_null_field_is_a_plain_nin():
+    name = StringAttribute("Account Name", "account.name", "STRING", "trades", nullable=False)
+    args = _build_server_args(name.is_not_in(["Acme"]), None, None, CONVENTION)
+    assert args == ['where: { account: { name: { _nin: ["Acme"] } } }']
+
+
 def test_nested_sort_is_pushed_as_nested_objects():
     args = _build_server_args(None, [_name().ascending()], None, CONVENTION)
     assert args == ["order_by: [{ account: { name: asc } }]"]

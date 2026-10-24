@@ -696,9 +696,15 @@ class SQLQueryGenerator:
         elif isinstance(op, NotExistsOperation):
             col = op.node.join.right
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NULL'
-        elif isinstance(op, (InOperation, NotInOperation)):
-            keyword = ' IN ' if isinstance(op, InOperation) else ' NOT IN '
-            return self.build_filter(op.element) + keyword + '(' + ', '.join(constant_value_string(v) for v in op.values) + ')'
+        elif isinstance(op, InOperation):
+            return self.build_filter(op.element) + ' IN (' + ', '.join(constant_value_string(v) for v in op.values) + ')'
+        elif isinstance(op, NotInOperation):
+            column = self.build_filter(op.element)
+            sql = column + ' NOT IN (' + ', '.join(constant_value_string(v) for v in op.values) + ')'
+            # NULL NOT IN (...) is not true in SQL, so a nullable column has to match its NULLs explicitly
+            if isinstance(op.element, ColumnWithJoin) and self.__resolve(op.element)[0].nullable:
+                return '(' + sql + ' OR ' + column + ' IS NULL)'
+            return sql
         elif isinstance(op, IsNotNullOperation):
             return self.build_filter(op.element) + ' IS NOT NULL'
         elif isinstance(op, IsNullOperation):

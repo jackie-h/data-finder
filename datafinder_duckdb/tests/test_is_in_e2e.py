@@ -28,11 +28,18 @@ class TestIsInE2E:
         assert "first_name IN ('John', 'Peter')" in sql
         assert sorted(r[0] for r in con.sql(sql).fetchall()) == [1, 2]
 
-    def test_is_not_in_string_excludes_listed_and_null(self, con):
+    def test_is_not_in_nullable_column_includes_null(self, con):
         table, id_attr, name_attr = _make_attrs()
         sql = to_sql(None, None, [id_attr], table, name_attr.is_not_in(["John", "Peter"]))
-        assert "first_name NOT IN ('John', 'Peter')" in sql
-        # SQL semantics: NULL NOT IN (...) is not true, so the NULL row is excluded
+        assert "first_name NOT IN ('John', 'Peter') OR" in sql
+        assert sorted(r[0] for r in con.sql(sql).fetchall()) == [3, 4]
+
+    def test_is_not_in_not_null_column_has_no_null_check(self, con):
+        table, id_attr, _ = _make_attrs()
+        name_attr = StringAttribute("First Name", "first_name", "VARCHAR", "people", nullable=False)
+        sql = to_sql(None, None, [id_attr], table, name_attr.is_not_in(["John", "Peter"]))
+        assert "IS NULL" not in sql
+        # the NULL row is excluded, which is why a nullable column has to match it explicitly
         assert sorted(r[0] for r in con.sql(sql).fetchall()) == [3]
 
     def test_is_in_integer(self, con):
