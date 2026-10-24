@@ -32,7 +32,7 @@ ASSOCIATION_TO_ONE_SPECS = FinderSpec(
                'left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) '
                "where \"firmtable_0\".LEGALNAME = 'Firm X' and \"addresstable_0\".NAME = 'Hoboken'",
                lambda f: f.find_all(None, None, [f.last_name(), f.firm().legal_name(), f.address().name()],
-                                    f.firm().legal_name().eq("Firm X").and_op(f.address().name().eq("Hoboken"))),
+                                    f.firm().legal_name().eq("Firm X").and_(f.address().name().eq("Hoboken"))),
                known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
     ],
 )

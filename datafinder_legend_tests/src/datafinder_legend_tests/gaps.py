@@ -13,7 +13,7 @@ from sqlglot import exp
 from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
 
 from datafinder_legend_tests.legend import (
-    CHAINED_ORDER_BY, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY, OPTIONAL_PROPERTY,
+    CONCAT_FUNCTION, JOIN_OPERAND_ORDER, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -26,11 +26,6 @@ def _swap_equality_operands(tree: exp.Expr) -> exp.Expr:
             eq.set("expression", left)
     return tree
 
-
-def _drop_order_by(tree: exp.Expr) -> exp.Expr:
-    for select in tree.find_all(exp.Select):
-        select.set("order", None)
-    return tree
 
 
 def _is_not_null(node: exp.Expr) -> bool:
@@ -53,12 +48,29 @@ def _drop_not_null_guards(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _untype_date_literals(tree: exp.Expr) -> exp.Expr:
+    """``DATE '2016-08-10'`` is ``'2016-08-10'``: a date literal without its type."""
+    for cast in list(tree.find_all(exp.Cast)):
+        if isinstance(cast.this, exp.Literal) and cast.this.is_string and cast.to.this in (
+                exp.DataType.Type.DATE, exp.DataType.Type.TIMESTAMP, exp.DataType.Type.DATETIME):
+            cast.replace(cast.this.copy())
+    return tree
+
+
+def _concat_function_to_pipes(tree: exp.Expr) -> exp.Expr:
+    """``concat(a, b, c)`` is ``a || b || c``."""
+    for call in list(tree.find_all(exp.Concat)):
+        parts = [e.copy() for e in call.expressions]
+        call.replace(reduce(lambda left, right: exp.DPipe(this=left, expression=right, safe=True), parts[1:], parts[0]))
+    return tree
+
+
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     JOIN_OPERAND_ORDER: [_swap_equality_operands],
-    CHAINED_ORDER_BY: [_drop_order_by],
-    JOIN_OPERAND_ORDER_AND_CHAINED_ORDER_BY: [_swap_equality_operands, _drop_order_by],
     OPTIONAL_PROPERTY: [_drop_not_null_guards],
+    TYPED_DATE_LITERAL: [_untype_date_literals],
+    CONCAT_FUNCTION: [_concat_function_to_pipes],
 }
 
 

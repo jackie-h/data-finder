@@ -15,14 +15,14 @@ The Legend tables carry in_z/out_z (processing) and from_z/thru_z (business) ran
 
 #### Table: BiTemporalProductTable → BiTemporalProduct (milestoning: bitemporal)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|-------------|
-| id     | INT       | PK  | id          |
-| type   | VARCHAR   | FK  | biTemporalClassification |
-| in_z   | TIMESTAMP |     | validFrom   |
-| out_z  | TIMESTAMP |     | validTo     |
-| from_z | TIMESTAMP |     | businessFrom |
-| thru_z | TIMESTAMP |     | businessThru |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| id | INT | PK | N | id |
+| type | VARCHAR | FK | Y | biTemporalClassification |
+| in_z | TIMESTAMP |  | Y | validFrom |
+| out_z | TIMESTAMP |  | Y | validTo |
+| from_z | TIMESTAMP |  | Y | businessFrom |
+| thru_z | TIMESTAMP |  | Y | businessThru |
 
 #### Association: BiTemporalProductClassificationLink
 
@@ -32,12 +32,12 @@ The Legend tables carry in_z/out_z (processing) and from_z/thru_z (business) ran
 
 #### Table: BiTemporalProductClassificationTable → BiTemporalProductClassification (milestoning: bitemporal)
 
-| Column | Type      | Key | Property ID |
-|--------|-----------|-----|-------------|
-| type   | VARCHAR   | PK  | type        |
-| system | VARCHAR   |     | system      |
-| exchange | VARCHAR |     | exchange    |
-| in_z   | TIMESTAMP |     | validFrom   |
-| out_z  | TIMESTAMP |     | validTo     |
-| from_z | TIMESTAMP |     | businessFrom |
-| thru_z | TIMESTAMP |     | businessThru |
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| type | VARCHAR | PK | N | type |
+| system | VARCHAR |  | Y | system |
+| exchange | VARCHAR |  | Y | exchange |
+| in_z | TIMESTAMP |  | Y | validFrom |
+| out_z | TIMESTAMP |  | Y | validTo |
+| from_z | TIMESTAMP |  | Y | businessFrom |
+| thru_z | TIMESTAMP |  | Y | businessThru |
