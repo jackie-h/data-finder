@@ -441,9 +441,12 @@ class JoinTreeNodeOperation:
     Enables multi-hop traversal (e.g. Employee.manager.reports) by ensuring
     intermediate joins are emitted before the joins that depend on them.
     """
-    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None):
+    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None, many: bool = False):
         self.join = join
         self.parent = parent
+        # True when the property this step follows is to-many, so a value read through it repeats the row. As in
+        # Pure, that is the multiplicity of the property, not something the join itself says.
+        self.many = many
 
 
 class ColumnWithJoin(RelationalOperationElement):

@@ -9,7 +9,7 @@ from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
 from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
-from model.view import View, ViewDefinitionError
+from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
@@ -17,7 +17,7 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation, QueryExpression
+    SelectOperation, QueryExpression, BinaryOperation
 
 class TableAlias:
     def __init__(self, table: str, alias: str):
@@ -496,6 +496,22 @@ def display_alias(col: RelationalOperationElement) -> str:
     return str(col)
 
 
+def _reaches_to_many(op: RelationalOperationElement) -> bool:
+    """Whether a value is read through a to-many association, so it repeats the row it is read for."""
+    if isinstance(op, ColumnWithJoin):
+        node = op.parent
+        while node is not None:
+            if node.many:
+                return True
+            node = node.parent
+        return False
+    if isinstance(op, (UnaryOperation, Alias)):
+        return _reaches_to_many(op.element)
+    if isinstance(op, BinaryOperation):
+        return _reaches_to_many(op.left) or _reaches_to_many(op.right)
+    return False
+
+
 class SQLQueryGenerator:
     _select: list[Alias]
     _from: set[TableAlias]
@@ -550,9 +566,7 @@ class SQLQueryGenerator:
             self.__collect_required_joins(sort_op.column, required_joins)
         for parent in required_joins.values():
             self.__add_join(parent)
-        self._group_by_parts = [
-            self.__attr_to_col_string(a) for a in select.group_by
-        ]
+        self._group_by_parts = self.__group_by_parts(select)
         self._order_by_parts = [
             self.build_filter(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
             for s in select.order_by
@@ -560,6 +574,25 @@ class SQLQueryGenerator:
         self._limit = select.limit
         self._distinct = isinstance(select, SelectOperation) and select.distinct
         self._offset = select.offset if isinstance(select, SelectOperation) else None
+
+    def __group_by_parts(self, select: QueryExpression) -> list[str]:
+        """The GROUP BY of a query: the grouping it was given, else the grouping its columns imply.
+
+        Columns that are not aggregated are what the aggregates are computed for, so a query that selects both is
+        grouped by those columns (as ``df.groupby(columns).agg(...)`` does). An aggregate read through a to-many
+        association is computed for each row of the root table, as Legend does, so the root's primary key is grouped
+        by too. A query that selects only aggregates over the root's own columns is not grouped: the aggregate covers
+        every row."""
+        if select.group_by or not isinstance(select, SelectOperation):
+            return [self.__attr_to_col_string(a) for a in select.group_by]
+        aggregates = [c for c in select.display if contains_aggregate(c)]
+        if not aggregates:
+            return []
+        per_root = select.table is not None and any(_reaches_to_many(c) for c in aggregates)
+        keys = [self.__attr_to_col_string(c) for c in select.table.columns if c.primary_key] if per_root and select.table else []
+        grouped = [sql_operation_to_string(shown.element) for column, shown in zip(select.display, self._select)
+                   if not contains_aggregate_or_window(column)]
+        return list(dict.fromkeys([*keys, *grouped]))
 
     def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
         if isinstance(attr, Column):

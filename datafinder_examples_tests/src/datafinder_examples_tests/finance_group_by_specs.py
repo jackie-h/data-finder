@@ -33,6 +33,20 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
                 dtype=object,
             ),
         ),
+        # With no group_by, the columns that are not aggregated are what the aggregates are grouped by.
+        TestExpectation(
+            name="average_price_per_account_grouped_by_the_plain_columns",
+            query=lambda f: f.find_all(
+                None, _AT,
+                [f.account().name(), f.price().average()],
+            ).order_by(f.account().name().ascending()),
+            expected_columns=["Account Name", "Average Price"],
+            expected_result=np.array(
+                [["Alpha Fund", 150.0], ["Beta Fund", 350.0], ["Gamma Fund", 500.0]],
+                dtype=object,
+            ),
+            expected_sql={"duckdb": "GROUP BY t1.ACCT_NAME"},
+        ),
         TestExpectation(
             name="average_price_settled_only",
             query=lambda f: f.find_all(

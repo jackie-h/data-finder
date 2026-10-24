@@ -47,9 +47,9 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
-    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [], __zz_milestoning_columns)
+    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', primary_key=True), {% endif %}{% endfor %}], __zz_milestoning_columns)
 {% else %}
-    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [])
+    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', primary_key=True), {% endif %}{% endfor %}])
 {% endif %}
 
     _column_map = {
@@ -61,9 +61,9 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
     }
 
     def __init__(self, relation_name: str, source: Column, target: Column, parent_join: JoinTreeNodeOperation | None = None,
-                 embedded: dict | None = None, **kwargs):
+                 embedded: dict | None = None, many: bool = False, **kwargs):
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
-        self.__node = JoinTreeNodeOperation(join, parent_join)
+        self.__node = JoinTreeNodeOperation(join, parent_join, many=many)
         RelatedFinder.__init__(self, self.__node)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
@@ -72,7 +72,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}
-        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node, embedded={% if flatten_embedded(rpm.target) %}_embedded_for_{{to_python_name(rpm.property)}}(embedded, self.__node, '{{rpm.property.name}}'){% else %}{k[len('{{rpm.property.id}}.'):]: v for k, v in (embedded or {}).items() if k.startswith('{{rpm.property.id}}.')} or None{% endif %})
+        self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node, embedded={% if flatten_embedded(rpm.target) %}_embedded_for_{{to_python_name(rpm.property)}}(embedded, self.__node, '{{rpm.property.name}}'){% else %}{k[len('{{rpm.property.id}}.'):]: v for k, v in (embedded or {}).items() if k.startswith('{{rpm.property.id}}.')} or None{% endif %}, many={{ 'True' if rpm.property.multiplicity is not none and rpm.property.multiplicity.is_many() else 'False' }})
 {% endif %}
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
@@ -104,7 +104,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         """{{display_name(rpm.property)}}"""
 {% endif %}
         if kwargs:
-            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node, **kwargs)
+            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), self.__node, many={{ 'True' if rpm.property.multiplicity is not none and rpm.property.multiplicity.is_many() else 'False' }}, **kwargs)
         return self.__{{to_python_name(rpm.property)}}
 
 {% endif %}
@@ -114,10 +114,10 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         """{{source_rcm.clazz.name}}"""
         if kwargs:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            return {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), self.__node, **kwargs)
+            return {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), self.__node, many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }}, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), self.__node)
+            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), self.__node, many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }})
         return self.__{{reverse_name}}
 
 {% endfor %}
@@ -144,9 +144,9 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
-    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [], __zz_milestoning_columns)
+    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', primary_key=True), {% endif %}{% endfor %}], __zz_milestoning_columns)
 {% else %}
-    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [])
+    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', '{{table_qualified_name(rpm.target.table)}}', primary_key=True), {% endif %}{% endfor %}])
 {% endif %}
 
 {% for rpm in rcm.property_mappings %}
@@ -156,7 +156,7 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% endfor %}
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) %}
-    __{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'){% if rpm.property.type.name != rcm.clazz.name and flatten_embedded(rpm.target) %}, embedded=_embedded_for_{{to_python_name(rpm.property)}}(None, None, '{{rpm.property.name}}'){% endif %})
+    __{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'){% if rpm.property.type.name != rcm.clazz.name and flatten_embedded(rpm.target) %}, embedded=_embedded_for_{{to_python_name(rpm.property)}}(None, None, '{{rpm.property.name}}'){% endif %}, many={{ 'True' if rpm.property.multiplicity is not none and rpm.property.multiplicity.is_many() else 'False' }})
 {% endif %}
 {% endfor %}
 {% if reverse_assocs %}
@@ -189,7 +189,7 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         """{{display_name(rpm.property)}}"""
 {% endif %}
         if kwargs:
-            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), None, **kwargs)
+            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), None, many={{ 'True' if rpm.property.multiplicity is not none and rpm.property.multiplicity.is_many() else 'False' }}, **kwargs)
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% endif %}
@@ -199,10 +199,10 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         """{{source_rcm.clazz.name}}"""
         if kwargs:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            return {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), None, **kwargs)
+            return {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), None, many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }}, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'))
+            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{source_rcm.clazz.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'), many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }})
         return self.__{{reverse_name}}
 
 {% endfor %}
