@@ -14,7 +14,7 @@ from model.relational import Table, Operation, LogicalOperator, LogicalOperation
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
-    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation, \
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
     SelectOperation, QueryExpression, ArithmeticOperation, ArithmeticOperator, ConcatOperation
@@ -189,7 +189,7 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
         collect_required_joins(op.window, required_joins, node_refs)
     elif isinstance(op, ScalarFunctionOperation):
         collect_required_joins(op.element, required_joins, node_refs)
-    elif isinstance(op, DateExtractOperation):
+    elif isinstance(op, (DateExtractOperation, DateTruncOperation)):
         collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateArithmeticOperation):
         collect_required_joins(op.element, required_joins, node_refs)
@@ -216,6 +216,12 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
         collect_required_joins(op.right, required_joins, node_refs)
     elif isinstance(op, (IsNullOperation, IsNotNullOperation, InOperation, NotInOperation)):
         collect_required_joins(op.element, required_joins, node_refs)
+    elif isinstance(op, ArithmeticOperation):
+        collect_required_joins(op.left, required_joins, node_refs)
+        collect_required_joins(op.right, required_joins, node_refs)
+    elif isinstance(op, ConcatOperation):
+        for part in op.parts:
+            collect_required_joins(part, required_joins, node_refs)
     elif isinstance(op, (ExistsOperation, NotExistsOperation)):
         # The join must be constrained like any other. It isn't recorded in node_refs: it is not an
         # attribute reference, so it doesn't affect whether other references to the node can be embedded.
@@ -480,6 +486,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return fn + '(' + ', '.join(parts) + ')'
     elif isinstance(operation, DateExtractOperation):
         return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, DateTruncOperation):
+        return "CAST(DATE_TRUNC('" + operation.part.value.lower() + "', " + sql_operation_to_string(operation.element) + ') AS DATE)'
     elif isinstance(operation, DateArithmeticOperation):
         op = '+' if operation.is_add else '-'
         return sql_operation_to_string(operation.element) + ' ' + op + ' INTERVAL ' + str(operation.n) + ' ' + operation.unit.value
@@ -515,7 +523,7 @@ def display_alias(col: RelationalOperationElement) -> str:
         return col.display_name if col.display_name else col.operator.name + ' ' + find_column(col).column.name
     if isinstance(col, ScalarFunctionOperation):
         return col.display_name if col.display_name else col.function.name + ' ' + find_column(col).column.name
-    if isinstance(col, (DateExtractOperation, DateArithmeticOperation, DateDiffOperation)):
+    if isinstance(col, (DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation)):
         return col.display_name if col.display_name else find_column(col).column.name
     if isinstance(col, WindowFunctionOperation):
         if col.display_name:
@@ -637,6 +645,8 @@ class SQLQueryGenerator:
             return ConcatOperation([self.__rewrite_operation(part) for part in op.parts], op.display_name)
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
+        elif isinstance(op, DateTruncOperation):
+            return DateTruncOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateArithmeticOperation):
             return DateArithmeticOperation(self.__rewrite_operation(op.element), op.n, op.unit, op.is_add,
                                            op.display_name)
@@ -669,7 +679,7 @@ class SQLQueryGenerator:
         elif isinstance(op, ConcatOperation):
             for part in op.parts:
                 self.__collect_required_joins(part, required_joins)
-        elif isinstance(op, DateExtractOperation):
+        elif isinstance(op, (DateExtractOperation, DateTruncOperation)):
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateArithmeticOperation):
             self.__collect_required_joins(op.element, required_joins)
@@ -777,6 +787,13 @@ class SQLQueryGenerator:
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
+        elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation)):
+            # an expression compared in a filter: it needs its columns' joins, then it is written as in a select list
+            required_joins: dict = {}
+            self.__collect_required_joins(op, required_joins)
+            for parent in required_joins.values():
+                self.__add_join(parent)
+            return sql_operation_to_string(self.__rewrite_operation(op))
         else:
             raise ValueError(op)
 

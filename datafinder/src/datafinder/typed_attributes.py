@@ -8,7 +8,7 @@ from datafinder.scalar_functions import NumericFunctions, StringFunctions
 from model.relational import Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
-    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateArithmeticOperation, DateDiffOperation
+    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation
 
 
 def _temporal_constant(value: datetime.datetime | datetime.date):
@@ -312,6 +312,22 @@ class DateAttribute(Attribute):
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    DateConstantOperation(value))
 
+    def first_day_of_week(self):
+        """The first day of the week the date falls in (a Monday)."""
+        return DateTruncOperation(self._column_with_join(), DatePart.WEEK, 'First Day Of Week ' + self.display_name())
+
+    def first_day_of_month(self):
+        """The first day of the month the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.MONTH, 'First Day Of Month ' + self.display_name())
+
+    def first_day_of_quarter(self):
+        """The first day of the quarter the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.QUARTER, 'First Day Of Quarter ' + self.display_name())
+
+    def first_day_of_year(self):
+        """The first day of the year the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.YEAR, 'First Day Of Year ' + self.display_name())
+
     def year(self):
         """Extract the year. Equivalent to ``d.year``."""
         return DateExtractOperation(self._column_with_join(), DatePart.YEAR, 'Year ' + self.display_name())
@@ -442,6 +458,22 @@ class DateTimeAttribute(Attribute):
         """Return a less-than-or-equal comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
                                    _temporal_constant(value))
+
+    def first_day_of_week(self):
+        """The date of the first day of the week the date falls in (a Monday)."""
+        return DateTruncOperation(self._column_with_join(), DatePart.WEEK, 'First Day Of Week ' + self.display_name())
+
+    def first_day_of_month(self):
+        """The date of the first day of the month the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.MONTH, 'First Day Of Month ' + self.display_name())
+
+    def first_day_of_quarter(self):
+        """The date of the first day of the quarter the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.QUARTER, 'First Day Of Quarter ' + self.display_name())
+
+    def first_day_of_year(self):
+        """The date of the first day of the year the date falls in."""
+        return DateTruncOperation(self._column_with_join(), DatePart.YEAR, 'First Day Of Year ' + self.display_name())
 
     def year(self):
         """Extract the year. Equivalent to ``dt.year``."""

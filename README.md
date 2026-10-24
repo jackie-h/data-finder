@@ -264,6 +264,14 @@ Text joins with `+`: `CompanyFinder.name() + " (" + CompanyFinder.category() + "
 Functions chain: the result of a function has the functions of its type, so `CompanyFinder.name().upper().length()` and
 `TradeFinder.price().sqrt().floor()` both work, and a number from a text function can be used in arithmetic.
 
+An expression compares like a column, in a filter: `CompanyFinder.name().upper().eq("ACME CORP")`,
+`TradeFinder.price() * 2 > 10`, `CompanyFinder.name().length() > CompanyFinder.category().length()`. Use `eq` / `ne` or
+`==` / `!=` and `< <= > >=`; the other side is a value or another expression.
+
+A date can be cut back to the first day of its week (a Monday), month, quarter or year:
+`PositionFinder.trade_date().first_day_of_month()`. The result is a date, so it can be compared:
+`PositionFinder.trade_date().first_day_of_month() == datetime.date(2024, 7, 1)`.
+
 `distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
 

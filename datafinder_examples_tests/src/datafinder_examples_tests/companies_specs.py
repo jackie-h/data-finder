@@ -74,6 +74,63 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Left Lower Name"],
             expected_result=np.array([["acme"]], dtype=object),
         ),
+        # --- Filters on expressions: a function, arithmetic or a join of text, compared like a column ---
+        TestExpectation(
+            name="filter_on_a_function_of_a_column",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(None, None, [f.name()], f.name().upper().eq("ACME CORP")),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "UPPER(t0.name) = 'ACME CORP'"},
+        ),
+        TestExpectation(
+            name="filter_on_the_length_of_a_column",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(None, None, [f.name()], f.name().length() > 10).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Industries"]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_arithmetic",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(None, None, [f.id_()], f.id_() * 2 >= 8).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[4], [5]], dtype=object),
+            expected_sql={"duckdb": "t0.id * 2 >= 8"},
+        ),
+        TestExpectation(
+            name="filter_on_joined_text",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(None, None, [f.id_()], f.name() + "/" + f.category() == "Beta Corp/Technology"),
+            expected_columns=["Id"],
+            expected_result=np.array([[3]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_comparing_two_expressions",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(None, None, [f.id_()], f.name().length() > f.category().length() + 1)
+            .order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[2], [4], [5]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_an_expression_with_another_filter",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(
+                None, None, [f.id_()],
+                f.name().upper().eq("DELTA LTD").or_(f.id_() * 1 == 1),
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [5]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_equal_on_an_expression",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(None, None, [f.id_()], f.name().lower().ne("acme corp"))
+            .order_by(f.id_().ascending()).limit(2),
+            expected_columns=["Id"],
+            expected_result=np.array([[2], [3]], dtype=object),
+        ),
         # --- Distinct: each row once ---
         TestExpectation(
             name="distinct_removes_repeated_rows",

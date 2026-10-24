@@ -163,6 +163,61 @@ class LogicalOperation(BinaryOperation, BooleanOperation):
         self.operator = op
 
 
+def _value_operand(value) -> 'ConstantOperation':
+    """A Python value as the constant it compares with."""
+    if isinstance(value, bool):  # before int: bool is a subclass of int
+        return BooleanConstantOperation(value)
+    if isinstance(value, int):
+        return IntegerConstantOperation(value)
+    if isinstance(value, float):
+        return FloatConstantOperation(value)
+    if isinstance(value, decimal.Decimal):
+        return DecimalConstantOperation(value)
+    if isinstance(value, str):
+        return StringConstantOperation(value)
+    if isinstance(value, datetime.datetime):  # before date: datetime is a subclass of date
+        return DateTimeConstantOperation(value)
+    if isinstance(value, datetime.date):
+        return DateConstantOperation(value)
+    raise TypeError(f"A value to compare with is a bool, number, string, date or datetime, not {type(value).__name__}")
+
+
+class Comparable:
+    """Comparisons for an expression, as for a column: ``f.name().upper().eq("ACME")``, ``f.price() * 2 > 10``,
+    ``f.first() + f.last() == "AnnLee"``. The other side is a value or another expression. Each gives a filter.
+    ``==`` and ``!=`` build a comparison too, as they do on attributes."""
+
+    def _compared(self, operator: 'ComparisonOperator', other) -> 'ComparisonOperation':
+        right = other._arithmetic_operand() if isinstance(other, RelationalOperationElement) else _value_operand(other)
+        return ComparisonOperation(self._arithmetic_operand(), operator, right)  # type: ignore[attr-defined]
+
+    def eq(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.EQUAL, other)
+
+    def ne(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.NOT_EQUAL, other)
+
+    def __eq__(self, other) -> 'ComparisonOperation':  # type: ignore[override]
+        return self.eq(other)
+
+    def __ne__(self, other) -> 'ComparisonOperation':  # type: ignore[override]
+        return self.ne(other)
+
+    __hash__ = object.__hash__  # defining __eq__ would otherwise make an expression unhashable
+
+    def __lt__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.LESS_THAN, other)
+
+    def __le__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, other)
+
+    def __gt__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.GREATER_THAN, other)
+
+    def __ge__(self, other) -> 'ComparisonOperation':
+        return self._compared(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, other)
+
+
 class ArithmeticOperator(Enum):
     ADD = '+'
     SUBTRACT = '-'
@@ -224,7 +279,7 @@ class Arithmetic:
         return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
 
 
-class ArithmeticOperation(BinaryOperation, Arithmetic):
+class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable):
     """``left operator right`` on numbers, e.g. ``price * quantity``."""
     operator: ArithmeticOperator
 
@@ -235,7 +290,7 @@ class ArithmeticOperation(BinaryOperation, Arithmetic):
         self.display_name = display_name
 
 
-class ConcatOperation(Operation):
+class ConcatOperation(Operation, Comparable):
     """Text joined end to end: ``first + " " + last``. NULL in any part makes the whole NULL, as with SQL's ``||``."""
     parts: list[RelationalOperationElement]
 
@@ -351,7 +406,7 @@ _NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction
                       ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH}
 
 
-class ScalarFunctionOperation(UnaryOperation, Arithmetic):
+class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable):
     def _numeric(self) -> None:
         if self.function not in _NUMERIC_FUNCTIONS:
             raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")
@@ -385,6 +440,15 @@ class DatePart(Enum):
 
 
 class DateExtractOperation(UnaryOperation):
+    def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
+        super().__init__(element)
+        self.part = part
+        self.display_name = display_name
+
+
+class DateTruncOperation(UnaryOperation, Comparable):
+    """The first day of the week, month, quarter or year that the date falls in, as a date."""
+
     def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.part = part
