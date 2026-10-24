@@ -216,6 +216,12 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
         collect_required_joins(op.right, required_joins, node_refs)
     elif isinstance(op, (IsNullOperation, IsNotNullOperation, InOperation, NotInOperation)):
         collect_required_joins(op.element, required_joins, node_refs)
+    elif isinstance(op, ArithmeticOperation):
+        collect_required_joins(op.left, required_joins, node_refs)
+        collect_required_joins(op.right, required_joins, node_refs)
+    elif isinstance(op, ConcatOperation):
+        for part in op.parts:
+            collect_required_joins(part, required_joins, node_refs)
     elif isinstance(op, (ExistsOperation, NotExistsOperation)):
         # The join must be constrained like any other. It isn't recorded in node_refs: it is not an
         # attribute reference, so it doesn't affect whether other references to the node can be embedded.
@@ -774,6 +780,13 @@ class SQLQueryGenerator:
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
+        elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation)):
+            # an expression compared in a filter: it needs its columns' joins, then it is written as in a select list
+            required_joins: dict = {}
+            self.__collect_required_joins(op, required_joins)
+            for parent in required_joins.values():
+                self.__add_join(parent)
+            return sql_operation_to_string(self.__rewrite_operation(op))
         else:
             raise ValueError(op)
 

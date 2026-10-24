@@ -940,6 +940,54 @@ class TestChainedFunctions:
         assert self._sql(upper) == 'SELECT UPPER(t0.name) AS "Upper Name" FROM t AS t0'
 
 
+class TestExpressionFilters:
+
+    @staticmethod
+    def _where(op):
+        table = Table("t", [Column("a", "DOUBLE", "t"), Column("n", "VARCHAR", "t")])
+        return to_sql(None, None, [DoubleAttribute("A", "a", "DOUBLE", "t")], table, op).split(" WHERE ")[1]
+
+    @staticmethod
+    def _cols():
+        return DoubleAttribute("A", "a", "DOUBLE", "t"), StringAttribute("N", "n", "VARCHAR", "t")
+
+    def test_a_function(self):
+        _, n = self._cols()
+        assert self._where(n.upper().eq("X")) == "UPPER(t0.n) = 'X'"
+        assert self._where(n.upper().ne("X")) == "UPPER(t0.n) <> 'X'"
+
+    def test_ordering(self):
+        a, n = self._cols()
+        assert self._where(a.abs() > 1) == "ABS(t0.a) > 1"
+        assert self._where(a.abs() >= 1) == "ABS(t0.a) >= 1"
+        assert self._where(n.length() < 3) == "LENGTH(t0.n) < 3"
+        assert self._where(n.length() <= 3) == "LENGTH(t0.n) <= 3"
+
+    def test_arithmetic_and_text_join(self):
+        a, n = self._cols()
+        assert self._where(a * 2 > 4) == "t0.a * 2 > 4"
+        assert self._where(n + "!" == "x!") == "t0.n || '!' = 'x!'"
+
+    def test_two_expressions(self):
+        a, n = self._cols()
+        assert self._where(a + 1 > n.length()) == "t0.a + 1 > LENGTH(t0.n)"
+
+    def test_combined_with_other_filters(self):
+        a, n = self._cols()
+        assert self._where((a * 2 > 4).and_(n.eq("x")).or_(n.lower().eq("y"))) == \
+            "(t0.a * 2 > 4 AND t0.n = 'x') OR LOWER(t0.n) = 'y'"
+
+    def test_a_value_to_compare_with_must_be_simple(self):
+        _, n = self._cols()
+        with pytest.raises(TypeError, match="value to compare"):
+            n.upper().eq([1])
+
+    def test_an_expression_is_still_hashable_and_distinct(self):
+        _, n = self._cols()
+        one, two = n.upper(), n.upper()
+        assert len({one, two}) == 2 and one is not two
+
+
 class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 

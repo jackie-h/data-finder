@@ -264,6 +264,10 @@ Text joins with `+`: `CompanyFinder.name() + " (" + CompanyFinder.category() + "
 Functions chain: the result of a function has the functions of its type, so `CompanyFinder.name().upper().length()` and
 `TradeFinder.price().sqrt().floor()` both work, and a number from a text function can be used in arithmetic.
 
+An expression compares like a column, in a filter: `CompanyFinder.name().upper().eq("ACME CORP")`,
+`TradeFinder.price() * 2 > 10`, `CompanyFinder.name().length() > CompanyFinder.category().length()`. Use `eq` / `ne` or
+`==` / `!=` and `< <= > >=`; the other side is a value or another expression.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:

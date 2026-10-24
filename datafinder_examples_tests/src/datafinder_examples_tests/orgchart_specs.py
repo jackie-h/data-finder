@@ -36,6 +36,15 @@ ORGCHART_FINDER_SPECS = FinderSpec(
                 [[None], ["Bob reports to Alice"], ["Carol reports to Alice"], ["Dave reports to Bob"]], dtype=object),
         ),
         TestExpectation(
+            name="filter_on_a_function_of_a_related_column",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(
+                None, None, [f.name()], f.manager().name().upper().eq("ALICE")
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
+        ),
+        TestExpectation(
             name="manager_name_for_dave",
             query=lambda f: f.find_all(None, None, [f.name(), f.manager().name()], f.name().eq("Dave")),
             expected_columns=["Name", "Manager Name"],
