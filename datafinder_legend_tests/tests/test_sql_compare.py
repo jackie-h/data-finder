@@ -91,3 +91,12 @@ def test_associativity_does_not_make_operand_order_irrelevant():
 def test_parentheses_that_change_meaning_are_not_ignored():
     assert not sql_equivalent("SELECT a FROM t WHERE (x = 1 OR y = 2) AND z = 3", "SELECT a FROM t WHERE x = 1 OR y = 2 AND z = 3")
     assert not sql_equivalent("SELECT a FROM t WHERE x = 1 AND (y = 2 OR z = 3)", "SELECT a FROM t WHERE x = 1 AND y = 2 OR z = 3")
+
+
+def test_a_clause_that_names_an_output_alias_is_the_expression_it_stands_for():
+    assert sql_equivalent("SELECT t0.AGE AS a FROM t AS t0 ORDER BY t0.AGE ASC", 'SELECT "r".AGE AS "age" FROM t AS "r" ORDER BY "age" ASC')
+    assert sql_equivalent("SELECT t0.k AS a, SUM(t0.v) AS s FROM t AS t0 GROUP BY t0.k", 'SELECT "r".k AS "key", SUM("r".v) AS "s" FROM t AS "r" GROUP BY "key"')
+
+
+def test_ordering_by_a_different_expression_is_still_caught():
+    assert not sql_equivalent("SELECT t0.AGE AS a FROM t AS t0 ORDER BY t0.OTHER ASC", 'SELECT "r".AGE AS "age" FROM t AS "r" ORDER BY "age" ASC')
