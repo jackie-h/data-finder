@@ -508,57 +508,57 @@ class TestDateArithmetic:
     def test_add_days_produces_interval(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr.add_days(7)], table, NoOperation())
-        assert "+ INTERVAL 7 DAY" in sql
+        assert "+ INTERVAL '7' DAY" in sql
 
     def test_subtract_days_produces_minus_interval(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr.subtract_days(3)], table, NoOperation())
-        assert "- INTERVAL 3 DAY" in sql
+        assert "- INTERVAL '3' DAY" in sql
 
     def test_add_months_produces_month_interval(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr.add_months(2)], table, NoOperation())
-        assert "+ INTERVAL 2 MONTH" in sql
+        assert "+ INTERVAL '2' MONTH" in sql
 
     def test_add_years_produces_year_interval(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr.add_years(1)], table, NoOperation())
-        assert "+ INTERVAL 1 YEAR" in sql
+        assert "+ INTERVAL '1' YEAR" in sql
 
     def test_add_hours_on_datetime(self):
         table, attr = _make_datetime_attr()
         sql = to_sql(None, None, [attr.add_hours(6)], table, NoOperation())
-        assert "+ INTERVAL 6 HOUR" in sql
+        assert "+ INTERVAL '6' HOUR" in sql
 
     def test_timedelta_days_operator_on_date(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr + datetime.timedelta(days=7)], table, NoOperation())
-        assert "+ INTERVAL 7 DAY" in sql
+        assert "+ INTERVAL '7' DAY" in sql
 
     def test_timedelta_subtraction_operator_on_date(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr - datetime.timedelta(days=3)], table, NoOperation())
-        assert "- INTERVAL 3 DAY" in sql
+        assert "- INTERVAL '3' DAY" in sql
 
     def test_timedelta_days_operator_on_datetime(self):
         table, attr = _make_datetime_attr()
         sql = to_sql(None, None, [attr + datetime.timedelta(days=2)], table, NoOperation())
-        assert "+ INTERVAL 2 DAY" in sql
+        assert "+ INTERVAL '2' DAY" in sql
 
     def test_timedelta_hours_operator_on_datetime(self):
         table, attr = _make_datetime_attr()
         sql = to_sql(None, None, [attr + datetime.timedelta(hours=6)], table, NoOperation())
-        assert "+ INTERVAL 6 HOUR" in sql
+        assert "+ INTERVAL '6' HOUR" in sql
 
     def test_timedelta_minutes_operator_on_datetime(self):
         table, attr = _make_datetime_attr()
         sql = to_sql(None, None, [attr + datetime.timedelta(minutes=30)], table, NoOperation())
-        assert "+ INTERVAL 30 MINUTE" in sql
+        assert "+ INTERVAL '30' MINUTE" in sql
 
     def test_timedelta_seconds_operator_on_datetime(self):
         table, attr = _make_datetime_attr()
         sql = to_sql(None, None, [attr + datetime.timedelta(seconds=45)], table, NoOperation())
-        assert "+ INTERVAL 45 SECOND" in sql
+        assert "+ INTERVAL '45' SECOND" in sql
 
 
 class TestDateDiff:
