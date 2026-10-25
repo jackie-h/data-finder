@@ -13,7 +13,7 @@ from sqlglot import exp
 from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, NOT_EQUAL_NULL, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -83,6 +83,20 @@ def _drop_float_cast_in_division(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _drop_null_alternative_to_not_equal(tree: exp.Expr) -> exp.Expr:
+    """``col <> x OR col IS NULL`` is ``col <> x``."""
+    for node in reversed(list(tree.find_all(exp.Or))):
+        if isinstance(node.parent, exp.Or):
+            continue
+        operands = _operands(node, exp.Or)
+        unequal = {o.this.sql() for o in operands if isinstance(o, exp.NEQ)}
+        kept = [o for o in operands
+                if not (isinstance(o, exp.Is) and isinstance(o.expression, exp.Null) and o.this.sql() in unequal)]
+        if len(kept) != len(operands):
+            node.replace(reduce(lambda left, right: _connect(exp.Or, left, right), kept[1:], kept[0]))
+    return tree
+
+
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     JOIN_OPERAND_ORDER: [_swap_equality_operands],
@@ -90,6 +104,7 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     TYPED_DATE_LITERAL: [_untype_date_literals],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
+    NOT_EQUAL_NULL: [_drop_null_alternative_to_not_equal],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
     JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION: [_swap_equality_operands, _drop_float_cast_in_division],
     JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE: [_swap_equality_operands, _drop_float_cast_in_average],

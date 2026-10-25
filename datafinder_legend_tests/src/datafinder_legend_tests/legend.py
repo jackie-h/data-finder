@@ -34,6 +34,10 @@ FLOAT_AVERAGE = (
     "Legend writes avg(1.0 * x) so an integer column averages as a float; the column is already a float, so the finder "
     "writes avg(x)"
 )
+NOT_EQUAL_NULL = (
+    "Legend writes `!=` as `col <> x or col is null`, so a missing value counts as different; the finder writes just "
+    "`col <> x`, which is not true for a missing value"
+)
 FLOAT_DIVISION = (
     "Legend writes x / y as (1.0 * x) / y so integer columns divide as floats; the column is already a float, so the "
     "finder writes x / y"
