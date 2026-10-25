@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION, JOIN_OPERAND_ORDER
 
 _SRC = "tds/tests/testTDSFilter.pure"
 
@@ -73,20 +73,20 @@ TDS_FILTER_SPECS = FinderSpec(
         unsupported("testFilterOnDecimal", f"{_SRC}::testFilterOnDecimal",
                     'select 1.0 as "decimal" from personTable as "root" where 1.0 = 2.0',
                     'no filter on a constant'),
-        unsupported("testFilterOnRootClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupBy",
-                    'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',
-                    'no having (a filter on an aggregate)'),
-        unsupported("testFilterOnAssociatedClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnAssociatedClassAggValueAfterGroupBy",
-                    'select "root".AGE as "age", listagg("addresstable_0".NAME, \',\') as "addresses" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) group by "age" having listagg("addresstable_0".NAME, \',\') like \'%Hoboken%\'',
-                    'no having (a filter on an aggregate)'),
-        unsupported("testFilterFollowedByGroupByWithFilterOnRootClass", f"{_SRC}::testFilterFollowedByGroupByWithFilterOnRootClass",
-                    'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" where "root".FIRSTNAME = \'John\' group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',
-                    'no having (a filter on an aggregate)'),
-        unsupported("testFilterOnRootClassAggValueAfterGroupByWithHavingMultipleFilters", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupByWithHavingMultipleFilters",
-                    'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having "root".AGE > 20 and listagg("root".FIRSTNAME, \',\') like \'%John%\'',
-                    'no having (a filter on an aggregate)'),
         unsupported("testInOnColumnInSubselect", f"{_SRC}::testInOnColumnInSubselect",
                     'select "subselect"."name" as "name", "subselect"."age" as "age", "subselect"."rank" as "rank" from (select "root".FIRSTNAME as "name", "root".AGE as "age", rank() over (partition by "root".FIRSTNAME order by "root".AGE desc nulls first) as "rank" from personTable as "root") as "subselect" where "subselect"."name" in (\'John\', \'Peter\')',
                     'a filter on a window function column is nested in a subselect'),
+        ported("testFilterOnRootClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupBy",
+               'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',
+               lambda f: f.find_all(None, None, [f.age(), f.first_name().join(",")]).group_by(f.age()).having(f.first_name().join(",").contains("John"))),
+        ported("testFilterOnAssociatedClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnAssociatedClassAggValueAfterGroupBy",
+               'select "root".AGE as "age", listagg("addresstable_0".NAME, \',\') as "addresses" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) group by "age" having listagg("addresstable_0".NAME, \',\') like \'%Hoboken%\'',
+               lambda f: f.find_all(None, None, [f.age(), f.address().name().join(",")]).group_by(f.age()).having(f.address().name().join(",").contains("Hoboken"))),
+        ported("testFilterFollowedByGroupByWithFilterOnRootClass", f"{_SRC}::testFilterFollowedByGroupByWithFilterOnRootClass",
+               'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" where "root".FIRSTNAME = \'John\' group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',
+               lambda f: f.find_all(None, None, [f.age(), f.first_name().join(",")], f.first_name().eq("John")).group_by(f.age()).having(f.first_name().join(",").contains("John"))),
+        ported("testFilterOnRootClassAggValueAfterGroupByWithHavingMultipleFilters", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupByWithHavingMultipleFilters",
+               'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having "root".AGE > 20 and listagg("root".FIRSTNAME, \',\') like \'%John%\'',
+               lambda f: f.find_all(None, None, [f.age(), f.first_name().join(",")]).group_by(f.age()).having(f.age() > 20, f.first_name().join(",").contains("John"))),
     ],
 )
