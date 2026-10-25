@@ -13,7 +13,7 @@ from sqlglot import exp
 from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, JOIN_OPERAND_ORDER, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -65,12 +65,23 @@ def _concat_function_to_pipes(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _drop_float_cast_in_average(tree: exp.Expr) -> exp.Expr:
+    """``avg(1.0 * x)`` is ``avg(x)`` for a column that is already a float."""
+    for avg in tree.find_all(exp.Avg):
+        arg = avg.this
+        if isinstance(arg, exp.Mul) and isinstance(arg.left, exp.Literal) and arg.left.name == "1.0":
+            arg.replace(arg.right.copy())
+    return tree
+
+
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     JOIN_OPERAND_ORDER: [_swap_equality_operands],
     OPTIONAL_PROPERTY: [_drop_not_null_guards],
     TYPED_DATE_LITERAL: [_untype_date_literals],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
+    FLOAT_AVERAGE: [_drop_float_cast_in_average],
+    JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE: [_swap_equality_operands, _drop_float_cast_in_average],
 }
 
 
