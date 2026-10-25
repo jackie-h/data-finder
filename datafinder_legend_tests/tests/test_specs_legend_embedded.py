@@ -3,6 +3,9 @@ Runs the specs ported from legend-engine's ``tests/mapping/embedded`` against th
 generate is compared with Legend's, and the rows they return are compared with the rows Legend's SQL returns on
 Legend's test data.
 """
+import importlib
+from contextlib import ExitStack
+
 import pytest
 
 from datafinder_legend_tests import legend_path
@@ -12,21 +15,30 @@ from datafinder_legend_tests.gaps import checkable, gap_is_only
 from datafinder_legend_tests.legend import BACKEND, discover_specs
 from datafinder_legend_tests.results import assert_same_rows
 
-_MAPPING = "tests/mapping/embedded/embedded_mapping.md"
-_SPECS = discover_specs(_MAPPING)
+# each mapping with the data its specs run on
+_MAPPINGS = {
+    "tests/mapping/embedded/embedded_mapping.md": "tests/mapping/embedded/embedded_data.sql",
+    "tests/mapping/embedded/denorm_mapping.md": "tests/mapping/embedded/denorm_data.sql",
+}
+_SPECS = [spec for mapping in _MAPPINGS for spec in discover_specs(mapping)]
 _CASES = [pytest.param(spec, e, id=f"{spec.finder_name}-{e.name}") for spec in _SPECS for e in spec.expectations]
 
 
 @pytest.fixture(scope="module")
 def finders():
-    with generated_finders(legend_path(_MAPPING)):
-        from product_finder import ProductFinder  # type: ignore[import]
-        yield {"ProductFinder": ProductFinder()}
+    with ExitStack() as stack:
+        found = {}
+        for mapping in _MAPPINGS:
+            stack.enter_context(generated_finders(legend_path(mapping)))
+            for name in {spec.finder_name for spec in discover_specs(mapping)}:
+                module = importlib.import_module(name.removesuffix("Finder").lower() + "_finder")
+                found[name] = getattr(module, name)()
+        yield found
 
 
 @pytest.fixture(scope="module")
 def database():
-    with seeded_database(legend_path("tests/mapping/embedded/embedded_data.sql")) as path:
+    with seeded_database(*(legend_path(data) for data in _MAPPINGS.values())) as path:
         yield path
 
 

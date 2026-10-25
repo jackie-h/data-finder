@@ -45,6 +45,10 @@ def _drop_not_null_guards(tree: exp.Expr) -> exp.Expr:
                                                 and o.this.this.sql() in o2.sql() for o2 in operands))]
         if len(kept) != len(operands):
             node.replace(reduce(lambda left, right: _connect(exp.And, left, right), kept[1:], kept[0]))
+    # parentheses that grouped the guard with its comparison now group one predicate
+    for paren in list(tree.find_all(exp.Paren)):
+        if isinstance(paren.this, exp.Predicate | exp.Binary) and not isinstance(paren.this, exp.Connector):
+            paren.replace(paren.this)
     return tree
 
 
