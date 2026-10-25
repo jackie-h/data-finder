@@ -6,10 +6,11 @@ features the simple subset does not have. Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported
+from datafinder_legend_tests.legend import ported, unsupported
 
 _FILTERS = "functions/tests/projection/testFilters.pure"
 _FILTER = "functions/tests/projection/testFilter.pure"
+_SRC = _FILTER
 
 _OPTIONAL_PROPERTY_GAP = (
     "Legend adds `AGE is not null` before a comparison on an optional property; the model has no multiplicity, "
@@ -39,5 +40,11 @@ FILTERS_PERSON_SPECS = FinderSpec(
                'where "root".AGE > 30 and "root".AGE is not null',
                lambda f: f.find_all(None, None, [f.first_name(), f.age()],
                                     (f.age() > 30).and_(f.age().is_not_none()))),
+        unsupported("testCompressSQLforINFilter", f"{_SRC}::testCompressSQLforINFilter",
+                    'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "Name", "locationtable_0".PLACE as "place", "locationtable_0".date as "CD" from personTable as "root" left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID and "locationtable_0".PLACE in (\'Hoboken\', \'New York\'))',
+                    'no filter inside a navigation'),
+        unsupported("testCompressSQLforINFilter2", f"{_SRC}::testCompressSQLforINFilter2",
+                    'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "Name", "locationtable_0".PLACE as "place", "locationtable_1".date as "CD" from personTable as "root" left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID and "locationtable_0".PLACE = \'New York\') left outer join locationTable as "locationtable_1" on ("root".ID = "locationtable_1".PERSONID and "locationtable_1".PLACE in (\'New York\', \'Hoboken\'))',
+                    'no filter inside a navigation'),
     ],
 )
