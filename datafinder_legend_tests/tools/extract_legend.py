@@ -107,8 +107,36 @@ def _executions(body: str) -> list[dict]:
     return calls
 
 
+def _top_level_calls(query: str) -> list[str]:
+    """The names of the functions chained at the top level of the query, ``a->f()->g(x->h())`` giving f and g."""
+    text = query.strip()
+    if text.startswith("{|"):  # a lambda around the query; what follows its closing brace is chained on it too
+        depth, end = 0, len(text)
+        for i, ch in enumerate(text):
+            depth += ch == "{"
+            depth -= ch == "}"
+            if depth == 0:
+                end = i
+                break
+        text = text[2:end] + text[end + 1:]
+    calls, depth, i = [], 0, 0
+    while i < len(text):
+        ch = text[i]
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif depth == 0 and text.startswith("->", i):
+            m = re.match(r"->\s*(?:[\w:]*::)?(\w+)\s*\(", text[i:])
+            if m:
+                calls.append(m.group(1))
+        i += 1
+    return calls
+
+
 def _classify(query: str) -> str:
-    if re.search(r"->\s*(project|groupBy|distinct)\s*\(", query) or "TabularDataSet" in query or "tds" in query.lower():
+    """``project`` for a query whose result is a table: it projects or groups at the top level."""
+    if not query.strip() or {"project", "groupBy"} & set(_top_level_calls(query)):
         return "project"
     if "graphFetch" in query or "serialize" in query:
         return "object"
