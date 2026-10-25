@@ -95,6 +95,15 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             expected_result=np.array([[2]], dtype=object),
             expected_sql={"duckdb": "CAST(DATE_TRUNC('month', t0.trade_date) AS DATE) = '2024-07-01'"},
         ),
+        # --- Earliest and latest date ---
+        TestExpectation(
+            name="earliest_and_latest_date",
+            skip_backends={"graphql": "The GraphQL finder cannot take the earliest or latest date yet"},
+            query=lambda f: f.find_all(None, None, [f.trade_date().min(), f.trade_date().max()]),
+            expected_columns=["Min Trade Date", "Max Trade Date"],
+            expected_result=np.array([[_D1, _D3]], dtype=object),
+            expected_sql={"duckdb": "MIN(t0.trade_date)"},
+        ),
         # --- Date arithmetic ---
         # ibis/DuckDB returns date arithmetic results as datetime64[us], not datetime.date
         TestExpectation(

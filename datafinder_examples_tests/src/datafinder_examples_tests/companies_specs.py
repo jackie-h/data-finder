@@ -8,10 +8,7 @@ Backends must seed their database with COMPANIES before running these specs.
 import numpy as np
 import pandas as pd
 
-from datafinder import constant
-
-
-from datafinder import when
+from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 COMPANIES_MAPPING = "companies_mapping.md"
@@ -100,6 +97,47 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Category", "Join Name"],
             expected_result=np.array([["Manufacturing", "Acme Industries"]], dtype=object),
             expected_sql={"duckdb": "STRING_AGG(t0.name, ',')"},
+        ),
+        # --- count_all (COUNT(*)), standard deviation, variance, and min / max of text ---
+        TestExpectation(
+            name="count_all_counts_rows_per_group",
+            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
+            query=lambda f: f.find_all(None, None, [f.category(), count_all()]).group_by(f.category())
+            .order_by(f.category().ascending()),
+            expected_columns=["Category", "Count"],
+            expected_result=np.array([["Finance", 2], ["Manufacturing", 1], ["Technology", 2]], dtype=object),
+            expected_sql={"duckdb": "COUNT(*)"},
+        ),
+        TestExpectation(
+            name="population_standard_deviation",
+            skip_backends={"graphql": "The GraphQL finder has no standard deviation yet"},
+            query=lambda f: f.find_all(None, None, [f.id_().std(ddof=0)], f.id_().is_in([1, 3])),
+            expected_columns=["Std Id"],
+            expected_result=np.array([[1.0]], dtype=object),
+            expected_sql={"duckdb": "STDDEV_POP"},
+        ),
+        TestExpectation(
+            name="sample_variance",
+            skip_backends={"graphql": "The GraphQL finder has no variance yet"},
+            query=lambda f: f.find_all(None, None, [f.id_().var()], f.id_().is_in([1, 3])),
+            expected_columns=["Var Id"],
+            expected_result=np.array([[2.0]], dtype=object),
+            expected_sql={"duckdb": "VAR_SAMP"},
+        ),
+        TestExpectation(
+            name="population_variance",
+            skip_backends={"graphql": "The GraphQL finder has no variance yet"},
+            query=lambda f: f.find_all(None, None, [f.id_().var(ddof=0)], f.id_().is_in([1, 3])),
+            expected_columns=["Var Id"],
+            expected_result=np.array([[1.0]], dtype=object),
+            expected_sql={"duckdb": "VAR_POP"},
+        ),
+        TestExpectation(
+            name="smallest_and_largest_text",
+            skip_backends={"graphql": "The GraphQL finder cannot take the smallest or largest text yet"},
+            query=lambda f: f.find_all(None, None, [f.name().min(), f.name().max()]),
+            expected_columns=["Min Name", "Max Name"],
+            expected_result=np.array([["Acme Corp", "Gamma LLC"]], dtype=object),
         ),
         # --- Joining text with + ---
         TestExpectation(

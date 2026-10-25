@@ -371,6 +371,10 @@ class AggregateOperator(Enum):
     AVERAGE = 5
     STRING_AGG = 6
     COUNT_DISTINCT = 7
+    STDDEV_SAMP = 8
+    STDDEV_POP = 9
+    VAR_SAMP = 10
+    VAR_POP = 11
 
 
 class WindowSpecification:

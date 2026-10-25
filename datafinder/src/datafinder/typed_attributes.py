@@ -11,6 +11,24 @@ from model.relational import escape_like, Arithmetic, ConcatOperation, Compariso
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation
 
 
+def _sample(ddof: int) -> bool:
+    if ddof not in (0, 1):
+        raise ValueError(f"ddof is 0 (population) or 1 (sample), not {ddof}")
+    return ddof == 1
+
+
+class _MinMax:
+    """The smallest and largest value of a group, for a column that can be ordered but not summed."""
+
+    def min(self):
+        """Return the smallest value in the group."""
+        return AggregateOperation(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())  # type: ignore[attr-defined]
+
+    def max(self):
+        """Return the largest value in the group."""
+        return AggregateOperation(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())  # type: ignore[attr-defined]
+
+
 def _temporal_constant(value: datetime.datetime | datetime.date):
     """A datetime is a timestamp literal; a plain date is a date literal."""
     if isinstance(value, datetime.datetime):  # before date: datetime is a subclass of date
@@ -18,7 +36,7 @@ def _temporal_constant(value: datetime.datetime | datetime.date):
     return DateConstantOperation(value)
 
 
-class StringAttribute(StringFunctions, Attribute):
+class StringAttribute(_MinMax, StringFunctions, Attribute):
     """A string attribute supporting scalar functions and filter operations.
 
     Scalar functions return a ``ScalarFunctionOperation`` that can be passed as
@@ -118,6 +136,18 @@ class NumericAttribute(NumericFunctions, Attribute, Arithmetic):
     def average(self):
         """Return the mean of all values in the group."""
         return AggregateOperation(self._column_with_join(), AggregateOperator.AVERAGE, 'Average ' + self.display_name())
+
+    def std(self, ddof: int = 1):
+        """Return the standard deviation of the values in the group; ``ddof=1`` (the default) is the sample standard
+        deviation and ``ddof=0`` the population one, as in ``Series.std``."""
+        operator = AggregateOperator.STDDEV_SAMP if _sample(ddof) else AggregateOperator.STDDEV_POP
+        return AggregateOperation(self._column_with_join(), operator, 'Std ' + self.display_name())
+
+    def var(self, ddof: int = 1):
+        """Return the variance of the values in the group; ``ddof=1`` (the default) is the sample variance and
+        ``ddof=0`` the population one, as in ``Series.var``."""
+        operator = AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP
+        return AggregateOperation(self._column_with_join(), operator, 'Var ' + self.display_name())
 
 
 
@@ -263,7 +293,7 @@ class IntegerAttribute(NumericAttribute):
                                    IntegerConstantOperation(value))
 
 
-class DateAttribute(Attribute):
+class DateAttribute(_MinMax, Attribute):
     """A date attribute (YYYY-MM-DD) supporting extract, arithmetic, and diff operations.
 
     Extract methods mirror ``datetime.date`` attributes::
@@ -411,7 +441,7 @@ class DateAttribute(Attribute):
         return DateDiffOperation(self._column_with_join(), other, DatePart.YEAR, 'Diff Years ' + self.display_name())
 
 
-class DateTimeAttribute(Attribute):
+class DateTimeAttribute(_MinMax, Attribute):
     """A datetime attribute (YYYY-MM-DD HH:MM:SS) supporting extract, arithmetic, and diff operations.
 
     Extends the capabilities of ``DateAttribute`` with hour, minute, and second

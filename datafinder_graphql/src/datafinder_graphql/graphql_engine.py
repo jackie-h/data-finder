@@ -295,6 +295,10 @@ _AGG_FUNCS = {
     AggregateOperator.COUNT: 'count',
     AggregateOperator.AVERAGE: 'mean',
     AggregateOperator.COUNT_DISTINCT: 'nunique',
+    AggregateOperator.STDDEV_SAMP: lambda values: values.std(ddof=1),
+    AggregateOperator.STDDEV_POP: lambda values: values.std(ddof=0),
+    AggregateOperator.VAR_SAMP: lambda values: values.var(ddof=1),
+    AggregateOperator.VAR_POP: lambda values: values.var(ddof=0),
 }
 
 
@@ -333,7 +337,7 @@ def _apply_aggregation(df: pd.DataFrame, columns: list, group_by: list | None) -
         rows: dict = {}
         for fn, func, dn in agg_specs:
             if fn in df.columns:
-                rows[dn] = [getattr(df[fn], func)()]
+                rows[dn] = [func(df[fn]) if callable(func) else getattr(df[fn], func)()]
         result = pd.DataFrame(rows)
 
     return result
