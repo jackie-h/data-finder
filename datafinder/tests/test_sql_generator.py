@@ -2086,3 +2086,36 @@ class TestMoreAggregates:
         s = StringAttribute("S", "s", "VARCHAR", "t")
         d = DateAttribute("D", "d", "DATE", "t")
         assert self._sql(s.min(), d.max()) == 'SELECT MIN(t0.s) AS "Min S",MAX(t0.d) AS "Max D" FROM t AS t0'
+
+
+class TestAggregatesOfExpressions:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "INT", "t"), Column("b", "INT", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    def test_sum_of_arithmetic(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        b = IntegerAttribute("B", "b", "INT", "t")
+        assert self._sql((a * b).sum()) == 'SELECT SUM(t0.a * t0.b) AS "Sum Expression" FROM t AS t0'
+
+    def test_sum_of_a_constant(self):
+        from datafinder import constant
+        assert self._sql(constant(1).sum()) == 'SELECT SUM(1) AS "Sum Expression" FROM t AS t0'
+
+    def test_aggregate_of_a_conditional(self):
+        from datafinder import when
+        a = IntegerAttribute("A", "a", "INT", "t")
+        sql = self._sql(when(a > 3).then(5.0).otherwise(1.0).sum().alias("Profit"))
+        assert sql == 'SELECT SUM(CASE WHEN t0.a > 3 THEN 5.0 ELSE 1.0 END) AS "Profit" FROM t AS t0'
+
+    def test_all_and_any_of_a_condition(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        sql = self._sql((a > 3).all().alias("All"), (a > 3).any().alias("Any"))
+        assert sql == 'SELECT BOOL_AND(t0.a > 3) AS "All",BOOL_OR(t0.a > 3) AS "Any" FROM t AS t0'
+
+    def test_a_grouped_aggregate_of_an_expression_groups_by_the_other_columns(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        b = IntegerAttribute("B", "b", "INT", "t")
+        assert self._sql(b, (a * 2).sum()).endswith("GROUP BY t0.b")

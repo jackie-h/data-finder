@@ -34,6 +34,52 @@ class Aliasable:
         return Alias(self, name)  # type: ignore[arg-type]
 
 
+class Aggregates:
+    """Aggregates of an expression, as a column has them: ``(f.price() * f.quantity()).sum()``, ``constant(1).sum()``,
+    ``when(...).then(5.0).otherwise(1.0).sum()``."""
+
+    def _aggregate(self, operator: 'AggregateOperator', label: str) -> 'AggregateOperation':
+        return AggregateOperation(self._arithmetic_operand(), operator, label + ' Expression')  # type: ignore[attr-defined]
+
+    def sum(self) -> 'AggregateOperation':
+        return self._aggregate(AggregateOperator.SUM, 'Sum')
+
+    def min(self) -> 'AggregateOperation':
+        return self._aggregate(AggregateOperator.MIN, 'Min')
+
+    def max(self) -> 'AggregateOperation':
+        return self._aggregate(AggregateOperator.MAX, 'Max')
+
+    def average(self) -> 'AggregateOperation':
+        return self._aggregate(AggregateOperator.AVERAGE, 'Average')
+
+    def count(self) -> 'AggregateOperation':
+        return self._aggregate(AggregateOperator.COUNT, 'Count')
+
+    def std(self, ddof: int = 1) -> 'AggregateOperation':
+        return self._aggregate(AggregateOperator.STDDEV_SAMP if _sample(ddof) else AggregateOperator.STDDEV_POP, 'Std')
+
+    def var(self, ddof: int = 1) -> 'AggregateOperation':
+        return self._aggregate(AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP, 'Var')
+
+
+def _sample(ddof: int) -> bool:
+    if ddof not in (0, 1):
+        raise ValueError(f"ddof is 0 (population) or 1 (sample), not {ddof}")
+    return ddof == 1
+
+
+class BooleanAggregates:
+    """Aggregates of a condition: ``(f.quantity() > 20).all()`` is true for a group where every row holds,
+    ``.any()`` where at least one does."""
+
+    def all(self) -> 'AggregateOperation':
+        return AggregateOperation(self, AggregateOperator.BOOL_AND, 'All Expression')  # type: ignore[arg-type]
+
+    def any(self) -> 'AggregateOperation':
+        return AggregateOperation(self, AggregateOperator.BOOL_OR, 'Any Expression')  # type: ignore[arg-type]
+
+
 class Operation(RelationalOperationElement, Aliasable):
     def __init__(self):
         super().__init__()
@@ -48,7 +94,7 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
-class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
+class ConstantOperation(RelationalOperationElement, Aliasable, Sortable, Aggregates):
     def __init__(self):
         super().__init__()
 
@@ -121,15 +167,15 @@ class BinaryOperation(Operation):
         self.right = right
 
 
-class IsNullOperation(UnaryOperation):
+class IsNullOperation(UnaryOperation, BooleanAggregates):
     pass
 
 
-class IsNotNullOperation(UnaryOperation):
+class IsNotNullOperation(UnaryOperation, BooleanAggregates):
     pass
 
 
-class InOperation(UnaryOperation):
+class InOperation(UnaryOperation, BooleanAggregates):
     """The element is one of ``values`` (``element IN (...)``)."""
     values: list[ConstantOperation]
 
@@ -138,7 +184,7 @@ class InOperation(UnaryOperation):
         self.values = values
 
 
-class NotInOperation(UnaryOperation):
+class NotInOperation(UnaryOperation, BooleanAggregates):
     """The element is none of ``values`` (``element NOT IN (...)``)."""
     values: list[ConstantOperation]
 
@@ -173,7 +219,7 @@ def escape_like(value: str) -> str:
     return value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2).replace('%', LIKE_ESCAPE + '%').replace('_', LIKE_ESCAPE + '_')
 
 
-class ComparisonOperation(BinaryOperation, BooleanOperation):
+class ComparisonOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
     operator: ComparisonOperator
 
     def __init__(self, left: RelationalOperationElement, op: ComparisonOperator, right: RelationalOperationElement):
@@ -186,7 +232,7 @@ class LogicalOperator(Enum):
     OR = 2
 
 
-class LogicalOperation(BinaryOperation, BooleanOperation):
+class LogicalOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
     operator: LogicalOperator
 
     def __init__(self, left: RelationalOperationElement, op: LogicalOperator, right: RelationalOperationElement):
@@ -310,7 +356,7 @@ class Arithmetic:
         return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
 
 
-class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Sortable):
+class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Sortable, Aggregates):
     """``left operator right`` on numbers, e.g. ``price * quantity``."""
     operator: ArithmeticOperator
 
@@ -351,7 +397,7 @@ def concat(left, right) -> ConcatOperation:
 
 
 
-class CaseOperation(Operation):
+class CaseOperation(Operation, Aggregates):
     """``CASE WHEN condition THEN then ELSE default END``; without a ``default`` the value is NULL."""
 
     def __init__(self, condition: RelationalOperationElement, then: RelationalOperationElement,
@@ -375,6 +421,8 @@ class AggregateOperator(Enum):
     STDDEV_POP = 9
     VAR_SAMP = 10
     VAR_POP = 11
+    BOOL_AND = 12
+    BOOL_OR = 13
 
 
 class WindowSpecification:
@@ -460,7 +508,7 @@ _NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction
                       ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH}
 
 
-class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Sortable):
+class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Sortable, Aggregates):
     def _numeric(self) -> None:
         if self.function not in _NUMERIC_FUNCTIONS:
             raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")

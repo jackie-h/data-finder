@@ -752,6 +752,8 @@ class SQLQueryGenerator:
             return ConcatOperation([self.__rewrite_operation(part) for part in op.parts], op.display_name)
         elif isinstance(op, CaseOperation):
             return _RenderedSql(self.__case_sql(op))
+        elif _is_condition(op):  # a condition inside an expression, such as the argument of an aggregate
+            return _RenderedSql(self.build_filter(op))
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateTruncOperation):

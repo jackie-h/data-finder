@@ -297,6 +297,10 @@ result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.categor
 `std()` and `var()` give the sample standard deviation and variance, and `std(ddof=0)` / `var(ddof=0)` the population
 ones, as in pandas. `min()` and `max()` also work on text and dates.
 
+An expression has the aggregates a column has: `(TradeFinder.price() * TradeFinder.quantity()).sum()`, `constant(1).sum()`,
+`when(TradeFinder.price() > 10).then(5.0).otherwise(1.0).sum()`. A condition has `all()` and `any()`:
+`(TradeFinder.price() > 10).all()` is true for a group where every row holds.
+
 `count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
 
 `fill_null` replaces a missing (NULL) value: `EmployeeFinder.manager().name().fill_null("nobody")`, as `fillna` does for a
