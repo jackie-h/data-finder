@@ -314,7 +314,8 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
                          columns: Sequence[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
                          limit: int | None = None, business_date_to: datetime.date | None = None,
-                         distinct: bool = False, offset: int | None = None) -> SelectOperation:
+                         distinct: bool = False, offset: int | None = None,
+                         having: Operation | None = None) -> SelectOperation:
     if isinstance(table, MilestonedTable):
         if business_date_to is not None:
             milestoned_op = build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, table)
@@ -323,7 +324,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
         if milestoned_op is not None:
             op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
-    select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table, distinct, offset)
+    select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table, distinct, offset, having)
 
     def milestoning_condition(node):
         if not isinstance(node.join.target, MilestonedTable):
@@ -615,6 +616,7 @@ class SQLQueryGenerator:
     _where: str
 
     def __init__(self):
+        self._having = ''
         self._select = []
         self._from = set()
         self._join = []
@@ -662,6 +664,14 @@ class SQLQueryGenerator:
         for parent in required_joins.values():
             self.__add_join(parent)
         self._group_by_parts = self.__group_by_parts(select)
+        self._having = ''
+        having = select.having if isinstance(select, SelectOperation) else None
+        if having is not None:
+            having_joins: dict = {}
+            self.__collect_required_joins(having, having_joins)
+            for parent in having_joins.values():
+                self.__add_join(parent)
+            self._having = self.build_filter(having)
         self._order_by_parts = [
             self.__sort_expression(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
             for s in select.order_by
@@ -913,7 +923,8 @@ class SQLQueryGenerator:
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
-        elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation)):
+        elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation,
+                             AggregateOperation, CountAllOperation)):
             # an expression compared in a filter: it needs its columns' joins, then it is written as in a select list
             required_joins: dict = {}
             self.__collect_required_joins(op, required_joins)
@@ -943,6 +954,7 @@ class SQLQueryGenerator:
             + ''.join(joins) \
             + self.__build_where() \
             + self.__build_group_by() \
+            + self.__build_having() \
             + self.__build_order_by() \
             + self.__build_limit() \
             + self.__build_offset()
@@ -957,6 +969,9 @@ class SQLQueryGenerator:
         if not self._group_by_parts:
             return ''
         return ' GROUP BY ' + ', '.join(self._group_by_parts)
+
+    def __build_having(self) -> str:
+        return ' HAVING ' + self._having if self._having else ''
 
     def __build_order_by(self) -> str:
         if not self._order_by_parts:
@@ -977,10 +992,10 @@ def to_sql(business_date: datetime.date | None, processing_datetime: datetime.da
            order_by: list | None = None, group_by: list | None = None,
            limit: int | None = None, validate_sqlglot: bool = True,
            business_date_to: datetime.date | None = None, distinct: bool = False,
-           offset: int | None = None) -> str:
+           offset: int | None = None, having=None) -> str:
     select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
                                       order_by or [], group_by or [], limit,
-                                      business_date_to=business_date_to, distinct=distinct, offset=offset)
+                                      business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
     return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
 
 

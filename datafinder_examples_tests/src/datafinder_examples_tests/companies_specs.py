@@ -139,6 +139,41 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Min Name", "Max Name"],
             expected_result=np.array([["Acme Corp", "Gamma LLC"]], dtype=object),
         ),
+        # --- Having: keep the groups that satisfy a condition ---
+        TestExpectation(
+            name="having_a_count",
+            skip_backends={"graphql": "The GraphQL finder cannot filter the groups of an aggregation"},
+            query=lambda f: f.find_all(None, None, [f.category(), count_all()]).group_by(f.category())
+            .having(count_all() > 1).order_by(f.category().ascending()),
+            expected_columns=["Category", "Count"],
+            expected_result=np.array([["Finance", 2], ["Technology", 2]], dtype=object),
+            expected_sql={"duckdb": "HAVING COUNT(*) > 1"},
+        ),
+        TestExpectation(
+            name="having_a_sum_and_a_grouping_column",
+            skip_backends={"graphql": "The GraphQL finder cannot filter the groups of an aggregation"},
+            query=lambda f: f.find_all(None, None, [f.category(), f.id_().sum()]).group_by(f.category())
+            .having(f.id_().sum() > 3, f.category().ne("Finance")).order_by(f.category().ascending()),
+            expected_columns=["Category", "Sum Id"],
+            expected_result=np.array([["Technology", 4]], dtype=object),
+        ),
+        TestExpectation(
+            name="having_on_joined_text",
+            skip_backends={"graphql": "The GraphQL finder cannot filter the groups of an aggregation"},
+            query=lambda f: f.find_all(None, None, [f.category(), f.name().join(",")]).group_by(f.category())
+            .having(f.name().join(",").contains("Gamma")),
+            expected_columns=["Category", "Join Name"],
+            expected_result=np.array([["Finance", "Gamma LLC,Delta Ltd"]], dtype=object),
+        ),
+        # --- String tests on an expression ---
+        TestExpectation(
+            name="starts_with_on_a_function_of_a_column",
+            skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
+            query=lambda f: f.find_all(None, None, [f.name()], f.name().upper().starts_with("ACME"))
+            .order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"], ["Acme Industries"]], dtype=object),
+        ),
         # --- Aggregates of an expression ---
         TestExpectation(
             name="sum_of_arithmetic",
