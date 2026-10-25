@@ -19,7 +19,7 @@ EXTEND_SPECS = FinderSpec(
     expectations=[
         ported("testStringColumn", f"{_SRC}::testStringColumn",
                'select "root".FIRSTNAME as "first_name", "root".FIRSTNAME as "name_again" from personTable as "root"',
-               lambda f: f.find_all(None, None, [f.first_name(), f.first_name()])),
+               lambda f: f.find_all(None, None, [f.first_name(), f.first_name().alias("name_again")])),
         ported("testFunctionOnStringColumn", f"{_SRC}::testFunctionOnStringColumn",
                'select "root".FIRSTNAME as "first_name", char_length("root".FIRSTNAME) as "name_length" from personTable as "root"',
                lambda f: f.find_all(None, None, [f.first_name(), f.first_name().length()])),
@@ -53,7 +53,8 @@ EXTEND_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.first_name(), f.first_name().fill_null("N/A")])),
         ported("testNull", f"{_SRC}::testNull",
                'select "root".FIRSTNAME as "firstName", "root".FIRSTNAME is null as "isNull", "root".FIRSTNAME is not null as "isNotNull" from personTable as "root"',
-               lambda f: f.find_all(None, None, [f.first_name(), f.first_name().is_none(), f.first_name().is_not_none()])),
+               lambda f: f.find_all(None, None, [f.first_name(), f.first_name().is_none().alias("isNull"),
+                                    f.first_name().is_not_none().alias("isNotNull")])),
         unsupported("testIfWithEmptyExtension", f"{_SRC}::testIfWithEmptyExtension",
                     'select "root".FIRSTNAME as "firstName", case when "root".FIRSTNAME is not null then "root".FIRSTNAME else null end as "extended" from personTable as "root"',
                     'Legend writes the empty branch as `else null`; the finder leaves the else out'),
