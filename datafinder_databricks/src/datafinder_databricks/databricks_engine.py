@@ -52,10 +52,17 @@ class DatabricksConnect(QueryRunnerBase):
                limit: int | None = None, timeout_ms: int = 60_000,
                business_date_to: datetime.date | None = None, distinct: bool = False,
                offset: int | None = None, having=None) -> DataFrame:
+        query = to_sql(business_date, processing_datetime, columns, table, op,
+                       order_by, group_by, limit, validate_sqlglot=False,
+                       business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
+        return DatabricksConnect.run_sql(query, timeout_ms)
+
+    @staticmethod
+    def run_sql(sql: str, timeout_ms: int = 60_000) -> DataFrame:
+        """Run generic SQL, transpiled to Databricks'."""
         if DatabricksConnect._server_hostname is None:
             raise RuntimeError("DatabricksConnect.configure(...) must be called before use")
-        query = _to_databricks_sql(business_date, processing_datetime, columns, table, op,
-                                   order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
+        query = sqlglot.transpile(sql, read='', write='databricks')[0]
         result: list = [None]
         error: list = [None]
 

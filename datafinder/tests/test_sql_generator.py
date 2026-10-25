@@ -2155,3 +2155,50 @@ class TestHaving:
         table = Table("t", [Column("s", "VARCHAR", "t")])
         sql = FinderResult(None, None, [s], table, s.upper().starts_with("AC")).to_sql()
         assert sql.endswith("WHERE UPPER(t0.s) LIKE 'AC%'")
+
+
+class TestCombinedResults:
+
+    @staticmethod
+    def _results():
+        from datafinder import FinderResult
+        s = StringAttribute("S", "s", "VARCHAR", "t")
+        table = Table("t", [Column("s", "VARCHAR", "t")])
+        return s, FinderResult(None, None, [s], table, s.eq("a")), FinderResult(None, None, [s], table, s.eq("b"))
+
+    def test_concatenate(self):
+        _, a, b = self._results()
+        assert a.concatenate(b).to_sql() == (
+            'SELECT unionalias_0."S" AS "S" FROM (SELECT t0.s AS "S" FROM t AS t0 WHERE t0.s = \'a\' UNION ALL '
+            'SELECT t0.s AS "S" FROM t AS t0 WHERE t0.s = \'b\') AS unionalias_0')
+
+    def test_union(self):
+        _, a, b = self._results()
+        assert " UNION SELECT " in a.union(b).to_sql()
+
+    def test_order_limit_and_offset_apply_to_the_combined_rows(self):
+        s, a, b = self._results()
+        sql = a.concatenate(b).order_by(s.descending()).limit(5).offset(2).to_sql()
+        assert sql.endswith('AS unionalias_0 ORDER BY unionalias_0."S" DESC LIMIT 5 OFFSET 2')
+
+    def test_a_column_name_orders_ascending(self):
+        _, a, b = self._results()
+        assert a.concatenate(b).order_by("S").to_sql().endswith('ORDER BY unionalias_0."S" ASC')
+
+    def test_results_must_have_the_same_number_of_columns(self):
+        from datafinder import FinderResult
+        s, a, _ = self._results()
+        table = Table("t", [Column("s", "VARCHAR", "t")])
+        two = FinderResult(None, None, [s, s.upper()], table, NoOperation())
+        with pytest.raises(ValueError, match="different numbers of columns"):
+            a.concatenate(two)
+
+    def test_a_part_cannot_have_its_own_limit(self):
+        _, a, b = self._results()
+        with pytest.raises(ValueError, match="no order, limit or offset"):
+            a.limit(3).concatenate(b)
+
+    def test_an_unknown_column_name_is_refused(self):
+        _, a, b = self._results()
+        with pytest.raises(ValueError, match="No column called"):
+            a.concatenate(b).order_by("Nope")

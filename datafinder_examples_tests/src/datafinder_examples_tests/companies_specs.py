@@ -139,6 +139,43 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Min Name", "Max Name"],
             expected_result=np.array([["Acme Corp", "Gamma LLC"]], dtype=object),
         ),
+        # --- Concatenate and union: the rows of several results together ---
+        TestExpectation(
+            name="concatenate_keeps_every_row",
+            skip_backends={"graphql": "The GraphQL engine cannot combine queries"},
+            query=lambda f: f.find_all(None, None, [f.category()], f.id_().eq(1)).concatenate(
+                f.find_all(None, None, [f.category()], f.id_().eq(3))),
+            expected_columns=["Category"],
+            expected_result=np.array([["Technology"], ["Technology"]], dtype=object),
+            expected_sql={"duckdb": "UNION ALL"},
+        ),
+        TestExpectation(
+            name="union_keeps_each_row_once",
+            skip_backends={"graphql": "The GraphQL engine cannot combine queries"},
+            query=lambda f: f.find_all(None, None, [f.category()], f.id_().eq(1)).union(
+                f.find_all(None, None, [f.category()], f.id_().eq(3))),
+            expected_columns=["Category"],
+            expected_result=np.array([["Technology"]], dtype=object),
+        ),
+        TestExpectation(
+            name="concatenate_several_ordered_and_limited",
+            skip_backends={"graphql": "The GraphQL engine cannot combine queries"},
+            query=lambda f: f.find_all(None, None, [f.name()], f.id_().eq(3)).concatenate(
+                f.find_all(None, None, [f.name()], f.id_().eq(1)),
+                f.find_all(None, None, [f.name()], f.id_().eq(2)),
+            ).order_by(f.name().ascending()).limit(2),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"], ["Acme Industries"]], dtype=object),
+        ),
+        TestExpectation(
+            name="concatenate_orders_descending_by_name_and_skips_rows",
+            skip_backends={"graphql": "The GraphQL engine cannot combine queries"},
+            query=lambda f: f.find_all(None, None, [f.name()], f.id_().eq(3)).concatenate(
+                f.find_all(None, None, [f.name()], f.id_().eq(1)),
+            ).order_by(f.name().descending()).offset(1),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+        ),
         # --- Having: keep the groups that satisfy a condition ---
         TestExpectation(
             name="having_a_count",
