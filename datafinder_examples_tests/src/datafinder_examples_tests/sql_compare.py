@@ -105,6 +105,11 @@ def _resolve_output_aliases(select: exp.Select) -> None:
 
 def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
     tree = parse(sql, dialect)
+    # x IN (a) is x = a
+    for node in list(tree.find_all(exp.In)):
+        values = node.args.get("expressions") or []
+        if len(values) == 1 and not node.args.get("query") and not node.args.get("unnest"):
+            node.replace(exp.EQ(this=node.this.copy(), expression=values[0].copy()))
     # LISTAGG(x, sep) is the string aggregate that STRING_AGG(x, sep) is
     for call in list(tree.find_all(exp.Anonymous)):
         if call.name.lower() == "listagg" and len(call.expressions) == 2:

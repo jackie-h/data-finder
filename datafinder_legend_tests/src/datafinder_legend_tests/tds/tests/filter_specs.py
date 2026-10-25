@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION
 
 _SRC = "tds/tests/testTDSFilter.pure"
 
@@ -60,5 +60,33 @@ TDS_FILTER_SPECS = FinderSpec(
         ported("testFilterOnDynaFunctionColumn", f"{_SRC}::testFilterOnDynaFunctionColumn",
                'select "root".FIRSTNAME as "first", "root".LASTNAME like \'J%\' as "J" from personTable as "root" where "root".LASTNAME like \'J%\'',
                lambda f: f.find_all(None, None, [f.first_name(), f.last_name().starts_with("J")], f.last_name().starts_with("J"))),
+        ported("testSimpleFilter", f"{_SRC}::testSimpleFilter",
+               'select "root".FIRSTNAME as "name" from personTable as "root" where "root".FIRSTNAME = \'John\'',
+               lambda f: f.find_all(None, None, [f.first_name()], f.first_name() == "John")),
+        ported("testFilterWithStringConcat", f"{_SRC}::testFilterWithStringConcat",
+               'select "root".FIRSTNAME as "name" from personTable as "root" where concat("root".FIRSTNAME, \'A\') = \'JohnA\'',
+               lambda f: f.find_all(None, None, [f.first_name()], (f.first_name() + "A") == "JohnA"),
+               known_gaps={BACKEND: CONCAT_FUNCTION}),
+        unsupported("testFilterOnEnum", f"{_SRC}::testFilterOnEnum",
+                    'select "root".NAME as "name", "root".TYPE as "type" from addressTable as "root" where "root".TYPE = 1',
+                    'no enumeration properties'),
+        unsupported("testFilterOnDecimal", f"{_SRC}::testFilterOnDecimal",
+                    'select 1.0 as "decimal" from personTable as "root" where 1.0 = 2.0',
+                    'no filter on a constant'),
+        unsupported("testFilterOnRootClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupBy",
+                    'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',
+                    'no having (a filter on an aggregate)'),
+        unsupported("testFilterOnAssociatedClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnAssociatedClassAggValueAfterGroupBy",
+                    'select "root".AGE as "age", listagg("addresstable_0".NAME, \',\') as "addresses" from personTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) group by "age" having listagg("addresstable_0".NAME, \',\') like \'%Hoboken%\'',
+                    'no having (a filter on an aggregate)'),
+        unsupported("testFilterFollowedByGroupByWithFilterOnRootClass", f"{_SRC}::testFilterFollowedByGroupByWithFilterOnRootClass",
+                    'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" where "root".FIRSTNAME = \'John\' group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',
+                    'no having (a filter on an aggregate)'),
+        unsupported("testFilterOnRootClassAggValueAfterGroupByWithHavingMultipleFilters", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupByWithHavingMultipleFilters",
+                    'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having "root".AGE > 20 and listagg("root".FIRSTNAME, \',\') like \'%John%\'',
+                    'no having (a filter on an aggregate)'),
+        unsupported("testInOnColumnInSubselect", f"{_SRC}::testInOnColumnInSubselect",
+                    'select "subselect"."name" as "name", "subselect"."age" as "age", "subselect"."rank" as "rank" from (select "root".FIRSTNAME as "name", "root".AGE as "age", rank() over (partition by "root".FIRSTNAME order by "root".AGE desc nulls first) as "rank" from personTable as "root") as "subselect" where "subselect"."name" in (\'John\', \'Peter\')',
+                    'a filter on a window function column is nested in a subselect'),
     ],
 )
