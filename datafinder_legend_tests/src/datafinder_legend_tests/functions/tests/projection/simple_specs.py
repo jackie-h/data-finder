@@ -5,7 +5,7 @@ Mapping: tests/simple_mapping.md (Legend ``simpleRelationalMapping``, Person/Fir
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported
+from datafinder_legend_tests.legend import ported, unsupported
 
 _SRC = "functions/tests/projection/testSimple.pure"
 _MAPPING = "tests/simple_mapping.md"
@@ -32,5 +32,8 @@ SIMPLE_PROJECTION_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.first_name()])),
         ported("testAllTwoSimpleProperties", f"{_SRC}::testAllTwoSimpleProperties", _FIRST_LAST,
                lambda f: f.find_all(None, None, [f.first_name(), f.last_name()])),
+        unsupported("testAllOneSimplePropertyUsingVariables2", f"{_SRC}::testAllOneSimplePropertyUsingVariables2",
+                    'select "root".FIRSTNAME as "First Name" from personTable as "root"',
+                    'a mapping that the port does not load'),
     ],
 )
