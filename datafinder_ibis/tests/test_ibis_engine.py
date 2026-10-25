@@ -9,7 +9,7 @@ import pytest
 from datafinder import QueryRunnerBase, ViewResult
 from datafinder.typed_attributes import StringAttribute, IntegerAttribute, DoubleAttribute, BooleanAttribute
 from datafinder_examples_tests.spec import TestExpectation
-from datafinder_ibis.ibis_engine import IbisConnect
+from datafinder_ibis.ibis_engine import IbisConnect, sql_for_backend
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
 from model.relational import Alias, Column, JoinOperation, JoinTreeNodeOperation, NoOperation, Table
 from model.view import View
@@ -25,6 +25,27 @@ class TestIbisEngine:
         QueryRunnerBase.register(IbisConnect)
         out = QueryRunnerBase.get_runner()
         assert out == IbisConnect
+
+
+class TestSqlForBackend:
+
+    DIFF = "SELECT DATE_DIFF('day', a, b) FROM t"
+    TRUNC = "SELECT CAST(DATE_TRUNC('month', d) AS DATE) FROM t"
+
+    def test_duckdb_sql_is_unchanged(self):
+        assert sql_for_backend(self.DIFF, "duckdb") == self.DIFF
+
+    def test_a_date_difference_is_written_as_the_backend_spells_it(self):
+        assert sql_for_backend(self.DIFF, "snowflake") == "SELECT DATEDIFF(DAY, a, b) FROM t"
+        assert sql_for_backend(self.DIFF, "mssql") == "SELECT DATEDIFF(DAY, a, b) FROM t"
+        assert sql_for_backend(self.DIFF, "bigquery") == "SELECT DATE_DIFF(b, a, DAY) FROM t"
+
+    def test_a_date_truncation_is_written_as_the_backend_spells_it(self):
+        assert sql_for_backend(self.TRUNC, "bigquery") == "SELECT CAST(TIMESTAMP_TRUNC(d, MONTH) AS DATE) FROM t"
+        assert sql_for_backend(self.TRUNC, "postgres") == "SELECT CAST(DATE_TRUNC('MONTH', d) AS DATE) FROM t"
+
+    def test_an_interval_is_written_as_the_backend_spells_it(self):
+        assert sql_for_backend("SELECT d + INTERVAL '7' DAY FROM t", "postgres") == "SELECT d + INTERVAL '7 DAY' FROM t"
 
 
 class TestIbisTimeout:
