@@ -539,7 +539,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return "CAST(DATE_TRUNC('" + operation.part.value.lower() + "', " + sql_operation_to_string(operation.element) + ') AS DATE)'
     elif isinstance(operation, DateArithmeticOperation):
         op = '+' if operation.is_add else '-'
-        return sql_operation_to_string(operation.element) + ' ' + op + ' INTERVAL ' + str(operation.n) + ' ' + operation.unit.value
+        return sql_operation_to_string(operation.element) + ' ' + op + " INTERVAL '" + str(operation.n) + "' " + operation.unit.value
     elif isinstance(operation, DateDiffOperation):
         other_sql = sql_format_datetime(operation.other) if isinstance(operation.other, datetime.datetime) else sql_format_date(operation.other)
         return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
