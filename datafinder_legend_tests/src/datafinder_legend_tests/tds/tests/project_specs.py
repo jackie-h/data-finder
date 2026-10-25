@@ -19,7 +19,7 @@ TDS_PROJECT_SPECS = FinderSpec(
     expectations=[
         ported("testProjectStringColumn", f"{_SRC}::testProjectStringColumn",
                'select "root".FIRSTNAME as "first_name", "root".FIRSTNAME as "name_again" from personTable as "root"',
-               lambda f: f.find_all(None, None, [f.first_name(), f.first_name()])),
+               lambda f: f.find_all(None, None, [f.first_name(), f.first_name().alias("name_again")])),
         ported("testProjectReduceColumns", f"{_SRC}::testProjectReduceColumns",
                'select "root".FIRSTNAME as "first" from personTable as "root"',
                lambda f: f.find_all(None, None, [f.first_name()])),

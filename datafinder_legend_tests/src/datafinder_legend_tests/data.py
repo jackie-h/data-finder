@@ -9,7 +9,7 @@ from pathlib import Path
 import duckdb
 
 from datafinder import QueryRunnerBase
-from datafinder_duckdb.duckdb_engine import DuckDbConnect
+from datafinder_ibis.ibis_engine import IbisConnect
 
 
 def statements(sql_file: Path) -> list[str]:
@@ -37,7 +37,7 @@ def seeded_database(*data_files: Path):
             finally:
                 conn.close()
             QueryRunnerBase.clear()
-            QueryRunnerBase.register(DuckDbConnect)
+            QueryRunnerBase.register(IbisConnect)
             yield Path(tmp) / "test.db"
         finally:
             os.chdir(previous)

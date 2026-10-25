@@ -45,6 +45,6 @@ ASSOCIATION_TO_MANY_FIRM_SPECS = FinderSpec(
                'left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "persontable_0".ADDRESSID)',
                lambda f: f.find_all(None, None, [f.legal_name(), f.employees().first_name(),
                                                  f.employees().last_name(), f.employees().address().name(),
-                                                 f.employees().address().name()])),
+                                                 f.employees().address().name().alias("n2")])),
     ],
 )
