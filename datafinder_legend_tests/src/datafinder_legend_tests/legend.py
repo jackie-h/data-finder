@@ -34,6 +34,11 @@ FLOAT_AVERAGE = (
     "Legend writes avg(1.0 * x) so an integer column averages as a float; the column is already a float, so the finder "
     "writes avg(x)"
 )
+FLOAT_DIVISION = (
+    "Legend writes x / y as (1.0 * x) / y so integer columns divide as floats; the column is already a float, so the "
+    "finder writes x / y"
+)
+JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION = f"{JOIN_OPERAND_ORDER}; and {FLOAT_DIVISION}"
 JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE = f"{JOIN_OPERAND_ORDER}; and {FLOAT_AVERAGE}"
 CONCAT_FUNCTION = (
     "Legend writes `+` on text as concat(a, b), which treats a NULL part as empty in DuckDB; the finder writes a || b, "

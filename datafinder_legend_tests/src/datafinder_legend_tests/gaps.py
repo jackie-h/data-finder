@@ -13,7 +13,7 @@ from sqlglot import exp
 from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -74,6 +74,15 @@ def _drop_float_cast_in_average(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _drop_float_cast_in_division(tree: exp.Expr) -> exp.Expr:
+    """``(1.0 * x) / y`` is ``x / y`` for a column that is already a float."""
+    for div in list(tree.find_all(exp.Div)):
+        left = div.this.this if isinstance(div.this, exp.Paren) else div.this
+        if isinstance(left, exp.Mul) and isinstance(left.left, exp.Literal) and left.left.name == "1.0":
+            div.set("this", left.right.copy())
+    return tree
+
+
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     JOIN_OPERAND_ORDER: [_swap_equality_operands],
@@ -81,6 +90,8 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     TYPED_DATE_LITERAL: [_untype_date_literals],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
+    FLOAT_DIVISION: [_drop_float_cast_in_division],
+    JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION: [_swap_equality_operands, _drop_float_cast_in_division],
     JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE: [_swap_equality_operands, _drop_float_cast_in_average],
 }
 
