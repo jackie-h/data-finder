@@ -219,6 +219,24 @@ def escape_like(value: str) -> str:
     return value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2).replace('%', LIKE_ESCAPE + '%').replace('_', LIKE_ESCAPE + '_')
 
 
+class StringPredicates:
+    """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
+    ``f.name().join(",").contains("John")``."""
+
+    def _like(self, pattern: str) -> 'ComparisonOperation':
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def contains(self, value: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(value)}%")
+
+    def starts_with(self, prefix: str) -> 'ComparisonOperation':
+        return self._like(f"{escape_like(prefix)}%")
+
+    def ends_with(self, suffix: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(suffix)}")
+
+
 class ComparisonOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
     operator: ComparisonOperator
 
@@ -367,7 +385,7 @@ class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Sortable, Agg
         self.display_name = display_name
 
 
-class ConcatOperation(Operation, Comparable, Sortable):
+class ConcatOperation(Operation, Comparable, Sortable, StringPredicates):
     """Text joined end to end: ``first + " " + last``. NULL in any part makes the whole NULL, as with SQL's ``||``."""
     parts: list[RelationalOperationElement]
 
@@ -431,7 +449,7 @@ class WindowSpecification:
         self.order_by = order_by or []
 
 
-class AggregateOperation(UnaryOperation, Arithmetic, Sortable):
+class AggregateOperation(UnaryOperation, Arithmetic, Sortable, Comparable, StringPredicates):
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
@@ -508,7 +526,7 @@ _NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction
                       ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH}
 
 
-class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Sortable, Aggregates):
+class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Sortable, Aggregates, StringPredicates):
     def _numeric(self) -> None:
         if self.function not in _NUMERIC_FUNCTIONS:
             raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")
@@ -735,7 +753,7 @@ class SortOperation(RelationalOperationElement):
         self.direction = direction
 
 
-class CountAllOperation(RelationalOperationElement, Aliasable, Sortable):
+class CountAllOperation(RelationalOperationElement, Aliasable, Sortable, Comparable):
     """Represents COUNT(*) — counts all rows without reference to a specific column."""
     def __init__(self, table: str):
         super().__init__()
@@ -813,8 +831,9 @@ class SelectOperation(QueryExpression):
     def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
                  order_by: list[SortOperation] | None = None, group_by: list | None = None,
                  limit: int | None = None, table: 'Table | None' = None, distinct: bool = False,
-                 offset: int | None = None):
+                 offset: int | None = None, having: Operation | None = None):
         super().__init__(display, filter, group_by, table)
+        self.having = having
         self.order_by = order_by or []
         self.limit = limit
         self.distinct = distinct

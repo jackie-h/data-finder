@@ -2119,3 +2119,39 @@ class TestAggregatesOfExpressions:
         a = IntegerAttribute("A", "a", "INT", "t")
         b = IntegerAttribute("B", "b", "INT", "t")
         assert self._sql(b, (a * 2).sum()).endswith("GROUP BY t0.b")
+
+
+class TestHaving:
+
+    @staticmethod
+    def _sql(having, *columns):
+        from datafinder import FinderResult
+        table = Table("t", [Column("a", "INT", "t"), Column("s", "VARCHAR", "t")])
+        return FinderResult(None, None, list(columns), table, NoOperation()).group_by(columns[0]).having(*having).to_sql()
+
+    def test_having_a_count(self):
+        from datafinder import count_all
+        s = StringAttribute("S", "s", "VARCHAR", "t")
+        sql = self._sql([count_all() > 1], s, count_all())
+        assert sql == 'SELECT t0.s AS "S",COUNT(*) AS "Count" FROM t AS t0 GROUP BY t0.s HAVING COUNT(*) > 1'
+
+    def test_conditions_are_anded_and_calls_accumulate(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        s = StringAttribute("S", "s", "VARCHAR", "t")
+        from datafinder import FinderResult
+        table = Table("t", [Column("a", "INT", "t"), Column("s", "VARCHAR", "t")])
+        result = FinderResult(None, None, [s, a.sum()], table, NoOperation()).group_by(s)
+        sql = result.having(a.sum() > 3, s.ne("x")).having(a.max() < 9).to_sql()
+        assert sql.endswith("HAVING SUM(t0.a) > 3 AND t0.s <> 'x' AND MAX(t0.a) < 9")
+
+    def test_string_tests_on_a_joined_text(self):
+        s = StringAttribute("S", "s", "VARCHAR", "t")
+        sql = self._sql([s.join(",").contains("x_")], s, s.join(","))
+        assert sql.endswith("HAVING STRING_AGG(t0.s, ',') LIKE '%x!_%' ESCAPE '!'")
+
+    def test_a_string_test_on_a_function_result(self):
+        from datafinder import FinderResult
+        s = StringAttribute("S", "s", "VARCHAR", "t")
+        table = Table("t", [Column("s", "VARCHAR", "t")])
+        sql = FinderResult(None, None, [s], table, s.upper().starts_with("AC")).to_sql()
+        assert sql.endswith("WHERE UPPER(t0.s) LIKE 'AC%'")

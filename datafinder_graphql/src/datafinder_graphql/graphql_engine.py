@@ -685,7 +685,9 @@ class GraphQLConnect(QueryRunnerBase):
                columns: list, table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,
-               distinct: bool = False, offset: int | None = None) -> DataFrame:
+               distinct: bool = False, offset: int | None = None, having=None) -> DataFrame:
+        if having is not None:
+            raise GraphQLUnsupportedError("The GraphQL engine cannot filter the groups of an aggregation")
 
         # an alias only names the column in the result: read the column, then name it
         names = [col.name if isinstance(col, Alias) else _col_display_name(col) for col in columns]

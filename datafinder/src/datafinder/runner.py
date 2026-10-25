@@ -96,6 +96,7 @@ class FinderResult(DataFrame):
         self._limit: int | None = None
         self._distinct = False
         self._offset: int | None = None
+        self._having: Operation | None = None
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
 
     def group_by(self, *attrs) -> 'FinderResult':
@@ -127,6 +128,14 @@ class FinderResult(DataFrame):
             raise ValueError("slice needs 0 <= start <= stop")
         return self.offset(start).limit(stop - start)
 
+    def having(self, *conditions: Operation) -> 'FinderResult':
+        """Keep the groups for which every condition holds: ``HAVING``. A condition tests an aggregate or a grouping
+        column: ``f.find_all(None, None, [f.category(), count_all()]).group_by(f.category()).having(count_all() > 1)``.
+        Calls accumulate, as ``and_`` does."""
+        for condition in conditions:
+            self._having = condition if self._having is None else self._having.and_(condition)
+        return self
+
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""
         self._distinct = True
@@ -141,6 +150,7 @@ class FinderResult(DataFrame):
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
             self._timeout_ms, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
+            having=self._having,
         )
 
     def to_view(self, name: str, schema: str) -> 'ViewDefinition':
@@ -160,6 +170,8 @@ class FinderResult(DataFrame):
             raise ViewDefinitionError("A view cannot be distinct")
         if self._offset is not None:
             raise ViewDefinitionError("A view has no row offset")
+        if self._having is not None:
+            raise ViewDefinitionError("A view has no HAVING; filter the rows you read back from it")
         if self._order_by or self._limit is not None:
             raise ViewDefinitionError(
                 "A view has no ORDER BY or row limit; order the rows when you read them with result().order_by()")
@@ -174,6 +186,7 @@ class FinderResult(DataFrame):
             self._columns, self._table, self._op,
             self._order_by, self._group_by, self._limit,
             business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
+            having=self._having,
         )
 
     def to_pandas(self):
@@ -270,7 +283,7 @@ class QueryRunnerBase(metaclass=RegistryBase):
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
                business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None) -> DataFrame:
+               offset: int | None = None, having=None) -> DataFrame:
         raise NotImplementedError()
 
     @staticmethod

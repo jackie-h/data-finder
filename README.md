@@ -301,6 +301,11 @@ An expression has the aggregates a column has: `(TradeFinder.price() * TradeFind
 `when(TradeFinder.price() > 10).then(5.0).otherwise(1.0).sum()`. A condition has `all()` and `any()`:
 `(TradeFinder.price() > 10).all()` is true for a group where every row holds.
 
+`having` keeps the groups that satisfy a condition on an aggregate or a grouping column, `HAVING`:
+`CompanyFinder.find_all(None, None, [CompanyFinder.category(), count_all()]).group_by(CompanyFinder.category()).having(count_all() > 1)`.
+An aggregate compares as a column does (`< <= > >= == !=`), and `contains`, `starts_with` and `ends_with` also work on
+an expression that holds text, such as `CompanyFinder.name().upper().starts_with("AC")` or a joined text.
+
 `count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
 
 `fill_null` replaces a missing (NULL) value: `EmployeeFinder.manager().name().fill_null("nobody")`, as `fillna` does for a

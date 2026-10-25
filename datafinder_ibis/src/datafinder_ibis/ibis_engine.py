@@ -36,12 +36,12 @@ class IbisConnect(QueryRunnerBase):
     def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date, columns: Sequence[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None) -> DataFrame:
+               offset: int | None = None, having=None) -> DataFrame:
         # We always connect via the duckdb:// scheme; ibis.connect()'s declared return type is
         # the generic BaseBackend, so annotate the concrete backend explicitly rather than
         # suppressing attr-defined at every subsequent .con/.sql() use below.
         conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
-        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset)
+        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
         query = sql_for_backend(query, conn.name)
         print(query)
         # conn.sql() only builds the expression — nothing executes until IbisOutput actually
