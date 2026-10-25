@@ -26,6 +26,11 @@ TYPED_DATE_LITERAL = (
     "bare string literal, which comes back as text"
 )
 
+FLOAT_AVERAGE = (
+    "Legend writes avg(1.0 * x) so an integer column averages as a float; the column is already a float, so the finder "
+    "writes avg(x)"
+)
+JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE = f"{JOIN_OPERAND_ORDER}; and {FLOAT_AVERAGE}"
 CONCAT_FUNCTION = (
     "Legend writes `+` on text as concat(a, b), which treats a NULL part as empty in DuckDB; the finder writes a || b, "
     "which is NULL when any part is"
