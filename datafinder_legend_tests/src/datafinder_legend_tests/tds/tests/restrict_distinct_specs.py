@@ -32,5 +32,8 @@ RESTRICT_DISTINCT_SPECS = FinderSpec(
         ported("testRestrictDistinct_ColumnOrdering", f"{_SRC}::testRestrictDistinct_ColumnOrdering",
                'select distinct "root".LASTNAME as "lastName", "root".FIRSTNAME as "firstName" from personTable as "root"',
                lambda f: f.find_all(None, None, [f.last_name(), f.first_name()]).distinct()),
+        unsupported("testRestrictDistinct_JoinCutDown_PostTdsOperations", f"{_SRC}::testRestrictDistinct_JoinCutDown_PostTdsOperations",
+                    'select count(*) as "cnt" from (select "subselect"."firstName" as "firstName" from (select top 1000 distinct "root".FIRSTNAME as "firstName" from personTable as "root") as "subselect" order by "firstName" asc) as "persontable_0"',
+                    'restrict, distinct, take, sort and group by in sequence nest subselects'),
     ],
 )
