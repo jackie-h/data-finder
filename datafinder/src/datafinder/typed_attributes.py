@@ -5,16 +5,10 @@ import decimal
 
 from datafinder.scalar_functions import NumericFunctions, StringFunctions
 
-from model.relational import escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
+from model.relational import _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation
-
-
-def _sample(ddof: int) -> bool:
-    if ddof not in (0, 1):
-        raise ValueError(f"ddof is 0 (population) or 1 (sample), not {ddof}")
-    return ddof == 1
 
 
 class _MinMax:
@@ -73,23 +67,23 @@ class StringAttribute(_MinMax, StringFunctions, Attribute):
     def _to_constant(self, value):
         return StringConstantOperation(value)
 
-    def eq(self, value: str) -> Operation:
+    def eq(self, value: str) -> ComparisonOperation:
         """Return equality comparison with a string value."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
-    def __eq__(self, value: str) -> Operation:  # type: ignore[override]
+    def __eq__(self, value: str) -> ComparisonOperation:  # type: ignore[override]
         """Return equality comparison with a string value."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.EQUAL, StringConstantOperation(value))
 
-    def ne(self, value: str) -> Operation:
+    def ne(self, value: str) -> ComparisonOperation:
         """Return inequality comparison with a string value."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.NOT_EQUAL, StringConstantOperation(value))
 
-    def contains(self, value: str) -> Operation:
+    def contains(self, value: str) -> ComparisonOperation:
         """Return a substring match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(value)}%"))
 
-    def starts_with(self, prefix: str) -> Operation:
+    def starts_with(self, prefix: str) -> ComparisonOperation:
         """Return a prefix match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"{escape_like(prefix)}%"))
 
@@ -162,15 +156,15 @@ class DoubleAttribute(NumericAttribute):
     def _to_constant(self, value):
         return FloatConstantOperation(value)
 
-    def eq(self, value: float) -> Operation:
+    def eq(self, value: float) -> ComparisonOperation:
         """Return equality comparison with a floating-point value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
-    def __eq__(self, value: float) -> Operation:  # type: ignore[override]
+    def __eq__(self, value: float) -> ComparisonOperation:  # type: ignore[override]
         """Return equality comparison with a floating-point value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, FloatConstantOperation(value))
 
-    def __gt__(self, value: float) -> Operation:
+    def __gt__(self, value: float) -> ComparisonOperation:
         """Return a greater-than comparison with a floating-point value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN, FloatConstantOperation(value))
 
@@ -178,7 +172,7 @@ class DoubleAttribute(NumericAttribute):
         """Return a less-than comparison with a floating-point value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN, FloatConstantOperation(value))
 
-    def __ge__(self, value: float) -> Operation:
+    def __ge__(self, value: float) -> ComparisonOperation:
         """Return a greater-than-or-equal comparison with a floating-point value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, FloatConstantOperation(value))
 
@@ -202,27 +196,27 @@ class DecimalAttribute(NumericAttribute):
     def _to_constant(self, value):
         return DecimalConstantOperation(value)
 
-    def eq(self, value: decimal.Decimal) -> Operation:
+    def eq(self, value: decimal.Decimal) -> ComparisonOperation:
         """Return equality comparison with a decimal value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, DecimalConstantOperation(value))
 
-    def __eq__(self, value: decimal.Decimal) -> Operation:  # type: ignore[override]
+    def __eq__(self, value: decimal.Decimal) -> ComparisonOperation:  # type: ignore[override]
         """Return equality comparison with a decimal value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, DecimalConstantOperation(value))
 
-    def __gt__(self, value: decimal.Decimal) -> Operation:
+    def __gt__(self, value: decimal.Decimal) -> ComparisonOperation:
         """Return a greater-than comparison with a decimal value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN, DecimalConstantOperation(value))
 
-    def __lt__(self, value: decimal.Decimal) -> Operation:
+    def __lt__(self, value: decimal.Decimal) -> ComparisonOperation:
         """Return a less-than comparison with a decimal value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN, DecimalConstantOperation(value))
 
-    def __ge__(self, value: decimal.Decimal) -> Operation:
+    def __ge__(self, value: decimal.Decimal) -> ComparisonOperation:
         """Return a greater-than-or-equal comparison with a decimal value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, DecimalConstantOperation(value))
 
-    def __le__(self, value: decimal.Decimal) -> Operation:
+    def __le__(self, value: decimal.Decimal) -> ComparisonOperation:
         """Return a less-than-or-equal comparison with a decimal value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN_OR_EQUAL_TO, DecimalConstantOperation(value))
 
@@ -238,19 +232,19 @@ class BooleanAttribute(Attribute):
     def _to_constant(self, value):
         return BooleanConstantOperation(value)
 
-    def eq(self, value: bool) -> Operation:
+    def eq(self, value: bool) -> ComparisonOperation:
         """Return equality comparison with a boolean value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(value))
 
-    def __eq__(self, value: bool) -> Operation:  # type: ignore[override]
+    def __eq__(self, value: bool) -> ComparisonOperation:  # type: ignore[override]
         """Return equality comparison with a boolean value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(value))
 
-    def is_true(self) -> Operation:
+    def is_true(self) -> ComparisonOperation:
         """Return a comparison that matches true values."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(True))
 
-    def is_false(self) -> Operation:
+    def is_false(self) -> ComparisonOperation:
         """Return a comparison that matches false values."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(False))
 
@@ -266,15 +260,15 @@ class IntegerAttribute(NumericAttribute):
     def _to_constant(self, value):
         return IntegerConstantOperation(value)
 
-    def eq(self, value: int) -> Operation:
+    def eq(self, value: int) -> ComparisonOperation:
         """Return equality comparison with an integer value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
-    def __eq__(self, value: int) -> Operation:  # type: ignore[override]
+    def __eq__(self, value: int) -> ComparisonOperation:  # type: ignore[override]
         """Return equality comparison with an integer value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, IntegerConstantOperation(value))
 
-    def __gt__(self, value: int) -> Operation:
+    def __gt__(self, value: int) -> ComparisonOperation:
         """Return a greater-than comparison with an integer value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN, IntegerConstantOperation(value))
 
@@ -282,7 +276,7 @@ class IntegerAttribute(NumericAttribute):
         """Return a less-than comparison with an integer value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN, IntegerConstantOperation(value))
 
-    def __ge__(self, value: int) -> Operation:
+    def __ge__(self, value: int) -> ComparisonOperation:
         """Return a greater-than-or-equal comparison with an integer value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
                                    IntegerConstantOperation(value))
@@ -322,15 +316,15 @@ class DateAttribute(_MinMax, Attribute):
     def _to_constant(self, value):
         return DateConstantOperation(value)
 
-    def eq(self, value: datetime.date) -> Operation:
+    def eq(self, value: datetime.date) -> ComparisonOperation:
         """Return equality comparison with a date value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, DateConstantOperation(value))
 
-    def __eq__(self, value: datetime.date) -> Operation:  # type: ignore[override]
+    def __eq__(self, value: datetime.date) -> ComparisonOperation:  # type: ignore[override]
         """Return equality comparison with a date value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, DateConstantOperation(value))
 
-    def __gt__(self, value: datetime.date) -> Operation:
+    def __gt__(self, value: datetime.date) -> ComparisonOperation:
         """Return a greater-than comparison with a date value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN, DateConstantOperation(value))
 
@@ -338,7 +332,7 @@ class DateAttribute(_MinMax, Attribute):
         """Return a less-than comparison with a date value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN, DateConstantOperation(value))
 
-    def __ge__(self, value: datetime.date) -> Operation:
+    def __ge__(self, value: datetime.date) -> ComparisonOperation:
         """Return a greater-than-or-equal comparison with a date value."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
                                    DateConstantOperation(value))
@@ -469,15 +463,15 @@ class DateTimeAttribute(_MinMax, Attribute):
     def _to_constant(self, value):
         return _temporal_constant(value)
 
-    def eq(self, value: datetime.datetime | datetime.date) -> Operation:
+    def eq(self, value: datetime.datetime | datetime.date) -> ComparisonOperation:
         """Return equality comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, _temporal_constant(value))
 
-    def __eq__(self, value: datetime.datetime | datetime.date) -> Operation:  # type: ignore[override]
+    def __eq__(self, value: datetime.datetime | datetime.date) -> ComparisonOperation:  # type: ignore[override]
         """Return equality comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, _temporal_constant(value))
 
-    def __gt__(self, value: datetime.datetime | datetime.date) -> Operation:
+    def __gt__(self, value: datetime.datetime | datetime.date) -> ComparisonOperation:
         """Return a greater-than comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN, _temporal_constant(value))
 
@@ -485,7 +479,7 @@ class DateTimeAttribute(_MinMax, Attribute):
         """Return a less-than comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.LESS_THAN, _temporal_constant(value))
 
-    def __ge__(self, value: datetime.datetime | datetime.date) -> Operation:
+    def __ge__(self, value: datetime.datetime | datetime.date) -> ComparisonOperation:
         """Return a greater-than-or-equal comparison with a datetime value (a plain date is rendered as a date literal)."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.GREATER_THAN_OR_EQUAL_TO,
                                    _temporal_constant(value))

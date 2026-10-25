@@ -139,6 +139,44 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Min Name", "Max Name"],
             expected_result=np.array([["Acme Corp", "Gamma LLC"]], dtype=object),
         ),
+        # --- Aggregates of an expression ---
+        TestExpectation(
+            name="sum_of_arithmetic",
+            skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
+            query=lambda f: f.find_all(None, None, [(f.id_() * 2).sum()]),
+            expected_columns=["Sum Expression"],
+            expected_result=np.array([[30]], dtype=object),
+            expected_sql={"duckdb": "SUM(t0.id * 2)"},
+        ),
+        TestExpectation(
+            name="sum_of_a_constant_counts_the_rows",
+            skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
+            query=lambda f: f.find_all(None, None, [constant(1).sum()]),
+            expected_columns=["Sum Expression"],
+            expected_result=np.array([[5]], dtype=object),
+            expected_sql={"duckdb": "SUM(1)"},
+        ),
+        TestExpectation(
+            name="sum_of_a_conditional_per_group",
+            skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
+            query=lambda f: f.find_all(
+                None, None,
+                [f.category(), when(f.category().eq("Technology")).then(5.0).otherwise(1.0).sum().alias("Profit")]
+            ).group_by(f.category()).order_by(f.category().ascending()),
+            expected_columns=["Category", "Profit"],
+            expected_result=np.array([["Finance", 2.0], ["Manufacturing", 1.0], ["Technology", 10.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="all_and_any_of_a_condition_per_group",
+            skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
+            query=lambda f: f.find_all(
+                None, None, [f.category(), (f.id_() > 0).all().alias("All"), (f.id_() > 3).any().alias("Any")]
+            ).group_by(f.category()).order_by(f.category().ascending()),
+            expected_columns=["Category", "All", "Any"],
+            expected_result=np.array(
+                [["Finance", True, True], ["Manufacturing", True, False], ["Technology", True, False]], dtype=object),
+            expected_sql={"duckdb": "BOOL_AND"},
+        ),
         # --- Joining text with + ---
         TestExpectation(
             name="concat_columns_and_text",
