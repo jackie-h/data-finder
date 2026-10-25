@@ -337,13 +337,11 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
         i += 1
 
-    for cls_name, (_, _, embedded_by_nav) in class_context.items():
-        if embedded_by_nav:
-            unresolved = ", ".join(sorted(embedded_by_nav))
-            raise ValueError(
-                f"Class '{cls_name}': embedded mapping(s) for '{unresolved}' have no matching "
-                f"Association section to fall back to — an embedded mapping requires a real join"
-            )
+    # An embedded mapping with no Association section has nothing to fall back to: the properties live in the
+    # class's own row, so the navigation property maps straight to the embedded columns.
+    for pm_list, _, embedded_by_nav in class_context.values():
+        for nav_prop, embedded in embedded_by_nav.values():
+            pm_list.append(RelationalPropertyMapping(nav_prop, embedded))
 
     return Mapping(title, class_mappings)
 
@@ -660,6 +658,8 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                         col_rows.append([lhs.name, lhs.type or "", key, _nullable_cell(lhs), pm.property.id])
                         if pm.target.embedded is not None:
                             col_rows.extend(_flatten_embedded_rows(pm.target.embedded, pm.property.id))
+                    elif isinstance(pm.target, EmbeddedSetMapping):
+                        col_rows.extend(_flatten_embedded_rows(pm.target, pm.property.id))
                 lines.append(_md_table(_COLUMN_MAPPING_HEADERS, col_rows))
                 lines.append("")
 

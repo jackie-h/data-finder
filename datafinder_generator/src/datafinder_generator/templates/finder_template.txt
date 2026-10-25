@@ -29,6 +29,33 @@ def _embedded_for_{{to_python_name(rpm.property)}}(incoming: dict | None, parent
 {% endif %}
 {% endfor %}
 
+{% for ec in embedded_classes(rcm) %}
+class {{ec.name}}:
+    """{{ec.label}}: held in the columns of the owning row, so reading it needs no join."""
+
+    def __init__(self, parent=None, prefix: str = ''):
+{% for prop, col in ec.columns %}
+        self.__{{to_python_name(prop)}} = {{prop.type.name}}Attribute(f'{prefix} {{ec.label}} {{display_name(prop)}}'.strip(), '{{col.name}}', '{{col.type}}', '{{table_qualified_name(col.table)}}', parent, nullable={{col.nullable}})
+{% endfor %}
+{% for prop, child in ec.children %}
+        self.__{{to_python_name(prop)}} = {{child}}(parent, prefix)
+{% endfor %}
+{% if not ec.columns and not ec.children %}
+        pass
+{% endif %}
+{% for prop, col in ec.columns %}
+
+    def {{to_python_name(prop)}}(self) -> {{prop.type.name}}Attribute:
+        return self.__{{to_python_name(prop)}}
+{% endfor %}
+{% for prop, child in ec.children %}
+
+    def {{to_python_name(prop)}}(self) -> {{child}}:
+        return self.__{{to_python_name(prop)}}
+{% endfor %}
+
+{% endfor %}
+
 class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, RelatedFinder):
 
 {% if rcm.milestone_mapping %}
@@ -75,6 +102,9 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), self.__node, embedded={% if flatten_embedded(rpm.target) %}_embedded_for_{{to_python_name(rpm.property)}}(embedded, self.__node, '{{rpm.property.name}}'){% else %}{k[len('{{rpm.property.id}}.'):]: v for k, v in (embedded or {}).items() if k.startswith('{{rpm.property.id}}.')} or None{% endif %}, many={{ 'True' if rpm.property.multiplicity is not none and rpm.property.multiplicity.is_many() else 'False' }})
 {% endif %}
 {% endfor %}
+{% for pm in rcm.embedded_mappings %}
+        self.__{{to_python_name(pm.property)}} = _{{rcm.clazz.name}}{{pm.property.id[:1]|upper}}{{pm.property.id[1:]}}Embedded(self.__node, display_prefix(relation_name, parent_join))
+{% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
         self.__{{reverse_name}} = None
 {% endfor %}
@@ -108,6 +138,12 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         return self.__{{to_python_name(rpm.property)}}
 
 {% endif %}
+{% endfor %}
+{% for pm in rcm.embedded_mappings %}
+    def {{to_python_name(pm.property)}}(self) -> _{{rcm.clazz.name}}{{pm.property.id[:1]|upper}}{{pm.property.id[1:]}}Embedded:
+        """{{display_name(pm.property)}}"""
+        return self.__{{to_python_name(pm.property)}}
+
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
     def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
@@ -159,6 +195,9 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
     __{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}){% if rpm.property.type.name != rcm.clazz.name and flatten_embedded(rpm.target) %}, embedded=_embedded_for_{{to_python_name(rpm.property)}}(None, None, '{{rpm.property.name}}'){% endif %}, many={{ 'True' if rpm.property.multiplicity is not none and rpm.property.multiplicity.is_many() else 'False' }})
 {% endif %}
 {% endfor %}
+{% for pm in rcm.embedded_mappings %}
+    __{{to_python_name(pm.property)}} = _{{rcm.clazz.name}}{{pm.property.id[:1]|upper}}{{pm.property.id[1:]}}Embedded()
+{% endfor %}
 {% if reverse_assocs %}
 
     def __init__(self):
@@ -193,6 +232,12 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% endif %}
+{% endfor %}
+{% for pm in rcm.embedded_mappings %}
+    def {{to_python_name(pm.property)}}(self) -> _{{rcm.clazz.name}}{{pm.property.id[:1]|upper}}{{pm.property.id[1:]}}Embedded:
+        """{{display_name(pm.property)}}"""
+        return {{rcm.clazz.name}}Finder.__{{to_python_name(pm.property)}}
+
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
     def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:

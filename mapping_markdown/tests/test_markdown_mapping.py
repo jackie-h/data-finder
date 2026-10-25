@@ -1012,7 +1012,7 @@ class TestEmbeddedMappingErrors:
         with pytest.raises(ValueError, match="property 'bogus' not found"):
             loads(content, packages, self._build_repo())
 
-    def test_embedded_without_association_raises(self):
+    def test_embedded_without_association_maps_without_a_join(self):
         content = self._MAPPING.replace(
             """#### Association: TradeAccount
 
@@ -1023,5 +1023,10 @@ class TestEmbeddedMappingErrors:
             "",
         )
         packages = self._build_packages()
-        with pytest.raises(ValueError, match="have no matching Association section"):
-            loads(content, packages, self._build_repo())
+        mapping = loads(content, packages, self._build_repo())
+        trade = next(m for m in mapping.mappings if m.clazz.name == "Trade")
+        account = next(pm for pm in trade.property_mappings if pm.property.id == "account")
+        assert isinstance(account.target, EmbeddedSetMapping)
+        assert [pm.property.id for pm in account.target.property_mappings] == ["name"]
+        written = to_markdown("Finance Mapping", mapping)
+        assert "account.name" in written and "Association: TradeAccount" not in written

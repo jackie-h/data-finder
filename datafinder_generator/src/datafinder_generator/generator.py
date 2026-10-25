@@ -38,6 +38,48 @@ def flatten_embedded(join: Join) -> list[tuple[str, Property, Column]]:
     _walk(join.embedded, '')
     return result
 
+class _ClassView:
+    """A class mapping as the finder templates see it: the properties reached by a join or held in a column, with the
+    embedded (join-less) ones apart in ``embedded_mappings``."""
+
+    def __init__(self, rcm):
+        self.clazz = rcm.clazz
+        self.milestone_mapping = rcm.milestone_mapping
+        self.property_mappings = [pm for pm in rcm.property_mappings if not isinstance(pm.target, EmbeddedSetMapping)]
+        self.embedded_mappings = [pm for pm in rcm.property_mappings if isinstance(pm.target, EmbeddedSetMapping)]
+
+
+class EmbeddedClass:
+    """A class embedded in its owner's row: its properties are columns of the owner's table, so it needs no join."""
+
+    def __init__(self, name: str, label: str, columns: list[tuple[Property, Column]],
+                 children: list[tuple[Property, str]]):
+        self.name = name
+        self.label = label
+        self.columns = columns
+        self.children = children
+
+
+def embedded_classes(rcm: _ClassView) -> list[EmbeddedClass]:
+    """The embedded classes of a class mapping, nested ones before the classes that hold them."""
+    found: list[EmbeddedClass] = []
+
+    def _walk(esm: EmbeddedSetMapping, stem: str, label: str) -> str:
+        columns, children = [], []
+        for pm in esm.property_mappings:
+            if isinstance(pm.target, Column):
+                columns.append((pm.property, pm.target))
+            elif isinstance(pm.target, EmbeddedSetMapping):
+                child = _walk(pm.target, stem + pm.property.id[:1].upper() + pm.property.id[1:], f"{label} {pm.property.name}")
+                children.append((pm.property, child))
+        found.append(EmbeddedClass(stem + "Embedded", label, columns, children))
+        return stem + "Embedded"
+
+    for pm in rcm.embedded_mappings:
+        _walk(pm.target, f"_{rcm.clazz.name}{pm.property.id[:1].upper()}{pm.property.id[1:]}", pm.property.name)
+    return found
+
+
 def has_processing_temporal(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, ProcessingDateMilestonesPropertyMapping)
 
@@ -150,13 +192,14 @@ def generate(mapping: Mapping, output_directory):
         table_qualified_name=table_qualified_name,
         to_snake_case=to_snake_case,
         flatten_embedded=flatten_embedded,
+        embedded_classes=embedded_classes,
     )
 
     for rcm in mapping.mappings:
         pkg = _class_package(rcm.clazz)
         out_dir = _ensure_package_dirs(output_directory, pkg) if pkg else output_directory
         reverse_assocs = reverse_assoc_map.get(rcm.clazz.name, [])
-        render_ctx = dict(shared_context, rcm=rcm, reverse_assocs=reverse_assocs)
+        render_ctx = dict(shared_context, rcm=_ClassView(rcm), reverse_assocs=reverse_assocs)
 
         base_filename = f"{rcm.clazz.name.lower()}_finder_base.py"
         base_filepath = os.path.join(out_dir, base_filename)
