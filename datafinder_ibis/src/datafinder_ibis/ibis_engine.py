@@ -12,10 +12,22 @@ from ibis.backends.duckdb import Backend as DuckDBBackend
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+import sqlglot
 
 from datafinder import QueryRunnerBase
 from model.relational import Table
 from model.view import View
+
+
+_SOURCE_DIALECT = "duckdb"  # the SQL the finders generate runs as written on DuckDB
+
+
+def sql_for_backend(query: str, backend: str) -> str:
+    """The query in the SQL dialect of ``backend`` (Ibis' backend name, e.g. ``duckdb`` or ``snowflake``): functions such
+    as ``DATE_DIFF`` and ``DATE_TRUNC`` are written the way that backend spells them. DuckDB's own SQL is unchanged."""
+    if backend == _SOURCE_DIALECT:
+        return query
+    return sqlglot.transpile(query, read=_SOURCE_DIALECT, write=backend)[0]
 
 
 class IbisConnect(QueryRunnerBase):
@@ -30,6 +42,7 @@ class IbisConnect(QueryRunnerBase):
         # suppressing attr-defined at every subsequent .con/.sql() use below.
         conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset)
+        query = sql_for_backend(query, conn.name)
         print(query)
         # conn.sql() only builds the expression — nothing executes until IbisOutput actually
         # materializes it, driven by which of to_pandas()/to_numpy() the caller asks for.
