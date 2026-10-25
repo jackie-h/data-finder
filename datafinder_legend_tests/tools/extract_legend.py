@@ -15,8 +15,8 @@ from pathlib import Path
 
 LEGEND_ROOT = Path.home() / "projects/legend-engine/legend-engine-xts-relationalStore/legend-engine-xt-relationalStore-generation/legend-engine-xt-relationalStore-pure/legend-engine-xt-relationalStore-core-pure/src/main/resources/core_relational/relational"
 
-_FUNC_RE = re.compile(r"^function\s+<<([^>]*test\.[^>]*)>>\s+([\w:]+)\s*\(", re.M)
-_ANY_FUNC_RE = re.compile(r"^function\s", re.M)
+_FUNC_RE = re.compile(r"^[ \t]*function\s+<<([^>]*test\.[^>]*)>>\s+([\w:]+)\s*\(", re.M)
+_ANY_FUNC_RE = re.compile(r"^[ \t]*function\s", re.M)
 
 
 def _read_string(text: str, i: int) -> tuple[str, int]:
@@ -89,7 +89,10 @@ def _expected_sql(body: str) -> list[dict]:
     found = []
     for m in re.finditer(r"\b(assertEquals|assertEqualsH2Compatible|assertSameSQL)\s*\(", body):
         args, _ = _split_args(body, m.end() - 1)
-        if not any("sqlRemoveFormatting" in a or "sqlRemoveFormatting" in a for a in args):
+        # assertSameSQL(expectedSql, $result) takes the result itself rather than its sql
+        if m.group(1) != "assertSameSQL" and not any("sqlRemoveFormatting" in a for a in args):
+            continue
+        if m.group(1) == "assertSameSQL" and not any(a.strip().startswith("$") for a in args[1:2]):
             continue
         strings = [a for a in args if a.startswith("'")]
         decoded = [_read_string(a, 0)[0] for a in strings if a.endswith("'")]
