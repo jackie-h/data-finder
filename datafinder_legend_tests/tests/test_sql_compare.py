@@ -110,3 +110,8 @@ def test_fetch_next_is_a_limit():
 def test_listagg_is_a_string_aggregate():
     assert sql_equivalent("SELECT STRING_AGG(a, '*') FROM t", "select listagg(a, '*') from t")
     assert not sql_equivalent("SELECT STRING_AGG(a, '-') FROM t", "select listagg(a, '*') from t")
+
+
+def test_in_with_one_value_is_equality():
+    assert sql_equivalent("SELECT a FROM t WHERE a IN ('x')", "select a from t where a = 'x'")
+    assert not sql_equivalent("SELECT a FROM t WHERE a IN ('x', 'y')", "select a from t where a = 'x'")
