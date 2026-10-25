@@ -4,10 +4,10 @@ Ported from legend-engine core_relational ``tds/tests/testGroupBy.pure``.
 Grouping a projection.
 Mapping: tests/simple_mapping.md.
 """
-from datafinder import count_all
+from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE
+from datafinder_legend_tests.legend import ported, unsupported, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, BACKEND, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE
 
 _SRC = "tds/tests/testGroupBy.pure"
 
@@ -54,9 +54,6 @@ GROUP_BY_TRADE_SPECS = FinderSpec(
                'select "producttable_0".NAME as "prodName", sum("root".quantity) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all(None, None, [f.product().name(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending()),
                known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
-        unsupported("simpleGroupConstantAggregates", f"{_SRC}::simpleGroupConstantAggregates",
-                    'select "producttable_0".NAME as "prodName", sum(1) as "sum", count(*) as "count" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no aggregate of a constant'),
         ported("simpleGroupByAggFuncAsVariable", f"{_SRC}::simpleGroupByAggFuncAsVariable",
                'select "producttable_0".NAME as "prodName", sum("root".quantity) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all(None, None, [f.product().name(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending()),
@@ -73,21 +70,6 @@ GROUP_BY_TRADE_SPECS = FinderSpec(
                'select "producttable_0".NAME as "prodName", min("root".quantity) as "min" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all(None, None, [f.product().name(), f.quantity().min()]).group_by(f.product().name()).order_by(f.product().name().descending()),
                known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
-        unsupported("simpleGroupByAnd", f"{_SRC}::simpleGroupByAnd",
-                    'select "producttable_0".NAME as "prodName", bool_and("root".quantity > 20) as "and" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no boolean and/or aggregation'),
-        unsupported("simpleGroupByOr", f"{_SRC}::simpleGroupByOr",
-                    'select "producttable_0".NAME as "prodName", bool_or("root".quantity > 50) as "or" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no boolean and/or aggregation'),
-        unsupported("GroupByWithMapFnConstant", f"{_SRC}::GroupByWithMapFnConstant",
-                    'select "producttable_0".NAME as "prodName", sum("root".quantity * 3) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no aggregate of an expression'),
-        unsupported("GroupByWithMapFnColumns", f"{_SRC}::GroupByWithMapFnColumns",
-                    'select "producttable_0".NAME as "prodName", sum("root".quantity * "root".quantity) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no aggregate of an expression'),
-        unsupported("GroupByWithIfInMap", f"{_SRC}::GroupByWithIfInMap",
-                    'select "producttable_0".NAME as "prodName", sum(case when "root".quantity > 2.0 then "root".quantity else ((1.0 * "root".quantity) / 2) end) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no aggregate of an expression'),
         unsupported("simpleGroupByAggFuncNotStopFunc", f"{_SRC}::simpleGroupByAggFuncNotStopFunc",
                     'select "producttable_0".NAME as "prodName", case when count(distinct("producttable_0".NAME)) = 1 then max("producttable_0".NAME) else null end as "unique" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                     'no uniqueValueOnly aggregation'),
@@ -103,6 +85,30 @@ GROUP_BY_TRADE_SPECS = FinderSpec(
                'select "producttable_0".NAME as "prodName", count(*) as "count", sum("root".quantity) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all(None, None, [f.product().name(), count_all(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending()),
                known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("simpleGroupConstantAggregates", f"{_SRC}::simpleGroupConstantAggregates",
+               'select "producttable_0".NAME as "prodName", sum(1) as "sum", count(*) as "count" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all(None, None, [f.product().name(), constant(1).sum(), count_all()]).group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("simpleGroupByAnd", f"{_SRC}::simpleGroupByAnd",
+               'select "producttable_0".NAME as "prodName", bool_and("root".quantity > 20) as "and" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all(None, None, [f.product().name(), (f.quantity() > 20).all()]).group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("simpleGroupByOr", f"{_SRC}::simpleGroupByOr",
+               'select "producttable_0".NAME as "prodName", bool_or("root".quantity > 50) as "or" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all(None, None, [f.product().name(), (f.quantity() > 50).any()]).group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("GroupByWithMapFnConstant", f"{_SRC}::GroupByWithMapFnConstant",
+               'select "producttable_0".NAME as "prodName", sum("root".quantity * 3) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all(None, None, [f.product().name(), (f.quantity() * 3).sum()]).group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("GroupByWithMapFnColumns", f"{_SRC}::GroupByWithMapFnColumns",
+               'select "producttable_0".NAME as "prodName", sum("root".quantity * "root".quantity) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all(None, None, [f.product().name(), (f.quantity() * f.quantity()).sum()]).group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+        ported("GroupByWithIfInMap", f"{_SRC}::GroupByWithIfInMap",
+               'select "producttable_0".NAME as "prodName", sum(case when "root".quantity > 2.0 then "root".quantity else ((1.0 * "root".quantity) / 2) end) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all(None, None, [f.product().name(), when(f.quantity() > 2.0).then(f.quantity()).otherwise(f.quantity() / 2).sum()]).group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION}),
     ],
 )
 

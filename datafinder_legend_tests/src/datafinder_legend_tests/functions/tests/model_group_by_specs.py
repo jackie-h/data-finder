@@ -4,6 +4,7 @@ Ported from legend-engine core_relational ``functions/tests/testModelGroupBy.pur
 Grouping on the model.
 Mapping: tests/simple_mapping.md.
 """
+from datafinder import constant, when
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import ported, unsupported, BACKEND, JOIN_OPERAND_ORDER, FLOAT_AVERAGE
@@ -156,9 +157,6 @@ MODEL_GROUP_BY_FIRM_SPECS = FinderSpec(
         unsupported("testUsingFunctionInMapLambdaTakingAParameterPartial", f"{_SRC}::testUsingFunctionInMapLambdaTakingAParameterPartial",
                     'select "root".LEGALNAME as "legalName", "addresstable_0".NAME as "addressName", sum("firmtable_1".aggCol) * 2 as "employeeAge" from firmTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) left outer join (select "firmtable_2".ID as ID, avg(1.0 * "persontable_0".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) group by "legalName", "addressName" order by "legalName" asc',
                     'the aggregate argument is a user defined function'),
-        unsupported("testGroupByWithJoinH2", f"{_SRC}::testGroupByWithJoinH2",
-                    'select "root".LEGALNAME as "legalName", "persontable_0".FIRSTNAME as "employeesFirstName", sum(1) as "sum" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "legalName", "employeesFirstName" order by "legalName" asc, "employeesFirstName" asc',
-                    'no aggregate of a constant'),
         unsupported("testGroupByIsDistinct", f"{_SRC}::testGroupByIsDistinct",
                     'select "root".LEGALNAME as "LegalName", count(distinct("persontable_0".FIRSTNAME)) as "FirstNameDistinctCount", count("persontable_0".FIRSTNAME) as "FirstNameCount", count(distinct("persontable_0".FIRSTNAME)) = count("persontable_0".FIRSTNAME) as "IsDistinctFirstName", count(distinct("persontable_0".LASTNAME)) as "LastNameDistinctCount", count("persontable_0".LASTNAME) as "LastNameCount", count(distinct("persontable_0".LASTNAME)) = count("persontable_0".LASTNAME) as "IsDistinctLastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "LegalName" order by "LegalName" desc',
                     'no isDistinct aggregation'),
@@ -177,6 +175,9 @@ MODEL_GROUP_BY_FIRM_SPECS = FinderSpec(
         unsupported("testAggToManyWithFilter", f"{_SRC}::testAggToManyWithFilter",
                     'select "addresstable_0".TYPE as "Address Type", avg(1.0 * "persontable_0".AGE) as "Average Age of Employees" from firmTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) where "root".LEGALNAME = \'Firm X\' group by "Address Type"',
                     'address type is an enumeration, which the model does not have'),
+        ported("testGroupByWithJoinH2", f"{_SRC}::testGroupByWithJoinH2",
+               'select "root".LEGALNAME as "legalName", "persontable_0".FIRSTNAME as "employeesFirstName", sum(1) as "sum" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "legalName", "employeesFirstName" order by "legalName" asc, "employeesFirstName" asc',
+               lambda f: f.find_all(None, None, [f.legal_name(), f.employees().first_name(), constant(1).sum()]).group_by(f.legal_name(), f.employees().first_name()).order_by(f.legal_name().ascending(), f.employees().first_name().ascending())),
     ],
 )
 

@@ -4,6 +4,7 @@ Ported from legend-engine core_relational ``tests/mapping/embedded/testEmbeddedO
 ``Product.bondDetails`` is embedded in the product row for ``description`` and falls back to a join to BOND_DETAIL for
 everything else (Legend's ``Otherwise``). Mapping: tests/mapping/embedded/embedded_mapping.md.
 """
+from datafinder import constant, when
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, EMBEDDED_WITH_JOIN, JOIN_OPERAND_ORDER
@@ -26,12 +27,6 @@ OTHERWISE_SPECS = FinderSpec(
                'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where "bond_detail_0".TYPE like \'15%\' and "root".BOND_DETAILS like \'Bond%\'',
                lambda f: f.find_all(None, None, [f.name(), f.bond_details().type_()], f.bond_details().type_().starts_with("15").and_(f.bond_details().description().starts_with("Bond"))),
                known_gaps={BACKEND: EMBEDDED_WITH_JOIN, ROWS: EMBEDDED_WITH_JOIN}),
-        unsupported("otherwiseTestGroupBy", f"{_SRC}::otherwiseTestGroupBy",
-                    'select "bond_detail_0".TYPE as "Bond Type", sum(case when "root".MARKET_NAME = \'LSE\' then 5.0 else 1.0 end) as "Profit" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) group by "Bond Type"',
-                    'no aggregate of an expression'),
-        unsupported("otherwiseTestGroupByComplexAgg", f"{_SRC}::otherwiseTestGroupByComplexAgg",
-                    'select "bond_detail_0".TYPE as "Bond Type", sum(case when "bond_detail_0".TYPE like \'5%\' then 5.0 else 1.0 end) as "sum" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) group by "Bond Type"',
-                    'no aggregate of an expression'),
         unsupported("otherwiseTestGroupByComplexExpressionEmbeddedAndJoin", f"{_SRC}::otherwiseTestGroupByComplexExpressionEmbeddedAndJoin",
                     'select "root".BOND_DETAILS as "Bond Type", sum(case when "bond_detail_0".TYPE like \'5%\' then 5.0 else 1.0 end) as "sum" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) group by "Bond Type"',
                     'no aggregate of an expression'),
@@ -78,5 +73,11 @@ OTHERWISE_SPECS = FinderSpec(
         unsupported("otherwiseTestProjectExistsOnOtherwiseProperty", f"{_SRC}::otherwiseTestProjectExistsOnOtherwiseProperty",
                     'select "bond_detail_0".TYPE = \'15 years\' as "typeExists" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID)',
                     'no exists over an embedded property'),
+        ported("otherwiseTestGroupBy", f"{_SRC}::otherwiseTestGroupBy",
+               'select "bond_detail_0".TYPE as "Bond Type", sum(case when "root".MARKET_NAME = \'LSE\' then 5.0 else 1.0 end) as "Profit" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) group by "Bond Type"',
+               lambda f: f.find_all(None, None, [f.bond_details().type_(), when(f.market().eq("LSE")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().type_())),
+        ported("otherwiseTestGroupByComplexAgg", f"{_SRC}::otherwiseTestGroupByComplexAgg",
+               'select "bond_detail_0".TYPE as "Bond Type", sum(case when "bond_detail_0".TYPE like \'5%\' then 5.0 else 1.0 end) as "sum" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) group by "Bond Type"',
+               lambda f: f.find_all(None, None, [f.bond_details().type_(), when(f.bond_details().type_().starts_with("5")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().type_())),
     ],
 )
