@@ -3,6 +3,7 @@ import datetime
 import decimal
 
 from model.relational import (
+    CountAllOperation,
     BooleanConstantOperation, ConstantOperation, DateConstantOperation, DateTimeConstantOperation,
     DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation, StringConstantOperation,
 )
@@ -27,3 +28,9 @@ def constant(value: bool | int | float | decimal.Decimal | str | datetime.date |
     if isinstance(value, datetime.date):
         return DateConstantOperation(value)
     raise TypeError(f"A constant column holds a bool, number, string, date or datetime, not {type(value).__name__}")
+
+
+def count_all() -> CountAllOperation:
+    """The number of rows in the group, ``COUNT(*)``: ``f.find_all(None, None, [f.category(), count_all()]).group_by(f.category())``.
+    Unlike ``count()`` of a column it also counts rows where that column is missing."""
+    return CountAllOperation("")

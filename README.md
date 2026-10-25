@@ -292,6 +292,11 @@ result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+`count_all()` counts the rows of a group, `COUNT(*)`, where `count()` of a column skips rows where that column is missing:
+`CompanyFinder.find_all(None, None, [CompanyFinder.category(), count_all()]).group_by(CompanyFinder.category())`.
+`std()` and `var()` give the sample standard deviation and variance, and `std(ddof=0)` / `var(ddof=0)` the population
+ones, as in pandas. `min()` and `max()` also work on text and dates.
+
 `count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
 
 `fill_null` replaces a missing (NULL) value: `EmployeeFinder.manager().name().fill_null("nobody")`, as `fillna` does for a

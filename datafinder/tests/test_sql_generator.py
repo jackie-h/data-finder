@@ -2055,3 +2055,34 @@ class TestAliasOfConditions:
                                   a.is_in(["x"]).alias("Listed")], table, NoOperation())
         assert sql == ('SELECT t0.a IS NULL AS "Missing",t0.a IS NOT NULL AS "There",t0.b > 1 AS "Big",'
                        't0.a IN (\'x\') AS "Listed" FROM t AS t0')
+
+
+class TestMoreAggregates:
+
+    @staticmethod
+    def _sql(*columns):
+        table = Table("t", [Column("a", "INT", "t"), Column("s", "VARCHAR", "t"), Column("d", "DATE", "t")])
+        return to_sql(None, None, list(columns), table, NoOperation())
+
+    def test_count_all(self):
+        from datafinder import count_all
+        assert self._sql(count_all()) == 'SELECT COUNT(*) AS "Count" FROM t AS t0'
+
+    def test_standard_deviation_is_the_sample_one_unless_asked(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a.std()) == 'SELECT STDDEV_SAMP(t0.a) AS "Std A" FROM t AS t0'
+        assert self._sql(a.std(ddof=0)) == 'SELECT STDDEV_POP(t0.a) AS "Std A" FROM t AS t0'
+
+    def test_variance_is_the_sample_one_unless_asked(self):
+        a = IntegerAttribute("A", "a", "INT", "t")
+        assert self._sql(a.var()) == 'SELECT VAR_SAMP(t0.a) AS "Var A" FROM t AS t0'
+        assert self._sql(a.var(ddof=0)) == 'SELECT VAR_POP(t0.a) AS "Var A" FROM t AS t0'
+
+    def test_ddof_is_zero_or_one(self):
+        with pytest.raises(ValueError):
+            IntegerAttribute("A", "a", "INT", "t").std(ddof=2)
+
+    def test_min_and_max_of_text_and_dates(self):
+        s = StringAttribute("S", "s", "VARCHAR", "t")
+        d = DateAttribute("D", "d", "DATE", "t")
+        assert self._sql(s.min(), d.max()) == 'SELECT MIN(t0.s) AS "Min S",MAX(t0.d) AS "Max D" FROM t AS t0'
