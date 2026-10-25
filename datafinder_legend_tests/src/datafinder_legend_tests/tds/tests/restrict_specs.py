@@ -51,5 +51,8 @@ RESTRICT_SPECS = FinderSpec(
         unsupported("testRestrictWithPostProcessor", f"{_SRC}::testRestrictWithPostProcessor",
                     'select "persontable_0"."firstName" as "firstName" from (select "root".FIRSTNAME as "firstName", \'Hello\' as "Hello" from personTable as "root" order by "Hello" asc, "firstName" asc) as "persontable_0"',
                     'a restrict after a sort wraps the query in a subselect'),
+        unsupported("testRestrictOnGroupByEleminatesUnnecessaryAggsWithDistinct", f"{_SRC}::testRestrictOnGroupByEleminatesUnnecessaryAggsWithDistinct",
+                    'select "persontable_0"."Firm" as "Firm", "persontable_0"."People count" as "People count" from (select distinct "firmtable_0".LEGALNAME as "Firm", count("root".FIRSTNAME) as "People count" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) group by "Firm" order by "Firm" asc) as "persontable_0"',
+                    'a mapping that the port does not load'),
     ],
 )

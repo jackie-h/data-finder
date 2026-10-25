@@ -30,6 +30,9 @@ FUNCTION_PERSON_SPECS = FinderSpec(
                'select "root".LASTNAME as "lastName", concat("root".FIRSTNAME, \'|\', "root".LASTNAME) as "fullName" from personTable as "root"',
                lambda f: f.find_all(None, None, [f.last_name(), f.first_name() + "|" + f.last_name()]),
                known_gaps={BACKEND: CONCAT_FUNCTION}),
+        unsupported("testSameBehaviorForNestedAddAndPlus", f"{_SRC}::testSameBehaviorForNestedAddAndPlus",
+                    'select "root".quantity + "root".quantity + 3 as "pnl", ("root".quantity + "root".quantity + 3) * 3 as "scaledPnl" from orderTable as "root"',
+                    'a mapping that the port does not load'),
     ],
 )
 
