@@ -2011,9 +2011,9 @@ class TestEmbeddedJoinElision:
         assert "JOIN" not in sql
         assert "ORDER BY" in sql and "acct_name" in sql
 
-    def test_only_a_column_can_be_aliased(self):
+    def test_a_sort_cannot_be_aliased(self):
         attr = IntegerAttribute("Id", "id", "INT", "t")
-        assert not hasattr(attr.eq(1), "alias")
+        assert not hasattr(attr.ascending(), "alias")
 
 
 class TestAliasOfExpressions:
@@ -2043,3 +2043,15 @@ class TestJoinConditionOrder:
 
     def test_without_a_key_the_source_comes_first(self):
         assert self._sql(False).endswith("ON (t0.FIRMID = t1.ID)")
+
+
+class TestAliasOfConditions:
+
+    def test_a_condition_can_be_named(self):
+        a = StringAttribute("A", "a", "VARCHAR", "t")
+        b = IntegerAttribute("B", "b", "INT", "t")
+        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "INT", "t")])
+        sql = to_sql(None, None, [a.is_none().alias("Missing"), a.is_not_none().alias("There"), (b > 1).alias("Big"),
+                                  a.is_in(["x"]).alias("Listed")], table, NoOperation())
+        assert sql == ('SELECT t0.a IS NULL AS "Missing",t0.a IS NOT NULL AS "There",t0.b > 1 AS "Big",'
+                       't0.a IN (\'x\') AS "Listed" FROM t AS t0')
