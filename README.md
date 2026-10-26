@@ -171,6 +171,23 @@ For foreign-key columns that represent association navigations, set `Key` to `FK
 | Target Table | The table the FK references |
 | Target Column | The primary key column in the target table |
 
+### Embedded properties
+
+A table can hold the columns of a related object. Give those columns a dotted `Property ID` that follows the associations, such as `firm.legalName` or `firm.address.name`. If the table has no `#### Association:` block for that navigation, nothing is joined: the properties are read straight from the row.
+
+```
+| Column            | Type    | Key | Nullable | Property ID       |
+|-------------------|---------|-----|----------|-------------------|
+| FIRM_LEGALNAME    | VARCHAR |     | Y        | firm.legalName    |
+| FIRM_ADDRESS_NAME | VARCHAR |     | Y        | firm.address.name |
+```
+
+```python
+person.find_all(None, None, [person.first_name(), person.firm().address().name()])
+```
+
+With an `#### Association:` block the dotted columns are a shortcut instead, and the join is used only when the query needs a property that is not embedded.
+
 ### Milestoning
 
 Milestoning lets you query data as it was at a specific point in time. Declare named milestoning schemes on the `DataStore` and reference them per table.
