@@ -97,6 +97,7 @@ class FinderResult(DataFrame):
         self._distinct = False
         self._offset: int | None = None
         self._having: Operation | None = None
+        self._combined: list[tuple['FinderResult', bool]] = []  # (result, keep_duplicates) combined after this one
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
 
     def group_by(self, *attrs) -> 'FinderResult':
@@ -136,15 +137,26 @@ class FinderResult(DataFrame):
             self._having = condition if self._having is None else self._having.and_(condition)
         return self
 
-    def concatenate(self, *others: 'FinderResult') -> 'CombinedResult':
-        """The rows of this result followed by those of the others, ``UNION ALL``. The results have the same number of
-        columns; the names are this result's. Order, limit and offset apply to the combined rows, so none of the results
-        has its own."""
-        return CombinedResult([self, *others], keep_duplicates=True)
+    def concatenate(self, *others: 'FinderResult') -> 'FinderResult':
+        """Follow this result's rows with those of the others, ``UNION ALL``. The results have the same number of
+        columns; the names are this result's. Order, limit and offset set afterwards apply to the combined rows, so
+        none of the results has its own when they are combined."""
+        return self._combine(others, keep_duplicates=True)
 
-    def union(self, *others: 'FinderResult') -> 'CombinedResult':
+    def union(self, *others: 'FinderResult') -> 'FinderResult':
         """Like ``concatenate`` but each row once, ``UNION``."""
-        return CombinedResult([self, *others], keep_duplicates=False)
+        return self._combine(others, keep_duplicates=False)
+
+    def _combine(self, others: tuple['FinderResult', ...], keep_duplicates: bool) -> 'FinderResult':
+        for result in (self, *others):
+            if len(result._columns) != len(self._columns):
+                raise ValueError(f"The results combined have different numbers of columns: "
+                                 f"{sorted({len(r._columns) for r in (self, *others)})}")
+            if result._order_by or result._limit is not None or result._offset is not None:
+                raise ValueError("A result that is combined has no order, limit or offset of its own: "
+                                 "apply them to the combined result")
+        self._combined.extend((other, keep_duplicates) for other in others)
+        return self
 
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""
@@ -156,6 +168,8 @@ class FinderResult(DataFrame):
         return self
 
     def _execute(self) -> DataFrame:
+        if self._combined:
+            return QueryRunnerBase.get_runner().run_sql(self.to_sql(), self._timeout_ms)
         return QueryRunnerBase.get_runner().select(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
@@ -176,6 +190,8 @@ class FinderResult(DataFrame):
             raise ViewDefinitionError(
                 "A view has no dates: pass None for the business date and processing time, and the view will "
                 "expose the milestoning columns instead")
+        if self._combined:
+            raise ViewDefinitionError("A view cannot combine results")
         if self._distinct:
             raise ViewDefinitionError("A view cannot be distinct")
         if self._offset is not None:
@@ -191,100 +207,47 @@ class FinderResult(DataFrame):
         return view
 
     def to_sql(self) -> str:
+        if self._combined:
+            return self._combined_sql()
+        return self._select_sql(self._order_by, self._limit, self._offset)
+
+    def _select_sql(self, order_by: list[SortOperation], limit: int | None, offset: int | None) -> str:
         return to_sql(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op,
-            self._order_by, self._group_by, self._limit,
-            business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
+            order_by, self._group_by, limit,
+            business_date_to=self._business_date_to, distinct=self._distinct, offset=offset,
             having=self._having,
         )
 
-    def to_pandas(self):
-        return self._execute().to_pandas()
-
-    def to_numpy(self):
-        return self._execute().to_numpy()
-
-
-class CombinedResult(DataFrame):
-    """The rows of several results taken together, from ``FinderResult.concatenate`` or ``union``. The results are
-    combined in a derived table, so ordering, a row limit and an offset apply to the combined rows."""
-
-    def __init__(self, parts: list[FinderResult], keep_duplicates: bool):
-        sizes = {len(part._columns) for part in parts}
-        if len(sizes) != 1:
-            raise ValueError(f"The results combined have different numbers of columns: {sorted(sizes)}")
-        for part in parts:
-            if part._order_by or part._limit is not None or part._offset is not None:
-                raise ValueError("A result that is combined has no order, limit or offset of its own: "
-                                 "apply them to the combined result")
-        self._parts = parts
-        self._keep_duplicates = keep_duplicates
-        self._order_by: list[tuple[int, bool]] = []
-        self._limit: int | None = None
-        self._offset: int | None = None
-        self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
-
-    def _names(self) -> list[str]:
-        return [column.name if isinstance(column, Alias) else display_alias(column) for column in self._parts[0]._columns]
-
-    def _position(self, key) -> int:
-        names = self._names()
-        if isinstance(key, str):
-            if key not in names:
-                raise ValueError(f"No column called {key!r}; the columns are {names}")
-            return names.index(key)
-        if isinstance(key, SortOperation):
-            target = _sort_target(key)
-            for position, column in enumerate(self._parts[0]._columns):
-                column = column.element if isinstance(column, Alias) else column
-                as_column = getattr(column, "_column_with_join", None)
-                if _sort_target(SortOperation(as_column() if as_column else column, key.direction)) == target:
-                    return position
-            raise ValueError("The sort is not by one of the columns of the combined results")
-        raise TypeError("Order by a column name or a sort of one of the columns")
-
-    def order_by(self, *keys) -> 'CombinedResult':
-        """Order the combined rows by column names (ascending) or sorts of the columns:
-        ``result.order_by("Last Name", f.age().descending())``. Calls accumulate as for ``FinderResult``."""
-        added = [(self._position(key), not (isinstance(key, SortOperation) and key.direction == SortDirection.DESC))
-                 for key in keys]
-        replaced = {position for position, _ in added}
-        self._order_by = [*added, *(entry for entry in self._order_by if entry[0] not in replaced)]
-        return self
-
-    def limit(self, n: int) -> 'CombinedResult':
-        self._limit = n
-        return self
-
-    def offset(self, n: int) -> 'CombinedResult':
-        if n < 0:
-            raise ValueError("offset cannot be negative")
-        self._offset = n
-        return self
-
-    def timeout(self, milliseconds: int) -> 'CombinedResult':
-        self._timeout_ms = milliseconds
-        return self
-
-    def to_sql(self) -> str:
-        names = self._names()
+    def _combined_sql(self) -> str:
+        """The results as one ``UNION`` in a derived table, which the order, limit and offset of this result apply to."""
+        names = [column.name if isinstance(column, Alias) else display_alias(column) for column in self._columns]
         quoted = ['"' + name.replace('"', '""') + '"' for name in names]
-        joiner = ' UNION ALL ' if self._keep_duplicates else ' UNION '
-        inner = joiner.join(part.to_sql() for part in self._parts)
+        inner = self._select_sql([], None, None)
+        for part, keep_duplicates in self._combined:
+            inner += (' UNION ALL ' if keep_duplicates else ' UNION ') + part.to_sql()
         sql = ('SELECT ' + ', '.join(f'unionalias_0.{q} AS {q}' for q in quoted)
                + ' FROM (' + inner + ') AS unionalias_0')
         if self._order_by:
-            sql += ' ORDER BY ' + ', '.join(f'unionalias_0.{quoted[position]}' + (' ASC' if ascending else ' DESC')
-                                           for position, ascending in self._order_by)
+            sql += ' ORDER BY ' + ', '.join(
+                f'unionalias_0.{quoted[self._position(sort_op)]}' + (' DESC' if sort_op.direction == SortDirection.DESC else ' ASC')
+                for sort_op in self._order_by)
         if self._limit is not None:
             sql += f' LIMIT {self._limit}'
         if self._offset is not None:
             sql += f' OFFSET {self._offset}'
         return sql
 
-    def _execute(self) -> DataFrame:
-        return QueryRunnerBase.get_runner().run_sql(self.to_sql(), self._timeout_ms)
+    def _position(self, sort_op: SortOperation) -> int:
+        """Where in the columns the sort's column is: the combined rows are ordered by position in the select list."""
+        target = _sort_target(sort_op)
+        for position, column in enumerate(self._columns):
+            column = column.element if isinstance(column, Alias) else column
+            as_column = getattr(column, "_column_with_join", None)
+            if _sort_target(SortOperation(as_column() if as_column else column, sort_op.direction)) == target:
+                return position
+        raise ValueError("The sort is not by one of the columns of the combined results")
 
     def to_pandas(self):
         return self._execute().to_pandas()

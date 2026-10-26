@@ -2181,10 +2181,6 @@ class TestCombinedResults:
         sql = a.concatenate(b).order_by(s.descending()).limit(5).offset(2).to_sql()
         assert sql.endswith('AS unionalias_0 ORDER BY unionalias_0."S" DESC LIMIT 5 OFFSET 2')
 
-    def test_a_column_name_orders_ascending(self):
-        _, a, b = self._results()
-        assert a.concatenate(b).order_by("S").to_sql().endswith('ORDER BY unionalias_0."S" ASC')
-
     def test_results_must_have_the_same_number_of_columns(self):
         from datafinder import FinderResult
         s, a, _ = self._results()
@@ -2198,7 +2194,18 @@ class TestCombinedResults:
         with pytest.raises(ValueError, match="no order, limit or offset"):
             a.limit(3).concatenate(b)
 
-    def test_an_unknown_column_name_is_refused(self):
+    def test_an_order_by_a_column_that_is_not_selected_is_refused(self):
         _, a, b = self._results()
-        with pytest.raises(ValueError, match="No column called"):
-            a.concatenate(b).order_by("Nope")
+        other = StringAttribute("Other", "o", "VARCHAR", "t")
+        with pytest.raises(ValueError, match="not by one of the columns"):
+            a.concatenate(b).order_by(other.ascending()).to_sql()
+
+    def test_combining_returns_the_same_result(self):
+        _, a, b = self._results()
+        assert a.concatenate(b) is a
+
+    def test_a_combined_result_cannot_be_a_view(self):
+        from datafinder import ViewDefinitionError
+        _, a, b = self._results()
+        with pytest.raises(ViewDefinitionError, match="combine"):
+            a.concatenate(b).to_view("v", "main")
