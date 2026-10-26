@@ -36,17 +36,13 @@ class IbisConnect(QueryRunnerBase):
     def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date, columns: Sequence[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None, having=None) -> DataFrame:
-        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
-        return IbisConnect.run_sql(query, timeout_ms)
-
-    @staticmethod
-    def run_sql(sql: str, timeout_ms: int = 60_000) -> DataFrame:
+               offset: int | None = None, having=None, combined: list | None = None) -> DataFrame:
         # We always connect via the duckdb:// scheme; ibis.connect()'s declared return type is
         # the generic BaseBackend, so annotate the concrete backend explicitly rather than
         # suppressing attr-defined at every subsequent .con/.sql() use below.
         conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
-        query = sql_for_backend(sql, conn.name)
+        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having, combined=combined)
+        query = sql_for_backend(query, conn.name)
         print(query)
         # conn.sql() only builds the expression — nothing executes until IbisOutput actually
         # materializes it, driven by which of to_pandas()/to_numpy() the caller asks for.

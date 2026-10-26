@@ -2187,7 +2187,7 @@ class TestCombinedResults:
         table = Table("t", [Column("s", "VARCHAR", "t")])
         two = FinderResult(None, None, [s, s.upper()], table, NoOperation())
         with pytest.raises(ValueError, match="different numbers of columns"):
-            a.concatenate(two)
+            a.concatenate(two).to_sql()
 
     def test_a_part_cannot_have_its_own_limit(self):
         _, a, b = self._results()
@@ -2199,6 +2199,14 @@ class TestCombinedResults:
         other = StringAttribute("Other", "o", "VARCHAR", "t")
         with pytest.raises(ValueError, match="not by one of the columns"):
             a.concatenate(b).order_by(other.ascending()).to_sql()
+
+    def test_mixed_combinations_apply_in_order(self):
+        _, a, b = self._results()
+        from datafinder import FinderResult
+        s = StringAttribute("S", "s", "VARCHAR", "t")
+        c = FinderResult(None, None, [s], Table("t", [Column("s", "VARCHAR", "t")]), s.eq("c"))
+        sql = a.concatenate(b).union(c).to_sql()
+        assert sql.index("UNION ALL") < sql.index(" UNION SELECT ")
 
     def test_combining_returns_the_same_result(self):
         _, a, b = self._results()
