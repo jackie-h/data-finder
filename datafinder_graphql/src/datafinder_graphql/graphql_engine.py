@@ -681,15 +681,14 @@ def _fetch_rows(table: GraphQLQuery, fields_str: str,
 class GraphQLConnect(QueryRunnerBase):
 
     @staticmethod
-    def run_sql(sql: str, timeout_ms: int = 60_000) -> DataFrame:  # type: ignore[override]
-        raise GraphQLUnsupportedError("The GraphQL engine cannot combine queries")
-
-    @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,  # type: ignore[override]
                columns: list, table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,
-               distinct: bool = False, offset: int | None = None, having=None) -> DataFrame:
+               distinct: bool = False, offset: int | None = None, having=None,
+               combined: list | None = None) -> DataFrame:
+        if combined:
+            raise GraphQLUnsupportedError("The GraphQL engine cannot combine queries")
         if having is not None:
             raise GraphQLUnsupportedError("The GraphQL engine cannot filter the groups of an aggregation")
 

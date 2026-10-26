@@ -1,6 +1,7 @@
 import datetime
+from dataclasses import dataclass, field
 from functools import reduce
-from typing import Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 import sqlglot
 import sqlglot.errors
@@ -987,16 +988,93 @@ class SQLQueryGenerator:
         return ' LIMIT ' + str(self._limit)
 
 
+@dataclass
+class QueryParts:
+    """What makes up one query that is combined with others by ``UNION``: the pieces ``to_sql`` takes, apart from the
+    order, limit and offset, which apply to the combined rows."""
+    business_date: datetime.date | None
+    processing_datetime: datetime.datetime | datetime.date | None
+    columns: Sequence
+    table: Any
+    op: Any
+    group_by: list = field(default_factory=list)
+    business_date_to: datetime.date | None = None
+    distinct: bool = False
+    having: Any = None
+    combined: list[tuple['QueryParts', bool]] = field(default_factory=list)  # (query, keep_duplicates)
+
+
+def sort_target(sort_op: SortOperation) -> tuple:
+    """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
+    own target, so sorting by an expression again adds a sort."""
+    column = sort_op.column
+    if not isinstance(column, ColumnWithJoin):
+        return ("expression", id(column))
+    joins = []
+    node = column.parent
+    while node is not None:
+        joins.append(node.join.name)
+        node = node.parent
+    return column.column.owner, column.column.name, tuple(joins)
+
+
 def to_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
            columns: Sequence, table, op,
            order_by: list | None = None, group_by: list | None = None,
            limit: int | None = None, validate_sqlglot: bool = True,
            business_date_to: datetime.date | None = None, distinct: bool = False,
-           offset: int | None = None, having=None) -> str:
+           offset: int | None = None, having=None,
+           combined: list[tuple[QueryParts, bool]] | None = None) -> str:
+    """The SQL for the query. ``combined`` holds queries whose rows follow this one's, each with whether duplicates are
+    kept (``UNION ALL``) or not (``UNION``); the order, limit and offset then apply to all of the rows."""
+    if combined:
+        first = to_sql(business_date, processing_datetime, columns, table, op, [], group_by, None, validate_sqlglot,
+                       business_date_to=business_date_to, distinct=distinct, having=having)
+        return _combined_sql(first, columns, combined, order_by or [], limit, offset, validate_sqlglot)
     select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
                                       order_by or [], group_by or [], limit,
                                       business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
     return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
+
+
+def _combined_sql(first: str, columns: Sequence, combined: list[tuple[QueryParts, bool]], order_by: list,
+                  limit: int | None, offset: int | None, validate_sqlglot: bool) -> str:
+    """The queries joined by ``UNION`` in a derived table, which the order, limit and offset apply to."""
+    for part, _ in combined:
+        if len(part.columns) != len(columns):
+            raise ValueError(f"The results combined have different numbers of columns: "
+                             f"{sorted({len(columns), *(len(p.columns) for p, _ in combined)})}")
+    inner = first
+    for part, keep_duplicates in combined:
+        part_sql = to_sql(part.business_date, part.processing_datetime, part.columns, part.table, part.op, [],
+                          part.group_by, None, validate_sqlglot, business_date_to=part.business_date_to,
+                          distinct=part.distinct, having=part.having, combined=part.combined)
+        inner += (' UNION ALL ' if keep_duplicates else ' UNION ') + part_sql
+    names = [column.name if isinstance(column, Alias) else display_alias(column) for column in columns]
+    quoted = ['"' + name.replace('"', '""') + '"' for name in names]
+    sql = 'SELECT ' + ', '.join(f'unionalias_0.{q} AS {q}' for q in quoted) + ' FROM (' + inner + ') AS unionalias_0'
+    if order_by:
+        sql += ' ORDER BY ' + ', '.join(
+            f'unionalias_0.{quoted[_column_position(columns, sort_op)]}'
+            + (' DESC' if sort_op.direction == SortDirection.DESC else ' ASC') for sort_op in order_by)
+    if limit is not None:
+        sql += f' LIMIT {limit}'
+    if offset is not None:
+        sql += f' OFFSET {offset}'
+    if validate_sqlglot:
+        sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
+    return sql
+
+
+def _column_position(columns: Sequence, sort_op: SortOperation) -> int:
+    """Where in the columns the sort's column is: the combined rows are ordered by position in the select list."""
+    target = sort_target(sort_op)
+    for position, column in enumerate(columns):
+        column = column.element if isinstance(column, Alias) else column
+        as_column = getattr(column, "_column_with_join", None)
+        if sort_target(SortOperation(as_column() if as_column else column, sort_op.direction)) == target:
+            return position
+    raise ValueError("The sort is not by one of the columns of the combined results")
 
 
 def select_sql_to_string(select_operation: QueryExpression, validate_sqlglot: bool = True) -> str:

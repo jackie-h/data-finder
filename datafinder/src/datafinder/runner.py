@@ -2,9 +2,9 @@ import datetime
 from typing import Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
+from datafinder.sql_generator import QueryParts, to_sql, view_sql_to_string, display_alias, check_view_joins, sort_target
 from model.naming import to_snake_case
-from model.relational import Table, SortOperation, SortDirection, Alias, ColumnWithJoin
+from model.relational import Table, SortOperation, Alias
 from model.view import View, ViewDefinitionError
 
 
@@ -65,20 +65,6 @@ def convert_date(maybe_date) -> datetime.date:
 _DEFAULT_TIMEOUT_MS = 60_000
 
 
-def _sort_target(sort_op: SortOperation) -> tuple:
-    """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
-    own target, so sorting by an expression again adds a sort."""
-    column = sort_op.column
-    if not isinstance(column, ColumnWithJoin):
-        return ("expression", id(column))
-    joins = []
-    node = column.parent
-    while node is not None:
-        joins.append(node.join.name)
-        node = node.parent
-    return column.column.owner, column.column.name, tuple(joins)
-
-
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
@@ -97,7 +83,7 @@ class FinderResult(DataFrame):
         self._distinct = False
         self._offset: int | None = None
         self._having: Operation | None = None
-        self._combined: list[tuple['FinderResult', bool]] = []  # (result, keep_duplicates) combined after this one
+        self._combined: list[tuple[QueryParts, bool]] = []  # (query, keep_duplicates) combined after this one
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
 
     def group_by(self, *attrs) -> 'FinderResult':
@@ -108,8 +94,8 @@ class FinderResult(DataFrame):
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
         direction."""
-        resorted = {_sort_target(sort_op) for sort_op in sort_ops}
-        self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
+        resorted = {sort_target(sort_op) for sort_op in sort_ops}
+        self._order_by = [*sort_ops, *(s for s in self._order_by if sort_target(s) not in resorted)]
         return self
 
     def limit(self, n: int) -> 'FinderResult':
@@ -149,13 +135,10 @@ class FinderResult(DataFrame):
 
     def _combine(self, others: tuple['FinderResult', ...], keep_duplicates: bool) -> 'FinderResult':
         for result in (self, *others):
-            if len(result._columns) != len(self._columns):
-                raise ValueError(f"The results combined have different numbers of columns: "
-                                 f"{sorted({len(r._columns) for r in (self, *others)})}")
             if result._order_by or result._limit is not None or result._offset is not None:
                 raise ValueError("A result that is combined has no order, limit or offset of its own: "
                                  "apply them to the combined result")
-        self._combined.extend((other, keep_duplicates) for other in others)
+        self._combined.extend((other._parts(), keep_duplicates) for other in others)
         return self
 
     def distinct(self) -> 'FinderResult':
@@ -168,13 +151,11 @@ class FinderResult(DataFrame):
         return self
 
     def _execute(self) -> DataFrame:
-        if self._combined:
-            return QueryRunnerBase.get_runner().run_sql(self.to_sql(), self._timeout_ms)
         return QueryRunnerBase.get_runner().select(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
             self._timeout_ms, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having,
+            having=self._having, combined=self._combined,
         )
 
     def to_view(self, name: str, schema: str) -> 'ViewDefinition':
@@ -206,48 +187,18 @@ class FinderResult(DataFrame):
         check_view_joins(view)
         return view
 
-    def to_sql(self) -> str:
-        if self._combined:
-            return self._combined_sql()
-        return self._select_sql(self._order_by, self._limit, self._offset)
+    def _parts(self) -> QueryParts:
+        return QueryParts(self._business_date, self._processing_datetime, self._columns, self._table, self._op,
+                          self._group_by, self._business_date_to, self._distinct, self._having, self._combined)
 
-    def _select_sql(self, order_by: list[SortOperation], limit: int | None, offset: int | None) -> str:
+    def to_sql(self) -> str:
         return to_sql(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op,
-            order_by, self._group_by, limit,
-            business_date_to=self._business_date_to, distinct=self._distinct, offset=offset,
-            having=self._having,
+            self._order_by, self._group_by, self._limit,
+            business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
+            having=self._having, combined=self._combined,
         )
-
-    def _combined_sql(self) -> str:
-        """The results as one ``UNION`` in a derived table, which the order, limit and offset of this result apply to."""
-        names = [column.name if isinstance(column, Alias) else display_alias(column) for column in self._columns]
-        quoted = ['"' + name.replace('"', '""') + '"' for name in names]
-        inner = self._select_sql([], None, None)
-        for part, keep_duplicates in self._combined:
-            inner += (' UNION ALL ' if keep_duplicates else ' UNION ') + part.to_sql()
-        sql = ('SELECT ' + ', '.join(f'unionalias_0.{q} AS {q}' for q in quoted)
-               + ' FROM (' + inner + ') AS unionalias_0')
-        if self._order_by:
-            sql += ' ORDER BY ' + ', '.join(
-                f'unionalias_0.{quoted[self._position(sort_op)]}' + (' DESC' if sort_op.direction == SortDirection.DESC else ' ASC')
-                for sort_op in self._order_by)
-        if self._limit is not None:
-            sql += f' LIMIT {self._limit}'
-        if self._offset is not None:
-            sql += f' OFFSET {self._offset}'
-        return sql
-
-    def _position(self, sort_op: SortOperation) -> int:
-        """Where in the columns the sort's column is: the combined rows are ordered by position in the select list."""
-        target = _sort_target(sort_op)
-        for position, column in enumerate(self._columns):
-            column = column.element if isinstance(column, Alias) else column
-            as_column = getattr(column, "_column_with_join", None)
-            if _sort_target(SortOperation(as_column() if as_column else column, sort_op.direction)) == target:
-                return position
-        raise ValueError("The sort is not by one of the columns of the combined results")
 
     def to_pandas(self):
         return self._execute().to_pandas()
@@ -343,12 +294,7 @@ class QueryRunnerBase(metaclass=RegistryBase):
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
                business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None, having=None) -> DataFrame:
-        raise NotImplementedError()
-
-    @staticmethod
-    def run_sql(sql: str, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> DataFrame:
-        """Run SQL as the finders write it (generic SQL, as ``to_sql`` returns), written for the backend first."""
+               offset: int | None = None, having=None, combined: list | None = None) -> DataFrame:
         raise NotImplementedError()
 
     @staticmethod
