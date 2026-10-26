@@ -323,6 +323,10 @@ An expression has the aggregates a column has: `(TradeFinder.price() * TradeFind
 An aggregate compares as a column does (`< <= > >= == !=`), and `contains`, `starts_with` and `ends_with` also work on
 an expression that holds text, such as `CompanyFinder.name().upper().starts_with("AC")` or a joined text.
 
+`concatenate` puts the rows of several results together, `UNION ALL`, and `union` does the same keeping each row once. The results
+have the same number of columns and the names of the first. Order, limit and offset then apply to the combined rows:
+`CompanyFinder.find_all(None, None, [CompanyFinder.name()], a).concatenate(CompanyFinder.find_all(None, None, [CompanyFinder.name()], b)).order_by(CompanyFinder.name().ascending()).limit(10)`.
+
 `count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
 
 `fill_null` replaces a missing (NULL) value: `EmployeeFinder.manager().name().fill_null("nobody")`, as `fillna` does for a

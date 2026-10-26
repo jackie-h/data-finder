@@ -19,9 +19,9 @@ class DuckDbConnect(QueryRunnerBase):
     def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date, columns: Sequence[Attribute],
                table: Table, op: Operation, order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None, having=None) -> DataFrame:
+               offset: int | None = None, having=None, combined: list | None = None) -> DataFrame:
         conn = duckdb.connect('test.db')
-        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
+        query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having, combined=combined)
         print(query)
         # conn.sql() only builds the query plan — nothing executes (and no pandas DataFrame
         # gets built) until DuckDbOutput actually materializes it, driven by which of

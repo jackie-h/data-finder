@@ -2,9 +2,9 @@ import datetime
 from typing import Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
+from datafinder.sql_generator import QueryParts, to_sql, view_sql_to_string, display_alias, check_view_joins, sort_target
 from model.naming import to_snake_case
-from model.relational import Table, SortOperation, Alias, ColumnWithJoin
+from model.relational import Table, SortOperation, Alias
 from model.view import View, ViewDefinitionError
 
 
@@ -65,20 +65,6 @@ def convert_date(maybe_date) -> datetime.date:
 _DEFAULT_TIMEOUT_MS = 60_000
 
 
-def _sort_target(sort_op: SortOperation) -> tuple:
-    """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
-    own target, so sorting by an expression again adds a sort."""
-    column = sort_op.column
-    if not isinstance(column, ColumnWithJoin):
-        return ("expression", id(column))
-    joins = []
-    node = column.parent
-    while node is not None:
-        joins.append(node.join.name)
-        node = node.parent
-    return column.column.owner, column.column.name, tuple(joins)
-
-
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
@@ -97,6 +83,7 @@ class FinderResult(DataFrame):
         self._distinct = False
         self._offset: int | None = None
         self._having: Operation | None = None
+        self._combined: list[tuple[QueryParts, bool]] = []  # (query, keep_duplicates) combined after this one
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
 
     def group_by(self, *attrs) -> 'FinderResult':
@@ -107,8 +94,8 @@ class FinderResult(DataFrame):
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
         direction."""
-        resorted = {_sort_target(sort_op) for sort_op in sort_ops}
-        self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
+        resorted = {sort_target(sort_op) for sort_op in sort_ops}
+        self._order_by = [*sort_ops, *(s for s in self._order_by if sort_target(s) not in resorted)]
         return self
 
     def limit(self, n: int) -> 'FinderResult':
@@ -136,6 +123,24 @@ class FinderResult(DataFrame):
             self._having = condition if self._having is None else self._having.and_(condition)
         return self
 
+    def concatenate(self, *others: 'FinderResult') -> 'FinderResult':
+        """Follow this result's rows with those of the others, ``UNION ALL``. The results have the same number of
+        columns; the names are this result's. Order, limit and offset set afterwards apply to the combined rows, so
+        none of the results has its own when they are combined."""
+        return self._combine(others, keep_duplicates=True)
+
+    def union(self, *others: 'FinderResult') -> 'FinderResult':
+        """Like ``concatenate`` but each row once, ``UNION``."""
+        return self._combine(others, keep_duplicates=False)
+
+    def _combine(self, others: tuple['FinderResult', ...], keep_duplicates: bool) -> 'FinderResult':
+        for result in (self, *others):
+            if result._order_by or result._limit is not None or result._offset is not None:
+                raise ValueError("A result that is combined has no order, limit or offset of its own: "
+                                 "apply them to the combined result")
+        self._combined.extend((other._parts(), keep_duplicates) for other in others)
+        return self
+
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""
         self._distinct = True
@@ -150,7 +155,7 @@ class FinderResult(DataFrame):
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
             self._timeout_ms, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having,
+            having=self._having, combined=self._combined,
         )
 
     def to_view(self, name: str, schema: str) -> 'ViewDefinition':
@@ -166,6 +171,8 @@ class FinderResult(DataFrame):
             raise ViewDefinitionError(
                 "A view has no dates: pass None for the business date and processing time, and the view will "
                 "expose the milestoning columns instead")
+        if self._combined:
+            raise ViewDefinitionError("A view cannot combine results")
         if self._distinct:
             raise ViewDefinitionError("A view cannot be distinct")
         if self._offset is not None:
@@ -180,13 +187,17 @@ class FinderResult(DataFrame):
         check_view_joins(view)
         return view
 
+    def _parts(self) -> QueryParts:
+        return QueryParts(self._business_date, self._processing_datetime, self._columns, self._table, self._op,
+                          self._group_by, self._business_date_to, self._distinct, self._having, self._combined)
+
     def to_sql(self) -> str:
         return to_sql(
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op,
             self._order_by, self._group_by, self._limit,
             business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having,
+            having=self._having, combined=self._combined,
         )
 
     def to_pandas(self):
@@ -283,7 +294,7 @@ class QueryRunnerBase(metaclass=RegistryBase):
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
                business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None, having=None) -> DataFrame:
+               offset: int | None = None, having=None, combined: list | None = None) -> DataFrame:
         raise NotImplementedError()
 
     @staticmethod

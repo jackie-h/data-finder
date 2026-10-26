@@ -17,10 +17,11 @@ def _to_databricks_sql(business_date: datetime.date | None, processing_datetime:
                        columns: Sequence, table: Table, op: Operation,
                        order_by: list | None = None, group_by: list | None = None,
                        limit: int | None = None, business_date_to: datetime.date | None = None,
-                       distinct: bool = False, offset: int | None = None, having=None) -> str:
+                       distinct: bool = False, offset: int | None = None, having=None,
+                       combined: list | None = None) -> str:
     generic_sql = to_sql(business_date, processing_datetime, columns, table, op,
                          order_by, group_by, limit, validate_sqlglot=False,
-                         business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
+                         business_date_to=business_date_to, distinct=distinct, offset=offset, having=having, combined=combined)
     return sqlglot.transpile(generic_sql, read='', write='databricks')[0]
 
 
@@ -51,11 +52,12 @@ class DatabricksConnect(QueryRunnerBase):
                order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000,
                business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None, having=None) -> DataFrame:
+               offset: int | None = None, having=None, combined: list | None = None) -> DataFrame:
         if DatabricksConnect._server_hostname is None:
             raise RuntimeError("DatabricksConnect.configure(...) must be called before use")
         query = _to_databricks_sql(business_date, processing_datetime, columns, table, op,
-                                   order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
+                                   order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having,
+                                   combined=combined)
         result: list = [None]
         error: list = [None]
 
