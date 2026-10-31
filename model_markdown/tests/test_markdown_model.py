@@ -68,6 +68,7 @@ class TestMarkdownLoad:
         assoc = self.associations[0]
         assert assoc.source_property.id == "account"
         assert assoc.source_property.name == "Account"
+        assert assoc.target_property is not None
         assert assoc.target_property.id == "trades"
         assert assoc.target_property.name == "Trades"
 
@@ -215,7 +216,8 @@ class TestMarkdownSave:
         packages2 = loads(content)
         assocs2 = [a for a in packages2[0].children if isinstance(a, Association)]
         assert assocs2[0].source_property.id == "account"
-        assert assocs2[0].target_property.id == "trades"
+        target_property = assocs2[0].target_property
+        assert target_property is not None and target_property.id == "trades"
 
     def test_missing_multiplicity_raises(self):
         content = """
@@ -408,3 +410,40 @@ class TestAssociationMultiplicityValues:
     def test_invalid_association_multiplicity_raises(self):
         with pytest.raises(ValueError, match="Source Multiplicity"):
             loads(_ASSOC_MODEL.replace("| 1                   |", "| lots                |"))
+
+
+class TestOneWayAssociation:
+
+    _ONE_WAY = _ASSOC_MODEL.replace(
+        "| Account              | account            | 1                   | Account | Trades               | trades             | *                   |",
+        "| Instrument           | instrument         | 0..1                | Account |                      |                    | *                   |",
+    )
+
+    def _classes(self, model):
+        packages = loads(model)
+        return {c.name: c for c in packages[0].children if isinstance(c, Class)}, packages
+
+    def test_the_source_class_gets_the_property_and_the_target_class_gets_none(self):
+        classes, packages = self._classes(self._ONE_WAY)
+        assoc = next(c for c in packages[0].children if isinstance(c, Association))
+        assert assoc.target_property is None
+        assert str(assoc.target_multiplicity) == "*"
+        assert str(classes["Trade"].property("instrument").multiplicity) == "0..1"
+        assert "trades" not in classes["Account"].all_properties()
+
+    def test_an_absent_target_property_is_written_back_as_empty_cells(self):
+        _, packages = self._classes(self._ONE_WAY)
+        reloaded = loads(to_markdown("Test", packages))
+        assoc = next(c for c in reloaded[0].children if isinstance(c, Association))
+        assert assoc.target_property is None
+        assert assoc.source_property.id == "instrument"
+
+    def test_a_target_property_id_without_a_name_is_an_error(self):
+        model = self._ONE_WAY.replace("|                      |                    | *   ", "|                      | trades             | *   ")
+        with pytest.raises(ValueError, match="both be given, or both left empty"):
+            loads(model)
+
+    def test_the_source_property_is_mandatory(self):
+        model = self._ONE_WAY.replace("| Instrument           | instrument         |", "|                      |                    |")
+        with pytest.raises(ValueError, match="Source Property"):
+            loads(model)

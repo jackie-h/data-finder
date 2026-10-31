@@ -172,10 +172,6 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Source Property"
                             )
-                        if not tgt_prop_id:
-                            raise ValueError(
-                                f"Association '{assoc_name}' must specify Target Property"
-                            )
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else []
                         Association(assoc_name, source, src_mult,
@@ -223,9 +219,10 @@ def _validate_no_association_property_conflicts(packages: list, classes_by_name:
                 continue
             assoc = child
             # source_property is a navigation on the source class (source → target)
-            # target_property is a navigation back on the target class (target → source)
+            # target_property, when there is one, is a navigation back on the target class (target → source)
             _check_conflict(assoc.source, assoc.source_property.id, assoc.name, classes_by_name, "source_property")
-            _check_conflict(assoc.target, assoc.target_property.id, assoc.name, classes_by_name, "target_property")
+            if assoc.target_property is not None:
+                _check_conflict(assoc.target, assoc.target_property.id, assoc.name, classes_by_name, "target_property")
 
 
 def _check_conflict(class_name: str, prop_id: str, assoc_name: str, classes_by_name: dict, field: str) -> None:
@@ -251,9 +248,10 @@ def _register_association_properties(packages: list, classes_by_name: dict) -> N
                 source_cls.properties_from_associations[assoc.source_property.id] = Property(
                     assoc.source_property.name, assoc.source_property.id, target_cls, assoc.source_multiplicity
                 )
-                target_cls.properties_from_associations[assoc.target_property.id] = Property(
-                    assoc.target_property.name, assoc.target_property.id, source_cls, assoc.target_multiplicity
-                )
+                if assoc.target_property is not None:
+                    target_cls.properties_from_associations[assoc.target_property.id] = Property(
+                        assoc.target_property.name, assoc.target_property.id, source_cls, assoc.target_multiplicity
+                    )
 
 
 # ---------------------------------------------------------------------------
@@ -303,7 +301,9 @@ def to_markdown(title: str, packages: list[Package]) -> str:
                     [[child.name, child.source,
                       child.source_property.name, child.source_property.id, str(child.source_multiplicity),
                       child.target,
-                      child.target_property.name, child.target_property.id, str(child.target_multiplicity),
+                      child.target_property.name if child.target_property else "",
+                      child.target_property.id if child.target_property else "",
+                      str(child.target_multiplicity),
                       description]],
                 ))
                 lines.append("")

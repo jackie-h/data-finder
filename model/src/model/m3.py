@@ -208,8 +208,10 @@ def parse_multiplicity(text: str) -> Multiplicity:
 class Association(PackagableElement):
     """A relationship between two classes. Each end is the property added to that end's own class, and its multiplicity.
 
-    The source property is added to the source class and returns the target class (``Trade.account``). The target
-    property is added to the target class and returns the source class (``Account.trades``).
+    The source property is added to the source class and returns the target class (``Trade.instrument``). The target
+    property is added to the target class and returns the source class (``Instrument.trades``). The source property is
+    mandatory. The target property is optional: leave its name and id empty for a one-way relationship, where the target
+    class gets no accessor back, though its multiplicity is still declared.
     """
 
     def __init__(self, name: str,
@@ -224,13 +226,12 @@ class Association(PackagableElement):
             raise ValueError(f"Association '{name}': target_multiplicity must be a Multiplicity instance")
         if not source_property_id:
             raise ValueError(f"Association '{name}' must specify Source Property")
-        if not target_property_id:
-            raise ValueError(f"Association '{name}' must specify Target Property")
         # Generated finders name every column reached through an association after its property.
         if not source_property_name:
             raise ValueError(f"Association '{name}' must specify Source Property Name")
-        if not target_property_name:
-            raise ValueError(f"Association '{name}' must specify Target Property Name")
+        if bool(target_property_name) != bool(target_property_id):
+            raise ValueError(
+                f"Association '{name}': Target Property Name and Target Property ID must both be given, or both left empty")
         super().__init__(package, tagged_values)
         self.name = name
         self.source = source
@@ -239,5 +240,6 @@ class Association(PackagableElement):
                                         multiplicity=source_multiplicity)
         self.target = target
         self.target_multiplicity = target_multiplicity
-        self.target_property = Property(target_property_name, target_property_id, None,
-                                        multiplicity=target_multiplicity)
+        self.target_property: Property | None = Property(
+            target_property_name, target_property_id, None, multiplicity=target_multiplicity
+        ) if target_property_id else None

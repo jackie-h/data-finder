@@ -35,3 +35,9 @@
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description                  |
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|------------------------------|
 | TradeAccount | Trade  | Account              | account            | 1                   | Account | Trades               | trades             | *                   | Links a trade to its account |
+
+### Association: TradeInstrument
+
+| Name            | Source | Source Property Name | Source Property ID | Source Multiplicity | Target     | Target Property Name | Target Property ID | Target Multiplicity | Description           |
+|-----------------|--------|----------------------|--------------------|---------------------|------------|----------------------|--------------------|---------------------|-----------------------|
+| TradeInstrument | Trade  | Instrument           | instrument         | 0..1                | Instrument |                      |                    | *                   | The instrument traded |
