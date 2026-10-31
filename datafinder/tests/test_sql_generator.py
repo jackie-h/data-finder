@@ -2227,6 +2227,25 @@ class TestOptionalPropertyGuard:
         table, age, _ = self._age(optional=False, node=child)
         assert "IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)
 
+    @pytest.mark.parametrize("nullable,optional,matches_null", [
+        (True, False, True), (True, True, True), (False, False, False), (False, True, False),
+    ])
+    def test_not_in_follows_the_column_and_not_the_property(self, nullable, optional, matches_null):
+        """As in Legend, which writes ``or col is null`` for a required property over a nullable column."""
+        table = Table("person", [Column("NAME", "VARCHAR", "person")])
+        name = StringAttribute("Name", "NAME", "VARCHAR", "person", nullable=nullable, optional=optional)
+        sql = to_sql(None, None, [name], table, name.is_not_in(["x"]))
+        assert ("t0.NAME IS NULL" in sql) is matches_null
+
+    @pytest.mark.parametrize("nullable,optional,guarded", [
+        (True, False, False), (True, True, True), (False, False, False), (False, True, True),
+    ])
+    def test_the_guard_follows_the_property_and_not_the_column(self, nullable, optional, guarded):
+        """As in Legend, which guards an optional property over a NOT NULL column but not a required one over a nullable one."""
+        table = Table("person", [Column("AGE", "INT", "person")])
+        age = IntegerAttribute("Age", "AGE", "INT", "person", nullable=nullable, optional=optional)
+        assert ("IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)) is guarded
+
     def test_having_is_not_guarded(self):
         table, age, name = self._age()
         sql = to_sql(None, None, [age, name.join(",")], table, NoOperation(), group_by=[age],

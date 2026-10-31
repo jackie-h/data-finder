@@ -22,10 +22,11 @@ class Attribute(RelationalOperationElement, Aliasable):
         that satisfies this same property without the join ``parent`` depends on. The SQL
         generator decides at query-build time whether to use it (see sql_generator elision).
 
-        ``nullable`` is whether the column can hold NULL; ``is_not_in`` needs it to match NULL rows.
-
-        ``optional`` is whether the property can be missing (its multiplicity starts at 0), which the SQL generator
-        guards a comparison for, as Legend does. It is a fact about the property, where ``nullable`` is about the column.
+        ``nullable`` is whether the column can hold NULL, and ``optional`` is whether the property can be missing (its
+        multiplicity starts at 0, or a navigation to it does). They are not the same fact, and Legend uses each for
+        something different: ``is_not_in`` matches NULL rows when the column is nullable, even for a required property,
+        and an ordering or pattern comparison is guarded with IS NOT NULL when the property is optional, even over a
+        column that is NOT NULL.
         """
         super().__init__()
         self.__display_name = display_name
