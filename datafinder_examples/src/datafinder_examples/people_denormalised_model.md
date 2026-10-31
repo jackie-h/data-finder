@@ -37,16 +37,16 @@
 
 | Name       | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| PersonFirm | Person | Employees            | employees          | 1..*                | Firm   | Firm                 | firm               | *                   |             |
+| PersonFirm | Person | Firm                 | firm               | *                   | Firm   | Employees            | employees          | 1..*                |             |
 
 ### Association: PersonAddress
 
 | Name          | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |---------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| PersonAddress | Person | Residents            | residents          | *                   | Address | Address              | address            | *                   |             |
+| PersonAddress | Person | Address              | address            | *                   | Address | Residents            | residents          | *                   |             |
 
 ### Association: FirmAddress
 
 | Name        | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |-------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| FirmAddress | Firm   | Firms                | firms              | 0..1                | Address | Address              | address            | *                   |             |
+| FirmAddress | Firm   | Address              | address            | *                   | Address | Firms                | firms              | 0..1                |             |

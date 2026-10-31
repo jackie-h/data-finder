@@ -222,10 +222,10 @@ def _validate_no_association_property_conflicts(packages: list, classes_by_name:
             if not isinstance(child, _Association):
                 continue
             assoc = child
-            # target_property is a forward navigation on the source class (source → target)
-            # source_property is a reverse navigation on the target class (target → source)
-            _check_conflict(assoc.source, assoc.target_property.id, assoc.name, classes_by_name, "target_property")
-            _check_conflict(assoc.target, assoc.source_property.id, assoc.name, classes_by_name, "source_property")
+            # source_property is a navigation on the source class (source → target)
+            # target_property is a navigation back on the target class (target → source)
+            _check_conflict(assoc.source, assoc.source_property.id, assoc.name, classes_by_name, "source_property")
+            _check_conflict(assoc.target, assoc.target_property.id, assoc.name, classes_by_name, "target_property")
 
 
 def _check_conflict(class_name: str, prop_id: str, assoc_name: str, classes_by_name: dict, field: str) -> None:
@@ -248,11 +248,11 @@ def _register_association_properties(packages: list, classes_by_name: dict) -> N
             source_cls = classes_by_name.get(assoc.source)
             target_cls = classes_by_name.get(assoc.target)
             if source_cls and target_cls:
-                source_cls.properties_from_associations[assoc.target_property.id] = Property(
-                    assoc.target_property.name, assoc.target_property.id, target_cls, assoc.target_multiplicity
+                source_cls.properties_from_associations[assoc.source_property.id] = Property(
+                    assoc.source_property.name, assoc.source_property.id, target_cls, assoc.source_multiplicity
                 )
-                target_cls.properties_from_associations[assoc.source_property.id] = Property(
-                    assoc.source_property.name, assoc.source_property.id, source_cls, assoc.source_multiplicity
+                target_cls.properties_from_associations[assoc.target_property.id] = Property(
+                    assoc.target_property.name, assoc.target_property.id, source_cls, assoc.target_multiplicity
                 )
 
 

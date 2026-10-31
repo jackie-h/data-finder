@@ -38,7 +38,7 @@
 
 | Name            | Source   | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description                        |
 |-----------------|----------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|------------------------------------|
-| EmployeeManager | Employee | Employees            | employees          | *                   | Employee | Manager              | manager            | 0..1                | Links an employee to their manager |
+| EmployeeManager | Employee | Manager              | manager            | 0..1                | Employee | Employees            | employees          | *                   | Links an employee to their manager |
 
 ### Class: Project
 
@@ -54,6 +54,6 @@
 
 ### Association: EmployeeProject
 
-| Name            | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description                               |
-|-----------------|---------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|-------------------------------------------|
-| EmployeeProject | Project | Projects             | projects           | *                   | Employee | Assignee             | assignee           | *                   | Links a project to its assigned employee  |
+| Name            | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description                              |
+|-----------------|---------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|------------------------------------------|
+| EmployeeProject | Project | Assignee             | assignee           | *                   | Employee | Projects             | projects           | *                   | Links a project to its assigned employee |

@@ -128,13 +128,13 @@ def loads(content: str, packages: list, datastore: DataStore | None = None) -> M
 
 
 def _build_assoc_nav_lookup(packages: list) -> dict:
-    """Build (source_class_name, target_property_id) -> (target class name, multiplicity) from all associations."""
+    """Build (source_class_name, source_property_id) -> (target class name, multiplicity) from all associations."""
     result = {}
     for pkg in packages:
         for child in pkg.children:
             if isinstance(child, Association):
                 # the class is resolved later, after classes_by_name is built
-                result[(child.source, child.target_property.id)] = (child.target, child.target_multiplicity)
+                result[(child.source, child.source_property.id)] = (child.target, child.source_multiplicity)
     return result
 
 
@@ -151,7 +151,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
         for schema in repository.schemas
         for table in schema.tables
     }
-    # (source_class_name, target_property_id) -> target class name
+    # (source_class_name, source_property_id) -> (target class name, multiplicity)
     assoc_nav_lookup = _build_assoc_nav_lookup(packages)
 
     title = "Mapping"
@@ -279,7 +279,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     continue
 
                 src_cls_name = assoc_def.source
-                nav_prop_id = assoc_def.target_property.id
+                nav_prop_id = assoc_def.source_property.id
                 pm_list, cols_by_name, embedded_by_nav = class_context.get(src_cls_name, (None, {}, {}))
                 nav = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
                 target_cls = classes_by_name.get(nav[0]) if nav else None
@@ -320,7 +320,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                     f"Association '{assoc_name}': navigation property '{nav_prop_id}' "
                                     f"on class '{src_cls_name}' is already mapped"
                                 )
-                            prop = Property(assoc_def.target_property.name, nav_prop_id, target_cls, assoc_def.target_multiplicity)
+                            prop = Property(assoc_def.source_property.name, nav_prop_id, target_cls, assoc_def.source_multiplicity)
                             embedded_entry = embedded_by_nav.pop(nav_prop_id, None)
                             embedded = embedded_entry[1] if embedded_entry is not None else None
                             pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col, embedded=embedded)))

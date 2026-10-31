@@ -39,4 +39,4 @@
 
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description                  |
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|------------------------------|
-| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   | Links a trade to its account |
+| TradeAccount | Trade  | Account              | account            | 1                   | Account | Trades               | trades             | *                   | Links a trade to its account |
