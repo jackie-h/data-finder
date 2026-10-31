@@ -48,9 +48,8 @@ def association_path(pm) -> str:
 
 
 def association_display(pm) -> str:
-    """The display-name segment for an association: a to-many one is named for its class, as in the relational finders."""
-    many = pm.property.multiplicity is not None and pm.property.multiplicity.is_many()
-    return pm.property.type.name if many else pm.target.name.title()
+    """The display-name segment for an association: the name of its property, whether it is to-one or to-many."""
+    return pm.property.name
 
 
 def type_str(t) -> str:

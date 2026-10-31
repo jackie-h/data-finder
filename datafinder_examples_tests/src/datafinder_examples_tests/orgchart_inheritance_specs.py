@@ -70,7 +70,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects().name()],
             ).order_by(f.first_name().ascending(), f.projects().name().ascending()),
-            expected_columns=["First Name", "Project Name"],
+            expected_columns=["First Name", "Projects Name"],
             expected_result=np.array(
                 [
                     ["Alice", "Epsilon Research"],
@@ -87,7 +87,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(code="ALPHA").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Project Name"],
+            expected_columns=["First Name", "Projects Name"],
             expected_result=np.array(
                 [["Alice", None], ["Bob", "Alpha Initiative"], ["Carol", None], ["Dave", None]],
                 dtype=object,
@@ -99,7 +99,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 None, None, [f.manager().projects().name()],
                 f.first_name().eq("Dave"),
             ).order_by(f.manager().projects().name().ascending()),
-            expected_columns=["Manager Project Name"],
+            expected_columns=["Manager Projects Name"],
             expected_result=np.array([["Alpha Initiative"], ["Beta Platform"]], dtype=object),
         ),
         TestExpectation(
@@ -117,7 +117,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 None, None, [f.manager().projects().name()],
                 f.manager().first_name().eq("Alice"),
             ).order_by(f.manager().projects().name().ascending()),
-            expected_columns=["Manager Project Name"],
+            expected_columns=["Manager Projects Name"],
             expected_result=np.array([["Epsilon Research"], ["Epsilon Research"]], dtype=object),
         ),
         # --- Additional inheritance specs ---
@@ -177,7 +177,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 None, None, [f.projects().code()],
                 f.first_name().eq("Bob"),
             ).order_by(f.projects().code().ascending()),
-            expected_columns=["Project Code"],
+            expected_columns=["Projects Code"],
             expected_result=np.array([["ALPHA"], ["BETA"]], dtype=object),
         ),
         TestExpectation(
@@ -195,7 +195,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(name="Gamma Tooling").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Project Name"],
+            expected_columns=["First Name", "Projects Name"],
             expected_result=np.array(
                 [["Alice", None], ["Bob", None], ["Carol", "Gamma Tooling"], ["Dave", None]],
                 dtype=object,
@@ -207,7 +207,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 None, None,
                 [f.first_name(), f.projects(name="Alpha Initiative", code="ALPHA").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Project Name"],
+            expected_columns=["First Name", "Projects Name"],
             expected_result=np.array(
                 [["Alice", None], ["Bob", "Alpha Initiative"], ["Carol", None], ["Dave", None]],
                 dtype=object,
@@ -218,7 +218,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, None, [f.first_name(), f.projects(code="NONEXISTENT").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Project Name"],
+            expected_columns=["First Name", "Projects Name"],
             expected_result=np.array(
                 [["Alice", None], ["Bob", None], ["Carol", None], ["Dave", None]],
                 dtype=object,
