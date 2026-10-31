@@ -179,8 +179,9 @@ ZERO_TO_MANY = UnboundedMultiplicity(0)
 def parse_multiplicity(text: str) -> Multiplicity:
     """Parse the text form that ``str(multiplicity)`` produces: ``1``, ``0..1``, ``*``, ``1..*`` or ``n..m``."""
     text = text.strip()
-    if text == "*":
-        return ZERO_TO_MANY
+    common = {str(m): m for m in (ONE_TO_ONE, ZERO_TO_ONE, ONE_TO_MANY, ZERO_TO_MANY)}
+    if text in common:
+        return common[text]
     lower, separator, upper = text.partition("..")
     try:
         if not separator:

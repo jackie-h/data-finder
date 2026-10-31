@@ -95,11 +95,11 @@ An **Association** declares a named relationship between two classes. Both ends 
 | Source | Name of the source class |
 | Source Property Name | Display name of the reverse navigation property added to the **target** class (`Account.trades`) |
 | Source Property ID | camelCase id of the reverse navigation property (`trades`) |
-| Source Multiplicity | `*` (many) or `1` (one) — multiplicity on the source side |
+| Source Multiplicity | `1`, `0..1`, `*`, `1..*` or `n..m` — multiplicity on the source side |
 | Target | Name of the target class |
 | Target Property Name | Display name of the forward navigation property added to the **source** class (`Trade.account`) |
 | Target Property ID | camelCase id of the forward navigation property (`account`) |
-| Target Multiplicity | `*` (many) or `1` (one) — multiplicity on the target side |
+| Target Multiplicity | `1`, `0..1`, `*`, `1..*` or `n..m` — multiplicity on the target side |
 
 All eight fields (name and id for both properties, both multiplicities) are mandatory. The association is the single source of truth for cross-class navigation — do not also declare the same property explicitly on the class.
 

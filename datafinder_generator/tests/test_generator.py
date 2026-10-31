@@ -5,7 +5,7 @@ import tempfile
 
 import pytest
 from mapping_markdown.markdown_mapping import load
-from model.m3 import Property, String, Class, Package, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY, _name_to_camel_id
+from model.m3 import Property, String, Class, Package, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY, _name_to_camel_id, ZERO_TO_ONE
 from datafinder_generator.generator import generate, _class_package, _ensure_package_dirs, \
     _mapping_to_class_name, _mapping_to_filename
 
@@ -246,12 +246,12 @@ class TestDualAssociationSameTarget:
         pkg = Package("org")
         employee_cls = Class("Employee", [
             Property("Id", "id", Integer, ONE_TO_ONE),
-            Property("Name", "name", String, ONE_TO_ONE),
+            Property("Name", "name", String, ZERO_TO_ONE),
         ], pkg)
         contract_cls = Class("Contract", [
             Property("Id", "id", Integer, ONE_TO_ONE),
-            Property("Primary Owner", "primaryOwner", employee_cls, ONE_TO_ONE),
-            Property("Secondary Owner", "secondaryOwner", employee_cls, ONE_TO_ONE),
+            Property("Primary Owner", "primaryOwner", employee_cls, ZERO_TO_ONE),
+            Property("Secondary Owner", "secondaryOwner", employee_cls, ZERO_TO_ONE),
         ], pkg)
         Association("ContractPrimaryOwner", "Contract", ZERO_TO_MANY,
                     "Primary Owner Contracts", "primaryOwnerContracts",
@@ -341,7 +341,7 @@ class TestCamelCaseReverseAssocMethodName:
         ], pkg)
         tag_cls = Class("Tag", [
             Property("Id", "id", Integer, ONE_TO_ONE),
-            Property("Related Entity", "relatedEntity", entity_cls, ONE_TO_ONE),
+            Property("Related Entity", "relatedEntity", entity_cls, ZERO_TO_ONE),
         ], pkg)
         Association("TagEntity", "Tag", ZERO_TO_MANY,
                     "Related Entities", "relatedEntities",
@@ -413,7 +413,7 @@ class TestAssociationPropertyDocstring:
         account_cls = Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE)], pkg)
         trade_cls = Class("Trade", [
             Property("Id", "id", Integer, ONE_TO_ONE),
-            Property("Account", "account", account_cls, ONE_TO_ONE),
+            Property("Account", "account", account_cls, ZERO_TO_ONE),
         ], pkg)
         Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades",
                     "Account", ONE_TO_ONE, "Account", "account", pkg)

@@ -4,7 +4,7 @@ import tempfile
 import pytest
 
 from model_markdown.markdown_model import load, save, loads, to_markdown
-from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY
+from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity, ONE_TO_ONE, ZERO_TO_ONE, ZERO_TO_MANY
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance.md")
 
@@ -388,3 +388,18 @@ _ASSOC_MODEL = """# Test
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
 | TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   |             |
 """
+
+
+class TestAssociationMultiplicityValues:
+
+    @pytest.mark.parametrize("text", ["1", "0..1", "*", "1..*"])
+    def test_every_multiplicity_form_is_accepted_on_both_ends(self, text):
+        model = _ASSOC_MODEL.replace("| *                   |", f"| {text:<19} |").replace(
+            "| 1                   |", f"| {text:<19} |")
+        assoc = next(c for c in loads(model)[0].children if isinstance(c, Association))
+        assert str(assoc.source_multiplicity) == text
+        assert str(assoc.target_multiplicity) == text
+
+    def test_invalid_association_multiplicity_raises(self):
+        with pytest.raises(ValueError, match="Target Multiplicity"):
+            loads(_ASSOC_MODEL.replace("| 1                   |", "| lots                |"))

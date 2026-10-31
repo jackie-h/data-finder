@@ -12,4 +12,4 @@
 |----------|----------|---------|--------------|-----|-------------|
 | Id       | id       | Integer | 1            | Y   |             |
 | Name     | name     | String  | 1            |     |             |
-| Category | category | String  | 1            |     |             |
+| Category | category | String  | 0..1         |     |             |

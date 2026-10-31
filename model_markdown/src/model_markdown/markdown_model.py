@@ -37,6 +37,15 @@ def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str]) -> list[
     return rows
 
 
+def _parse_association_multiplicity(assoc_name: str, end: str, text: str) -> Multiplicity:
+    try:
+        return parse_multiplicity(text)
+    except ValueError:
+        raise ValueError(
+            f"Association '{assoc_name}' must specify {end} Multiplicity ('1', '0..1', '*', '1..*' or 'n..m')"
+        ) from None
+
+
 def _resolve_type(type_str: str, classes_by_name: dict[str, Class]) -> Type:
     candidate = getattr(m3, type_str, None)
     if isinstance(candidate, PrimitiveType):
@@ -154,14 +163,8 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                         src_prop_id = row.get("Source Property ID", "").strip()
                         tgt_prop_name = row.get("Target Property Name", "").strip()
                         tgt_prop_id = row.get("Target Property ID", "").strip()
-                        if src_mult_str not in ("1", "*"):
-                            raise ValueError(
-                                f"Association '{assoc_name}' must specify Source Multiplicity ('1' or '*')"
-                            )
-                        if tgt_mult_str not in ("1", "*"):
-                            raise ValueError(
-                                f"Association '{assoc_name}' must specify Target Multiplicity ('1' or '*')"
-                            )
+                        src_mult = _parse_association_multiplicity(assoc_name, "Source", src_mult_str)
+                        tgt_mult = _parse_association_multiplicity(assoc_name, "Target", tgt_mult_str)
                         if not src_prop_id:
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Source Property"
@@ -170,8 +173,6 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Target Property"
                             )
-                        src_mult = ONE_TO_ONE if src_mult_str == "1" else ZERO_TO_MANY
-                        tgt_mult = ONE_TO_ONE if tgt_mult_str == "1" else ZERO_TO_MANY
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else []
                         Association(assoc_name, source, src_mult,

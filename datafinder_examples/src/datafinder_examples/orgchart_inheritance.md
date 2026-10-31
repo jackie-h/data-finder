@@ -22,7 +22,7 @@
 
 | Property | Id    | Type   | Multiplicity | Key | Description   |
 |----------|-------|--------|--------------|-----|---------------|
-| Email    | email | String | 1            |     | Email address |
+| Email    | email | String | 0..1         |     | Email address |
 
 ### Class: Employee extends Person, Contactable
 
@@ -32,13 +32,13 @@
 
 | Property   | Id         | Type   | Multiplicity | Key | Description |
 |------------|------------|--------|--------------|-----|-------------|
-| Department | department | String | 1            |     |             |
+| Department | department | String | 0..1         |     |             |
 
 ### Association: EmployeeManager
 
 | Name            | Source   | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description                        |
 |-----------------|----------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|------------------------------------|
-| EmployeeManager | Employee | Employees            | employees          | *                   | Employee | Manager              | manager            | 1                   | Links an employee to their manager |
+| EmployeeManager | Employee | Employees            | employees          | *                   | Employee | Manager              | manager            | 0..1                | Links an employee to their manager |
 
 ### Class: Project
 
@@ -56,4 +56,4 @@
 
 | Name            | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description                               |
 |-----------------|---------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|-------------------------------------------|
-| EmployeeProject | Project | Projects             | projects           | *                   | Employee | Assignee             | assignee           | 1                   | Links a project to its assigned employee  |
+| EmployeeProject | Project | Projects             | projects           | *                   | Employee | Assignee             | assignee           | *                   | Links a project to its assigned employee  |

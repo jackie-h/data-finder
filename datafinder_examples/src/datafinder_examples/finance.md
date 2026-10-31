@@ -33,10 +33,10 @@
 | Property | Id   | Type    | Multiplicity | Key | Description |
 |----------|------|---------|--------------|-----|-------------|
 | Id       | id   | Integer | 1            | Y   |             |
-| City     | city | String  | 1            |     |             |
+| City     | city | String  | 0..1         |     |             |
 
 ### Association: AccountBranch
 
 | Name          | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description                  |
 |---------------|---------|-----------------------|---------------------|----------------------|--------|-----------------------|---------------------|----------------------|-------------------------------|
-| AccountBranch | Account | Accounts              | accounts            | *                    | Branch | Branch                | branch              | 1                    | Links an account to its branch |
+| AccountBranch | Account | Accounts              | accounts            | *                    | Branch | Branch                | branch              | 0..1                 | Links an account to its branch |

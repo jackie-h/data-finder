@@ -1,4 +1,4 @@
-from model.m3 import Property, String, _name_to_camel_id, ONE_TO_ONE
+from model.m3 import Property, String, _name_to_camel_id, ONE_TO_ONE, ZERO_TO_ONE
 from model.naming import to_python_name, to_snake_case
 
 
@@ -39,7 +39,7 @@ class TestToPythonName:
         assert to_python_name(_prop("Account")) == "account"
 
     def test_uses_label_not_id(self):
-        prop = Property("Valid From", "validFrom", String, ONE_TO_ONE)
+        prop = Property("Valid From", "validFrom", String, ZERO_TO_ONE)
         assert to_python_name(prop) == "valid_from"
 
 

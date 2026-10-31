@@ -17,4 +17,4 @@
 
 | Name            | Source   | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description                        |
 |-----------------|----------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|------------------------------------|
-| EmployeeManager | Employee | Employees            | employees          | *                   | Employee | Manager              | manager            | 1                   | Links an employee to their manager |
+| EmployeeManager | Employee | Employees            | employees          | *                   | Employee | Manager              | manager            | 0..1                | Links an employee to their manager |

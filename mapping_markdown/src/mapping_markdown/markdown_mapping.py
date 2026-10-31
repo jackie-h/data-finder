@@ -6,7 +6,7 @@ from typing import Optional
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
-from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_TO_ONE
+from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_TO_ONE, ZERO_TO_ONE
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping
 from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
@@ -474,7 +474,10 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
         scheme.business_date, scheme.business_date_from, scheme.business_date_to,
     } - {None}
     if col_name in milestoning_cols:
-        return Property(_camel_to_display_name(prop_name), prop_name, DateTime, ONE_TO_ONE)
+        # An end column holds NULL, rather than an infinity date, when the scheme has no infinite_datetime.
+        open_ended = scheme.infinite_datetime is None and col_name in (scheme.processing_end, scheme.business_date_to)
+        return Property(_camel_to_display_name(prop_name), prop_name, DateTime,
+                        ZERO_TO_ONE if open_ended else ONE_TO_ONE)
     return None
 
 

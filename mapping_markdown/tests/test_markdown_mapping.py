@@ -4,7 +4,7 @@ import tempfile
 import pytest
 from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
 from model_markdown.markdown_model import load as load_model
-from model.m3 import Class, ONE_TO_ONE
+from model.m3 import Class, ONE_TO_ONE, ZERO_TO_ONE
 from model.relational import Database, Schema, Table, Column
 from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
@@ -507,7 +507,7 @@ class TestDuplicateClassMappingValidation:
         pkg = Package("test")
         account_cls = Class("Account", [
             Property("Id", "id", Integer, ONE_TO_ONE),
-            Property("Name", "name", String, ONE_TO_ONE),
+            Property("Name", "name", String, ZERO_TO_ONE),
         ], pkg)
 
         db = Database("test_db", "duckdb://test.db")
@@ -742,8 +742,8 @@ class TestColumnMappingHeaderValidation:
         ) + "| name   | VARCHAR |  | Y        | name |\n| code   | VARCHAR |  | N        | code |\n"
         from model.m3 import Package, Class, Property, Integer, String
         pkg = Package("test")
-        Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE), Property("Name", "name", String, ONE_TO_ONE),
-                          Property("Code", "code", String, ONE_TO_ONE)], pkg)
+        Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE), Property("Name", "name", String, ZERO_TO_ONE),
+                          Property("Code", "code", String, ZERO_TO_ONE)], pkg)
         mapping = loads(content, packages=[pkg])
         cols = {pm.target.name: pm.target for pm in mapping.mappings[0].property_mappings}
         assert (cols["id"].nullable, cols["name"].nullable, cols["code"].nullable) == (False, True, False)
@@ -788,9 +788,9 @@ class TestMilestonedWithMissingColumns:
         from model.m3 import Package, Class, Property, String
         pkg = Package("test")
         Class("Trade", [
-            Property("Symbol", "symbol", String, ONE_TO_ONE),
-            Property("Valid From", "validFrom", String, ONE_TO_ONE),
-            Property("Valid To", "validTo", String, ONE_TO_ONE),
+            Property("Symbol", "symbol", String, ZERO_TO_ONE),
+            Property("Valid From", "validFrom", String, ZERO_TO_ONE),
+            Property("Valid To", "validTo", String, ZERO_TO_ONE),
         ], pkg)
         db = Database("test_db", "duckdb://test.db")
         Table("trades", [
