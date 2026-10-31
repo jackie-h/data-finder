@@ -136,3 +136,11 @@ def test_the_two_sides_of_an_equality_in_a_join_condition_are_interchangeable(ac
 ])
 def test_only_an_equality_in_a_join_condition_is_interchangeable(actual, expected):
     assert not sql_equivalent(actual, expected)
+
+
+def test_parentheses_around_a_whole_case_when_condition_group_nothing():
+    assert sql_equivalent("SELECT CASE WHEN a IS NOT NULL AND a LIKE 'x%' THEN 1 ELSE 0 END FROM t",
+                          "SELECT CASE WHEN (a IS NOT NULL AND a LIKE 'x%') THEN 1 ELSE 0 END FROM t")
+    # but they do when they are not the whole condition
+    assert not sql_equivalent("SELECT CASE WHEN (a = 1 OR b = 2) AND c = 3 THEN 1 ELSE 0 END FROM t",
+                              "SELECT CASE WHEN a = 1 OR b = 2 AND c = 3 THEN 1 ELSE 0 END FROM t")
