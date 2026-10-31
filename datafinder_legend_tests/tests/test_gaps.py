@@ -1,6 +1,8 @@
 """A known gap must set aside only the difference it names."""
 from datafinder_legend_tests.gaps import gap_is_only
-from datafinder_legend_tests.legend import JOIN_OPERAND_ORDER, NOT_EQUAL_NULL, TDS_FILTER_OPTIONAL_PROPERTY
+from datafinder_legend_tests.legend import (
+    DATETIME_MILESTONING_DATE, JOIN_OPERAND_ORDER, NOT_EQUAL_NULL, TDS_FILTER_OPTIONAL_PROPERTY,
+)
 
 _ACTUAL = "SELECT t0.a FROM p AS t0 LEFT OUTER JOIN f AS t1 ON (t0.fk = t1.id) WHERE t0.x = 1 ORDER BY t0.a"
 
@@ -33,3 +35,10 @@ def test_a_null_alternative_is_covered_only_by_the_not_equal_gap():
     assert gap_is_only(NOT_EQUAL_NULL, actual, expected)
     assert not gap_is_only(JOIN_OPERAND_ORDER, actual, expected)
     assert not gap_is_only(NOT_EQUAL_NULL, actual, "SELECT t0.a FROM p AS t0 WHERE t0.a <> 'x' OR t0.b IS NULL")
+
+
+def test_a_datetime_milestoning_date_is_the_date_of_the_datetime():
+    legend = ("select \"root\".id as \"id\" from p as \"root\" "
+              "where \"root\".snapshotDate = cast(truncate('2015-08-26 02:00:00') as date)")
+    assert gap_is_only(DATETIME_MILESTONING_DATE, "SELECT t0.id FROM p AS t0 WHERE t0.snapshotDate = '2015-08-26'", legend)
+    assert not gap_is_only(DATETIME_MILESTONING_DATE, "SELECT t0.id FROM p AS t0 WHERE t0.snapshotDate = '2015-08-27'", legend)
