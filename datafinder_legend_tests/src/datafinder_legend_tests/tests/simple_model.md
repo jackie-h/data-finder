@@ -11,12 +11,12 @@ without enumerations, qualified properties or the properties computed from datab
 |--------|-------------|
 | Person |             |
 
-| Property  | Id        | Type    | Key | Description |
-|-----------|-----------|---------|-----|-------------|
-| Id        | id        | Integer | Y   |             |
-| FirstName | firstName | String  |     |             |
-| LastName  | lastName  | String  |     |             |
-| Age       | age       | Integer |     |             |
+| Property  | Id        | Type    | Multiplicity | Key | Description |
+|-----------|-----------|---------|--------------|-----|-------------|
+| Id        | id        | Integer | 1            | Y   |             |
+| FirstName | firstName | String  | 1            |     |             |
+| LastName  | lastName  | String  | 1            |     |             |
+| Age       | age       | Integer | 0..1         |     |             |
 
 ### Class: Firm
 
@@ -24,10 +24,10 @@ without enumerations, qualified properties or the properties computed from datab
 |------|-------------|
 | Firm |             |
 
-| Property  | Id        | Type    | Key | Description |
-|-----------|-----------|---------|-----|-------------|
-| Id        | id        | Integer | Y   |             |
-| LegalName | legalName | String  |     |             |
+| Property  | Id        | Type    | Multiplicity | Key | Description |
+|-----------|-----------|---------|--------------|-----|-------------|
+| Id        | id        | Integer | 1            | Y   |             |
+| LegalName | legalName | String  | 1            |     |             |
 
 ### Class: Address
 
@@ -35,12 +35,12 @@ without enumerations, qualified properties or the properties computed from datab
 |---------|-------------|
 | Address |             |
 
-| Property | Id     | Type    | Key | Description |
-|----------|--------|---------|-----|-------------|
-| Id       | id     | Integer | Y   |             |
-| Name     | name   | String  |     |             |
-| Street   | street | String  |     |             |
-| Comments | comments | String |    |             |
+| Property | Id       | Type    | Multiplicity | Key | Description |
+|----------|----------|---------|--------------|-----|-------------|
+| Id       | id       | Integer | 1            | Y   |             |
+| Name     | name     | String  | 1            |     |             |
+| Street   | street   | String  | 0..1         |     |             |
+| Comments | comments | String  | 0..1         |     |             |
 
 ### Class: Location
 
@@ -48,170 +48,170 @@ without enumerations, qualified properties or the properties computed from datab
 |----------|-------------|
 | Location |             |
 
-| Property | Id    | Type    | Key | Description |
-|----------|-------|---------|-----|-------------|
-| Id       | id    | Integer | Y   |             |
-| Place    | place | String  |     |             |
-| Censusdate | censusdate | Date |  |             |
+| Property   | Id         | Type    | Multiplicity | Key | Description |
+|------------|------------|---------|--------------|-----|-------------|
+| Id         | id         | Integer | 1            | Y   |             |
+| Place      | place      | String  | 1            |     |             |
+| Censusdate | censusdate | Date    | 0..1         |     |             |
 
 ### Association: PersonFirm
 
 | Name       | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| PersonFirm | Person | Employees            | employees          | *                   | Firm   | Firm                 | firm               | 1                   |             |
+| PersonFirm | Person | Firm                 | firm               | 0..1                | Firm   | Employees            | employees          | *                   |             |
 
 ### Association: PersonAddress
 
-| Name          | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|---------------|---------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| PersonAddress | Person  | Persons              | persons            | *                   | Address | Address             | address            | 1                   |             |
+| Name          | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|---------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| PersonAddress | Person | Address              | address            | 0..1                | Address |                      |                    | *                   |             |
 
 ### Association: PersonManager
 
 | Name          | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |---------------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| PersonManager | Person | Reports              | reports            | *                   | Person | Manager              | manager            | 1                   |             |
+| PersonManager | Person | Manager              | manager            | 0..1                | Person |                      |                    | *                   |             |
 
 ### Association: FirmAddress
 
 | Name        | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |-------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| FirmAddress | Firm   | Firms                | firms              | *                   | Address | Address              | address            | 1                   |             |
+| FirmAddress | Firm   | Address              | address            | 0..1                | Address |                      |                    | *                   |             |
 
 ### Association: PersonLocations
 
-| Name            | Source   | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|-----------------|----------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| PersonLocations | Location | Locations            | locations          | *                   | Person | Person               | person             | 1                   |             |
+| Name            | Source | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|-----------------|--------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|-------------|
+| PersonLocations | Person | Locations            | locations          | *                   | Location |                      |                    | 0..1                |             |
 
 ### Class: Product
 
-| Name | Description |
-|------|-------------|
+| Name    | Description |
+|---------|-------------|
 | Product |             |
 
-| Property | Id | Type | Key | Description |
-|----------|----|------|-----|-------------|
-| Id | id | Integer | Y |             |
-| Name | name | String |  |             |
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Id       | id   | Integer | 1            | Y   |             |
+| Name     | name | String  | 1            |     |             |
 
 ### Class: Synonym
 
-| Name | Description |
-|------|-------------|
+| Name    | Description |
+|---------|-------------|
 | Synonym |             |
 
-| Property | Id | Type | Key | Description |
-|----------|----|------|-----|-------------|
-| Id | id | Integer | Y |             |
-| Name | name | String |  |             |
-| TypeAsString | typeAsString | String |  |             |
+| Property     | Id           | Type    | Multiplicity | Key | Description |
+|--------------|--------------|---------|--------------|-----|-------------|
+| Id           | id           | Integer | 1            | Y   |             |
+| Name         | name         | String  | 1            |     |             |
+| TypeAsString | typeAsString | String  | 1            |     |             |
 
 ### Class: Account
 
-| Name | Description |
-|------|-------------|
+| Name    | Description |
+|---------|-------------|
 | Account |             |
 
-| Property | Id | Type | Key | Description |
-|----------|----|------|-----|-------------|
-| Id | id | Integer | Y |             |
-| Name | name | String |  |             |
-| CreateDate | createDate | Date |  |             |
+| Property   | Id         | Type    | Multiplicity | Key | Description |
+|------------|------------|---------|--------------|-----|-------------|
+| Id         | id         | Integer | 1            | Y   |             |
+| Name       | name       | String  | 1            |     |             |
+| CreateDate | createDate | Date    | 1            |     |             |
 
 ### Class: Trade
 
-| Name | Description |
-|------|-------------|
+| Name  | Description |
+|-------|-------------|
 | Trade |             |
 
-| Property | Id | Type | Key | Description |
-|----------|----|------|-----|-------------|
-| Id | id | Integer | Y |             |
-| Quantity | quantity | Double |  |             |
-| Date | date | Date |  |             |
-| SettlementDateTime | settlementDateTime | DateTime |  |             |
+| Property           | Id                 | Type     | Multiplicity | Key | Description |
+|--------------------|--------------------|----------|--------------|-----|-------------|
+| Id                 | id                 | Integer  | 1            | Y   |             |
+| Quantity           | quantity           | Double   | 1            |     |             |
+| Date               | date               | Date     | 1            |     |             |
+| SettlementDateTime | settlementDateTime | DateTime | 0..1         |     |             |
 
 ### Class: Order
 
-| Name | Description |
-|------|-------------|
+| Name  | Description |
+|-------|-------------|
 | Order |             |
 
-| Property | Id | Type | Key | Description |
-|----------|----|------|-----|-------------|
-| Id | id | Integer | Y |             |
-| Quantity | quantity | Double |  |             |
-| Date | date | Date |  |             |
-| SettlementDateTime | settlementDateTime | DateTime |  |             |
+| Property           | Id                 | Type     | Multiplicity | Key | Description |
+|--------------------|--------------------|----------|--------------|-----|-------------|
+| Id                 | id                 | Integer  | 1            | Y   |             |
+| Quantity           | quantity           | Double   | 1            |     |             |
+| Date               | date               | Date     | 1            |     |             |
+| SettlementDateTime | settlementDateTime | DateTime | 0..1         |     |             |
 
 ### Class: Interaction
 
-| Name | Description |
-|------|-------------|
+| Name        | Description |
+|-------------|-------------|
 | Interaction |             |
 
-| Property | Id | Type | Key | Description |
-|----------|----|------|-----|-------------|
-| Id | id | String |  |             |
-| Time | time | Integer |  |             |
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Id       | id   | String  | 1            |     |             |
+| Time     | time | Integer | 1            |     |             |
 
 ### Class: TradeEvent
 
-| Name | Description |
-|------|-------------|
+| Name       | Description |
+|------------|-------------|
 | TradeEvent |             |
 
-| Property | Id | Type | Key | Description |
-|----------|----|------|-----|-------------|
-| Id | id | Integer | Y |             |
-| EventType | eventType | String |  |             |
-| Date | date | Date |  |             |
+| Property  | Id        | Type    | Multiplicity | Key | Description |
+|-----------|-----------|---------|--------------|-----|-------------|
+| Id        | id        | Integer | 1            | Y   |             |
+| EventType | eventType | String  | 0..1         |     |             |
+| Date      | date      | Date    | 1            |     |             |
 
 ### Association: TradeAccount
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| TradeAccount | Trade | Trades | trades | * | Account | Account | account | 1 |             |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| TradeAccount | Trade  | Account              | account            | 0..1                | Account | Trades               | trades             | *                   |             |
 
 ### Association: TradeProduct
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| TradeProduct | Trade | Trades | trades | * | Product | Product | product | 1 |             |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| TradeProduct | Trade  | Product              | product            | 0..1                | Product |                      |                    | *                   |             |
 
 ### Association: TradeEventTrade
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| TradeEventTrade | TradeEvent | Events | events | * | Trade | Trade | trade | 1 |             |
+| Name            | Source | Source Property Name | Source Property ID | Source Multiplicity | Target     | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|-----------------|--------|----------------------|--------------------|---------------------|------------|----------------------|--------------------|---------------------|-------------|
+| TradeEventTrade | Trade  | Events               | events             | *                   | TradeEvent |                      |                    | 0..1                |             |
 
 ### Association: TradeEventInitiator
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| TradeEventInitiator | TradeEvent | InitiatedEvents | initiatedEvents | * | Person | Initiator | initiator | 1 |             |
+| Name                | Source     | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|---------------------|------------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
+| TradeEventInitiator | TradeEvent | Initiator            | initiator          | 0..1                | Person |                      |                    | *                   |             |
 
 ### Association: OrderAccount
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| OrderAccount | Order | Orders | orders | * | Account | Account | account | 1 |             |
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| OrderAccount | Order  | Account              | account            | 0..1                | Account | Orders               | orders             | *                   |             |
 
 ### Association: SynonymProduct
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| SynonymProduct | Synonym | Synonyms | synonyms | * | Product | Product | product | 1 |             |
+| Name           | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|----------------|---------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| SynonymProduct | Synonym | Product              | product            | 1                   | Product | Synonyms             | synonyms           | *                   |             |
 
 ### Association: InteractionSource
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| InteractionSource | Interaction | SourceInteractions | sourceInteractions | * | Person | Source | source | 1 |             |
+| Name              | Source      | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|-------------------|-------------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
+| InteractionSource | Interaction | Source               | source             | 0..1                | Person |                      |                    | *                   |             |
 
 ### Association: InteractionTarget
 
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| InteractionTarget | Interaction | TargetInteractions | targetInteractions | * | Person | Target | target | 1 |             |
+| Name              | Source      | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|-------------------|-------------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
+| InteractionTarget | Interaction | Target               | target             | 0..1                | Person |                      |                    | *                   |             |
