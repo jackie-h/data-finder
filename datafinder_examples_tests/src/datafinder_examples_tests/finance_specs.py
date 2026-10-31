@@ -729,6 +729,63 @@ TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS = FinderSpec(
     ],
 )
 
+# A navigation can be given its own processing time, which it and the navigations below it use instead of the query's.
+# At _BOTH_AT, account 1 is 'Acme Ltd' (London); at _AT it is 'Acme Corp' (New York).
+TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": "The GraphQL finders do not take a date on a navigation"},
+    expectations=[
+        TestExpectation(
+            name="navigation_given_its_own_processing_time_uses_it",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account(processing_valid_at=_AT).name()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Account Name"],
+            expected_result=np.array([["AAPL", "Acme Corp"], ["GOOG", "Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "2023-12-01"},
+        ),
+        TestExpectation(
+            name="navigation_without_a_time_of_its_own_uses_the_querys",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account().name()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Account Name"],
+            expected_result=np.array([["AAPL", "Acme Ltd"], ["GOOG", "Acme Ltd"]], dtype=object),
+            unexpected_sql={"duckdb": "2023-12-01"},
+        ),
+        TestExpectation(
+            name="sibling_navigation_keeps_the_querys_time",
+            # the instrument is read at _BOTH_AT while the account is read at _AT
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account(processing_valid_at=_AT).name(), f.instrument().price()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Account Name", "Instrument Price"],
+            expected_result=np.array([["AAPL", "Acme Corp", 150.0], ["GOOG", "Acme Corp", 2800.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_call_with_a_time_does_not_change_the_plain_accessor",
+            query=lambda f: _call_with_a_time_then_plain(f),
+            expected_columns=["Symbol", "Account Name"],
+            expected_result=np.array([["AAPL", "Acme Ltd"], ["GOOG", "Acme Ltd"]], dtype=object),
+        ),
+        TestExpectation(
+            name="navigation_time_given_as_a_datetime",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.account(processing_valid_at=datetime.datetime(2023, 12, 1, 12, 0, 0)).name()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Account Name"],
+            expected_result=np.array([["AAPL", "Acme Corp"], ["GOOG", "Acme Corp"]], dtype=object),
+        ),
+    ],
+)
+
+
+def _call_with_a_time_then_plain(f):
+    f.account(processing_valid_at=_AT)  # the finder's own accessor is shared, so this must not leave a date on it
+    return f.find_all(None, _BOTH_AT, [f.symbol(), f.account().name()]).order_by(f.symbol().ascending())
+
+
 # Branch has no milestoning of its own, but the accounts it reaches do. A date given for the query reaches them, so the
 # accounts come back as of that date, as when the query starts from a milestoned class.
 BRANCH_FINDER_SPECS = FinderSpec(

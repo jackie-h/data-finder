@@ -4,6 +4,7 @@ from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from datafinder.attribute import Attribute
 from datafinder.finder import RelatedFinder, display_prefix
+from datafinder.runner import convert_date, convert_date_time
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation, Operation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
 from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase, {{rcm.clazz.name}}RelatedFinderBase
@@ -88,9 +89,14 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
     }
 
     def __init__(self, relation_name: str, source: Column, target: Column, parent_join: JoinTreeNodeOperation | None = None,
-                 embedded: dict | None = None, many: bool = False, optional: bool = False, **kwargs):
+                 embedded: dict | None = None, many: bool = False, optional: bool = False,
+                 business_date: Union[datetime.date, str, None] = None,
+                 processing_valid_at: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs):
         join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
-        self.__node = JoinTreeNodeOperation(join, parent_join, many=many, optional=optional)
+        self.__node = JoinTreeNodeOperation(
+            join, parent_join, many=many, optional=optional,
+            business_date=None if business_date is None else convert_date(business_date),
+            processing_datetime=None if processing_valid_at is None else convert_date_time(processing_valid_at))
         RelatedFinder.__init__(self, self.__node)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
@@ -125,7 +131,8 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
         return self.__{{to_python_name(rpm.property)}}
 
 {% elif rpm.property.type.name != rcm.clazz.name %}
-    def {{to_python_name(rpm.property)}}(self, **kwargs) -> {{rpm.property.type.name}}RelatedFinder:
+    def {{to_python_name(rpm.property)}}(self, business_date: Union[datetime.date, str, None] = None,
+            processing_valid_at: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs) -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
         """{{display_name(rpm.property)}}
         {{rpm.property.tagged_values['doc'].value}}
@@ -133,8 +140,8 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% else %}
         """{{display_name(rpm.property)}}"""
 {% endif %}
-        if kwargs:
-            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if rpm.property.multiplicity.is_many() else 'False' }}, optional={{ rpm.property.multiplicity.lower == 0 }}, **kwargs)
+        if kwargs or business_date is not None or processing_valid_at is not None:
+            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if rpm.property.multiplicity.is_many() else 'False' }}, optional={{ rpm.property.multiplicity.lower == 0 }}, business_date=business_date, processing_valid_at=processing_valid_at, **kwargs)
         return self.__{{to_python_name(rpm.property)}}
 
 {% endif %}
@@ -146,11 +153,12 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
-    def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
+    def {{reverse_name}}(self, business_date: Union[datetime.date, str, None] = None,
+            processing_valid_at: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
         """{{assoc.target_property.name}}"""
-        if kwargs:
+        if kwargs or business_date is not None or processing_valid_at is not None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, optional={{ assoc.target_multiplicity.lower == 0 }}, **kwargs)
+            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, optional={{ assoc.target_multiplicity.lower == 0 }}, business_date=business_date, processing_valid_at=processing_valid_at, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
             self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, optional={{ assoc.target_multiplicity.lower == 0 }})
@@ -219,7 +227,8 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% else %}
-    def {{to_python_name(rpm.property)}}(self, **kwargs) -> {{rpm.property.type.name}}RelatedFinder:
+    def {{to_python_name(rpm.property)}}(self, business_date: Union[datetime.date, str, None] = None,
+            processing_valid_at: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs) -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
         """{{display_name(rpm.property)}}
         {{rpm.property.tagged_values['doc'].value}}
@@ -227,8 +236,8 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% else %}
         """{{display_name(rpm.property)}}"""
 {% endif %}
-        if kwargs:
-            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), None, many={{ 'True' if rpm.property.multiplicity.is_many() else 'False' }}, optional={{ rpm.property.multiplicity.lower == 0 }}, **kwargs)
+        if kwargs or business_date is not None or processing_valid_at is not None:
+            return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), None, many={{ 'True' if rpm.property.multiplicity.is_many() else 'False' }}, optional={{ rpm.property.multiplicity.lower == 0 }}, business_date=business_date, processing_valid_at=processing_valid_at, **kwargs)
         return {{rcm.clazz.name}}Finder.__{{to_python_name(rpm.property)}}
 
 {% endif %}
@@ -240,11 +249,12 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
-    def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
+    def {{reverse_name}}(self, business_date: Union[datetime.date, str, None] = None,
+            processing_valid_at: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
         """{{assoc.target_property.name}}"""
-        if kwargs:
+        if kwargs or business_date is not None or processing_valid_at is not None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), None, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, optional={{ assoc.target_multiplicity.lower == 0 }}, **kwargs)
+            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), None, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, optional={{ assoc.target_multiplicity.lower == 0 }}, business_date=business_date, processing_valid_at=processing_valid_at, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
             self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, optional={{ assoc.target_multiplicity.lower == 0 }})

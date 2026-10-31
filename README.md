@@ -424,6 +424,25 @@ result = ContractualPositionFinder.find_all(
 )
 ```
 
+#### A date on a navigation
+
+A query's dates reach every milestoned table it joins to. A navigation can be given its own with `business_date` and
+`processing_valid_at`, which it and the navigations below it then use instead:
+
+```python
+# the trades as of one time, each with the account as it was at another
+TradeFinder.find_all(
+    None, datetime.datetime(2021, 6, 1),
+    [TradeFinder.symbol(), TradeFinder.account(processing_valid_at=datetime.datetime(2023, 12, 1)).name()],
+)
+```
+
+A navigation with no dates of its own uses those of the one above it, and at the top the query's, and each axis is
+taken separately. A business date given to a navigation is a point in time, so it ends a business range the query
+asked for with `find_for_date_range`. The two names are reserved, so they cannot be property filters on the same
+call. A navigation with a date does not change the finder: `account()` still returns the account with the query's
+dates. A view has no dates, so it refuses a navigation given one.
+
 ### Navigating associations
 
 Forward navigation — from Trade to its Account:
