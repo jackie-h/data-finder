@@ -969,10 +969,19 @@ class SQLQueryGenerator:
         self.__table_aliases_by_table[cache_key] = ta
         return ta
 
+    def __build_join_filter(self, filter_op: RelationalOperationElement) -> str:
+        """A join's own filter: its milestoning dates and the kwargs it was given. Legend guards what a query compares
+        on an optional property, and these are not that, so they are written without the guard."""
+        self.__guard_optional = False
+        try:
+            return self.build_filter(filter_op)
+        finally:
+            self.__guard_optional = True
+
     def build_query_string(self) -> str:
         joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
                               ' ON (' + j.condition()
-                              + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')', self._join)
+                              + ( ' AND ' + self.__build_join_filter(j.filter_op) if j.filter_op else '') + ')', self._join)
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \

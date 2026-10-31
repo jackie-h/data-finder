@@ -1461,7 +1461,21 @@ class TestMilestoningFilterShape:
         assert sql.endswith("WHERE t0.in_z <= '2017-06-11 00:00:00' "
                             "AND (t0.out_z > '2017-06-11 00:00:00' OR t0.out_z IS NULL)")
 
+    def test_a_join_through_an_optional_navigation_is_not_guarded(self):
+        """The guard Legend writes on an optional property is for what a query compares, not for the dates that choose
+        which version of a milestoned table a join reads."""
+        target = self._bitemporal("child")
+        root = Table("parent", [Column("id", "INT", "parent")])
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        attr = IntegerAttribute("Child Id", "id", "INT", "child", JoinTreeNodeOperation(join, optional=True))
+        sql = to_sql(self._B, self._P, [attr], root, attr > 5)
+        assert " ON (t0.id = t1.fk AND t1.in_z <= '2017-06-11 00:00:00' AND t1.out_z > '2017-06-11 00:00:00' " \
+               "AND t1.from_z <= '2017-06-10' AND t1.thru_z > '2017-06-10')" in sql
+        # a comparison the query makes on the optional value is still guarded
+        assert sql.endswith(" WHERE (t1.id IS NOT NULL AND t1.id > 5)")
+
     def test_bitemporal_join_is_flat_inside_the_on_parentheses(self):
+
         root, attr = self._joined(self._bitemporal("child"))
         sql = to_sql(self._B, self._P, [attr], root, NoOperation())
         assert sql.endswith(
