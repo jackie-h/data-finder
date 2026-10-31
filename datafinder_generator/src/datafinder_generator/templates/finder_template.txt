@@ -147,13 +147,13 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
     def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
-        """{{assoc.source_property.name}}"""
+        """{{assoc.target_property.name}}"""
         if kwargs:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.source_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }}, **kwargs)
+            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{assoc.source_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }})
+            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), self.__node, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }})
         return self.__{{reverse_name}}
 
 {% endfor %}
@@ -241,13 +241,13 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% endfor %}
 {% for source_rcm, rpm, assoc, reverse_name in reverse_assocs %}
     def {{reverse_name}}(self, **kwargs) -> {{source_rcm.clazz.name}}RelatedFinder:
-        """{{assoc.source_property.name}}"""
+        """{{assoc.target_property.name}}"""
         if kwargs:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.source_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), None, many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }}, **kwargs)
+            return {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), None, many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }}, **kwargs)
         if self.__{{reverse_name}} is None:
             from {{class_module_map[source_rcm.clazz.name]}} import {{source_rcm.clazz.name}}RelatedFinder
-            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{assoc.source_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), many={{ 'True' if assoc.source_multiplicity.is_many() else 'False' }})
+            self.__{{reverse_name}} = {{source_rcm.clazz.name}}RelatedFinder('{{assoc.target_property.name}}', Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', '{{table_qualified_name(rpm.target.rhs.table)}}'{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', '{{table_qualified_name(rpm.target.lhs.table)}}'{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), many={{ 'True' if assoc.target_multiplicity.is_many() else 'False' }})
         return self.__{{reverse_name}}
 
 {% endfor %}

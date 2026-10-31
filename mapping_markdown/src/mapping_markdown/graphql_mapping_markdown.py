@@ -173,14 +173,14 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                     continue
 
                 if assoc_def.source == src_cls.name:
-                    nav_prop_name = assoc_def.target_property.name
-                    nav_prop_id = assoc_def.target_property.id
-                    nav_multiplicity = assoc_def.target_multiplicity
-                    target_class_name = assoc_def.target
-                elif assoc_def.target == src_cls.name:
                     nav_prop_name = assoc_def.source_property.name
                     nav_prop_id = assoc_def.source_property.id
                     nav_multiplicity = assoc_def.source_multiplicity
+                    target_class_name = assoc_def.target
+                elif assoc_def.target == src_cls.name:
+                    nav_prop_name = assoc_def.target_property.name
+                    nav_prop_id = assoc_def.target_property.id
+                    nav_multiplicity = assoc_def.target_multiplicity
                     target_class_name = assoc_def.source
                 else:
                     _log.warning(

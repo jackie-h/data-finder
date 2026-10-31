@@ -61,22 +61,22 @@ class TestMarkdownLoad:
 
     def test_association_multiplicity(self):
         assoc = self.associations[0]
-        assert assoc.source_multiplicity is ZERO_TO_MANY
-        assert assoc.target_multiplicity is ONE_TO_ONE
+        assert assoc.source_multiplicity is ONE_TO_ONE
+        assert assoc.target_multiplicity is ZERO_TO_MANY
 
     def test_association_properties(self):
         assoc = self.associations[0]
-        assert assoc.source_property.id == "trades"
-        assert assoc.source_property.name == "Trades"
-        assert assoc.target_property.id == "account"
-        assert assoc.target_property.name == "Account"
+        assert assoc.source_property.id == "account"
+        assert assoc.source_property.name == "Account"
+        assert assoc.target_property.id == "trades"
+        assert assoc.target_property.name == "Trades"
 
-    def test_association_adds_target_property_to_source_class(self):
+    def test_association_adds_source_property_to_source_class(self):
         trade = self.by_name["Trade"]
         assert "account" in trade.all_properties()
         assert trade.property("account").type is self.by_name["Account"]
 
-    def test_association_adds_source_property_to_target_class(self):
+    def test_association_adds_target_property_to_target_class(self):
         account = self.by_name["Account"]
         assert "trades" in account.all_properties()
         assert account.property("trades").type is self.by_name["Trade"]
@@ -147,7 +147,7 @@ class TestMarkdownColumnValidation:
 
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description | Cardinality |
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|-------------|
-| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   | A link      | many-to-one |
+| TradeAccount | Trade  | Account              | account            | 1                   | Account | Trades               | trades             | *                   | A link      | many-to-one |
 """
         with pytest.raises(ValueError, match="unexpected headers"):
             loads(content)
@@ -207,15 +207,15 @@ class TestMarkdownSave:
         content = to_markdown("Finance Model", self.packages)
         packages2 = loads(content)
         assocs2 = [a for a in packages2[0].children if isinstance(a, Association)]
-        assert assocs2[0].source_multiplicity is ZERO_TO_MANY
-        assert assocs2[0].target_multiplicity is ONE_TO_ONE
+        assert assocs2[0].source_multiplicity is ONE_TO_ONE
+        assert assocs2[0].target_multiplicity is ZERO_TO_MANY
 
     def test_property_roundtrip(self):
         content = to_markdown("Finance Model", self.packages)
         packages2 = loads(content)
         assocs2 = [a for a in packages2[0].children if isinstance(a, Association)]
-        assert assocs2[0].source_property.id == "trades"
-        assert assocs2[0].target_property.id == "account"
+        assert assocs2[0].source_property.id == "account"
+        assert assocs2[0].target_property.id == "trades"
 
     def test_missing_multiplicity_raises(self):
         content = """
@@ -275,7 +275,7 @@ class TestAssociationPropertyConflictValidation:
 
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   |             |
+| TradeAccount | Trade  | Account              | account            | 1                   | Account | Trades               | trades             | *                   |             |
 """
         with pytest.raises(ValueError, match="property 'account'.*conflicts.*Association 'TradeAccount'"):
             loads(content)
@@ -309,7 +309,7 @@ class TestAssociationPropertyConflictValidation:
 
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   |             |
+| TradeAccount | Trade  | Account              | account            | 1                   | Account | Trades               | trades             | *                   |             |
 """
         with pytest.raises(ValueError, match="property 'trades'.*conflicts.*Association 'TradeAccount'"):
             loads(content)
@@ -391,7 +391,7 @@ _ASSOC_MODEL = """# Test
 
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   |             |
+| TradeAccount | Trade  | Account              | account            | 1                   | Account | Trades               | trades             | *                   |             |
 """
 
 
@@ -406,5 +406,5 @@ class TestAssociationMultiplicityValues:
         assert str(assoc.target_multiplicity) == text
 
     def test_invalid_association_multiplicity_raises(self):
-        with pytest.raises(ValueError, match="Target Multiplicity"):
+        with pytest.raises(ValueError, match="Source Multiplicity"):
             loads(_ASSOC_MODEL.replace("| 1                   |", "| lots                |"))

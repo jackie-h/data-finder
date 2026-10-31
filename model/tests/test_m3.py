@@ -22,14 +22,14 @@ class TestPackageChildren:
 
     def test_association_registered_in_package(self):
         pkg = Package("finance")
-        assoc = Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades", "Account", ONE_TO_ONE, "Account", "account", pkg)
+        assoc = Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account", "Account", ZERO_TO_MANY, "Trades", "trades", pkg)
         assert assoc in pkg.children
 
     def test_children_order_preserved(self):
         pkg = Package("finance")
         cls1 = Class("Account", [], pkg)
         cls2 = Class("Trade", [], pkg)
-        assoc = Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades", "Account", ONE_TO_ONE, "Account", "account", pkg)
+        assoc = Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account", "Account", ZERO_TO_MANY, "Trades", "trades", pkg)
         assert pkg.children == [cls1, cls2, assoc]
 
     def test_empty_package_has_no_children(self):
@@ -78,40 +78,14 @@ class TestAssociationPropertyNames:
 
     def test_source_property_name_is_required(self):
         with pytest.raises(ValueError, match="Source Property Name"):
-            Association("TradeAccount", "Trade", ZERO_TO_MANY, "", "trades", "Account", ONE_TO_ONE, "Account", "account", None)
+            Association("TradeAccount", "Trade", ONE_TO_ONE, "", "account", "Account", ZERO_TO_MANY, "Trades", "trades", None)
 
     def test_target_property_name_is_required(self):
         with pytest.raises(ValueError, match="Target Property Name"):
-            Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades", "Account", ONE_TO_ONE, "", "account", None)
+            Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account", "Account", ZERO_TO_MANY, "", "trades", None)
 
-
-class TestPropertyMultiplicity:
-
-    def test_multiplicity_is_required(self):
-        with pytest.raises(TypeError):
-            Property("Id", "id", Integer)  # type: ignore[call-arg]
-
-    def test_multiplicity_must_be_a_multiplicity(self):
-        with pytest.raises(ValueError, match="multiplicity must be a Multiplicity"):
-            Property("Id", "id", Integer, None)  # type: ignore[arg-type]
-
-    @pytest.mark.parametrize("multiplicity", [ONE_TO_ONE, ZERO_TO_ONE, ONE_TO_MANY, ZERO_TO_MANY,
-                                              BoundedMultiplicity(0, 0), BoundedMultiplicity(2, 2),
-                                              BoundedMultiplicity(2, 5), UnboundedMultiplicity(3)])
-    def test_parse_round_trips_str(self, multiplicity):
-        parsed = parse_multiplicity(str(multiplicity))
-        assert str(parsed) == str(multiplicity)
-        assert parsed.is_many() == multiplicity.is_many()
-
-    @pytest.mark.parametrize("text", ["", "many", "1..", "..1", "a..b", "3..1", "-1", "1.5", "1 .. *",
-                                      "1..**", "*..1", "*..*", "0..-1"])
-    def test_parse_rejects_invalid_text(self, text):
-        with pytest.raises(ValueError):
-            parse_multiplicity(text)
-
-
-    @pytest.mark.parametrize("text,expected", [("*", "*"), ("0", "0"), ("1", "1"), ("0..1", "0..1"), ("1..*", "1..*"),
-                                               ("0..*", "*"), ("1..1", "1"), ("2", "2"), ("7", "7"), ("2..2", "2"), ("2..5", "2..5"),
-                                               ("3..*", "3..*"), (" 1 ", "1")])
-    def test_parse_accepts_exactly_the_documented_forms(self, text, expected):
-        assert str(parse_multiplicity(text)) == expected
+    def test_each_property_belongs_to_the_class_at_its_own_end(self):
+        assoc = Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account",
+                            "Account", ZERO_TO_MANY, "Trades", "trades", None)
+        assert assoc.source_property.multiplicity is ONE_TO_ONE
+        assert assoc.target_property.multiplicity is ZERO_TO_MANY

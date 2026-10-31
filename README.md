@@ -80,26 +80,26 @@ All inherited properties are available via `all_properties()` and appear in the 
 
 ### Association
 
-An **Association** declares a named relationship between two classes. Both ends carry an explicit property name — the name that will appear as a navigation method in the generated finder.
+An **Association** declares a named relationship between two classes. Each end is the property added to that end's own class, and its multiplicity: the source property is added to the source class and returns the target (`Trade.account`), and the target property is added to the target class and returns the source (`Account.trades`). The property names are the navigation methods in the generated finders.
 
 ```markdown
 ### Association: TradeAccount
 
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description                  |
 |--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|------------------------------|
-| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   | Links a trade to its account |
+| TradeAccount | Trade  | Account              | account            | 1                   | Account | Trades               | trades             | *                   | Links a trade to its account |
 ```
 
 | Column | Meaning |
 |--------|---------|
 | Source | Name of the source class |
-| Source Property Name | Display name of the reverse navigation property added to the **target** class (`Account.trades`) |
-| Source Property ID | camelCase id of the reverse navigation property (`trades`) |
-| Source Multiplicity | Same forms as a property's Multiplicity — multiplicity on the source side |
+| Source Property Name | Display name of the navigation property added to the **source** class (`Trade.account`) |
+| Source Property ID | camelCase id of that property (`account`) |
+| Source Multiplicity | Same forms as a property's Multiplicity: how many targets the source property returns |
 | Target | Name of the target class |
-| Target Property Name | Display name of the forward navigation property added to the **source** class (`Trade.account`) |
-| Target Property ID | camelCase id of the forward navigation property (`account`) |
-| Target Multiplicity | Same forms as a property's Multiplicity — multiplicity on the target side |
+| Target Property Name | Display name of the navigation property added to the **target** class (`Account.trades`) |
+| Target Property ID | camelCase id of that property (`trades`) |
+| Target Multiplicity | Same forms as a property's Multiplicity: how many sources the target property returns |
 
 All eight fields (name and id for both properties, both multiplicities) are mandatory. The association is the single source of truth for cross-class navigation — do not also declare the same property explicitly on the class.
 
@@ -160,7 +160,7 @@ A **Mapping** file connects the logical model to the physical relational schema.
 
 Every column row needs a `Nullable` value: `Y` if the column can hold NULL, `N` if it is `NOT NULL`. A `PK` column is never nullable, so it should be `N`.
 
-For foreign-key columns that represent association navigations, set `Key` to `FK` and use the association's `Target Property ID` as the property name. Follow the table block immediately with an `#### Association:` block that provides the join target.
+For foreign-key columns that represent association navigations, set `Key` to `FK` and use the association's `Source Property ID` as the property name. Follow the table block immediately with an `#### Association:` block that provides the join target.
 
 ### Association mapping
 

@@ -206,6 +206,12 @@ def parse_multiplicity(text: str) -> Multiplicity:
 
 
 class Association(PackagableElement):
+    """A relationship between two classes. Each end is the property added to that end's own class, and its multiplicity.
+
+    The source property is added to the source class and returns the target class (``Trade.account``). The target
+    property is added to the target class and returns the source class (``Account.trades``).
+    """
+
     def __init__(self, name: str,
                  source: str, source_multiplicity: Multiplicity,
                  source_property_name: str, source_property_id: str,

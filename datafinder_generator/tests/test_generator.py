@@ -253,14 +253,14 @@ class TestDualAssociationSameTarget:
             Property("Primary Owner", "primaryOwner", employee_cls, ZERO_TO_ONE),
             Property("Secondary Owner", "secondaryOwner", employee_cls, ZERO_TO_ONE),
         ], pkg)
-        Association("ContractPrimaryOwner", "Contract", ZERO_TO_MANY,
-                    "Primary Owner Contracts", "primaryOwnerContracts",
-                    "Employee", ONE_TO_ONE,
-                    "Primary Owner", "primaryOwner", pkg)
-        Association("ContractSecondaryOwner", "Contract", ZERO_TO_MANY,
-                    "Secondary Owner Contracts", "secondaryOwnerContracts",
-                    "Employee", ONE_TO_ONE,
-                    "Secondary Owner", "secondaryOwner", pkg)
+        Association("ContractPrimaryOwner", "Contract", ONE_TO_ONE,
+                    "Primary Owner", "primaryOwner",
+                    "Employee", ZERO_TO_MANY,
+                    "Primary Owner Contracts", "primaryOwnerContracts", pkg)
+        Association("ContractSecondaryOwner", "Contract", ONE_TO_ONE,
+                    "Secondary Owner", "secondaryOwner",
+                    "Employee", ZERO_TO_MANY,
+                    "Secondary Owner Contracts", "secondaryOwnerContracts", pkg)
 
         repo = Database("org_db", "duckdb://org.db")
         schema = Schema("hr", repo)
@@ -343,10 +343,10 @@ class TestCamelCaseReverseAssocMethodName:
             Property("Id", "id", Integer, ONE_TO_ONE),
             Property("Related Entity", "relatedEntity", entity_cls, ZERO_TO_ONE),
         ], pkg)
-        Association("TagEntity", "Tag", ZERO_TO_MANY,
-                    "Related Entities", "relatedEntities",
-                    "Entity", ONE_TO_ONE,
-                    "Related Entity", "relatedEntity", pkg)
+        Association("TagEntity", "Tag", ONE_TO_ONE,
+                    "Related Entity", "relatedEntity",
+                    "Entity", ZERO_TO_MANY,
+                    "Related Entities", "relatedEntities", pkg)
 
         repo = Database("org_db", "duckdb://org.db")
         schema = Schema("data", repo)
@@ -415,8 +415,8 @@ class TestAssociationPropertyDocstring:
             Property("Id", "id", Integer, ONE_TO_ONE),
             Property("Account", "account", account_cls, ZERO_TO_ONE),
         ], pkg)
-        Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades",
-                    "Account", ONE_TO_ONE, "Account", "account", pkg)
+        Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account",
+                    "Account", ZERO_TO_MANY, "Trades", "trades", pkg)
 
         repo = Database("finance_db", "duckdb://finance.db")
         schema = __import__("model.relational", fromlist=["Schema"]).Schema("ref", repo)
