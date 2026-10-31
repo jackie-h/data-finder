@@ -50,7 +50,7 @@ Each property has:
 |--------|---------|
 | Property | Human-readable label used in generated docstrings |
 | Id | Machine identifier used in code and mappings |
-| Type | A primitive type or another class name (for navigations defined via Associations) |
+| Type | A primitive type or a class name. A class name declares a one-way navigation on the class itself (for example `Trade.account`), which needs no Association; the class may be defined later in the file, and an unknown name is an error |
 | Multiplicity | Required. `*` or a bare number (`1`, `2`) stand alone; anything else is `lower..upper`, a number then a number or `*` (`0..1`, `1..*`, `2..5`). There is no default: a blank or invalid cell is an error |
 | Key | `Y` marks the business key |
 | Description | Optional documentation |
@@ -165,6 +165,8 @@ For foreign-key columns that represent association navigations, set `Key` to `FK
 ### Association mapping
 
 `#### Association: <AssociationName>` specifies how the foreign key joins to the target table.
+
+A navigation declared as a class-typed property is joined the same way with `#### Property: <Class>.<propertyId>` (for example `#### Property: Trade.account`), using the same table. Its source column belongs to the table of `<Class>`, and the join may run from a key to a foreign key, which is how a to-many property such as `Account.trades` is mapped.
 
 | Column | Meaning |
 |--------|---------|

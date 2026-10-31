@@ -408,3 +408,47 @@ class TestAssociationMultiplicityValues:
     def test_invalid_association_multiplicity_raises(self):
         with pytest.raises(ValueError, match="Target Multiplicity"):
             loads(_ASSOC_MODEL.replace("| 1                   |", "| lots                |"))
+
+
+class TestClassTypedProperty:
+
+    _MODEL = """# Test
+
+## Sub-Domain: Test
+
+### Class: Trade
+
+| Name  | Description |
+|-------|-------------|
+| Trade |             |
+
+| Property | Id      | Type    | Multiplicity | Key | Description |
+|----------|---------|---------|--------------|-----|-------------|
+| Account  | account | Account | 0..1         |     |             |
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Id | Type    | Multiplicity | Key | Description |
+|----------|----|---------|--------------|-----|-------------|
+| Id       | id | Integer | 1            | Y   |             |
+"""
+
+    def test_a_property_may_be_typed_as_a_class_defined_later_in_the_file(self):
+        packages = loads(self._MODEL)
+        classes = {c.name: c for c in packages[0].children if isinstance(c, Class)}
+        account = classes["Trade"].property("account")
+        assert account.type is classes["Account"]
+        assert str(account.multiplicity) == "0..1"
+
+    def test_a_property_typed_as_an_unknown_class_raises(self):
+        with pytest.raises(ValueError, match="Property 'account' of class 'Trade' has unknown type 'Acount'"):
+            loads(self._MODEL.replace("| Account  | account | Account | 0..1", "| Account  | account | Acount  | 0..1"))
+
+    def test_class_typed_property_survives_a_save_and_load(self):
+        reloaded = loads(to_markdown("Test", loads(self._MODEL)))
+        classes = {c.name: c for c in reloaded[0].children if isinstance(c, Class)}
+        assert classes["Trade"].property("account").type is classes["Account"]

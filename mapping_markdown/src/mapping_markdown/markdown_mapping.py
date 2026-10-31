@@ -258,31 +258,47 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 class_context[cls.name] = (property_mappings, cols_by_name, embedded_by_nav)
                 continue
 
-            elif level == "h4" and text.startswith("Association:"):
-                assoc_name = text[len("Association:"):].strip()
+            elif level == "h4" and text.startswith(("Association:", "Property:")):
+                # "Association: Name" joins a navigation an association defines; "Property: Class.property" joins a
+                # navigation declared as a class-typed property of the class itself.
+                is_property = text.startswith("Property:")
+                assoc_name = text[len("Property:" if is_property else "Association:"):].strip()
                 i += 1
 
-                # Find the Association in the model to determine source class and nav property.
-                assoc_def = None
-                for pkg in packages:
-                    for child in pkg.children:
-                        if isinstance(child, Association) and child.name == assoc_name:
-                            assoc_def = child
+                nav_prop_name = nav_multiplicity = None
+                if is_property:
+                    src_cls_name, _, nav_prop_id = assoc_name.partition(".")
+                    nav_prop = classes_by_name[src_cls_name].all_properties().get(nav_prop_id) \
+                        if src_cls_name in classes_by_name else None
+                    if nav_prop is None or not isinstance(nav_prop.type, Class):
+                        _log.warning("Property '%s': not a class-typed property in the model", assoc_name)
+                        if i < len(nodes) and nodes[i].type == "table":
+                            i += 1
+                        continue
+                    nav_prop_name, nav_multiplicity, target_cls = nav_prop.name, nav_prop.multiplicity, nav_prop.type
+                else:
+                    # Find the Association in the model to determine source class and nav property.
+                    assoc_def = None
+                    for pkg in packages:
+                        for child in pkg.children:
+                            if isinstance(child, Association) and child.name == assoc_name:
+                                assoc_def = child
+                                break
+                        if assoc_def:
                             break
-                    if assoc_def:
-                        break
 
-                if assoc_def is None:
-                    _log.warning("Association '%s': not found in model packages", assoc_name)
-                    if i < len(nodes) and nodes[i].type == "table":
-                        i += 1
-                    continue
+                    if assoc_def is None:
+                        _log.warning("Association '%s': not found in model packages", assoc_name)
+                        if i < len(nodes) and nodes[i].type == "table":
+                            i += 1
+                        continue
 
-                src_cls_name = assoc_def.source
-                nav_prop_id = assoc_def.target_property.id
+                    src_cls_name = assoc_def.source
+                    nav_prop_id = assoc_def.target_property.id
+                    nav = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
+                    target_cls = classes_by_name.get(nav[0]) if nav else None
+                    nav_prop_name, nav_multiplicity = assoc_def.target_property.name, assoc_def.target_multiplicity
                 pm_list, cols_by_name, embedded_by_nav = class_context.get(src_cls_name, (None, {}, {}))
-                nav = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
-                target_cls = classes_by_name.get(nav[0]) if nav else None
 
                 if pm_list is None:
                     raise ValueError(
@@ -320,7 +336,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                     f"Association '{assoc_name}': navigation property '{nav_prop_id}' "
                                     f"on class '{src_cls_name}' is already mapped"
                                 )
-                            prop = Property(assoc_def.target_property.name, nav_prop_id, target_cls, assoc_def.target_multiplicity)
+                            prop = Property(nav_prop_name, nav_prop_id, target_cls, nav_multiplicity)
                             embedded_entry = embedded_by_nav.pop(nav_prop_id, None)
                             embedded = embedded_entry[1] if embedded_entry is not None else None
                             pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col, embedded=embedded)))

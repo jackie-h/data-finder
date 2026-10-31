@@ -1030,3 +1030,96 @@ class TestEmbeddedMappingErrors:
         assert [pm.property.id for pm in account.target.property_mappings] == ["name"]
         written = to_markdown("Finance Mapping", mapping)
         assert "account.name" in written and "Association: TradeAccount" not in written
+
+
+class TestClassTypedPropertyMapping:
+    """A navigation declared as a class-typed property of the class, mapped with ``#### Property: Class.property``."""
+
+    _MODEL = """\
+# Model
+
+## Sub-Domain: test
+
+### Class: Trade
+
+| Name  | Description |
+|-------|-------------|
+| Trade |             |
+
+| Property | Id      | Type    | Multiplicity | Key | Description |
+|----------|---------|---------|--------------|-----|-------------|
+| Id       | id      | Integer | 1            | Y   |             |
+| Account  | account | Account | 0..1         |     |             |
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Id     | Type    | Multiplicity | Key | Description |
+|----------|--------|---------|--------------|-----|-------------|
+| Id       | id     | Integer | 1            | Y   |             |
+| Trades   | trades | Trade   | *            |     |             |
+"""
+
+    _MAPPING = """\
+# Mapping
+
+## DataStore: db (Database)
+
+### Schema: s
+
+#### Table: accounts → Account
+
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| id     | INT  | PK  | N        | id          |
+
+#### Table: trades → Trade
+
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| id     | INT  | PK  | N        | id          |
+
+#### Property: Trade.account
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| account_id    | accounts     | id            |
+
+#### Property: Account.trades
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| id            | trades       | account_id    |
+"""
+
+    def setup_method(self):
+        from model_markdown.markdown_model import loads as loads_model
+        repo = Database("db", "duckdb://test.db")
+        schema = Schema("s", repo)
+        Table("accounts", [Column("id", "INT")], schema)
+        Table("trades", [Column("id", "INT"), Column("account_id", "INT")], schema)
+        packages = loads_model(self._MODEL)
+        self.by_class = {rcm.clazz.name: rcm for rcm in loads(self._MAPPING, packages, repo).mappings}
+
+    def _navigation(self, class_name: str, property_id: str) -> RelationalPropertyMapping:
+        navigation = next(pm for pm in self.by_class[class_name].property_mappings if pm.property.id == property_id)
+        assert isinstance(navigation, RelationalPropertyMapping)
+        return navigation
+
+    def test_property_joins_to_the_class_it_is_typed_as(self):
+        navigation = self._navigation("Trade", "account")
+        assert isinstance(navigation.target, Join)
+        assert (navigation.target.lhs.name, navigation.target.rhs.name) == ("account_id", "id")
+        assert navigation.property.type is self.by_class["Account"].clazz
+
+    def test_the_join_may_run_from_the_key_to_the_foreign_key(self):
+        navigation = self._navigation("Account", "trades")
+        assert isinstance(navigation.target, Join)
+        assert (navigation.target.lhs.name, navigation.target.rhs.name) == ("id", "account_id")
+
+    def test_property_keeps_the_multiplicity_declared_on_the_class(self):
+        assert str(self._navigation("Trade", "account").property.multiplicity) == "0..1"
+        assert self._navigation("Account", "trades").property.multiplicity.is_many()

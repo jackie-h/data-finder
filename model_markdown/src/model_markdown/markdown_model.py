@@ -46,13 +46,12 @@ def _parse_association_multiplicity(assoc_name: str, end: str, text: str) -> Mul
         ) from None
 
 
-def _resolve_type(type_str: str, classes_by_name: dict[str, Class]) -> Type:
+def _resolve_type(type_str: str, classes_by_name: dict[str, Class]) -> Type | None:
+    """The primitive or class a type name refers to, or None if it names a class not defined (yet)."""
     candidate = getattr(m3, type_str, None)
     if isinstance(candidate, PrimitiveType):
         return candidate
-    if type_str in classes_by_name:
-        return classes_by_name[type_str]
-    return String
+    return classes_by_name.get(type_str)
 
 
 def _type_to_str(t: Type) -> str:
@@ -79,6 +78,7 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
     classes_by_name: dict[str, Class] = dict(known_classes) if known_classes else {}
     current_package: Optional[Package] = None
     pending_superclasses: dict[str, list[str]] = {}  # class_name -> [superclass_name, ...]
+    pending_types: list[tuple[Property, str, str]] = []  # (property, class name, type name) of forward references
 
     i = 0
     while i < len(nodes):
@@ -147,6 +147,8 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                         except ValueError as e:
                             raise ValueError(f"Property '{prop_id}' of class '{class_name}': {e}") from None
                         prop = Property(label, prop_id, prop_type, multiplicity, tagged_values=tagged or None)
+                        if prop_type is None:
+                            pending_types.append((prop, class_name, type_str))
                         cls.properties[prop.id] = prop
                     i += 1
                 continue
@@ -188,11 +190,11 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
 
         i += 1
 
-    # Second pass: resolve string type references to Class objects
-    for cls in classes_by_name.values():
-        for prop in cls.properties.values():
-            if isinstance(prop.type, str) and prop.type in classes_by_name:
-                prop.type = classes_by_name[prop.type]
+    # Second pass: resolve the types of properties that refer to a class defined later in the file
+    for prop, class_name, type_str in pending_types:
+        if type_str not in classes_by_name:
+            raise ValueError(f"Property '{prop.id}' of class '{class_name}' has unknown type '{type_str}'")
+        prop.type = classes_by_name[type_str]
 
     # Third pass: resolve superclass names to Class objects
     for cls_name, super_names in pending_superclasses.items():
