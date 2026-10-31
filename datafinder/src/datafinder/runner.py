@@ -4,6 +4,7 @@ from typing import Optional, Sequence, Union
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
 from model.naming import to_snake_case
+from model.milestoning import MilestonedTable, ProcessingTemporalColumns
 from model.relational import Table, SortOperation, Alias, ColumnWithJoin
 from model.view import View, ViewDefinitionError
 
@@ -267,11 +268,13 @@ def convert_inputs_and_select_for_date_range(
         raise ValueError("business_date_from is required for find_for_date_range")
     if business_date_to is None:
         raise ValueError("business_date_to is required for find_for_date_range")
-    if processing_datetime is None:
+    if processing_datetime is None and isinstance(table, MilestonedTable) \
+            and isinstance(table.milestoning_columns, ProcessingTemporalColumns):
         raise ValueError("processing_valid_at is required for find_for_date_range")
+    # a table with no processing columns, such as a single business date, has no processing time to give
     bd_from = convert_date(business_date_from)
     bd_to = convert_date(business_date_to)
-    pdt = convert_date_time(processing_datetime)
+    pdt = None if processing_datetime is None else convert_date_time(processing_datetime)
     return FinderResult(bd_from, pdt, columns, table, op, business_date_to=bd_to)
 
 

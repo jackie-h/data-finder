@@ -28,6 +28,7 @@ from datafinder_examples_tests.finance_specs import (
     TRADE_OR_FINDER_SPECS,
     TRADE_IS_NONE_FINDER_SPECS,
     TRADE_VIEW_FINDER_SPECS,
+    BRANCH_FINDER_SPECS,
     TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS,
     CONTRACTUAL_POSITION_FINDER_SPECS,
 )
@@ -102,10 +103,11 @@ def finance_finders():
     _seed_db()
 
     from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
+    from finance.reference_data.branch_finder import BranchFinder  # type: ignore[import]
     from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
     from finance.trade.contractualposition_finder import ContractualPositionFinder  # type: ignore[import]
 
-    yield AccountFinder(), TradeFinder(), ContractualPositionFinder()
+    yield AccountFinder(), TradeFinder(), ContractualPositionFinder(), BranchFinder()
 
     if tmp in sys.path:
         sys.path.remove(tmp)
@@ -168,6 +170,13 @@ def test_one_way_association_has_no_accessor_back(finance_finders):
     from finance.reference_data.instrument_finder import InstrumentFinder  # type: ignore[import]
     assert hasattr(finance_finders[1], "instrument")
     assert not hasattr(InstrumentFinder(), "trades")
+
+
+@pytest.mark.parametrize(
+    "expectation", BRANCH_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_branch(expectation, finance_finders):
+    expectation.run(finance_finders[3], backend="duckdb")
 
 
 @pytest.mark.parametrize(

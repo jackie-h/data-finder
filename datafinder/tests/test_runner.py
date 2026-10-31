@@ -8,6 +8,7 @@ from datafinder import DataFrame, QueryRunnerBase
 from datafinder.runner import FinderResult, ViewResult, _DEFAULT_TIMEOUT_MS, convert_date_time, \
     convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from datafinder import IntegerAttribute, StringAttribute
+from model.milestoning import MilestonedTable, ProcessingTemporalColumns, SingleBusinessDateColumn
 from model.relational import Alias, Column, ColumnWithJoin, JoinOperation, JoinTreeNodeOperation, NoOperation, SortDirection, Table
 from model.view import View
 
@@ -60,11 +61,18 @@ class TestFindForDateRangeValidation:
             convert_inputs_and_select_for_date_range(
                 None, None, self._PDT, [], self._table(), NoOperation())  # type: ignore[arg-type]
 
-    def test_none_processing_datetime_raises(self):
+    def test_none_processing_datetime_raises_for_a_table_with_processing_columns(self):
+        table = MilestonedTable("trades", [], ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")))
         with pytest.raises(ValueError, match="processing_valid_at"):
             convert_inputs_and_select_for_date_range(
                 datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
-                None, [], self._table(), NoOperation())  # type: ignore[arg-type]
+                None, [], table, NoOperation())  # type: ignore[arg-type]
+
+    def test_no_processing_datetime_is_needed_for_a_single_business_date_table(self):
+        table = MilestonedTable("trades", [], SingleBusinessDateColumn(Column("snapshot", "DATE")))
+        result = convert_inputs_and_select_for_date_range(
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), None, [], table, NoOperation())  # type: ignore[arg-type]
+        assert result.to_sql().endswith("WHERE t0.snapshot >= '2024-01-01' AND t0.snapshot <= '2024-12-31'")
 
     def test_valid_dates_returns_finder_result(self):
         result = convert_inputs_and_select_for_date_range(

@@ -272,7 +272,7 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
         return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% endif %}
 {% else %}
-        return convert_inputs_and_select(None, None, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
+        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, {{rcm.clazz.name}}Finder.__table, filter_op)  # type: ignore[arg-type]
 {% endif %}
 {% if rcm.milestone_mapping and (has_bitemporal(rcm.milestone_mapping) or has_business_date_and_processing(rcm.milestone_mapping) or has_uni_business_temporal(rcm.milestone_mapping)) %}
 
