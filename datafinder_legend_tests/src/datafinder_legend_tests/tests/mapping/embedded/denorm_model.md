@@ -11,11 +11,11 @@ enumerations, qualified properties and the Organization and Location classes).
 |--------|-------------|
 | Person |             |
 
-| Property  | Id        | Type    | Key | Description |
-|-----------|-----------|---------|-----|-------------|
-| PersonId  | personId  | Integer | Y   |             |
-| FirstName | firstName | String  |     |             |
-| LastName  | lastName  | String  |     |             |
+| Property  | Id        | Type    | Multiplicity | Key | Description |
+|-----------|-----------|---------|--------------|-----|-------------|
+| PersonId  | personId  | Integer | 1            | Y   |             |
+| FirstName | firstName | String  | 1            |     |             |
+| LastName  | lastName  | String  | 1            |     |             |
 
 ### Class: Firm
 
@@ -23,9 +23,9 @@ enumerations, qualified properties and the Organization and Location classes).
 |------|-------------|
 | Firm |             |
 
-| Property  | Id        | Type   | Key | Description |
-|-----------|-----------|--------|-----|-------------|
-| LegalName | legalName | String |     |             |
+| Property  | Id        | Type   | Multiplicity | Key | Description |
+|-----------|-----------|--------|--------------|-----|-------------|
+| LegalName | legalName | String | 1            |     |             |
 
 ### Class: Address
 
@@ -33,24 +33,24 @@ enumerations, qualified properties and the Organization and Location classes).
 |---------|-------------|
 | Address |             |
 
-| Property | Id   | Type   | Key | Description |
-|----------|------|--------|-----|-------------|
-| Name     | name | String |     |             |
+| Property | Id   | Type   | Multiplicity | Key | Description |
+|----------|------|--------|--------------|-----|-------------|
+| Name     | name | String | 1            |     |             |
 
 ### Association: PersonFirm
 
 | Name       | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| PersonFirm | Person | Employees            | employees          | *                   | Firm   | Firm                 | firm               | 1                   |             |
+| PersonFirm | Person | Firm                 | firm               | 0..1                | Firm   | Employees            | employees          | *                   |             |
 
 ### Association: PersonAddress
 
 | Name          | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |---------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| PersonAddress | Person | Residents            | residents          | *                   | Address | Address              | address            | 1                   |             |
+| PersonAddress | Person | Address              | address            | 0..1                | Address |                      |                    | *                   |             |
 
 ### Association: FirmAddress
 
 | Name        | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |-------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| FirmAddress | Firm   | Firms                | firms              | *                   | Address | Address              | address            | 1                   |             |
+| FirmAddress | Firm   | Address              | address            | 0..1                | Address |                      |                    | *                   |             |
