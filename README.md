@@ -238,6 +238,22 @@ If you have a DuckDB database you can auto-populate the mapping skeleton from th
 uv run datafinder_duckdb/src/datafinder_duckdb/refresh_mapping.py path/to/finance.db finance_mapping.md
 ```
 
+### Exporting the model and mappings to JSON
+
+For tools that are not written in Python (the ER diagram viewer in data-finder-ts, for one), `mapping_markdown.export_json` parses model and mapping markdown with the same loaders and writes plain JSON, so the format has one definition:
+
+```bash
+python -m mapping_markdown.export_json --config export.config.json --out data.json
+```
+
+The config names the markdown to export (`dir` is a folder relative to the config file, or `python:<package>` for an installed package's folder):
+
+```json
+{ "dir": ".", "models": ["finance.md", "finance_trade.md"], "mappings": ["finance_mapping.md"] }
+```
+
+`models` lists each model's packages, classes (own properties with type, multiplicity, key and description, and superclasses) and associations (both ends: the source property, the target property, which is `null` for a one-way association, and the multiplicity of each). `mappings` lists the data store, schemas, tables with the class each is mapped to, columns with the property each is mapped to, and the joins between tables with their association and multiplicities. Models that a mapping references are exported too.
+
 ---
 
 ## Using the Generated Finders
