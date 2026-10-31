@@ -5,7 +5,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, BACKEND, JOIN_OPERAND_ORDER
+from datafinder_legend_tests.legend import ported, BACKEND
 
 _SRC = "functions/tests/projection/testAssociationToOne.pure"
 

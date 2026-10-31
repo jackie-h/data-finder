@@ -6,10 +6,6 @@ from datafinder_examples_tests.spec import TestExpectation
 BACKEND = "duckdb"
 
 # Differences from Legend that the strict comparison reports. The SQL means the same; the text does not match.
-JOIN_OPERAND_ORDER = (
-    "join conditions are written with the primary key column first; Legend writes them in the order the join was defined, "
-    "here foreign key first"
-)
 SUB_AGGREGATION_SHAPE = (
     "Legend aggregates a to-many association per root object in a derived table joined back to the root; here the "
     "aggregate is grouped by the root explicitly, which returns the same rows"
@@ -38,13 +34,10 @@ FLOAT_DIVISION = (
     "Legend writes x / y as (1.0 * x) / y so integer columns divide as floats; the column is already a float, so the "
     "finder writes x / y"
 )
-JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION = f"{JOIN_OPERAND_ORDER}; and {FLOAT_DIVISION}"
-JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE = f"{JOIN_OPERAND_ORDER}; and {FLOAT_AVERAGE}"
 DATETIME_MILESTONING_DATE = (
     "a DateTime given as a milestoning date is written by Legend as `cast(truncate('2015-08-26 02:00:00') as date)`; the "
     "finder works out the date itself and writes `'2015-08-26'`, which is the same date"
 )
-JOIN_OPERAND_ORDER_AND_DATETIME_MILESTONING_DATE = f"{JOIN_OPERAND_ORDER}; and {DATETIME_MILESTONING_DATE}"
 SECOND_JOIN_FOR_PROJECTED_MILESTONED_PROPERTY = (
     "when a milestoned navigation is used in both the filter and the projection, Legend joins its table a second time "
     "through a derived table to read the projected column; the finder joins it once and reads both from it, which "

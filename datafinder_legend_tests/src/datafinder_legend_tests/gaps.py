@@ -13,18 +13,8 @@ from sqlglot import exp
 from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, JOIN_OPERAND_ORDER_AND_DATETIME_MILESTONING_DATE, NOT_EQUAL_NULL, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
-
-
-def _swap_equality_operands(tree: exp.Expr) -> exp.Expr:
-    """a = b is b = a."""
-    for eq in tree.find_all(exp.EQ, exp.NEQ):
-        if eq.left.sql() > eq.right.sql():
-            left, right = eq.left.copy(), eq.right.copy()
-            eq.set("this", right)
-            eq.set("expression", left)
-    return tree
 
 
 
@@ -101,16 +91,12 @@ def _drop_float_cast_in_division(tree: exp.Expr) -> exp.Expr:
 
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
-    JOIN_OPERAND_ORDER: [_swap_equality_operands],
     TDS_FILTER_OPTIONAL_PROPERTY: [_drop_not_null_guards],
     TYPED_DATE_LITERAL: [_untype_date_literals],
     DATETIME_MILESTONING_DATE: [_truncate_datetime_date],
-    JOIN_OPERAND_ORDER_AND_DATETIME_MILESTONING_DATE: [_swap_equality_operands, _truncate_datetime_date],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
-    JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION: [_swap_equality_operands, _drop_float_cast_in_division],
-    JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE: [_swap_equality_operands, _drop_float_cast_in_average],
 }
 
 

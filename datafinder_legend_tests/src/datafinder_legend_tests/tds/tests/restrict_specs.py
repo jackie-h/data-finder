@@ -10,7 +10,7 @@ import datetime
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, JOIN_OPERAND_ORDER, RESTRICT_AFTER_GROUP_BY
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, RESTRICT_AFTER_GROUP_BY
 
 _SRC = "tds/tests/testTDSRestrict.pure"
 

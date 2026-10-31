@@ -7,7 +7,7 @@ everything else (Legend's ``Otherwise``). Mapping: tests/mapping/embedded/embedd
 from datafinder import constant, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, EMBEDDED_WITH_JOIN, JOIN_OPERAND_ORDER
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, EMBEDDED_WITH_JOIN
 
 _SRC = "tests/mapping/embedded/testEmbeddedOtherwiseMapping.pure"
 
@@ -35,8 +35,7 @@ OTHERWISE_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.name(), f.bond_details().description()])),
         ported("testProjectionOtherwiseDeepTraversal", f"{_SRC}::testProjectionOtherwiseDeepTraversal",
                'select "party_0".name as "holder" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) left outer join Party as "party_0" on ("bond_detail_0".HOLDERID = "party_0".id)',
-               lambda f: f.find_all(None, None, [f.bond_details().holder().name()]),
-               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+               lambda f: f.find_all(None, None, [f.bond_details().holder().name()])),
         unsupported("testProjectionOtherwiseNonPrimitive", f"{_SRC}::testProjectionOtherwiseNonPrimitive",
                     'select "root".PRODUCT_NAME as "name", "party_0".name as "holder", "bondclassificationtable_0".type as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) left outer join Party as "party_0" on ("bond_detail_0".HOLDERID = "party_0".id) left outer join BondClassificationTable as "bondclassificationtable_0" on ("root".PRODUCT_ID = "bondclassificationtable_0".PRODUCT_ID)',
                     'this test uses a second mapping, with a join to a classification table'),

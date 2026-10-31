@@ -3,7 +3,7 @@
 Both statements are parsed. Within each SELECT the table instances are paired up in order of appearance (FROM, then
 each JOIN) and renamed to a shared alias, which must refer to the same table on both sides. The expressions are then
 compared as trees: columns, join type and condition, predicates, grouping, ordering and literals must all match,
-operand order and the order of AND/OR operands included.
+operand order and the order of AND/OR operands included, except for the two sides of an equality in a join condition.
 
 Only these are ignored, because they name things rather than say what the query does:
   - output column names (the alias after AS in the select list); an ORDER BY, GROUP BY or HAVING that names one is
@@ -15,6 +15,8 @@ Only these are ignored, because they name things rather than say what the query 
   - parentheses around an AND directly inside an OR, which binds tighter anyway: x OR (y AND z) is x OR y AND z
   - how a run of the same operator is grouped: AND and OR are associative, so (a AND b) AND c is a AND (b AND c) is
     a AND b AND c. The order of the operands still matters.
+  - which side of an equality in a join condition comes first: ON a.x = b.y is ON b.y = a.x. The same equality in a
+    WHERE is compared as written, and so is any other comparison.
 """
 from __future__ import annotations
 
@@ -64,6 +66,20 @@ def _operands(node: exp.Expr, connector: type[exp.Connector]) -> list[exp.Expr]:
 
 def _connect(connector: type[exp.Connector], left: exp.Expr, right: exp.Expr) -> exp.Expr:
     return connector(this=left, expression=right)
+
+
+def _order_join_equalities(tree: exp.Expr) -> None:
+    """Write the two sides of every equality in a join condition in one order, since a = b is b = a: Legend writes a
+    join as it was defined and the finder writes the key first, and both are the same join."""
+    for join in tree.find_all(exp.Join):
+        condition = join.args.get("on")
+        if condition is None:
+            continue
+        for equality in condition.find_all(exp.EQ):
+            if equality.left.sql() > equality.right.sql():
+                left, right = equality.left.copy(), equality.right.copy()
+                equality.set("this", right)
+                equality.set("expression", left)
 
 
 def _flatten_connectors(tree: exp.Expr) -> None:
@@ -137,6 +153,7 @@ def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
         if isinstance(paren.this, exp.And) and isinstance(paren.parent, exp.Or):
             paren.replace(paren.this)
     _flatten_connectors(tree)
+    _order_join_equalities(tree)
     # Parentheses around the whole ON or WHERE condition group nothing.
     for clause in list(tree.find_all(exp.Join, exp.Where)):
         key = "on" if isinstance(clause, exp.Join) else "this"
