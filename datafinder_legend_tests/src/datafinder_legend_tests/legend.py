@@ -40,6 +40,16 @@ FLOAT_DIVISION = (
 )
 JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION = f"{JOIN_OPERAND_ORDER}; and {FLOAT_DIVISION}"
 JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE = f"{JOIN_OPERAND_ORDER}; and {FLOAT_AVERAGE}"
+DATETIME_MILESTONING_DATE = (
+    "a DateTime given as a milestoning date is written by Legend as `cast(truncate('2015-08-26 02:00:00') as date)`; the "
+    "finder works out the date itself and writes `'2015-08-26'`, which is the same date"
+)
+JOIN_OPERAND_ORDER_AND_DATETIME_MILESTONING_DATE = f"{JOIN_OPERAND_ORDER}; and {DATETIME_MILESTONING_DATE}"
+SECOND_JOIN_FOR_PROJECTED_MILESTONED_PROPERTY = (
+    "when a milestoned navigation is used in both the filter and the projection, Legend joins its table a second time "
+    "through a derived table to read the projected column; the finder joins it once and reads both from it, which "
+    "returns the same rows"
+)
 CONCAT_FUNCTION = (
     "Legend writes `+` on text as concat(a, b), which treats a NULL part as empty in DuckDB; the finder writes a || b, "
     "which is NULL when any part is"
