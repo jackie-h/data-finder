@@ -177,7 +177,7 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                     nav_prop_id = assoc_def.source_property.id
                     nav_multiplicity = assoc_def.source_multiplicity
                     target_class_name = assoc_def.target
-                elif assoc_def.target == src_cls.name:
+                elif assoc_def.target == src_cls.name and assoc_def.target_property is not None:
                     nav_prop_name = assoc_def.target_property.name
                     nav_prop_id = assoc_def.target_property.id
                     nav_multiplicity = assoc_def.target_multiplicity

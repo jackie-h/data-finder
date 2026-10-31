@@ -93,17 +93,25 @@ An **Association** declares a named relationship between two classes. Each end i
 | Column | Meaning |
 |--------|---------|
 | Source | Name of the source class |
-| Source Property Name | Display name of the navigation property added to the **source** class (`Trade.account`) |
-| Source Property ID | camelCase id of that property (`account`) |
+| Source Property Name | Display name of the navigation property added to the **source** class (`Trade.account`). Required |
+| Source Property ID | camelCase id of that property (`account`). Required |
 | Source Multiplicity | Same forms as a property's Multiplicity: how many targets the source property returns |
 | Target | Name of the target class |
-| Target Property Name | Display name of the navigation property added to the **target** class (`Account.trades`) |
-| Target Property ID | camelCase id of that property (`trades`) |
-| Target Multiplicity | Same forms as a property's Multiplicity: how many sources the target property returns |
+| Target Property Name | Display name of the navigation property added to the **target** class (`Account.trades`). Optional |
+| Target Property ID | camelCase id of that property (`trades`). Optional, and given together with the name |
+| Target Multiplicity | Same forms as a property's Multiplicity: how many sources the target property returns, or would return if there were one. Required |
 
-All eight fields (name and id for both properties, both multiplicities) are mandatory. The association is the single source of truth for cross-class navigation — do not also declare the same property explicitly on the class.
+The source property and both multiplicities are mandatory. Leave the target property name and id empty for a **one-way** relationship, where the target class gets no accessor back:
 
-When an association is loaded, both navigation properties are automatically available via `all_properties()` on the relevant classes and generate methods in the finder.
+```markdown
+| Name            | Source | Source Property Name | Source Property ID | Source Multiplicity | Target     | Target Property Name | Target Property ID | Target Multiplicity | Description                 |
+|-----------------|--------|----------------------|--------------------|---------------------|------------|----------------------|--------------------|---------------------|-----------------------------|
+| TradeInstrument | Trade  | Instrument           | instrument         | 0..1                | Instrument |                      |                    | *                   | The instrument a trade is in |
+```
+
+The association is the single source of truth for cross-class navigation — do not also declare the same property explicitly on the class. The mapping defines the join in an `#### Association:` section, whether or not the relationship is one-way.
+
+When an association is loaded, its navigation properties are automatically available via `all_properties()` on the relevant classes and generate methods in the finder.
 
 ---
 

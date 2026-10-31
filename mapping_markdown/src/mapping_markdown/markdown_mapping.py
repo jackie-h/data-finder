@@ -567,11 +567,12 @@ def _milestone_scheme_name(rcm: RelationalClassMapping, repo: DataStore) -> Opti
 # Save: Mapping → markdown
 # ---------------------------------------------------------------------------
 
-def _find_association_name(source_cls: Class, target_cls: Class) -> str:
+def _find_association_name(source_cls: Class, target_cls: Class, property_id: str) -> str:
     pkg = source_cls.package
     if pkg is not None:
         for child in pkg.children:
-            if isinstance(child, Association) and child.source == source_cls.name and child.target == target_cls.name:
+            if (isinstance(child, Association) and child.source == source_cls.name
+                    and child.target == target_cls.name and child.source_property.id == property_id):
                 return child.name
     return f"{source_cls.name}{target_cls.name}"
 
@@ -650,12 +651,18 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
 
                 fk_cols = {fk.column.name for fk in table.foreign_keys}
                 col_rows = []
+                # A join's column may also be a property's column (a trade's symbol is also the key of its instrument)
+                mapped_cols = {pm.target.name for pm in rcm.property_mappings if isinstance(pm.target, Column)}
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Column):
                         key = "PK" if pm.target.primary_key else ""
                         col_rows.append([pm.target.name, pm.target.type or "", key, _nullable_cell(pm.target), pm.property.id])
                     elif isinstance(pm.target, Join):
                         lhs = pm.target.lhs
+                        if lhs.name in mapped_cols:
+                            if pm.target.embedded is not None:
+                                col_rows.extend(_flatten_embedded_rows(pm.target.embedded, pm.property.id))
+                            continue
                         key = "FK" if lhs.name in fk_cols else ""
                         col_rows.append([lhs.name, lhs.type or "", key, _nullable_cell(lhs), pm.property.id])
                         if pm.target.embedded is not None:
@@ -668,7 +675,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
             for rcm in rcms:
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Join):
-                        assoc_name = _find_association_name(rcm.clazz, pm.property.type)
+                        assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
                         lines.append(f"#### Association: {assoc_name}")
                         lines.append("")
                         lines.append(_md_table(

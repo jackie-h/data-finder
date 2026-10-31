@@ -146,11 +146,14 @@ class TestMarkdownMappingLoad:
         rcm = self.by_class["Trade"]
         by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
         trades_table = by_prop["symbol"].target.table
-        assert len(trades_table.foreign_keys) == 1
-        fk = trades_table.foreign_keys[0]
-        assert fk.column.name == "account_id"
+        # account comes from the TradeAccount association, instrument from the one-way TradeInstrument association
+        assert len(trades_table.foreign_keys) == 2
+        fk = next(fk for fk in trades_table.foreign_keys if fk.column.name == "account_id")
         assert fk.references.name == "ID"
         assert fk.references.table.name == "account_master"
+        fk = next(fk for fk in trades_table.foreign_keys if fk.column.name == "sym")
+        assert fk.references.name == "SYM"
+        assert fk.references.table.name == "price"
 
     def test_non_fk_column_not_in_foreign_keys(self):
         rcm = self.by_class["Branch"]
@@ -221,8 +224,7 @@ class TestMarkdownMappingSave:
         by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
         by_prop2 = {pm.property.id: pm for pm in by_class2["Trade"].property_mappings}
         trades_table = by_prop2["symbol"].target.table
-        assert len(trades_table.foreign_keys) == 1
-        assert trades_table.foreign_keys[0].column.name == "account_id"
+        assert {fk.column.name for fk in trades_table.foreign_keys} == {"account_id", "sym"}
 
     def test_generated_markdown_has_pk_column(self):
         content = to_markdown("Finance Mapping", self.mapping)

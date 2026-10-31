@@ -80,12 +80,24 @@ class TestAssociationPropertyNames:
         with pytest.raises(ValueError, match="Source Property Name"):
             Association("TradeAccount", "Trade", ONE_TO_ONE, "", "account", "Account", ZERO_TO_MANY, "Trades", "trades", None)
 
-    def test_target_property_name_is_required(self):
-        with pytest.raises(ValueError, match="Target Property Name"):
-            Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account", "Account", ZERO_TO_MANY, "", "trades", None)
+    def test_source_property_id_is_required(self):
+        with pytest.raises(ValueError, match="Source Property"):
+            Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "", "Account", ZERO_TO_MANY, "Trades", "trades", None)
 
-    def test_each_property_belongs_to_the_class_at_its_own_end(self):
+    def test_target_property_is_optional_for_a_one_way_association(self):
+        assoc = Association("TradeInstrument", "Trade", ZERO_TO_ONE, "Instrument", "instrument",
+                            "Instrument", ZERO_TO_MANY, "", "", None)
+        assert assoc.target_property is None
+        assert assoc.source_property.id == "instrument"
+        assert assoc.target_multiplicity is ZERO_TO_MANY
+
+    @pytest.mark.parametrize("name,id", [("Trades", ""), ("", "trades")])
+    def test_target_property_name_and_id_go_together(self, name, id):
+        with pytest.raises(ValueError, match="both be given, or both left empty"):
+            Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account", "Account", ZERO_TO_MANY, name, id, None)
+
+    def test_the_source_property_belongs_to_the_source_class_and_the_target_property_to_the_target_class(self):
         assoc = Association("TradeAccount", "Trade", ONE_TO_ONE, "Account", "account",
                             "Account", ZERO_TO_MANY, "Trades", "trades", None)
         assert assoc.source_property.multiplicity is ONE_TO_ONE
-        assert assoc.target_property.multiplicity is ZERO_TO_MANY
+        assert assoc.target_property is not None and assoc.target_property.multiplicity is ZERO_TO_MANY
