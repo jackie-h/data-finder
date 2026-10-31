@@ -686,6 +686,49 @@ _START_OF_2020 = datetime.datetime(2020, 1, 1)
 _START_OF_2022 = datetime.datetime(2022, 1, 1)
 _START_OF_2024 = datetime.datetime(2024, 1, 1)
 
+# Trade.instrument is a class-typed property of Trade, joined with '#### Property: Trade.instrument' in the mapping,
+# not an association: the instrument is a one-way navigation from a trade, and it has no reverse. The instrument table
+# is milestoned, so the join is anchored to the processing time of the query like the association joins are.
+TRADE_CLASS_PROPERTY_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": "The GraphQL mappings do not map class-typed properties"},
+    expectations=[
+        TestExpectation(
+            name="class_property_reads_through_to_the_instrument",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.instrument().price()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Instrument Price"],
+            expected_result=np.array([["AAPL", 150.0], ["GOOG", 2800.0]], dtype=object),
+            expected_sql={"duckdb": "JOIN"},
+        ),
+        TestExpectation(
+            name="class_property_join_is_anchored_to_the_query_time",
+            # GOOG's trade and its instrument both expired on 2022-01-01, so only AAPL is live
+            query=lambda f: f.find_all(None, _AT, [f.symbol(), f.instrument().price()]),
+            expected_columns=["Symbol", "Instrument Price"],
+            expected_result=np.array([["AAPL", 150.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="class_property_can_be_filtered_on",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol()], f.instrument().price() > 1000.0
+            ),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["GOOG"]], dtype=object),
+        ),
+        TestExpectation(
+            name="class_property_is_read_with_the_association",
+            query=lambda f: f.find_all(
+                None, _BOTH_AT, [f.symbol(), f.instrument().price(), f.account().name()]
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol", "Instrument Price", "Account Name"],
+            expected_result=np.array([["AAPL", 150.0, "Acme Ltd"], ["GOOG", 2800.0, "Acme Ltd"]], dtype=object),
+        ),
+    ],
+)
+
 TRADE_VIEW_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,

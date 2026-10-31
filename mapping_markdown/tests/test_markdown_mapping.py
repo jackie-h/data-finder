@@ -146,11 +146,14 @@ class TestMarkdownMappingLoad:
         rcm = self.by_class["Trade"]
         by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
         trades_table = by_prop["symbol"].target.table
-        assert len(trades_table.foreign_keys) == 1
-        fk = trades_table.foreign_keys[0]
-        assert fk.column.name == "account_id"
+        # account comes from the TradeAccount association and instrument from the Trade.instrument class property
+        assert len(trades_table.foreign_keys) == 2
+        fk = next(fk for fk in trades_table.foreign_keys if fk.column.name == "account_id")
         assert fk.references.name == "ID"
         assert fk.references.table.name == "account_master"
+        fk = next(fk for fk in trades_table.foreign_keys if fk.column.name == "sym")
+        assert fk.references.name == "SYM"
+        assert fk.references.table.name == "price"
 
     def test_non_fk_column_not_in_foreign_keys(self):
         rcm = self.by_class["Branch"]
@@ -221,8 +224,8 @@ class TestMarkdownMappingSave:
         by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
         by_prop2 = {pm.property.id: pm for pm in by_class2["Trade"].property_mappings}
         trades_table = by_prop2["symbol"].target.table
-        assert len(trades_table.foreign_keys) == 1
-        assert trades_table.foreign_keys[0].column.name == "account_id"
+        # the TradeAccount association and the Trade.instrument class property
+        assert {fk.column.name for fk in trades_table.foreign_keys} == {"account_id", "sym"}
 
     def test_generated_markdown_has_pk_column(self):
         content = to_markdown("Finance Mapping", self.mapping)
@@ -1102,7 +1105,8 @@ class TestClassTypedPropertyMapping:
         Table("accounts", [Column("id", "INT")], schema)
         Table("trades", [Column("id", "INT"), Column("account_id", "INT")], schema)
         packages = loads_model(self._MODEL)
-        self.by_class = {rcm.clazz.name: rcm for rcm in loads(self._MAPPING, packages, repo).mappings}
+        self.mapping = loads(self._MAPPING, packages, repo)
+        self.by_class = {rcm.clazz.name: rcm for rcm in self.mapping.mappings}
 
     def _navigation(self, class_name: str, property_id: str) -> RelationalPropertyMapping:
         navigation = next(pm for pm in self.by_class[class_name].property_mappings if pm.property.id == property_id)
@@ -1123,3 +1127,26 @@ class TestClassTypedPropertyMapping:
     def test_property_keeps_the_multiplicity_declared_on_the_class(self):
         assert str(self._navigation("Trade", "account").property.multiplicity) == "0..1"
         assert self._navigation("Account", "trades").property.multiplicity.is_many()
+
+    def test_class_typed_properties_survive_a_save_and_load(self):
+        from model_markdown.markdown_model import loads as loads_model
+        repo = Database("db", "duckdb://test.db")
+        schema = Schema("s", repo)
+        Table("accounts", [Column("id", "INT")], schema)
+        Table("trades", [Column("id", "INT"), Column("account_id", "INT")], schema)
+        saved = to_markdown("Mapping", loads(self._MAPPING, loads_model(self._MODEL), repo))
+        assert "#### Property: Trade.account" in saved
+        assert "#### Property: Account.trades" in saved
+        assert "#### Association:" not in saved
+
+        by_class = {rcm.clazz.name: rcm for rcm in loads(saved, loads_model(self._MODEL), repo).mappings}
+        account = next(pm for pm in by_class["Trade"].property_mappings if pm.property.id == "account")
+        trades = next(pm for pm in by_class["Account"].property_mappings if pm.property.id == "trades")
+        assert isinstance(account.target, Join) and isinstance(trades.target, Join)
+        assert (account.target.lhs.name, account.target.rhs.name) == ("account_id", "id")
+        assert (trades.target.lhs.name, trades.target.rhs.name) == ("id", "account_id")
+
+    def test_a_column_that_is_also_a_property_is_not_written_twice(self):
+        saved = to_markdown("Mapping", self.mapping)
+        accounts_table = saved[saved.index("#### Table: accounts"):saved.index("#### Table: trades")]
+        assert len([line for line in accounts_table.split("\n") if line.startswith("| id ")]) == 1

@@ -64,6 +64,12 @@
 |---------------|----------------|---------------|
 | account_id    | account_master | ID            |
 
+#### Property: Trade.instrument
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| sym           | price        | SYM           |
+
 #### Table: contractualposition → ContractualPosition (milestoning: business_date_processing)
 
 | Column   | Type      | Key | Nullable | Property ID   |

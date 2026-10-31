@@ -15,6 +15,7 @@
 | Is Settled | isSettled  | Boolean    | 1            |     |                                       |
 | Valid From | validFrom  | DateTime   | 1            |     |                                       |
 | Valid To   | validTo    | DateTime   | 1            |     |                                       |
+| Instrument | instrument | Instrument | 0..1         |     | The instrument traded |
 
 ### Class: ContractualPosition
 
