@@ -45,10 +45,9 @@ CONCAT_FUNCTION = (
     "which is NULL when any part is"
 )
 
-OPTIONAL_PROPERTY = (
-    "Legend adds `col IS NOT NULL` before a comparison on an optional property; the model has no multiplicity, and "
-    "the extra predicate does not change the result"
-)
+TDS_FILTER_OPTIONAL_PROPERTY = (
+    "Legend filters a projected column after the project (a TDS filter), which it does not guard; the finder filters the "
+    "class, so it writes `col IS NOT NULL` before a comparison on an optional property, which changes no row")
 
 
 def _unsupported_query(finder):

@@ -7,7 +7,7 @@ Mapping: tests/mapping/embedded/denorm_mapping.md.
 from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, OPTIONAL_PROPERTY
+from datafinder_legend_tests.legend import ported, unsupported
 
 _SRC = "tests/mapping/embedded/testEmbeddedMapping.pure"
 
@@ -64,12 +64,10 @@ DENORM_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.first_name(), f.address().name(), f.firm().legal_name(), f.firm().address().name()], f.firm().legal_name().eq("Firm A"))),
         ported("testDenormMappingOneToManyProjectWithComplexFilter", f"{_SRC}::testDenormMappingOneToManyProjectWithComplexFilter",
                'select "root".PERSON_FIRSTNAME as "firstName", "root".PERSON_ADDRESS_NAME as "address", "root".FIRM_LEGALNAME as "legalName", "root".FIRM_ADDRESS_NAME as "firmAddress" from PERSON_FIRM_DENORM as "root" where "root".FIRM_LEGALNAME = \'Firm A\' and "root".PERSON_ADDRESS_NAME is not null and "root".PERSON_ADDRESS_NAME like \'%Palo Alto\'',
-               lambda f: f.find_all(None, None, [f.first_name(), f.address().name(), f.firm().legal_name(), f.firm().address().name()], f.firm().legal_name().eq("Firm A").and_(f.address().name().ends_with("Palo Alto"))),
-               known_gaps={BACKEND: OPTIONAL_PROPERTY}),
+               lambda f: f.find_all(None, None, [f.first_name(), f.address().name(), f.firm().legal_name(), f.firm().address().name()], f.firm().legal_name().eq("Firm A").and_(f.address().name().ends_with("Palo Alto")))),
         ported("testGroupByEmbeddedProperty", f"{_SRC}::testGroupByEmbeddedProperty",
                'select "root".FIRM_LEGALNAME as "Firm Name", sum(case when ("root".PERSON_ADDRESS_NAME is not null and "root".PERSON_ADDRESS_NAME like \'1%\') then 1.0 else 0.0 end) as "Count" from PERSON_FIRM_DENORM as "root" group by "Firm Name" order by "Firm Name"',
-               lambda f: f.find_all(None, None, [f.firm().legal_name(), when(f.address().name().starts_with("1")).then(1.0).otherwise(0.0).sum()]).group_by(f.firm().legal_name()).order_by(f.firm().legal_name().ascending()),
-               known_gaps={BACKEND: OPTIONAL_PROPERTY}),
+               lambda f: f.find_all(None, None, [f.firm().legal_name(), when(f.address().name().starts_with("1")).then(1.0).otherwise(0.0).sum()]).group_by(f.firm().legal_name()).order_by(f.firm().legal_name().ascending())),
         ported("testExists", f"{_SRC}::testExists",
                'select "root".PERSON_FIRSTNAME as "name", "root".FIRM_ADDRESS_NAME as "address" from PERSON_FIRM_DENORM as "root" where "root".FIRM_ADDRESS_NAME = \'200 west\'',
                lambda f: f.find_all(None, None, [f.first_name(), f.firm().address().name()], f.firm().address().name().eq("200 west"))),

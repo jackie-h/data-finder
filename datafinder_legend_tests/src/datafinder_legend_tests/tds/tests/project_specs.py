@@ -9,7 +9,7 @@ import datetime
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, TYPED_DATE_LITERAL
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL
 
 _SRC = "tds/tests/testTDSProject.pure"
 
@@ -31,7 +31,8 @@ TDS_PROJECT_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.first_name(), f.last_name().upper(), f.last_name().upper().length()])),
         ported("testGetNumber", f"{_SRC}::testGetNumber",
                'select "root".AGE as "age" from personTable as "root" where "root".AGE > 25 order by "age" asc',
-               lambda f: f.find_all(None, None, [f.age()], f.age() > 25).order_by(f.age().ascending())),
+               lambda f: f.find_all(None, None, [f.age()], f.age() > 25).order_by(f.age().ascending()),
+               known_gaps={BACKEND: TDS_FILTER_OPTIONAL_PROPERTY}),
         ported("testOptionalLimit_NoValue", f"{_SRC}::testOptionalLimit_NoValue",
                'select "root".AGE as "age" from personTable as "root" order by "age" asc',
                lambda f: f.find_all(None, None, [f.age()]).order_by(f.age().ascending())),
