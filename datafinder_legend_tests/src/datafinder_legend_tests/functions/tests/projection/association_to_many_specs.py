@@ -6,7 +6,7 @@ coverage report). Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, BACKEND, JOIN_OPERAND_ORDER, unsupported
+from datafinder_legend_tests.legend import ported, BACKEND, unsupported
 
 _SRC = "functions/tests/projection/testAssociationToMany.pure"
 

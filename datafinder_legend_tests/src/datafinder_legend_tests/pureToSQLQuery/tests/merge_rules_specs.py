@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, JOIN_OPERAND_ORDER
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND
 
 _SRC = "pureToSQLQuery/tests/testMergeRules.pure"
 
@@ -17,8 +17,7 @@ MERGE_RULES_SYNONYM_SPECS = FinderSpec(
     expectations=[
         ported("testToOneJoinTreeNodesForFilterAndProjectMerge", f"{_SRC}::testToOneJoinTreeNodesForFilterAndProjectMerge",
                'select "root".NAME as "synonymName", "producttable_0".NAME as "productName" from productSchema.synonymTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".PRODID = "producttable_0".ID) where "producttable_0".NAME = \'Firm C\'',
-               lambda f: f.find_all(None, None, [f.name(), f.product().name()], f.product().name().eq("Firm C")),
-               known_gaps={BACKEND: JOIN_OPERAND_ORDER}),
+               lambda f: f.find_all(None, None, [f.name(), f.product().name()], f.product().name().eq("Firm C"))),
     ],
 )
 
