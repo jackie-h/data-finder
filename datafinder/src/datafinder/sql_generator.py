@@ -368,6 +368,14 @@ def needs_parentheses(parent: LogicalOperation, child: RelationalOperationElemen
     return isinstance(child, LogicalOperation) and child.operator != parent.operator
 
 
+# Comparisons that are never true for a missing value. Legend guards these on an optional property with IS NOT NULL;
+# it does not guard = (which a missing value never matches either) or <>, which it writes as <> or IS NULL.
+_GUARDED_COMPARISONS = (
+    ComparisonOperator.LESS_THAN, ComparisonOperator.GREATER_THAN, ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
+    ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, ComparisonOperator.LIKE,
+)
+
+
 def logical_operator_string(op:LogicalOperator) -> str:
     return LOGICAL_OPERATOR_STR[op]
 
@@ -625,6 +633,7 @@ class SQLQueryGenerator:
         self.__table_alias_incr = 0
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
+        self.__guard_optional = True
         self.__elidable_ids: set = set()
         self._root_table = None
         self._join_filters: dict = {}
@@ -650,6 +659,12 @@ class SQLQueryGenerator:
                 return self.__resolve(embedded)
         return column, parent
 
+    def __resolve_optional(self, op: ColumnWithJoin) -> bool:
+        """Whether the value ``op`` reads can be missing, in the join or embedded form that is used for it."""
+        if op.parent is not None and id(op.parent) in self.__elidable_ids and op.embedded is not None:
+            return self.__resolve_optional(op.embedded)
+        return op.optional
+
     def generate(self, select: QueryExpression):
         self._root_table = select.table
         self._join_filters = select.join_filters
@@ -671,7 +686,12 @@ class SQLQueryGenerator:
             self.__collect_required_joins(having, having_joins)
             for parent in having_joins.values():
                 self.__add_join(parent)
-            self._having = self.build_filter(having)
+            # HAVING filters the grouped result, which Legend does not guard: it is a filter on projected columns
+            self.__guard_optional = False
+            try:
+                self._having = self.build_filter(having)
+            finally:
+                self.__guard_optional = True
         self._order_by_parts = [
             self.__sort_expression(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
             for s in select.order_by
@@ -909,6 +929,10 @@ class SQLQueryGenerator:
             if op.operator in (ComparisonOperator.LIKE, ComparisonOperator.NOT_LIKE) \
                     and isinstance(op.right, StringConstantOperation) and LIKE_ESCAPE in op.right.value:
                 sql += " ESCAPE '" + LIKE_ESCAPE + "'"  # the pattern has a literal %, _ or escape character in it
+            if self.__guard_optional and op.operator in _GUARDED_COMPARISONS and isinstance(op.left, ColumnWithJoin) \
+                    and self.__resolve_optional(op.left):
+                # as in Legend, an ordering or pattern comparison on an optional property says it needs a value
+                sql = '(' + self.build_filter(op.left) + ' IS NOT NULL AND ' + sql + ')'
             return sql
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
