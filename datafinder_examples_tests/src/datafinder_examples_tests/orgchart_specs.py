@@ -148,7 +148,7 @@ ORGCHART_AGGREGATE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, None, [f.name(), f.employees().id_().count()]
             ).order_by(f.name().ascending()),
-            expected_columns=["Name", "Employee Id Count"],
+            expected_columns=["Name", "Employees Id Count"],
             expected_result=np.array([["Alice", 2], ["Bob", 1], ["Carol", 0], ["Dave", 0]], dtype=object),
             expected_sql={"duckdb": "GROUP BY t0.id, t0.name"},
         ),
@@ -157,7 +157,7 @@ ORGCHART_AGGREGATE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, None, [f.employees().id_().count()]
             ).order_by(f.id_().ascending()),
-            expected_columns=["Employee Id Count"],
+            expected_columns=["Employees Id Count"],
             expected_result=np.array([[2], [1], [0], [0]], dtype=object),
             expected_sql={"duckdb": "GROUP BY t0.id ORDER BY t0.id ASC"},
         ),

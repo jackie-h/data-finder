@@ -189,6 +189,11 @@ class Association(PackagableElement):
             raise ValueError(f"Association '{name}' must specify Source Property")
         if not target_property_id:
             raise ValueError(f"Association '{name}' must specify Target Property")
+        # Generated finders name every column reached through an association after its property.
+        if not source_property_name:
+            raise ValueError(f"Association '{name}' must specify Source Property Name")
+        if not target_property_name:
+            raise ValueError(f"Association '{name}' must specify Target Property Name")
         super().__init__(package, tagged_values)
         self.name = name
         self.source = source

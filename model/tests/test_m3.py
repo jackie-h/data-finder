@@ -1,3 +1,5 @@
+import pytest
+
 from model.m3 import Package, Class, Association, Property, String, Integer, _name_to_camel_id, ONE_TO_ONE, ZERO_TO_MANY
 
 
@@ -67,3 +69,14 @@ class TestNameToCamelId:
 
     def test_empty_string(self):
         assert _name_to_camel_id("") == ""
+
+
+class TestAssociationPropertyNames:
+
+    def test_source_property_name_is_required(self):
+        with pytest.raises(ValueError, match="Source Property Name"):
+            Association("TradeAccount", "Trade", ZERO_TO_MANY, "", "trades", "Account", ONE_TO_ONE, "Account", "account", None)
+
+    def test_target_property_name_is_required(self):
+        with pytest.raises(ValueError, match="Target Property Name"):
+            Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades", "Account", ONE_TO_ONE, "", "account", None)
