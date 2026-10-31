@@ -13,7 +13,7 @@ from sqlglot import exp
 from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, NOT_EQUAL_NULL, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -90,7 +90,7 @@ def _drop_float_cast_in_division(tree: exp.Expr) -> exp.Expr:
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     JOIN_OPERAND_ORDER: [_swap_equality_operands],
-    OPTIONAL_PROPERTY: [_drop_not_null_guards],
+    TDS_FILTER_OPTIONAL_PROPERTY: [_drop_not_null_guards],
     TYPED_DATE_LITERAL: [_untype_date_literals],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
