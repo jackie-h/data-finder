@@ -10,25 +10,25 @@ Source: legend-engine core_relational `milestoning/tests/milestoningModel.pure` 
 |-------------------|-------------|
 | BiTemporalProduct |             |
 
-| Property | Id   | Type    | Key | Description |
-|----------|------|---------|-----|-------------|
-| Id       | id   | Integer | Y   |             |
-| Type     | type | String  |     |             |
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Id       | id   | Integer | 1            | Y   |             |
+| Type     | type | String  | 1            |     |             |
 
 ### Class: BiTemporalProductClassification
 
-| Name                          | Description |
-|-------------------------------|-------------|
-| BiTemporalProductClassification |           |
+| Name                            | Description |
+|---------------------------------|-------------|
+| BiTemporalProductClassification |             |
 
-| Property | Id   | Type   | Key | Description |
-|----------|------|--------|-----|-------------|
-| Type     | type | String | Y   |             |
-| System   | system | String |   |             |
-| Exchange | exchange | String |  |            |
+| Property | Id       | Type   | Multiplicity | Key | Description |
+|----------|----------|--------|--------------|-----|-------------|
+| Type     | type     | String | 1            | Y   |             |
+| System   | system   | String | 1            |     |             |
+| Exchange | exchange | String | 1            |     |             |
 
 ### Association: BiTemporalProductClassificationLink
 
-| Name                              | Source            | Source Property Name | Source Property ID | Source Multiplicity | Target                          | Target Property Name      | Target Property ID        | Target Multiplicity | Description |
-|-----------------------------------|-------------------|----------------------|--------------------|---------------------|---------------------------------|---------------------------|---------------------------|---------------------|-------------|
-| BiTemporalProductClassificationLink | BiTemporalProduct | Products             | products           | *                   | BiTemporalProductClassification | BiTemporalClassification  | biTemporalClassification  | 1                   |             |
+| Name                                | Source            | Source Property Name     | Source Property ID       | Source Multiplicity | Target                          | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|-------------------------------------|-------------------|--------------------------|--------------------------|---------------------|---------------------------------|----------------------|--------------------|---------------------|-------------|
+| BiTemporalProductClassificationLink | BiTemporalProduct | BiTemporalClassification | biTemporalClassification | 0..1                | BiTemporalProductClassification |                      |                    | *                   |             |
