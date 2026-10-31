@@ -47,9 +47,9 @@ class StringAttribute(_MinMax, StringFunctions, Attribute):
     """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a string attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def __add__(self, other) -> ConcatOperation:
         """Join text: ``first_name() + " " + last_name()``. A NULL part makes the whole NULL."""
@@ -111,9 +111,9 @@ class NumericAttribute(NumericFunctions, Attribute, Arithmetic):
     """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a numeric attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def sum(self):
         """Return the sum of all values in the group."""
@@ -149,9 +149,9 @@ class DoubleAttribute(NumericAttribute):
     """A floating-point attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a floating-point attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def _to_constant(self, value):
         return FloatConstantOperation(value)
@@ -189,9 +189,9 @@ class DecimalAttribute(NumericAttribute):
     """A decimal attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a decimal attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def _to_constant(self, value):
         return DecimalConstantOperation(value)
@@ -225,9 +225,9 @@ class BooleanAttribute(Attribute):
     """A boolean attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a boolean attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def _to_constant(self, value):
         return BooleanConstantOperation(value)
@@ -253,9 +253,9 @@ class IntegerAttribute(NumericAttribute):
     """An integer attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create an integer attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def _to_constant(self, value):
         return IntegerConstantOperation(value)
@@ -309,9 +309,9 @@ class DateAttribute(_MinMax, Attribute):
     """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a date attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def _to_constant(self, value):
         return DateConstantOperation(value)
@@ -456,9 +456,9 @@ class DateTimeAttribute(_MinMax, Attribute):
     """
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a datetime attribute."""
-        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable)
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
     def _to_constant(self, value):
         return _temporal_constant(value)

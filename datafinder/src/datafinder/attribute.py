@@ -15,7 +15,7 @@ class Attribute(RelationalOperationElement, Aliasable):
     __embedded: Any
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
-                 embedded: 'Attribute | None' = None, nullable: bool = True):
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a typed attribute for a named column.
 
         ``embedded``, when set, is a fully-built alternate Attribute pointing at a flat column
@@ -23,6 +23,9 @@ class Attribute(RelationalOperationElement, Aliasable):
         generator decides at query-build time whether to use it (see sql_generator elision).
 
         ``nullable`` is whether the column can hold NULL; ``is_not_in`` needs it to match NULL rows.
+
+        ``optional`` is whether the property can be missing (its multiplicity starts at 0), which the SQL generator
+        guards a comparison for, as Legend does. It is a fact about the property, where ``nullable`` is about the column.
         """
         super().__init__()
         self.__display_name = display_name
@@ -30,6 +33,7 @@ class Attribute(RelationalOperationElement, Aliasable):
         self.__owner = owner
         self.__parent = parent
         self.__embedded = embedded
+        self.__optional = optional
 
     def _arithmetic_operand(self) -> ColumnWithJoin:
         return self._column_with_join()
@@ -59,7 +63,7 @@ class Attribute(RelationalOperationElement, Aliasable):
     def _column_with_join(self) -> ColumnWithJoin:
         """Return this attribute as a ColumnWithJoin, propagating its embedded alternate."""
         embedded_column_with_join = self.__embedded._column_with_join() if self.__embedded is not None else None
-        return ColumnWithJoin(self.__column, self.__parent, embedded=embedded_column_with_join)
+        return ColumnWithJoin(self.__column, self.__parent, embedded=embedded_column_with_join, optional=self.__optional)
 
     def display_name(self) -> str:
         """Return the human-readable display name."""

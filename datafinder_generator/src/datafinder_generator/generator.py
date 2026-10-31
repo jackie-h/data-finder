@@ -38,6 +38,26 @@ def flatten_embedded(join: Join) -> list[tuple[str, Property, Column]]:
     _walk(join.embedded, '')
     return result
 
+def embedded_optional(join: Join) -> dict[str, bool]:
+    """For each dotted path ``flatten_embedded`` gives, whether the value can be missing because the leaf property or
+    one of the embedded properties on the way to it is optional (its multiplicity starts at 0)."""
+    result: dict[str, bool] = {}
+    if join is None or join.embedded is None:
+        return result
+
+    def _walk(esm: EmbeddedSetMapping, prefix: str, optional: bool):
+        for pm in esm.property_mappings:
+            dotted = f"{prefix}.{pm.property.id}" if prefix else pm.property.id
+            here = optional or pm.property.multiplicity.lower == 0
+            if isinstance(pm.target, Column):
+                result[dotted] = here
+            elif isinstance(pm.target, EmbeddedSetMapping):
+                _walk(pm.target, dotted, here)
+
+    _walk(join.embedded, '', False)
+    return result
+
+
 class _ClassView:
     """A class mapping as the finder templates see it: the properties reached by a join or held in a column, with the
     embedded (join-less) ones apart in ``embedded_mappings``."""
@@ -53,30 +73,34 @@ class EmbeddedClass:
     """A class embedded in its owner's row: its properties are columns of the owner's table, so it needs no join."""
 
     def __init__(self, name: str, label: str, columns: list[tuple[Property, Column]],
-                 children: list[tuple[Property, str]]):
+                 children: list[tuple[Property, str]], optional: bool = False):
         self.name = name
         self.label = label
         self.columns = columns
         self.children = children
+        # whether the embedded property that holds this class, or one above it, is optional
+        self.optional = optional
 
 
 def embedded_classes(rcm: _ClassView) -> list[EmbeddedClass]:
     """The embedded classes of a class mapping, nested ones before the classes that hold them."""
     found: list[EmbeddedClass] = []
 
-    def _walk(esm: EmbeddedSetMapping, stem: str, label: str) -> str:
+    def _walk(esm: EmbeddedSetMapping, stem: str, label: str, optional: bool) -> str:
         columns, children = [], []
         for pm in esm.property_mappings:
             if isinstance(pm.target, Column):
                 columns.append((pm.property, pm.target))
             elif isinstance(pm.target, EmbeddedSetMapping):
-                child = _walk(pm.target, stem + pm.property.id[:1].upper() + pm.property.id[1:], f"{label} {pm.property.name}")
+                child = _walk(pm.target, stem + pm.property.id[:1].upper() + pm.property.id[1:], f"{label} {pm.property.name}",
+                              optional or pm.property.multiplicity.lower == 0)
                 children.append((pm.property, child))
-        found.append(EmbeddedClass(stem + "Embedded", label, columns, children))
+        found.append(EmbeddedClass(stem + "Embedded", label, columns, children, optional))
         return stem + "Embedded"
 
     for pm in rcm.embedded_mappings:
-        _walk(pm.target, f"_{rcm.clazz.name}{pm.property.id[:1].upper()}{pm.property.id[1:]}", pm.property.name)
+        _walk(pm.target, f"_{rcm.clazz.name}{pm.property.id[:1].upper()}{pm.property.id[1:]}", pm.property.name,
+              pm.property.multiplicity.lower == 0)
     return found
 
 
@@ -194,6 +218,7 @@ def generate(mapping: Mapping, output_directory):
         table_qualified_name=table_qualified_name,
         to_snake_case=to_snake_case,
         flatten_embedded=flatten_embedded,
+        embedded_optional=embedded_optional,
         embedded_classes=embedded_classes,
     )
 
