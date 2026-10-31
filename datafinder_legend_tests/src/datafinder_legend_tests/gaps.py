@@ -13,7 +13,7 @@ from sqlglot import exp
 from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, NOT_EQUAL_NULL, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, JOIN_OPERAND_ORDER_AND_DATETIME_MILESTONING_DATE, NOT_EQUAL_NULL, FLOAT_AVERAGE, JOIN_OPERAND_ORDER, JOIN_OPERAND_ORDER_AND_FLOAT_AVERAGE, FLOAT_DIVISION, JOIN_OPERAND_ORDER_AND_FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -61,6 +61,18 @@ def _untype_date_literals(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _truncate_datetime_date(tree: exp.Expr) -> exp.Expr:
+    """``cast(truncate('2015-08-26 02:00:00') as date)`` is ``'2015-08-26'``: the date of a DateTime literal."""
+    for cast in list(tree.find_all(exp.Cast)):
+        call = cast.this
+        if cast.to.this == exp.DataType.Type.DATE and isinstance(call, exp.Anonymous | exp.Trunc) \
+                and call.name.lower() in ("truncate", "trunc") or isinstance(call, exp.Trunc):
+            arg = call.this if isinstance(call, exp.Trunc) else call.expressions[0]
+            if isinstance(arg, exp.Literal) and arg.is_string:
+                cast.replace(exp.Literal.string(arg.name[:10]))
+    return tree
+
+
 def _concat_function_to_pipes(tree: exp.Expr) -> exp.Expr:
     """``concat(a, b, c)`` is ``a || b || c``."""
     for call in list(tree.find_all(exp.Concat)):
@@ -92,6 +104,8 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     JOIN_OPERAND_ORDER: [_swap_equality_operands],
     TDS_FILTER_OPTIONAL_PROPERTY: [_drop_not_null_guards],
     TYPED_DATE_LITERAL: [_untype_date_literals],
+    DATETIME_MILESTONING_DATE: [_truncate_datetime_date],
+    JOIN_OPERAND_ORDER_AND_DATETIME_MILESTONING_DATE: [_swap_equality_operands, _truncate_datetime_date],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
