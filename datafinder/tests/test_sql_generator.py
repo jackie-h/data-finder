@@ -1461,7 +1461,21 @@ class TestMilestoningFilterShape:
         assert sql.endswith("WHERE t0.in_z <= '2017-06-11 00:00:00' "
                             "AND (t0.out_z > '2017-06-11 00:00:00' OR t0.out_z IS NULL)")
 
+    def test_a_join_through_an_optional_navigation_is_not_guarded(self):
+        """The guard Legend writes on an optional property is for what a query compares, not for the dates that choose
+        which version of a milestoned table a join reads."""
+        target = self._bitemporal("child")
+        root = Table("parent", [Column("id", "INT", "parent")])
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        attr = IntegerAttribute("Child Id", "id", "INT", "child", JoinTreeNodeOperation(join, optional=True))
+        sql = to_sql(self._B, self._P, [attr], root, attr > 5)
+        assert " ON (t0.id = t1.fk AND t1.in_z <= '2017-06-11 00:00:00' AND t1.out_z > '2017-06-11 00:00:00' " \
+               "AND t1.from_z <= '2017-06-10' AND t1.thru_z > '2017-06-10')" in sql
+        # a comparison the query makes on the optional value is still guarded
+        assert sql.endswith(" WHERE t1.id IS NOT NULL AND t1.id > 5")
+
     def test_bitemporal_join_is_flat_inside_the_on_parentheses(self):
+
         root, attr = self._joined(self._bitemporal("child"))
         sql = to_sql(self._B, self._P, [attr], root, NoOperation())
         assert sql.endswith(
@@ -2179,7 +2193,7 @@ class TestOptionalPropertyGuard:
     def test_an_ordering_comparison_is_guarded(self, compare, operator):
         table, age, _ = self._age()
         sql = to_sql(None, None, [age], table, compare(age))
-        assert self._where(sql) == f" WHERE (t0.AGE IS NOT NULL AND t0.AGE {operator} 30)"
+        assert self._where(sql) == f" WHERE t0.AGE IS NOT NULL AND t0.AGE {operator} 30"
 
     @pytest.mark.parametrize("pattern,like", [
         (lambda n: n.contains("x"), "'%x%'"), (lambda n: n.starts_with("x"), "'x%'"), (lambda n: n.ends_with("x"), "'%x'"),
@@ -2187,7 +2201,7 @@ class TestOptionalPropertyGuard:
     def test_a_pattern_comparison_is_guarded(self, pattern, like):
         table, _, name = self._age()
         sql = to_sql(None, None, [name], table, pattern(name))
-        assert self._where(sql) == f" WHERE (t0.NAME IS NOT NULL AND t0.NAME LIKE {like})"
+        assert self._where(sql) == f" WHERE t0.NAME IS NOT NULL AND t0.NAME LIKE {like}"
 
     def test_a_required_property_is_not_guarded(self):
         table, age, _ = self._age(optional=False)
@@ -2210,7 +2224,7 @@ class TestOptionalPropertyGuard:
     def test_a_guarded_comparison_inside_and_is_one_more_condition(self):
         table, age, name = self._age()
         sql = to_sql(None, None, [age], table, age.eq(1).and_(name.starts_with("x")))
-        assert self._where(sql) == " WHERE t0.AGE = 1 AND (t0.NAME IS NOT NULL AND t0.NAME LIKE 'x%')"
+        assert self._where(sql) == " WHERE t0.AGE = 1 AND t0.NAME IS NOT NULL AND t0.NAME LIKE 'x%'"
 
     def test_a_value_reached_through_an_optional_navigation_is_guarded(self):
         join = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", "person"), Column("ID", "INT", "boss"))
@@ -2256,4 +2270,4 @@ class TestOptionalPropertyGuard:
         from datafinder import when
         table, age, _ = self._age()
         sql = to_sql(None, None, [when(age > 30).then(1.0).otherwise(0.0).sum()], table, NoOperation())
-        assert "WHEN (t0.AGE IS NOT NULL AND t0.AGE > 30)" in sql
+        assert "WHEN t0.AGE IS NOT NULL AND t0.AGE > 30 THEN" in sql
