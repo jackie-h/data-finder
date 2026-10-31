@@ -725,20 +725,35 @@ class JoinTreeNodeOperation:
     Enables multi-hop traversal (e.g. Employee.manager.reports) by ensuring
     intermediate joins are emitted before the joins that depend on them.
     """
-    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None, many: bool = False):
+    def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None, many: bool = False,
+                 optional: bool = False):
         self.join = join
         self.parent = parent
         # True when the property this step follows is to-many, so a value read through it repeats the row. As in
         # Pure, that is the multiplicity of the property, not something the join itself says.
         self.many = many
+        # True when the property this step follows can be missing (its lower bound is 0)
+        self.optional = optional
 
 
 class ColumnWithJoin(RelationalOperationElement):
-    def __init__(self, column: Column, join: 'JoinTreeNodeOperation | None', embedded: 'ColumnWithJoin | None' = None):
+    def __init__(self, column: Column, join: 'JoinTreeNodeOperation | None', embedded: 'ColumnWithJoin | None' = None,
+                 optional: bool = False):
         super().__init__()
         self.column = column
         self.parent = join
         self.embedded = embedded
+        self._optional = optional
+
+    @property
+    def optional(self) -> bool:
+        """Whether the value can be missing: its property is optional, or a navigation on the way to it is."""
+        node = self.parent
+        while node is not None:
+            if node.optional:
+                return True
+            node = node.parent
+        return self._optional
 
 
 class SortDirection(Enum):

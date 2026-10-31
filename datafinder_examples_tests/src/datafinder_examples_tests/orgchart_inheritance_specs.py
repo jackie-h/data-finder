@@ -18,6 +18,43 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
     finder_name="EmployeeFinder",
     mapping_file=ORGCHART_INHERITANCE_MAPPING,
     expectations=[
+        # Employee.department is optional (0..1) and first_name is required (1). As in Legend, an ordering or pattern
+        # comparison on an optional value says it needs one: the guard changes no row, but it is in the SQL.
+        TestExpectation(
+            name="optional_property_pattern_comparison_is_guarded",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()], f.department().starts_with("Eng")
+            ).order_by(f.first_name().ascending()),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
+            expected_sql={"duckdb": "IS NOT NULL AND"},
+        ),
+        TestExpectation(
+            name="optional_property_equality_is_not_guarded",
+            query=lambda f: f.find_all(None, None, [f.first_name()], f.department().eq("QA")),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Dave"]], dtype=object),
+            unexpected_sql={"duckdb": "IS NOT NULL AND"},
+        ),
+        TestExpectation(
+            name="required_property_comparison_is_not_guarded",
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()], f.first_name().starts_with("C")
+            ),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Carol"]], dtype=object),
+            unexpected_sql={"duckdb": "IS NOT NULL AND"},
+        ),
+        TestExpectation(
+            name="required_property_behind_an_optional_navigation_is_guarded",
+            # Employee.manager is optional, so the manager's first name can be missing though it is a required property
+            query=lambda f: f.find_all(
+                None, None, [f.first_name()], f.manager().first_name().starts_with("B")
+            ),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Dave"]], dtype=object),
+            expected_sql={"duckdb": "IS NOT NULL AND"},
+        ),
         TestExpectation(
             name="all_employees_inherited_name",
             query=lambda f: f.find_all(

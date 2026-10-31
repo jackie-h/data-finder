@@ -2155,3 +2155,86 @@ class TestHaving:
         table = Table("t", [Column("s", "VARCHAR", "t")])
         sql = FinderResult(None, None, [s], table, s.upper().starts_with("AC")).to_sql()
         assert sql.endswith("WHERE UPPER(t0.s) LIKE 'AC%'")
+
+
+class TestOptionalPropertyGuard:
+    """Legend writes ``col IS NOT NULL AND`` before an ordering or pattern comparison on an optional property. The
+    guard does not change the rows, since such a comparison is never true for a missing value, but it keeps the SQL the
+    same as Legend's."""
+
+    @staticmethod
+    def _age(optional: bool = True, node=None):
+        table = Table("person", [Column("AGE", "INT", "person"), Column("NAME", "VARCHAR", "person")])
+        age = IntegerAttribute("Age", "AGE", "INT", "person", node, optional=optional)
+        name = StringAttribute("Name", "NAME", "VARCHAR", "person", node, optional=optional)
+        return table, age, name
+
+    @staticmethod
+    def _where(sql):
+        return sql[sql.index(" WHERE "):]
+
+    @pytest.mark.parametrize("compare,operator", [
+        (lambda a: a > 30, ">"), (lambda a: a >= 30, ">="), (lambda a: a < 30, "<"), (lambda a: a <= 30, "<="),
+    ])
+    def test_an_ordering_comparison_is_guarded(self, compare, operator):
+        table, age, _ = self._age()
+        sql = to_sql(None, None, [age], table, compare(age))
+        assert self._where(sql) == f" WHERE (t0.AGE IS NOT NULL AND t0.AGE {operator} 30)"
+
+    @pytest.mark.parametrize("pattern,like", [
+        (lambda n: n.contains("x"), "'%x%'"), (lambda n: n.starts_with("x"), "'x%'"), (lambda n: n.ends_with("x"), "'%x'"),
+    ])
+    def test_a_pattern_comparison_is_guarded(self, pattern, like):
+        table, _, name = self._age()
+        sql = to_sql(None, None, [name], table, pattern(name))
+        assert self._where(sql) == f" WHERE (t0.NAME IS NOT NULL AND t0.NAME LIKE {like})"
+
+    def test_a_required_property_is_not_guarded(self):
+        table, age, _ = self._age(optional=False)
+        assert self._where(to_sql(None, None, [age], table, age > 30)) == " WHERE t0.AGE > 30"
+
+    @pytest.mark.parametrize("compare", [lambda a: a.eq(30), lambda a: a.is_none(), lambda a: a.is_not_none()])
+    def test_equality_and_null_tests_are_not_guarded(self, compare):
+        table, age, _ = self._age()
+        assert "IS NOT NULL AND" not in to_sql(None, None, [age], table, compare(age))
+
+    def test_not_equal_is_not_guarded(self):
+        table, _, name = self._age()
+        assert "IS NOT NULL AND" not in to_sql(None, None, [name], table, name.ne("x"))
+
+    def test_a_guarded_comparison_inside_or_keeps_its_meaning(self):
+        table, age, _ = self._age()
+        sql = to_sql(None, None, [age], table, age.eq(1).or_(age > 30))
+        assert self._where(sql) == " WHERE t0.AGE = 1 OR (t0.AGE IS NOT NULL AND t0.AGE > 30)"
+
+    def test_a_guarded_comparison_inside_and_is_one_more_condition(self):
+        table, age, name = self._age()
+        sql = to_sql(None, None, [age], table, age.eq(1).and_(name.starts_with("x")))
+        assert self._where(sql) == " WHERE t0.AGE = 1 AND (t0.NAME IS NOT NULL AND t0.NAME LIKE 'x%')"
+
+    def test_a_value_reached_through_an_optional_navigation_is_guarded(self):
+        join = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", "person"), Column("ID", "INT", "boss"))
+        for optional, guarded in ((True, True), (False, False)):
+            node = JoinTreeNodeOperation(join, optional=optional)
+            table, age, _ = self._age(optional=False, node=node)
+            assert ("IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)) is guarded
+
+    def test_an_optional_step_anywhere_on_the_way_counts(self):
+        first = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", "person"), Column("ID", "INT", "boss"))
+        second = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", "boss"), Column("ID", "INT", "boss"))
+        parent = JoinTreeNodeOperation(first, optional=True)
+        child = JoinTreeNodeOperation(second, parent, optional=False)
+        table, age, _ = self._age(optional=False, node=child)
+        assert "IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)
+
+    def test_having_is_not_guarded(self):
+        table, age, name = self._age()
+        sql = to_sql(None, None, [age, name.join(",")], table, NoOperation(), group_by=[age],
+                     having=age > 20)
+        assert sql.endswith("HAVING t0.AGE > 20")
+
+    def test_a_guarded_comparison_in_a_case_is_guarded(self):
+        from datafinder import when
+        table, age, _ = self._age()
+        sql = to_sql(None, None, [when(age > 30).then(1.0).otherwise(0.0).sum()], table, NoOperation())
+        assert "WHEN (t0.AGE IS NOT NULL AND t0.AGE > 30)" in sql
