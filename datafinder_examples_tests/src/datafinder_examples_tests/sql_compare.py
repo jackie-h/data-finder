@@ -11,7 +11,7 @@ Only these are ignored, because they name things rather than say what the query 
   - table aliases (paired up as above)
   - identifier quoting and case
   - the ``default`` or ``main`` schema qualifier
-  - parentheses around a single predicate, e.g. ON (a = b), or around a whole ON or WHERE condition
+  - parentheses around a single predicate, e.g. ON (a = b), or around a whole ON, WHERE or CASE WHEN condition
   - parentheses around an AND directly inside an OR, which binds tighter anyway: x OR (y AND z) is x OR y AND z
   - how a run of the same operator is grouped: AND and OR are associative, so (a AND b) AND c is a AND (b AND c) is
     a AND b AND c. The order of the operands still matters.
@@ -154,8 +154,8 @@ def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
             paren.replace(paren.this)
     _flatten_connectors(tree)
     _order_join_equalities(tree)
-    # Parentheses around the whole ON or WHERE condition group nothing.
-    for clause in list(tree.find_all(exp.Join, exp.Where)):
+    # Parentheses around the whole ON, WHERE or CASE WHEN condition group nothing.
+    for clause in list(tree.find_all(exp.Join, exp.Where, exp.If)):
         key = "on" if isinstance(clause, exp.Join) else "this"
         condition = clause.args.get(key)
         if isinstance(condition, exp.Paren):
