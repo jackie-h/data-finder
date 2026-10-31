@@ -11,10 +11,10 @@ classes, without enumerations, qualified properties or the Person, Firm and Org 
 |---------|-------------|
 | Product |             |
 
-| Property | Id     | Type   | Key | Description |
-|----------|--------|--------|-----|-------------|
-| Name     | name   | String |     |             |
-| Market   | market | String |     |             |
+| Property | Id     | Type   | Multiplicity | Key | Description |
+|----------|--------|--------|--------------|-----|-------------|
+| Name     | name   | String | 1            |     |             |
+| Market   | market | String | 1            |     |             |
 
 ### Class: BondDetail
 
@@ -22,11 +22,11 @@ classes, without enumerations, qualified properties or the Person, Firm and Org 
 |------------|-------------|
 | BondDetail |             |
 
-| Property    | Id          | Type   | Key | Description |
-|-------------|-------------|--------|-----|-------------|
-| BondId      | bondId      | Integer | Y   |             |
-| Description | description | String |     |             |
-| Type        | type        | String |     |             |
+| Property    | Id          | Type    | Multiplicity | Key | Description |
+|-------------|-------------|---------|--------------|-----|-------------|
+| BondId      | bondId      | Integer | 1            | Y   |             |
+| Description | description | String  | 1            |     |             |
+| Type        | type        | String  | 1            |     |             |
 
 ### Class: Party
 
@@ -34,19 +34,19 @@ classes, without enumerations, qualified properties or the Person, Firm and Org 
 |-------|-------------|
 | Party |             |
 
-| Property | Id   | Type   | Key | Description |
-|----------|------|--------|-----|-------------|
-| PartyId  | partyId | Integer | Y |           |
-| Name     | name | String |     |             |
+| Property | Id      | Type    | Multiplicity | Key | Description |
+|----------|---------|---------|--------------|-----|-------------|
+| PartyId  | partyId | Integer | 1            | Y   |             |
+| Name     | name    | String  | 1            |     |             |
 
 ### Association: ProductBondDetails
 
 | Name               | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target     | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |--------------------|---------|----------------------|--------------------|---------------------|------------|----------------------|--------------------|---------------------|-------------|
-| ProductBondDetails | Product | Products             | products           | *                   | BondDetail | BondDetails          | bondDetails        | 1                   |             |
+| ProductBondDetails | Product | BondDetails          | bondDetails        | 1                   | BondDetail |                      |                    | *                   |             |
 
 ### Association: BondDetailHolder
 
 | Name             | Source     | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------------|------------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| BondDetailHolder | BondDetail | BondDetails          | bondDetails        | *                   | Party  | Holder               | holder             | 1                   |             |
+| BondDetailHolder | BondDetail | Holder               | holder             | 1                   | Party  |                      |                    | *                   |             |

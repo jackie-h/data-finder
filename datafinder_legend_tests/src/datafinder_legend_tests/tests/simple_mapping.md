@@ -67,7 +67,7 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 | Column | Type | Key | Nullable | Property ID |
 |--------|------|-----|----------|-------------|
 | ID | INT | PK | N | id |
-| PERSONID | INT | FK | Y | person |
+| PERSONID | INT | FK | Y |        |
 | PLACE | VARCHAR |  | Y | place |
 | date | DATE |  | Y | censusdate |
 
@@ -75,7 +75,7 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 | Source Column | Target Table | Target Column |
 |---------------|--------------|---------------|
-| PERSONID      | personTable  | ID            |
+| ID | locationTable | PERSONID |
 
 #### Table: accountTable → Account
 
@@ -129,7 +129,7 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 | Column | Type | Key | Nullable | Property ID |
 |--------|------|-----|----------|-------------|
 | EVENT_ID | INT | PK | N | id |
-| trade_id | INT | FK | Y | trade |
+| trade_id | INT | FK | Y |       |
 | eventType | VARCHAR |  | Y | eventType |
 | eventDate | DATE |  | Y | date |
 | person_id | INT | FK | Y | initiator |
@@ -138,7 +138,7 @@ Product, Synonym, Account, Order, Interaction and TradeEvent subset).
 
 | Source Column | Target Table | Target Column |
 |---------------|--------------|---------------|
-| trade_id | tradeTable | ID |
+| ID | tradeEventTable | trade_id |
 
 #### Association: TradeEventInitiator
 
