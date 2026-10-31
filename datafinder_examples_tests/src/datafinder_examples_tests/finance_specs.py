@@ -729,6 +729,30 @@ TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS = FinderSpec(
     ],
 )
 
+# Branch has no milestoning of its own, but the accounts it reaches do. A date given for the query reaches them, so the
+# accounts come back as of that date, as when the query starts from a milestoned class.
+BRANCH_FINDER_SPECS = FinderSpec(
+    finder_name="BranchFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": "The finance GraphQL mapping does not map the accounts of a branch"},
+    expectations=[
+        TestExpectation(
+            name="non_milestoned_root_reads_a_milestoned_navigation_as_of_the_query_time",
+            # At _AT, 'Acme Corp' is New York's only account: London's 'Acme Ltd' expired on 2022-01-01
+            query=lambda f: f.find_all(None, _AT, [f.city(), f.accounts().name()]).order_by(f.city().ascending()),
+            expected_columns=["City", "Accounts Name"],
+            expected_result=np.array([["London", None], ["New York", "Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "in_z <="},
+        ),
+        TestExpectation(
+            name="non_milestoned_root_reads_the_earlier_version_at_an_earlier_time",
+            query=lambda f: f.find_all(None, _BOTH_AT, [f.city(), f.accounts().name()]).order_by(f.city().ascending()),
+            expected_columns=["City", "Accounts Name"],
+            expected_result=np.array([["London", "Acme Ltd"], ["New York", None]], dtype=object),
+        ),
+    ],
+)
+
 TRADE_VIEW_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
