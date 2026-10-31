@@ -1,3 +1,5 @@
+import pytest
+
 from model.m3 import Package, Class, Association, Property, String, Integer, _name_to_camel_id, ONE_TO_ONE, ZERO_TO_MANY
 
 
