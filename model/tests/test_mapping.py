@@ -1,10 +1,10 @@
 import pytest
-from model.m3 import Class, Property, String, Integer
+from model.m3 import Class, Property, String, Integer, ONE_TO_ONE
 from model.mapping import Mapping, ClassMapping
 
 
 def _simple_class(name: str) -> Class:
-    return Class(name, [Property("Id", "id", Integer)], None)
+    return Class(name, [Property("Id", "id", Integer, ONE_TO_ONE)], None)
 
 
 class TestMappingDuplicateClassValidation:

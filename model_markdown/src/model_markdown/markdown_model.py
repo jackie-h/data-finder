@@ -7,7 +7,7 @@ from markdown_it.tree import SyntaxTreeNode
 
 import model.m3 as m3
 from model.m3 import (
-    Class, Package, Property, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY,
+    Class, Package, Property, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY, parse_multiplicity,
     String, TaggedValue, Type, PrimitiveType,
 )
 
@@ -15,7 +15,7 @@ _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
 
 _CLASS_HEADER_COLUMNS = ["Name", "Description"]
-_PROPERTY_COLUMNS = ["Property", "Id", "Type", "Key", "Description"]
+_PROPERTY_COLUMNS = ["Property", "Id", "Type", "Multiplicity", "Key", "Description"]
 _ASSOCIATION_COLUMNS = [
     "Name", "Source", "Source Property Name", "Source Property ID", "Source Multiplicity",
     "Target", "Target Property Name", "Target Property ID", "Target Multiplicity", "Description",
@@ -35,6 +35,15 @@ def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str]) -> list[
         cells = [c.children[0].content if c.children else "" for c in tr.children]
         rows.append({headers[i]: cells[i] if i < len(cells) else "" for i in range(len(headers))})
     return rows
+
+
+def _parse_association_multiplicity(assoc_name: str, end: str, text: str) -> Multiplicity:
+    try:
+        return parse_multiplicity(text)
+    except ValueError:
+        raise ValueError(
+            f"Association '{assoc_name}' must specify {end} Multiplicity: *, a number or lower..upper (e.g. 0..1, 1..*)"
+        ) from None
 
 
 def _resolve_type(type_str: str, classes_by_name: dict[str, Class]) -> Type:
@@ -128,7 +137,16 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                         if desc:
                             tagged.append(TaggedValue(TaggedValue.DOC, desc))
                         prop_type = _resolve_type(type_str, classes_by_name)
-                        prop = Property(label, prop_id, prop_type, tagged_values=tagged or None)
+                        mult_str = row.get("Multiplicity", "").strip()
+                        if not mult_str:
+                            raise ValueError(
+                                f"Property '{prop_id}' of class '{class_name}' must specify a Multiplicity"
+                            )
+                        try:
+                            multiplicity = parse_multiplicity(mult_str)
+                        except ValueError as e:
+                            raise ValueError(f"Property '{prop_id}' of class '{class_name}': {e}") from None
+                        prop = Property(label, prop_id, prop_type, multiplicity, tagged_values=tagged or None)
                         cls.properties[prop.id] = prop
                     i += 1
                 continue
@@ -148,14 +166,8 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                         src_prop_id = row.get("Source Property ID", "").strip()
                         tgt_prop_name = row.get("Target Property Name", "").strip()
                         tgt_prop_id = row.get("Target Property ID", "").strip()
-                        if src_mult_str not in ("1", "*"):
-                            raise ValueError(
-                                f"Association '{assoc_name}' must specify Source Multiplicity ('1' or '*')"
-                            )
-                        if tgt_mult_str not in ("1", "*"):
-                            raise ValueError(
-                                f"Association '{assoc_name}' must specify Target Multiplicity ('1' or '*')"
-                            )
+                        src_mult = _parse_association_multiplicity(assoc_name, "Source", src_mult_str)
+                        tgt_mult = _parse_association_multiplicity(assoc_name, "Target", tgt_mult_str)
                         if not src_prop_id:
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Source Property"
@@ -164,8 +176,6 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                             raise ValueError(
                                 f"Association '{assoc_name}' must specify Target Property"
                             )
-                        src_mult = ONE_TO_ONE if src_mult_str == "1" else ZERO_TO_MANY
-                        tgt_mult = ONE_TO_ONE if tgt_mult_str == "1" else ZERO_TO_MANY
                         desc = row.get("Description", "").strip()
                         tagged = [TaggedValue(TaggedValue.DOC, desc)] if desc else []
                         Association(assoc_name, source, src_mult,
@@ -239,10 +249,10 @@ def _register_association_properties(packages: list, classes_by_name: dict) -> N
             target_cls = classes_by_name.get(assoc.target)
             if source_cls and target_cls:
                 source_cls.properties_from_associations[assoc.target_property.id] = Property(
-                    assoc.target_property.name, assoc.target_property.id, target_cls
+                    assoc.target_property.name, assoc.target_property.id, target_cls, assoc.target_multiplicity
                 )
                 target_cls.properties_from_associations[assoc.source_property.id] = Property(
-                    assoc.source_property.name, assoc.source_property.id, source_cls
+                    assoc.source_property.name, assoc.source_property.id, source_cls, assoc.source_multiplicity
                 )
 
 
@@ -279,8 +289,8 @@ def to_markdown(title: str, packages: list[Package]) -> str:
                 for prop in child.properties.values():
                     is_key = "Y" if TaggedValue.KEY in prop.tagged_values else ""
                     desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-                    prop_rows.append([prop.name, prop.id, _type_to_str(prop.type), is_key, desc])
-                lines.append(_md_table(["Property", "Id", "Type", "Key", "Description"], prop_rows))
+                    prop_rows.append([prop.name, prop.id, _type_to_str(prop.type), str(prop.multiplicity), is_key, desc])
+                lines.append(_md_table(["Property", "Id", "Type", "Multiplicity", "Key", "Description"], prop_rows))
                 lines.append("")
 
             elif isinstance(child, Association):

@@ -4,7 +4,7 @@ import tempfile
 import pytest
 
 from model_markdown.markdown_model import load, save, loads, to_markdown
-from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY
+from model.m3 import String, Integer, Double, TaggedValue, Class, Association, Package, Multiplicity, ONE_TO_ONE, ZERO_TO_ONE, ZERO_TO_MANY
 
 FIXTURE = os.path.join(os.path.dirname(__file__), "finance.md")
 
@@ -132,9 +132,9 @@ class TestMarkdownColumnValidation:
 |---------|-----------------|---------|
 | Account | Trading account | finance |
 
-| Property | Id | Type    | Key | Description |
-|----------|----|---------|-----|-------------|
-| id       | id | Integer | Y   |             |
+| Property | Id | Type    | Multiplicity | Key | Description |
+|----------|----|---------|--------------|-----|-------------|
+| id       | id | Integer | 1            | Y   |             |
 """
         with pytest.raises(ValueError, match="unexpected headers"):
             loads(content)
@@ -256,9 +256,9 @@ class TestAssociationPropertyConflictValidation:
 |---------|-------------|
 | Account |             |
 
-| Property | Id | Type    | Key | Description |
-|----------|----|---------|-----|-------------|
-| Id       | id | Integer | Y   |             |
+| Property | Id | Type    | Multiplicity | Key | Description |
+|----------|----|---------|--------------|-----|-------------|
+| Id       | id | Integer | 1            | Y   |             |
 
 ### Class: Trade
 
@@ -266,10 +266,10 @@ class TestAssociationPropertyConflictValidation:
 |-------|-------------|
 | Trade |             |
 
-| Property | Id      | Type    | Key | Description      |
-|----------|---------|---------|-----|------------------|
-| Symbol   | symbol  | String  | Y   |                  |
-| Account  | account | Account |     | The trading account |
+| Property | Id      | Type    | Multiplicity | Key | Description      |
+|----------|---------|---------|--------------|-----|------------------|
+| Symbol   | symbol  | String  | 1            | Y   |                  |
+| Account  | account | Account | 1            |     | The trading account |
 
 ### Association: TradeAccount
 
@@ -290,10 +290,10 @@ class TestAssociationPropertyConflictValidation:
 |---------|-------------|
 | Account |             |
 
-| Property | Id     | Type  | Key | Description |
-|----------|--------|-------|-----|-------------|
-| Id       | id     | Integer | Y |             |
-| Trades   | trades | String  |   |             |
+| Property | Id     | Type  | Multiplicity | Key | Description |
+|----------|--------|-------|--------------|-----|-------------|
+| Id       | id     | Integer | 1            | Y |             |
+| Trades   | trades | String  | 1            |   |             |
 
 ### Class: Trade
 
@@ -301,9 +301,9 @@ class TestAssociationPropertyConflictValidation:
 |-------|-------------|
 | Trade |             |
 
-| Property | Id     | Type   | Key | Description |
-|----------|--------|--------|-----|-------------|
-| Symbol   | symbol | String | Y   |             |
+| Property | Id     | Type   | Multiplicity | Key | Description |
+|----------|--------|--------|--------------|-----|-------------|
+| Symbol   | symbol | String | 1            | Y   |             |
 
 ### Association: TradeAccount
 
@@ -313,3 +313,98 @@ class TestAssociationPropertyConflictValidation:
 """
         with pytest.raises(ValueError, match="property 'trades'.*conflicts.*Association 'TradeAccount'"):
             loads(content)
+
+
+class TestPropertyMultiplicityColumn:
+
+    def _model(self, multiplicity: str) -> str:
+        return f"""# Test
+
+## Sub-Domain: Test
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Name     | name | String  | {multiplicity} |     |             |
+"""
+
+    @pytest.mark.parametrize("text,is_many", [("1", False), ("0..1", False), ("*", True), ("1..*", True), ("2", True), ("7", True)])
+    def test_multiplicity_is_loaded(self, text, is_many):
+        packages = loads(self._model(text))
+        account = next(c for c in packages[0].children if isinstance(c, Class))
+        assert str(account.property("name").multiplicity) == text
+        assert account.property("name").multiplicity.is_many() == is_many
+
+    @pytest.mark.parametrize("text", ["lots", "*..1", "1..**"])
+    def test_invalid_multiplicity_names_the_class_and_property(self, text):
+        with pytest.raises(ValueError, match=r"Property 'name' of class 'Account': Invalid multiplicity"):
+            loads(self._model(text))
+
+    def test_blank_multiplicity_raises(self):
+        with pytest.raises(ValueError, match="must specify a Multiplicity"):
+            loads(self._model(" "))
+
+    def test_multiplicity_survives_a_save_and_load(self):
+        packages = loads(self._model("0..1"))
+        reloaded = loads(to_markdown("Test", packages))
+        account = next(c for c in reloaded[0].children if isinstance(c, Class))
+        assert str(account.property("name").multiplicity) == "0..1"
+
+    def test_association_navigation_properties_take_the_association_multiplicity(self):
+        packages = loads(_ASSOC_MODEL)
+        trade = next(c for c in packages[0].children if isinstance(c, Class) and c.name == "Trade")
+        account = next(c for c in packages[0].children if isinstance(c, Class) and c.name == "Account")
+        assert not trade.property("account").multiplicity.is_many()
+        assert account.property("trades").multiplicity.is_many()
+
+
+_ASSOC_MODEL = """# Test
+
+## Sub-Domain: Test
+
+### Class: Account
+
+| Name    | Description |
+|---------|-------------|
+| Account |             |
+
+| Property | Id | Type    | Multiplicity | Key | Description |
+|----------|----|---------|--------------|-----|-------------|
+| Id       | id | Integer | 1            | Y   |             |
+
+### Class: Trade
+
+| Name  | Description |
+|-------|-------------|
+| Trade |             |
+
+| Property | Id | Type    | Multiplicity | Key | Description |
+|----------|----|---------|--------------|-----|-------------|
+| Id       | id | Integer | 1            | Y   |             |
+
+### Association: TradeAccount
+
+| Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|--------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| TradeAccount | Trade  | Trades               | trades             | *                   | Account | Account              | account            | 1                   |             |
+"""
+
+
+class TestAssociationMultiplicityValues:
+
+    @pytest.mark.parametrize("text", ["1", "0..1", "*", "1..*"])
+    def test_every_multiplicity_form_is_accepted_on_both_ends(self, text):
+        model = _ASSOC_MODEL.replace("| *                   |", f"| {text:<19} |").replace(
+            "| 1                   |", f"| {text:<19} |")
+        assoc = next(c for c in loads(model)[0].children if isinstance(c, Association))
+        assert str(assoc.source_multiplicity) == text
+        assert str(assoc.target_multiplicity) == text
+
+    def test_invalid_association_multiplicity_raises(self):
+        with pytest.raises(ValueError, match="Target Multiplicity"):
+            loads(_ASSOC_MODEL.replace("| 1                   |", "| lots                |"))

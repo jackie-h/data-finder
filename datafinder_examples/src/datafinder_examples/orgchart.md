@@ -8,13 +8,13 @@
 |----------|------------------------------|
 | Employee | An employee in the org chart |
 
-| Property | Id      | Type     | Key | Description             |
-|----------|---------|----------|-----|-------------------------|
-| Id       | id      | Integer  | Y   |                         |
-| Name     | name    | String   |     | Full name of employee   |
+| Property | Id      | Type     | Multiplicity | Key | Description             |
+|----------|---------|----------|--------------|-----|-------------------------|
+| Id       | id      | Integer  | 1            | Y   |                         |
+| Name     | name    | String   | 1            |     | Full name of employee   |
 
 ### Association: EmployeeManager
 
 | Name            | Source   | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description                        |
 |-----------------|----------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|------------------------------------|
-| EmployeeManager | Employee | Employees            | employees          | *                   | Employee | Manager              | manager            | 1                   | Links an employee to their manager |
+| EmployeeManager | Employee | Employees            | employees          | *                   | Employee | Manager              | manager            | 0..1                | Links an employee to their manager |

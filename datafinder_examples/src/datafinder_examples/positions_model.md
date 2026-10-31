@@ -8,8 +8,8 @@
 |----------|-------------|
 | Position |             |
 
-| Property      | Id            | Type    | Key | Description |
-|---------------|---------------|---------|-----|-------------|
-| Id            | id            | Integer | Y   |             |
-| Trade Date    | tradeDate     | Date    |     |             |
-| Npv           | npv           | Double  |     |             |
+| Property      | Id            | Type    | Multiplicity | Key | Description |
+|---------------|---------------|---------|--------------|-----|-------------|
+| Id            | id            | Integer | 1            | Y   |             |
+| Trade Date    | tradeDate     | Date    | 1            |     |             |
+| Npv           | npv           | Double  | 1            |     |             |

@@ -17,7 +17,7 @@ from model.graphql_mapping import (
     GraphQLProcessingMilestone,
     GraphQLBiTemporalMilestone,
 )
-from model.m3 import Class, Property, String, Float, Integer, Package
+from model.m3 import Class, Property, String, Float, Integer, Package, ONE_TO_ONE, ZERO_TO_ONE
 
 from mock_graphql_server import start_mock_server
 
@@ -49,7 +49,7 @@ class TestGraphQLMapping:
         query = GraphQLQuery("instruments", endpoint)
         field = GraphQLField("sym")
 
-        sym_prop = Property("Symbol", "symbol", String)
+        sym_prop = Property("Symbol", "symbol", String, ZERO_TO_ONE)
         instrument_class = Class("Instrument", [sym_prop], Package("finance"))
 
         pm = GraphQLPropertyMapping(sym_prop, field)

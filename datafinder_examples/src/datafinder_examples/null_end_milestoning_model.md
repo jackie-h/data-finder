@@ -8,7 +8,7 @@
 |-------|-------------------------------------------------|
 | Price | Market price with open-ended milestoning (NULL) |
 
-| Property | Id     | Type   | Key | Description |
-|----------|--------|--------|-----|-------------|
-| Symbol   | symbol | String | Y   |             |
-| Price    | price  | Double |     |             |
+| Property | Id     | Type   | Multiplicity | Key | Description |
+|----------|--------|--------|--------------|-----|-------------|
+| Symbol   | symbol | String | 1            | Y   |             |
+| Price    | price  | Double | 1            |     |             |

@@ -8,10 +8,10 @@
 |--------|-------------|
 | Person |             |
 
-| Property  | Id        | Type    | Key | Description |
-|-----------|-----------|---------|-----|-------------|
-| PersonId  | personId  | Integer | Y   |             |
-| FirstName | firstName | String  |     |             |
+| Property  | Id        | Type    | Multiplicity | Key | Description |
+|-----------|-----------|---------|--------------|-----|-------------|
+| PersonId  | personId  | Integer | 1            | Y   |             |
+| FirstName | firstName | String  | 1            |     |             |
 
 ### Class: Firm
 
@@ -19,9 +19,9 @@
 |------|-------------|
 | Firm |             |
 
-| Property  | Id        | Type   | Key | Description |
-|-----------|-----------|--------|-----|-------------|
-| LegalName | legalName | String |     |             |
+| Property  | Id        | Type   | Multiplicity | Key | Description |
+|-----------|-----------|--------|--------------|-----|-------------|
+| LegalName | legalName | String | 1            |     |             |
 
 ### Class: Address
 
@@ -29,24 +29,24 @@
 |---------|-------------|
 | Address |             |
 
-| Property | Id   | Type   | Key | Description |
-|----------|------|--------|-----|-------------|
-| Name     | name | String |     |             |
+| Property | Id   | Type   | Multiplicity | Key | Description |
+|----------|------|--------|--------------|-----|-------------|
+| Name     | name | String | 0..1         |     |             |
 
 ### Association: PersonFirm
 
 | Name       | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| PersonFirm | Person | Employees            | employees          | *                   | Firm   | Firm                 | firm               | 1                   |             |
+| PersonFirm | Person | Employees            | employees          | 1..*                | Firm   | Firm                 | firm               | *                   |             |
 
 ### Association: PersonAddress
 
 | Name          | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |---------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| PersonAddress | Person | Residents            | residents          | *                   | Address | Address              | address            | 1                   |             |
+| PersonAddress | Person | Residents            | residents          | *                   | Address | Address              | address            | *                   |             |
 
 ### Association: FirmAddress
 
 | Name        | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |-------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
-| FirmAddress | Firm   | Firms                | firms              | *                   | Address | Address              | address            | 1                   |             |
+| FirmAddress | Firm   | Firms                | firms              | 0..1                | Address | Address              | address            | *                   |             |

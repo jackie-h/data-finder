@@ -1,3 +1,5 @@
+import re
+
 class Package:
     def __init__(self, name: str):
         self.name = name
@@ -61,9 +63,11 @@ Boolean = PrimitiveType("Boolean")
 
 class Property(AnnotatedElement):
     def __init__(self, name: str, id: str, type: Type | None,
-                 multiplicity: 'Multiplicity | None' = None,
+                 multiplicity: 'Multiplicity',
                  tagged_values: list[TaggedValue] | None = None):
         super().__init__(tagged_values)
+        if not isinstance(multiplicity, Multiplicity):
+            raise ValueError(f"Property '{name}': multiplicity must be a Multiplicity instance")
         self.name = name
         self._id = id
         self.type = type
@@ -172,6 +176,33 @@ ONE_TO_ONE = BoundedMultiplicity(1, 1)
 ZERO_TO_ONE = BoundedMultiplicity(0, 1)
 ONE_TO_MANY = UnboundedMultiplicity(1)
 ZERO_TO_MANY = UnboundedMultiplicity(0)
+
+
+_MULTIPLICITY_RE = re.compile(r"^(?:(?P<single>\*|\d+)|(?P<lower>\d+)\.\.(?P<upper>\d+|\*))$")
+
+
+def parse_multiplicity(text: str) -> Multiplicity:
+    """Parse the text form that ``str(multiplicity)`` produces.
+
+    ``*`` and a bare number ``n`` (exactly n) stand alone. Any other multiplicity is written ``lower..upper``, where the
+    lower bound is a number and the upper bound is a number or ``*``, e.g. ``0..1``, ``1..*`` or ``2..5``.
+    """
+    text = text.strip()
+    match = _MULTIPLICITY_RE.match(text)
+    try:
+        if match is None:
+            raise ValueError
+        single = match.group("single")
+        if single == "*":
+            return ZERO_TO_MANY
+        if single is not None:
+            return ONE_TO_ONE if single == "1" else BoundedMultiplicity(int(single), int(single))
+        lower, upper = int(match.group("lower")), match.group("upper")
+        if upper == "*":
+            return ONE_TO_MANY if lower == 1 else ZERO_TO_MANY if lower == 0 else UnboundedMultiplicity(lower)
+        return BoundedMultiplicity(lower, int(upper))
+    except ValueError:
+        raise ValueError(f"Invalid multiplicity {text!r}: expected *, a number or lower..upper (e.g. 0..1, 1..*)") from None
 
 
 class Association(PackagableElement):

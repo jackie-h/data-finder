@@ -8,10 +8,10 @@
 |---------|-------------------------------------------------|
 | Account | Trading account used to buy and sell securities |
 
-| Property | Id      | Type    | Key | Description |
-|----------|---------|---------|-----|-------------|
-| Id       | id      | Integer | Y   |             |
-| Name     | name    | String  |     |             |
+| Property | Id      | Type    | Multiplicity | Key | Description |
+|----------|---------|---------|--------------|-----|-------------|
+| Id       | id      | Integer | 1            | Y   |             |
+| Name     | name    | String  | 1            |     |             |
 
 ### Class: Instrument
 
@@ -19,10 +19,10 @@
 |------------|-------------|
 | Instrument |             |
 
-| Property | Id     | Type   | Key | Description |
-|----------|--------|--------|-----|-------------|
-| Symbol   | symbol | String | Y   |             |
-| Price    | price  | Double |     |             |
+| Property | Id     | Type   | Multiplicity | Key | Description |
+|----------|--------|--------|--------------|-----|-------------|
+| Symbol   | symbol | String | 1            | Y   |             |
+| Price    | price  | Double | 1            |     |             |
 
 ### Class: Trade
 
@@ -30,10 +30,10 @@
 |-------|--------------------------------|
 | Trade | A trade executed on an account |
 
-| Property   | Id         | Type       | Key | Description                           |
-|------------|------------|------------|-----|---------------------------------------|
-| Symbol     | symbol     | String     | Y   | The symbol of the instrument traded   |
-| Price      | price      | Double     |     | The price at which trade was executed |
+| Property   | Id         | Type       | Multiplicity | Key | Description                           |
+|------------|------------|------------|--------------|-----|---------------------------------------|
+| Symbol     | symbol     | String     | 1            | Y   | The symbol of the instrument traded   |
+| Price      | price      | Double     | 1            |     | The price at which trade was executed |
 
 ### Association: TradeAccount
 
