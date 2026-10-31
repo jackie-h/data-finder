@@ -1,3 +1,5 @@
+import re
+
 class Package:
     def __init__(self, name: str):
         self.name = name
@@ -176,21 +178,31 @@ ONE_TO_MANY = UnboundedMultiplicity(1)
 ZERO_TO_MANY = UnboundedMultiplicity(0)
 
 
+_MULTIPLICITY_RE = re.compile(r"^(?:(?P<single>\*|\d+)|(?P<lower>\d+)\.\.(?P<upper>\d+|\*))$")
+
+
 def parse_multiplicity(text: str) -> Multiplicity:
-    """Parse the text form that ``str(multiplicity)`` produces: ``1``, ``0..1``, ``*``, ``1..*`` or ``n..m``."""
+    """Parse the text form that ``str(multiplicity)`` produces.
+
+    ``*`` and a bare number ``n`` (exactly n) stand alone. Any other multiplicity is written ``lower..upper``, where the
+    lower bound is a number and the upper bound is a number or ``*``, e.g. ``0..1``, ``1..*`` or ``2..5``.
+    """
     text = text.strip()
-    common = {str(m): m for m in (ONE_TO_ONE, ZERO_TO_ONE, ONE_TO_MANY, ZERO_TO_MANY)}
-    if text in common:
-        return common[text]
-    lower, separator, upper = text.partition("..")
+    match = _MULTIPLICITY_RE.match(text)
     try:
-        if not separator:
-            return BoundedMultiplicity(int(lower), int(lower))
+        if match is None:
+            raise ValueError
+        single = match.group("single")
+        if single == "*":
+            return ZERO_TO_MANY
+        if single is not None:
+            return ONE_TO_ONE if single == "1" else BoundedMultiplicity(int(single), int(single))
+        lower, upper = int(match.group("lower")), match.group("upper")
         if upper == "*":
-            return UnboundedMultiplicity(int(lower))
-        return BoundedMultiplicity(int(lower), int(upper))
+            return ONE_TO_MANY if lower == 1 else ZERO_TO_MANY if lower == 0 else UnboundedMultiplicity(lower)
+        return BoundedMultiplicity(lower, int(upper))
     except ValueError:
-        raise ValueError(f"Invalid multiplicity {text!r}: expected 1, 0..1, *, 1..* or n..m") from None
+        raise ValueError(f"Invalid multiplicity {text!r}: expected *, a number or lower..upper (e.g. 0..1, 1..*)") from None
 
 
 class Association(PackagableElement):

@@ -2,7 +2,7 @@ import pytest
 
 from model.m3 import (
     Package, Class, Association, Property, String, Integer, _name_to_camel_id, ONE_TO_ONE, ZERO_TO_MANY, ZERO_TO_ONE,
-    ONE_TO_MANY, BoundedMultiplicity, parse_multiplicity,
+    ONE_TO_MANY, BoundedMultiplicity, UnboundedMultiplicity, parse_multiplicity,
 )
 
 
@@ -96,13 +96,22 @@ class TestPropertyMultiplicity:
             Property("Id", "id", Integer, None)  # type: ignore[arg-type]
 
     @pytest.mark.parametrize("multiplicity", [ONE_TO_ONE, ZERO_TO_ONE, ONE_TO_MANY, ZERO_TO_MANY,
-                                              BoundedMultiplicity(2, 5)])
+                                              BoundedMultiplicity(0, 0), BoundedMultiplicity(2, 2),
+                                              BoundedMultiplicity(2, 5), UnboundedMultiplicity(3)])
     def test_parse_round_trips_str(self, multiplicity):
         parsed = parse_multiplicity(str(multiplicity))
         assert str(parsed) == str(multiplicity)
         assert parsed.is_many() == multiplicity.is_many()
 
-    @pytest.mark.parametrize("text", ["", "many", "1..", "..1", "a..b", "3..1"])
+    @pytest.mark.parametrize("text", ["", "many", "1..", "..1", "a..b", "3..1", "-1", "1.5", "1 .. *",
+                                      "1..**", "*..1", "*..*", "0..-1"])
     def test_parse_rejects_invalid_text(self, text):
         with pytest.raises(ValueError):
             parse_multiplicity(text)
+
+
+    @pytest.mark.parametrize("text,expected", [("*", "*"), ("0", "0"), ("1", "1"), ("0..1", "0..1"), ("1..*", "1..*"),
+                                               ("0..*", "*"), ("1..1", "1"), ("2", "2"), ("7", "7"), ("2..2", "2"), ("2..5", "2..5"),
+                                               ("3..*", "3..*"), (" 1 ", "1")])
+    def test_parse_accepts_exactly_the_documented_forms(self, text, expected):
+        assert str(parse_multiplicity(text)) == expected

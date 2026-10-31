@@ -333,12 +333,17 @@ class TestPropertyMultiplicityColumn:
 | Name     | name | String  | {multiplicity} |     |             |
 """
 
-    @pytest.mark.parametrize("text,is_many", [("1", False), ("0..1", False), ("*", True), ("1..*", True)])
+    @pytest.mark.parametrize("text,is_many", [("1", False), ("0..1", False), ("*", True), ("1..*", True), ("2", True), ("7", True)])
     def test_multiplicity_is_loaded(self, text, is_many):
         packages = loads(self._model(text))
         account = next(c for c in packages[0].children if isinstance(c, Class))
         assert str(account.property("name").multiplicity) == text
         assert account.property("name").multiplicity.is_many() == is_many
+
+    @pytest.mark.parametrize("text", ["lots", "*..1", "1..**"])
+    def test_invalid_multiplicity_names_the_class_and_property(self, text):
+        with pytest.raises(ValueError, match=r"Property 'name' of class 'Account': Invalid multiplicity"):
+            loads(self._model(text))
 
     def test_blank_multiplicity_raises(self):
         with pytest.raises(ValueError, match="must specify a Multiplicity"):

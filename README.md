@@ -51,7 +51,7 @@ Each property has:
 | Property | Human-readable label used in generated docstrings |
 | Id | Machine identifier used in code and mappings |
 | Type | A primitive type or another class name (for navigations defined via Associations) |
-| Multiplicity | Required. `1`, `0..1`, `*`, `1..*` or `n..m`. There is no default: a blank cell is an error |
+| Multiplicity | Required. `*` or a bare number (`1`, `2`) stand alone; anything else is `lower..upper`, a number then a number or `*` (`0..1`, `1..*`, `2..5`). There is no default: a blank or invalid cell is an error |
 | Key | `Y` marks the business key |
 | Description | Optional documentation |
 
@@ -95,11 +95,11 @@ An **Association** declares a named relationship between two classes. Both ends 
 | Source | Name of the source class |
 | Source Property Name | Display name of the reverse navigation property added to the **target** class (`Account.trades`) |
 | Source Property ID | camelCase id of the reverse navigation property (`trades`) |
-| Source Multiplicity | `1`, `0..1`, `*`, `1..*` or `n..m` — multiplicity on the source side |
+| Source Multiplicity | Same forms as a property's Multiplicity — multiplicity on the source side |
 | Target | Name of the target class |
 | Target Property Name | Display name of the forward navigation property added to the **source** class (`Trade.account`) |
 | Target Property ID | camelCase id of the forward navigation property (`account`) |
-| Target Multiplicity | `1`, `0..1`, `*`, `1..*` or `n..m` — multiplicity on the target side |
+| Target Multiplicity | Same forms as a property's Multiplicity — multiplicity on the target side |
 
 All eight fields (name and id for both properties, both multiplicities) are mandatory. The association is the single source of truth for cross-class navigation — do not also declare the same property explicitly on the class.
 

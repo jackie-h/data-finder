@@ -42,7 +42,7 @@ def _parse_association_multiplicity(assoc_name: str, end: str, text: str) -> Mul
         return parse_multiplicity(text)
     except ValueError:
         raise ValueError(
-            f"Association '{assoc_name}' must specify {end} Multiplicity ('1', '0..1', '*', '1..*' or 'n..m')"
+            f"Association '{assoc_name}' must specify {end} Multiplicity: *, a number or lower..upper (e.g. 0..1, 1..*)"
         ) from None
 
 
@@ -142,8 +142,11 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                             raise ValueError(
                                 f"Property '{prop_id}' of class '{class_name}' must specify a Multiplicity"
                             )
-                        prop = Property(label, prop_id, prop_type, parse_multiplicity(mult_str),
-                                        tagged_values=tagged or None)
+                        try:
+                            multiplicity = parse_multiplicity(mult_str)
+                        except ValueError as e:
+                            raise ValueError(f"Property '{prop_id}' of class '{class_name}': {e}") from None
+                        prop = Property(label, prop_id, prop_type, multiplicity, tagged_values=tagged or None)
                         cls.properties[prop.id] = prop
                     i += 1
                 continue
