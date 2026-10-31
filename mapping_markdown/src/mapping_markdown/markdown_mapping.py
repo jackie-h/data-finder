@@ -6,7 +6,7 @@ from typing import Optional
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
-from model.m3 import Class, PrimitiveType, Association, Property, DateTime
+from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_TO_ONE
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping
 from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
@@ -128,14 +128,13 @@ def loads(content: str, packages: list, datastore: DataStore | None = None) -> M
 
 
 def _build_assoc_nav_lookup(packages: list) -> dict:
-    """Build (source_class_name, target_property_id) -> target_Class from all associations."""
+    """Build (source_class_name, target_property_id) -> (target class name, multiplicity) from all associations."""
     result = {}
     for pkg in packages:
         for child in pkg.children:
             if isinstance(child, Association):
-                target_cls_name = child.target
-                # resolved later; we store the name and resolve after classes_by_name is built
-                result[(child.source, child.target_property.id)] = child.target
+                # the class is resolved later, after classes_by_name is built
+                result[(child.source, child.target_property.id)] = (child.target, child.target_multiplicity)
     return result
 
 
@@ -233,12 +232,12 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         if prop is None:
                             prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name, repository)
                         if prop is None:
-                            target_cls_name = assoc_nav_lookup.get((cls.name, prop_name))
-                            if target_cls_name is not None:
-                                target_cls = classes_by_name.get(target_cls_name)
+                            nav = assoc_nav_lookup.get((cls.name, prop_name))
+                            if nav is not None:
+                                target_cls = classes_by_name.get(nav[0])
                                 if target_cls is not None:
                                     from model.m3 import Property as _Property
-                                    prop = _Property(prop_name, prop_name, target_cls)
+                                    prop = _Property(prop_name, prop_name, target_cls, nav[1])
                         if prop is None:
                             raise ValueError(f"Property '{prop_name}' not found in class '{cls.name}'")
                         if isinstance(prop.type, PrimitiveType):
@@ -282,8 +281,8 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 src_cls_name = assoc_def.source
                 nav_prop_id = assoc_def.target_property.id
                 pm_list, cols_by_name, embedded_by_nav = class_context.get(src_cls_name, (None, {}, {}))
-                target_cls_name = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
-                target_cls = classes_by_name.get(target_cls_name) if target_cls_name else None
+                nav = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
+                target_cls = classes_by_name.get(nav[0]) if nav else None
 
                 if pm_list is None:
                     raise ValueError(
@@ -321,7 +320,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                     f"Association '{assoc_name}': navigation property '{nav_prop_id}' "
                                     f"on class '{src_cls_name}' is already mapped"
                                 )
-                            prop = Property(assoc_def.target_property.name, nav_prop_id, target_cls)
+                            prop = Property(assoc_def.target_property.name, nav_prop_id, target_cls, assoc_def.target_multiplicity)
                             embedded_entry = embedded_by_nav.pop(nav_prop_id, None)
                             embedded = embedded_entry[1] if embedded_entry is not None else None
                             pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col, embedded=embedded)))
@@ -352,11 +351,11 @@ def _resolve_nav_property(cls_name: str, seg: str, classes_by_name: dict, assoc_
     prop = all_props.get(seg)
     if prop is not None and not isinstance(prop.type, PrimitiveType):
         return prop
-    target_cls_name = assoc_nav_lookup.get((cls_name, seg))
-    if target_cls_name is not None:
-        target_cls = classes_by_name.get(target_cls_name)
+    nav = assoc_nav_lookup.get((cls_name, seg))
+    if nav is not None:
+        target_cls = classes_by_name.get(nav[0])
         if target_cls is not None:
-            return Property(seg, seg, target_cls)
+            return Property(seg, seg, target_cls, nav[1])
     return None
 
 
@@ -475,7 +474,7 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
         scheme.business_date, scheme.business_date_from, scheme.business_date_to,
     } - {None}
     if col_name in milestoning_cols:
-        return Property(_camel_to_display_name(prop_name), prop_name, DateTime)
+        return Property(_camel_to_display_name(prop_name), prop_name, DateTime, ONE_TO_ONE)
     return None
 
 

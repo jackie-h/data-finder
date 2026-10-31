@@ -7,7 +7,7 @@ from markdown_it.tree import SyntaxTreeNode
 
 import model.m3 as m3
 from model.m3 import (
-    Class, Package, Property, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY,
+    Class, Package, Property, Association, Multiplicity, ONE_TO_ONE, ZERO_TO_MANY, parse_multiplicity,
     String, TaggedValue, Type, PrimitiveType,
 )
 
@@ -15,7 +15,7 @@ _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
 
 _CLASS_HEADER_COLUMNS = ["Name", "Description"]
-_PROPERTY_COLUMNS = ["Property", "Id", "Type", "Key", "Description"]
+_PROPERTY_COLUMNS = ["Property", "Id", "Type", "Multiplicity", "Key", "Description"]
 _ASSOCIATION_COLUMNS = [
     "Name", "Source", "Source Property Name", "Source Property ID", "Source Multiplicity",
     "Target", "Target Property Name", "Target Property ID", "Target Multiplicity", "Description",
@@ -128,7 +128,13 @@ def loads(content: str, known_classes: dict[str, Class] | None = None) -> list[P
                         if desc:
                             tagged.append(TaggedValue(TaggedValue.DOC, desc))
                         prop_type = _resolve_type(type_str, classes_by_name)
-                        prop = Property(label, prop_id, prop_type, tagged_values=tagged or None)
+                        mult_str = row.get("Multiplicity", "").strip()
+                        if not mult_str:
+                            raise ValueError(
+                                f"Property '{prop_id}' of class '{class_name}' must specify a Multiplicity"
+                            )
+                        prop = Property(label, prop_id, prop_type, parse_multiplicity(mult_str),
+                                        tagged_values=tagged or None)
                         cls.properties[prop.id] = prop
                     i += 1
                 continue
@@ -239,10 +245,10 @@ def _register_association_properties(packages: list, classes_by_name: dict) -> N
             target_cls = classes_by_name.get(assoc.target)
             if source_cls and target_cls:
                 source_cls.properties_from_associations[assoc.target_property.id] = Property(
-                    assoc.target_property.name, assoc.target_property.id, target_cls
+                    assoc.target_property.name, assoc.target_property.id, target_cls, assoc.target_multiplicity
                 )
                 target_cls.properties_from_associations[assoc.source_property.id] = Property(
-                    assoc.source_property.name, assoc.source_property.id, source_cls
+                    assoc.source_property.name, assoc.source_property.id, source_cls, assoc.source_multiplicity
                 )
 
 
@@ -279,8 +285,8 @@ def to_markdown(title: str, packages: list[Package]) -> str:
                 for prop in child.properties.values():
                     is_key = "Y" if TaggedValue.KEY in prop.tagged_values else ""
                     desc = prop.tagged_values.get(TaggedValue.DOC, TaggedValue("", "")).value or ""
-                    prop_rows.append([prop.name, prop.id, _type_to_str(prop.type), is_key, desc])
-                lines.append(_md_table(["Property", "Id", "Type", "Key", "Description"], prop_rows))
+                    prop_rows.append([prop.name, prop.id, _type_to_str(prop.type), str(prop.multiplicity), is_key, desc])
+                lines.append(_md_table(["Property", "Id", "Type", "Multiplicity", "Key", "Description"], prop_rows))
                 lines.append("")
 
             elif isinstance(child, Association):

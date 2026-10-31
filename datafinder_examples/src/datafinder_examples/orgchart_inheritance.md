@@ -8,11 +8,11 @@
 |--------|----------------|
 | Person | A human being  |
 
-| Property   | Id         | Type    | Key | Description        |
-|------------|------------|---------|-----|--------------------|
-| Id         | id         | Integer | Y   |                    |
-| First Name | firstName  | String  |     |                    |
-| Last Name  | lastName   | String  |     |                    |
+| Property   | Id         | Type    | Multiplicity | Key | Description        |
+|------------|------------|---------|--------------|-----|--------------------|
+| Id         | id         | Integer | 1            | Y   |                    |
+| First Name | firstName  | String  | 1            |     |                    |
+| Last Name  | lastName   | String  | 1            |     |                    |
 
 ### Class: Contactable
 
@@ -20,9 +20,9 @@
 |-------------|------------------------------|
 | Contactable | Something that can be emailed |
 
-| Property | Id    | Type   | Key | Description   |
-|----------|-------|--------|-----|---------------|
-| Email    | email | String |     | Email address |
+| Property | Id    | Type   | Multiplicity | Key | Description   |
+|----------|-------|--------|--------------|-----|---------------|
+| Email    | email | String | 1            |     | Email address |
 
 ### Class: Employee extends Person, Contactable
 
@@ -30,9 +30,9 @@
 |----------|------------------------------|
 | Employee | An employee in the org chart |
 
-| Property   | Id         | Type   | Key | Description |
-|------------|------------|--------|-----|-------------|
-| Department | department | String |     |             |
+| Property   | Id         | Type   | Multiplicity | Key | Description |
+|------------|------------|--------|--------------|-----|-------------|
+| Department | department | String | 1            |     |             |
 
 ### Association: EmployeeManager
 
@@ -46,11 +46,11 @@
 |---------|------------------------------------|
 | Project | A project that employees work on   |
 
-| Property | Id   | Type    | Key | Description     |
-|----------|------|---------|-----|-----------------|
-| Id       | id   | Integer | Y   |                 |
-| Name     | name | String  |     | Project name    |
-| Code     | code | String  |     | Short code      |
+| Property | Id   | Type    | Multiplicity | Key | Description     |
+|----------|------|---------|--------------|-----|-----------------|
+| Id       | id   | Integer | 1            | Y   |                 |
+| Name     | name | String  | 1            |     | Project name    |
+| Code     | code | String  | 1            |     | Short code      |
 
 ### Association: EmployeeProject
 

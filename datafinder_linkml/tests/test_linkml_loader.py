@@ -52,3 +52,10 @@ class TestLinkMLLoader:
     def test_class_package(self):
         for cls in self.classes:
             assert cls.package is self.package
+
+
+class TestMultiplicity:
+
+    def test_optional_single_valued_slots_are_zero_to_one(self):
+        account = next(c for c in load_schema(SCHEMA_PATH).children if isinstance(c, Class) and c.name == "Account")
+        assert str(account.property("id").multiplicity) == "0..1"

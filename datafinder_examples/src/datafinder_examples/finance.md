@@ -8,10 +8,10 @@
 |---------|-------------------------------------------------|
 | Account | Trading account used to buy and sell securities |
 
-| Property | Id   | Type    | Key | Description |
-|----------|------|---------|-----|-------------|
-| Id       | id   | Integer | Y   |             |
-| Name     | name | String  |     |             |
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Id       | id   | Integer | 1            | Y   |             |
+| Name     | name | String  | 1            |     |             |
 
 ### Class: Instrument
 
@@ -19,10 +19,10 @@
 |------------|-------------|
 | Instrument |             |
 
-| Property | Id     | Type   | Key | Description |
-|----------|--------|--------|-----|-------------|
-| Symbol   | symbol | String | Y   |             |
-| Price    | price  | Double |     |             |
+| Property | Id     | Type   | Multiplicity | Key | Description |
+|----------|--------|--------|--------------|-----|-------------|
+| Symbol   | symbol | String | 1            | Y   |             |
+| Price    | price  | Double | 1            |     |             |
 
 ### Class: Branch
 
@@ -30,10 +30,10 @@
 |--------|-----------------------------------------|
 | Branch | Branch office an account is managed by |
 
-| Property | Id   | Type    | Key | Description |
-|----------|------|---------|-----|-------------|
-| Id       | id   | Integer | Y   |             |
-| City     | city | String  |     |             |
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Id       | id   | Integer | 1            | Y   |             |
+| City     | city | String  | 1            |     |             |
 
 ### Association: AccountBranch
 

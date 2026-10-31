@@ -38,12 +38,12 @@ def association_name(pm) -> str:
 
 
 def association_many(pm) -> bool:
-    return pm.property.multiplicity is not None and pm.property.multiplicity.is_many()
+    return pm.property.multiplicity.is_many()
 
 
 def association_path(pm) -> str:
     """The field path segment for an association; a to-many association is marked with "[]"."""
-    many = pm.property.multiplicity is not None and pm.property.multiplicity.is_many()
+    many = pm.property.multiplicity.is_many()
     return pm.target.name + ("[]" if many else "")
 
 

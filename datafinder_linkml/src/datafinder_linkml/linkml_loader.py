@@ -4,7 +4,7 @@ from linkml_runtime.loaders import yaml_loader
 from linkml_runtime.linkml_model import SchemaDefinition, ClassDefinition, SlotDefinition
 
 from model.m3 import (
-    Class, Package, Property,
+    Class, Package, Property, Multiplicity, ONE_TO_ONE, ZERO_TO_ONE, ZERO_TO_MANY, ONE_TO_MANY,
     String, Integer, Float, Double, Decimal, Date, DateTime, Boolean,
     TaggedValue, Type
 )
@@ -38,6 +38,13 @@ def _resolve_type(range_name: Optional[str]) -> Type:
     return _RANGE_MAP.get(range_name.lower(), String)
 
 
+def _multiplicity(slot_def: SlotDefinition) -> Multiplicity:
+    """LinkML slots are optional and single-valued unless ``required`` or ``multivalued`` say otherwise."""
+    if slot_def.multivalued:
+        return ONE_TO_MANY if slot_def.required else ZERO_TO_MANY
+    return ONE_TO_ONE if slot_def.required else ZERO_TO_ONE
+
+
 def load_schema(path: str) -> Package:
     schema: SchemaDefinition = cast(SchemaDefinition, yaml_loader.load(path, target_class=SchemaDefinition))
 
@@ -51,7 +58,7 @@ def load_schema(path: str) -> Package:
             if slot_def.description:
                 tagged.append(TaggedValue(TaggedValue.DOC, slot_def.description))
             prop_type = _resolve_type(slot_def.range)
-            properties.append(Property(slot_name, slot_name, prop_type, tagged_values=tagged or None))
+            properties.append(Property(slot_name, slot_name, prop_type, _multiplicity(slot_def), tagged_values=tagged or None))
 
         for slot_name in (class_def.slots or []):
             if slot_name in (class_def.attributes or {}):
@@ -63,7 +70,7 @@ def load_schema(path: str) -> Package:
             if slot_def.description:
                 tagged.append(TaggedValue(TaggedValue.DOC, slot_def.description))
             prop_type = _resolve_type(slot_def.range)
-            properties.append(Property(slot_name, slot_name, prop_type, tagged_values=tagged or None))
+            properties.append(Property(slot_name, slot_name, prop_type, _multiplicity(slot_def), tagged_values=tagged or None))
 
         tagged_values: list[TaggedValue] = []
         if class_def.description:

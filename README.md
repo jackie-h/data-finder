@@ -38,10 +38,10 @@ A **Class** represents a logical entity — the equivalent of a UML class or a b
 |---------|-------------------------------------------------|
 | Account | Trading account used to buy and sell securities |
 
-| Property | Id   | Type    | Key | Description |
-|----------|------|---------|-----|-------------|
-| Id       | id   | Integer | Y   |             |
-| Name     | name | String  |     |             |
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Id       | id   | Integer | 1            | Y   |             |
+| Name     | name | String  | 1            |     |             |
 ```
 
 Each property has:
@@ -51,6 +51,7 @@ Each property has:
 | Property | Human-readable label used in generated docstrings |
 | Id | Machine identifier used in code and mappings |
 | Type | A primitive type or another class name (for navigations defined via Associations) |
+| Multiplicity | Required. `1`, `0..1`, `*`, `1..*` or `n..m`. There is no default: a blank cell is an error |
 | Key | `Y` marks the business key |
 | Description | Optional documentation |
 

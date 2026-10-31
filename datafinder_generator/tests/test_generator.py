@@ -245,13 +245,13 @@ class TestDualAssociationSameTarget:
 
         pkg = Package("org")
         employee_cls = Class("Employee", [
-            Property("Id", "id", Integer),
-            Property("Name", "name", String),
+            Property("Id", "id", Integer, ONE_TO_ONE),
+            Property("Name", "name", String, ONE_TO_ONE),
         ], pkg)
         contract_cls = Class("Contract", [
-            Property("Id", "id", Integer),
-            Property("Primary Owner", "primaryOwner", employee_cls),
-            Property("Secondary Owner", "secondaryOwner", employee_cls),
+            Property("Id", "id", Integer, ONE_TO_ONE),
+            Property("Primary Owner", "primaryOwner", employee_cls, ONE_TO_ONE),
+            Property("Secondary Owner", "secondaryOwner", employee_cls, ONE_TO_ONE),
         ], pkg)
         Association("ContractPrimaryOwner", "Contract", ZERO_TO_MANY,
                     "Primary Owner Contracts", "primaryOwnerContracts",
@@ -337,11 +337,11 @@ class TestCamelCaseReverseAssocMethodName:
 
         pkg = Package("org")
         entity_cls = Class("Entity", [
-            Property("Id", "id", Integer),
+            Property("Id", "id", Integer, ONE_TO_ONE),
         ], pkg)
         tag_cls = Class("Tag", [
-            Property("Id", "id", Integer),
-            Property("Related Entity", "relatedEntity", entity_cls),
+            Property("Id", "id", Integer, ONE_TO_ONE),
+            Property("Related Entity", "relatedEntity", entity_cls, ONE_TO_ONE),
         ], pkg)
         Association("TagEntity", "Tag", ZERO_TO_MANY,
                     "Related Entities", "relatedEntities",
@@ -410,10 +410,10 @@ class TestAssociationPropertyDocstring:
         from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
 
         pkg = Package("finance")
-        account_cls = Class("Account", [Property("Id", "id", Integer)], pkg)
+        account_cls = Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE)], pkg)
         trade_cls = Class("Trade", [
-            Property("Id", "id", Integer),
-            Property("Account", "account", account_cls),
+            Property("Id", "id", Integer, ONE_TO_ONE),
+            Property("Account", "account", account_cls, ONE_TO_ONE),
         ], pkg)
         Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades",
                     "Account", ONE_TO_ONE, "Account", "account", pkg)

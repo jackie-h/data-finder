@@ -8,10 +8,10 @@
 |--------|-------------|
 | Person |             |
 
-| Property  | Id        | Type    | Key | Description |
-|-----------|-----------|---------|-----|-------------|
-| PersonId  | personId  | Integer | Y   |             |
-| FirstName | firstName | String  |     |             |
+| Property  | Id        | Type    | Multiplicity | Key | Description |
+|-----------|-----------|---------|--------------|-----|-------------|
+| PersonId  | personId  | Integer | 1            | Y   |             |
+| FirstName | firstName | String  | 1            |     |             |
 
 ### Class: Firm
 
@@ -19,9 +19,9 @@
 |------|-------------|
 | Firm |             |
 
-| Property  | Id        | Type   | Key | Description |
-|-----------|-----------|--------|-----|-------------|
-| LegalName | legalName | String |     |             |
+| Property  | Id        | Type   | Multiplicity | Key | Description |
+|-----------|-----------|--------|--------------|-----|-------------|
+| LegalName | legalName | String | 1            |     |             |
 
 ### Class: Address
 
@@ -29,9 +29,9 @@
 |---------|-------------|
 | Address |             |
 
-| Property | Id   | Type   | Key | Description |
-|----------|------|--------|-----|-------------|
-| Name     | name | String |     |             |
+| Property | Id   | Type   | Multiplicity | Key | Description |
+|----------|------|--------|--------------|-----|-------------|
+| Name     | name | String | 1            |     |             |
 
 ### Association: PersonFirm
 

@@ -1,13 +1,16 @@
 import pytest
 
-from model.m3 import Package, Class, Association, Property, String, Integer, _name_to_camel_id, ONE_TO_ONE, ZERO_TO_MANY
+from model.m3 import (
+    Package, Class, Association, Property, String, Integer, _name_to_camel_id, ONE_TO_ONE, ZERO_TO_MANY, ZERO_TO_ONE,
+    ONE_TO_MANY, BoundedMultiplicity, parse_multiplicity,
+)
 
 
 class TestPackageChildren:
 
     def test_class_registered_in_package(self):
         pkg = Package("finance")
-        cls = Class("Account", [Property("Id", "id", Integer)], pkg)
+        cls = Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE)], pkg)
         assert cls in pkg.children
 
     def test_multiple_classes_registered(self):
@@ -80,3 +83,26 @@ class TestAssociationPropertyNames:
     def test_target_property_name_is_required(self):
         with pytest.raises(ValueError, match="Target Property Name"):
             Association("TradeAccount", "Trade", ZERO_TO_MANY, "Trades", "trades", "Account", ONE_TO_ONE, "", "account", None)
+
+
+class TestPropertyMultiplicity:
+
+    def test_multiplicity_is_required(self):
+        with pytest.raises(TypeError):
+            Property("Id", "id", Integer)  # type: ignore[call-arg]
+
+    def test_multiplicity_must_be_a_multiplicity(self):
+        with pytest.raises(ValueError, match="multiplicity must be a Multiplicity"):
+            Property("Id", "id", Integer, None)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize("multiplicity", [ONE_TO_ONE, ZERO_TO_ONE, ONE_TO_MANY, ZERO_TO_MANY,
+                                              BoundedMultiplicity(2, 5)])
+    def test_parse_round_trips_str(self, multiplicity):
+        parsed = parse_multiplicity(str(multiplicity))
+        assert str(parsed) == str(multiplicity)
+        assert parsed.is_many() == multiplicity.is_many()
+
+    @pytest.mark.parametrize("text", ["", "many", "1..", "..1", "a..b", "3..1"])
+    def test_parse_rejects_invalid_text(self, text):
+        with pytest.raises(ValueError):
+            parse_multiplicity(text)

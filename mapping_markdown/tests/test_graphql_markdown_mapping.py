@@ -238,9 +238,9 @@ class TestGraphQLAssociationMapping:
 class TestGraphQLFieldMappingHeaderValidation:
 
     def _make_pkg(self):
-        from model.m3 import Package, Class, Property, Integer
+        from model.m3 import Package, Class, Property, Integer, ONE_TO_ONE
         pkg = Package("test")
-        Class("Account", [Property("Id", "id", Integer)], pkg)
+        Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE)], pkg)
         return pkg
 
     def _mapping_with_headers(self, header_row: str, separator_row: str) -> str:

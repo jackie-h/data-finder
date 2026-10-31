@@ -61,9 +61,11 @@ Boolean = PrimitiveType("Boolean")
 
 class Property(AnnotatedElement):
     def __init__(self, name: str, id: str, type: Type | None,
-                 multiplicity: 'Multiplicity | None' = None,
+                 multiplicity: 'Multiplicity',
                  tagged_values: list[TaggedValue] | None = None):
         super().__init__(tagged_values)
+        if not isinstance(multiplicity, Multiplicity):
+            raise ValueError(f"Property '{name}': multiplicity must be a Multiplicity instance")
         self.name = name
         self._id = id
         self.type = type
@@ -172,6 +174,22 @@ ONE_TO_ONE = BoundedMultiplicity(1, 1)
 ZERO_TO_ONE = BoundedMultiplicity(0, 1)
 ONE_TO_MANY = UnboundedMultiplicity(1)
 ZERO_TO_MANY = UnboundedMultiplicity(0)
+
+
+def parse_multiplicity(text: str) -> Multiplicity:
+    """Parse the text form that ``str(multiplicity)`` produces: ``1``, ``0..1``, ``*``, ``1..*`` or ``n..m``."""
+    text = text.strip()
+    if text == "*":
+        return ZERO_TO_MANY
+    lower, separator, upper = text.partition("..")
+    try:
+        if not separator:
+            return BoundedMultiplicity(int(lower), int(lower))
+        if upper == "*":
+            return UnboundedMultiplicity(int(lower))
+        return BoundedMultiplicity(int(lower), int(upper))
+    except ValueError:
+        raise ValueError(f"Invalid multiplicity {text!r}: expected 1, 0..1, *, 1..* or n..m") from None
 
 
 class Association(PackagableElement):

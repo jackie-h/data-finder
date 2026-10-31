@@ -76,9 +76,9 @@ class TestAllProperties:
 |------|-------------|
 | Base |             |
 
-| Property | Id  | Type    | Key | Description |
-|----------|-----|---------|-----|-------------|
-| Id       | id  | String  | Y   |             |
+| Property | Id  | Type    | Multiplicity | Key | Description |
+|----------|-----|---------|--------------|-----|-------------|
+| Id       | id  | String  | 1            | Y   |             |
 
 ### Class: Child extends Base
 
@@ -86,9 +86,9 @@ class TestAllProperties:
 |-------|-------------|
 | Child |             |
 
-| Property | Id  | Type    | Key | Description |
-|----------|-----|---------|-----|-------------|
-| Id       | id  | Integer | Y   |             |
+| Property | Id  | Type    | Multiplicity | Key | Description |
+|----------|-----|---------|--------------|-----|-------------|
+| Id       | id  | Integer | 1            | Y   |             |
 """
         pkgs = loads(content)
         by_name = {c.name: c for c in pkgs[0].children if isinstance(c, Class)}
@@ -108,9 +108,9 @@ class TestAllProperties:
 |------|-------------|
 | A    |             |
 
-| Property | Id | Type   | Key | Description |
-|----------|----|--------|-----|-------------|
-| X        | x  | String |     |             |
+| Property | Id | Type   | Multiplicity | Key | Description |
+|----------|----|--------|--------------|-----|-------------|
+| X        | x  | String | 1            |     |             |
 
 ### Class: B
 
@@ -118,9 +118,9 @@ class TestAllProperties:
 |------|-------------|
 | B    |             |
 
-| Property | Id | Type    | Key | Description |
-|----------|----|---------|-----|-------------|
-| X        | x  | Integer |     |             |
+| Property | Id | Type    | Multiplicity | Key | Description |
+|----------|----|---------|--------------|-----|-------------|
+| X        | x  | Integer | 1            |     |             |
 
 ### Class: C extends A, B
 
@@ -128,9 +128,9 @@ class TestAllProperties:
 |------|-------------|
 | C    |             |
 
-| Property | Id  | Type   | Key | Description |
-|----------|-----|--------|-----|-------------|
-| Note     | note| String |     |             |
+| Property | Id  | Type   | Multiplicity | Key | Description |
+|----------|-----|--------|--------------|-----|-------------|
+| Note     | note| String | 1            |     |             |
 """
         pkgs = loads(content)
         by_name = {c.name: c for c in pkgs[0].children if isinstance(c, Class)}
@@ -150,9 +150,9 @@ class TestForwardReference:
 |-------|-------------|
 | Child |             |
 
-| Property | Id  | Type   | Key | Description |
-|----------|-----|--------|-----|-------------|
-| Own      | own | String |     |             |
+| Property | Id  | Type   | Multiplicity | Key | Description |
+|----------|-----|--------|--------------|-----|-------------|
+| Own      | own | String | 1            |     |             |
 
 ### Class: Parent
 
@@ -160,9 +160,9 @@ class TestForwardReference:
 |--------|-------------|
 | Parent |             |
 
-| Property | Id       | Type    | Key | Description |
-|----------|----------|---------|-----|-------------|
-| Base Id  | baseId   | Integer | Y   |             |
+| Property | Id       | Type    | Multiplicity | Key | Description |
+|----------|----------|---------|--------------|-----|-------------|
+| Base Id  | baseId   | Integer | 1            | Y   |             |
 """
         pkgs = loads(content)
         by_name = {c.name: c for c in pkgs[0].children if isinstance(c, Class)}
