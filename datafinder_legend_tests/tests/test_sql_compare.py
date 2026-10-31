@@ -34,7 +34,6 @@ def test_real_differences_are_caught(changed):
 @pytest.mark.parametrize("actual,expected", [
     # operand order
     ("SELECT a FROM t WHERE x = 1", "SELECT a FROM t WHERE 1 = x"),
-    ("SELECT a FROM t JOIN u ON t.k = u.k", "SELECT a FROM t JOIN u ON u.k = t.k"),
     # AND order
     ("SELECT a FROM t WHERE x = 1 AND y = 2", "SELECT a FROM t WHERE y = 2 AND x = 1"),
     ("SELECT a FROM t WHERE (x = 1 AND y = 2) AND z = 3", "SELECT a FROM t WHERE x = 1 AND (z = 3 AND y = 2)"),
@@ -115,3 +114,25 @@ def test_listagg_is_a_string_aggregate():
 def test_in_with_one_value_is_equality():
     assert sql_equivalent("SELECT a FROM t WHERE a IN ('x')", "select a from t where a = 'x'")
     assert not sql_equivalent("SELECT a FROM t WHERE a IN ('x', 'y')", "select a from t where a = 'x'")
+
+
+@pytest.mark.parametrize("actual,expected", [
+    ("SELECT a FROM t JOIN u ON t.k = u.k", "SELECT a FROM t JOIN u ON u.k = t.k"),
+    ("SELECT a FROM t LEFT JOIN u ON (t.k = u.k AND u.d = '2015-08-26')", "SELECT a FROM t LEFT JOIN u ON (u.k = t.k AND '2015-08-26' = u.d)"),
+    ("SELECT a FROM t JOIN u ON t.k = u.k JOIN v ON u.j = v.j", "SELECT a FROM t JOIN u ON u.k = t.k JOIN v ON v.j = u.j"),
+])
+def test_the_two_sides_of_an_equality_in_a_join_condition_are_interchangeable(actual, expected):
+    assert sql_equivalent(actual, expected)
+
+
+@pytest.mark.parametrize("actual,expected", [
+    # only an equality in a join: the same one in a WHERE is compared as written
+    ("SELECT a FROM t JOIN u ON t.k = u.k WHERE t.x = u.y", "SELECT a FROM t JOIN u ON t.k = u.k WHERE u.y = t.x"),
+    # only an equality: an ordering comparison is not turned around
+    ("SELECT a FROM t JOIN u ON t.k < u.k", "SELECT a FROM t JOIN u ON u.k < t.k"),
+    # the join still has to be the same join
+    ("SELECT a FROM t JOIN u ON t.k = u.k", "SELECT a FROM t JOIN u ON t.k = u.j"),
+    ("SELECT a FROM t JOIN u ON t.k = u.k AND t.j = u.j", "SELECT a FROM t JOIN u ON t.j = u.j AND t.k = u.k"),
+])
+def test_only_an_equality_in_a_join_condition_is_interchangeable(actual, expected):
+    assert not sql_equivalent(actual, expected)
