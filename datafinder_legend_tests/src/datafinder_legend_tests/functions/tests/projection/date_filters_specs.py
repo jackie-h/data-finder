@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, OPTIONAL_PROPERTY
+from datafinder_legend_tests.legend import ported, unsupported
 import datetime
 
 _SRC = "functions/tests/projection/testDateFilters.pure"
@@ -18,8 +18,7 @@ DATE_FILTERS_SPECS = FinderSpec(
         ported("testDateWithSeconds", f"{_SRC}::testDateWithSeconds",
                'select "root".settlementDateTime as "date" from tradeTable as "root" where ("root".settlementDateTime is not null and "root".settlementDateTime > \'2014-12-04 15:22:24\')',
                lambda f: f.find_all(None, None, [f.settlement_date_time()],
-                                    f.settlement_date_time() > datetime.datetime(2014, 12, 4, 15, 22, 24)),
-               known_gaps={BACKEND: OPTIONAL_PROPERTY}),
+                                    f.settlement_date_time() > datetime.datetime(2014, 12, 4, 15, 22, 24))),
         unsupported("testAdjust", f"{_SRC}::testAdjust",
                     'select "root".tradeDate as "date" from tradeTable as "root" where "root".tradeDate = dateadd(DAY, 1, \'2014-11-30\')',
                     'no adjust, day-of-week names, or dates relative to now'),
