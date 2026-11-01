@@ -326,8 +326,9 @@ def _exists_only_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
 
     Joining such a step repeats the parent once per matching row. A step the query also reads a value through is left as a
     join: those values are one row per child, and the existence then holds for a child with those values. Nor can a step
-    stand for a query when a step below it is reached through it, or when it has a filter of its own written against the
-    step. A to-one step cannot repeat a row, so it stays a join.
+    stand for a query when a step below it is reached through it, or when its join has a filter object of its own, whose
+    columns are not known to be the table's. A step given property values, as in ``product(id=2)``, can: they are
+    conditions on the table. A to-one step cannot repeat a row, so it stays a join.
     """
     required: dict = {}
     node_refs: dict = {}
@@ -345,7 +346,7 @@ def _exists_only_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
             parent = parent.parent
     return [node for node in required.values()
             if node.many and id(node) not in node_refs and id(node) not in ancestors
-            and node.join.filter is None and not node.join.filter_kwargs]
+            and node.join.filter is None]
 
 
 def _apply_sub_selects(query: QueryExpression, business_date: datetime.date | None,
@@ -353,13 +354,16 @@ def _apply_sub_selects(query: QueryExpression, business_date: datetime.date | No
                        processing_datetime: datetime.datetime | datetime.date | None) -> None:
     """Set ``query.sub_selects``: for each step only asked the existence of, ``SELECT DISTINCT <join column> FROM <its
     table>`` with the table's milestoning at the dates the step uses. Distinct on the join column makes it at most one
-    row for a parent, however many rows of the table match."""
+    row for a parent, however many rows of the table match. Property values the step was given are conditions of the
+    query, on the table's own columns."""
     query.sub_selects = {}
     for node in _exists_only_nodes(query):
         right = node.join.right
         bd, bd_to, pdt = _dates_for_node(node, business_date, business_date_to, processing_datetime)
+        values = node.join.filter_kwargs
+        condition = _build_join_kwargs_filter(None, values, node.join.filter_column_map) if values else NoOperation()
         query.sub_selects[id(node)] = build_query_operation(
-            bd, pdt, [Alias(right, right.name)], node.join.target, NoOperation(), business_date_to=bd_to, distinct=True)
+            bd, pdt, [Alias(right, right.name)], node.join.target, condition, business_date_to=bd_to, distinct=True)
 
 
 def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | None,
