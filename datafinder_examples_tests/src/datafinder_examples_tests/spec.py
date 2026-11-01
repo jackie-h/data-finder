@@ -42,7 +42,7 @@ class TestExpectation:
     """A single backend-agnostic query expectation."""
 
     name: str
-    query: Callable  # (finder) -> FinderResult
+    query: Callable  # (query_context) -> FinderResult
     # Omit both for a SQL-only expectation: the query is built and its SQL checked, but not executed.
     expected_columns: list[str] | None = None
     expected_result: np.ndarray | None = None
@@ -64,19 +64,19 @@ class TestExpectation:
     # Compare floats to a relative 1e-9, not exactly: for an aggregate whose last digits depend on the order of the rows.
     approximate: bool = False
 
-    def run(self, finder: Any, backend: str | None = None) -> None:
+    def run(self, query_context: Any, backend: str | None = None) -> None:
         if backend and backend in self.skip_backends:
             pytest.skip(self.skip_backends[backend])
         if backend and backend in self.known_gaps:
             try:
-                self._check(finder, backend)
+                self._check(query_context, backend)
             except Exception:
                 pytest.xfail(self.known_gaps[backend])
             pytest.fail(f"[{self.name}] now passes: remove its known_gaps entry ({self.known_gaps[backend]})")
-        self._check(finder, backend)
+        self._check(query_context, backend)
 
-    def _check(self, finder: Any, backend: str | None) -> None:
-        result = self.query(finder)
+    def _check(self, query_context: Any, backend: str | None) -> None:
+        result = self.query(query_context)
         if backend and (backend in self.expected_sql or backend in self.unexpected_sql
                         or backend in self.equivalent_sql):
             actual_sql = result.to_sql()
