@@ -42,18 +42,19 @@ BITEMPORAL_PRODUCT_SPECS = FinderSpec(
                '"root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                lambda f: f.find_all("2015-10-16", "9999-12-31",
                                     [f.id_(), f.bi_temporal_classification().type_()])),
-        unsupported("testBiTemporalToBiTemporalSingleDatePropagationForAll",
-                    f"{_SRC}::testBiTemporalToBiTemporalSingleDatePropagationForAll",
-                    'select "bitemporalproductclassificationtable_0".type as "type" from BiTemporalProductTable as "root" '
-                    'left outer join BiTemporalProductClassificationTable as "bitemporalproductclassificationtable_0" '
-                    'on ("root".type = "bitemporalproductclassificationtable_0".type and '
-                    '("bitemporalproductclassificationtable_0".in_z <= \'2017-06-11\' and '
-                    '"bitemporalproductclassificationtable_0".out_z > \'2017-06-11\' and '
-                    '"bitemporalproductclassificationtable_0".from_z <= \'2017-06-10\' and '
-                    '"bitemporalproductclassificationtable_0".thru_z > \'2017-06-10\')) '
-                    'where "root".in_z <= \'2017-06-11\' and "root".out_z > \'2017-06-11\' and '
-                    '"root".from_z <= \'2017-06-10\' and "root".thru_z > \'2017-06-10\'',
-                    "a milestoned property cannot be given its own date (classification(%2017-6-12))"),
+        ported("testBiTemporalToBiTemporalSingleDatePropagationForAll",
+               f"{_SRC}::testBiTemporalToBiTemporalSingleDatePropagationForAll",
+               'select "bitemporalproductclassificationtable_0".type as "type" from BiTemporalProductTable as "root" '
+               'left outer join BiTemporalProductClassificationTable as "bitemporalproductclassificationtable_0" '
+               'on ("root".type = "bitemporalproductclassificationtable_0".type and '
+               '("bitemporalproductclassificationtable_0".in_z <= \'2017-06-11\' and '
+               '"bitemporalproductclassificationtable_0".out_z > \'2017-06-11\' and '
+               '"bitemporalproductclassificationtable_0".from_z <= \'2017-06-12\' and '
+               '"bitemporalproductclassificationtable_0".thru_z > \'2017-06-12\')) '
+               'where "root".in_z <= \'2017-06-11\' and "root".out_z > \'2017-06-11\' and '
+               '"root".from_z <= \'2017-06-10\' and "root".thru_z > \'2017-06-10\'',
+               lambda f: f.find_all("2017-06-10", "2017-06-11",
+                                    [f.bi_temporal_classification(business_date="2017-06-12").type_()])),
     ],
 )
 
