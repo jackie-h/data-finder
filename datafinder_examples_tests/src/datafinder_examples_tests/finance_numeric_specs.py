@@ -2,7 +2,7 @@
 Test specifications for numeric functions using finance_mapping.md.
 
 Uses a different trade dataset from finance_specs.py — values chosen to exercise
-abs, ceil, floor, sqrt, mod, power, and round.
+numeric scalar functions and arithmetic.
 
     ref_data.account_master — ID INT, ACCT_NAME VARCHAR
     ref_data.price          — SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP
@@ -46,6 +46,20 @@ TRADE_NUMERIC_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _AT, [f.symbol(), f.price().sqrt()], f.symbol().eq("TSLA")),
             expected_columns=["Symbol", "Sqrt Price"],
             expected_result=np.array([["TSLA", math.sqrt(9.0)]], dtype=object),
+        ),
+        TestExpectation(
+            name="trigonometric_and_exponential_functions",
+            query=lambda f: f.find_all(None, _AT, [
+                f.price().sin(), f.price().cos(), f.price().tan(),
+                f.price().mod(1).asin(), f.price().mod(1).acos(),
+                f.price().atan(), f.price().atan2(2), f.price().exp(), f.price().log(),
+            ], f.symbol().eq("TSLA")),
+            expected_columns=["Sin Price", "Cos Price", "Tan Price", "Asin Mod Price", "Acos Mod Price",
+                              "Atan Price", "Atan2 Price", "Exp Price", "Log Price"],
+            expected_result=np.array([[
+                math.sin(9.0), math.cos(9.0), math.tan(9.0), math.asin(0.0), math.acos(0.0),
+                math.atan(9.0), math.atan2(9.0, 2), math.exp(9.0), math.log(9.0),
+            ]], dtype=object),
         ),
         TestExpectation(
             name="mod_price_by_10",

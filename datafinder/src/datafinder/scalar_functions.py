@@ -9,13 +9,13 @@ from model.relational import (
     ScalarFunction, ScalarFunctionOperation,
 )
 
-def string_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | None = None,
+def string_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
                     extra_args: list | None = None) -> 'StringFunctionOperation':
     """A function that gives text, applied to ``element``."""
     return StringFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args)
 
 
-def number_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | None = None,
+def number_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
                     extra_args: list | None = None) -> 'NumericFunctionOperation':
     """A function that gives a number, applied to ``element``."""
     return NumericFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args)
@@ -138,6 +138,42 @@ class NumericFunctions:
     def sqrt(self):
         """Return the square root. Equivalent to ``math.sqrt(n)``."""
         return number_function(self._function_input(), ScalarFunction.SQRT, 'Sqrt ' + self._function_label())
+
+    def sin(self):
+        """Return the sine of the value (in radians)."""
+        return number_function(self._function_input(), ScalarFunction.SIN, 'Sin ' + self._function_label())
+
+    def cos(self):
+        """Return the cosine of the value (in radians)."""
+        return number_function(self._function_input(), ScalarFunction.COS, 'Cos ' + self._function_label())
+
+    def tan(self):
+        """Return the tangent of the value (in radians)."""
+        return number_function(self._function_input(), ScalarFunction.TAN, 'Tan ' + self._function_label())
+
+    def asin(self):
+        """Return the inverse sine, in radians."""
+        return number_function(self._function_input(), ScalarFunction.ASIN, 'Asin ' + self._function_label())
+
+    def acos(self):
+        """Return the inverse cosine, in radians."""
+        return number_function(self._function_input(), ScalarFunction.ACOS, 'Acos ' + self._function_label())
+
+    def atan(self):
+        """Return the inverse tangent, in radians."""
+        return number_function(self._function_input(), ScalarFunction.ATAN, 'Atan ' + self._function_label())
+
+    def atan2(self, x: int | float):
+        """Return atan2(value, x), in radians."""
+        return number_function(self._function_input(), ScalarFunction.ATAN2, 'Atan2 ' + self._function_label(), second_arg=x)
+
+    def exp(self):
+        """Return e raised to the value."""
+        return number_function(self._function_input(), ScalarFunction.EXP, 'Exp ' + self._function_label())
+
+    def log(self):
+        """Return the natural logarithm of the value."""
+        return number_function(self._function_input(), ScalarFunction.LOG, 'Log ' + self._function_label())
 
     def mod(self, n: int):
         """Return the remainder after division by ``n``. Equivalent to ``value % n``."""

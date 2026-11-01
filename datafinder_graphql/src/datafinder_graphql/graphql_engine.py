@@ -89,6 +89,8 @@ def _col_raw_name(col) -> str | None:
                         DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation)):
         if col.element and isinstance(col.element, ColumnWithJoin):
             return col.element.column.name
+        if col.element is not None:
+            return _col_raw_name(col.element)
     return None
 
 
@@ -159,6 +161,15 @@ _SCALAR_FUNCS: dict = {
     ScalarFunction.CEILING:   lambda s, c: np.ceil(_num(s)),
     ScalarFunction.FLOOR:     lambda s, c: np.floor(_num(s)),
     ScalarFunction.SQRT:      lambda s, c: np.sqrt(_num(s)),
+    ScalarFunction.SIN:       lambda s, c: np.sin(_num(s)),
+    ScalarFunction.COS:       lambda s, c: np.cos(_num(s)),
+    ScalarFunction.TAN:       lambda s, c: np.tan(_num(s)),
+    ScalarFunction.ASIN:      lambda s, c: np.arcsin(_num(s)),
+    ScalarFunction.ACOS:      lambda s, c: np.arccos(_num(s)),
+    ScalarFunction.ATAN:      lambda s, c: np.arctan(_num(s)),
+    ScalarFunction.ATAN2:     lambda s, c: np.arctan2(_num(s), c.second_arg),
+    ScalarFunction.EXP:       lambda s, c: np.exp(_num(s)),
+    ScalarFunction.LOG:       lambda s, c: np.log(_num(s)),
     ScalarFunction.MOD:       lambda s, c: np.fmod(_num(s), c.second_arg),
     ScalarFunction.POWER:     lambda s, c: np.power(_num(s), c.second_arg),
     ScalarFunction.ROUND:     lambda s, c: _round_half_away_from_zero(_num(s), c.second_arg or 0),
@@ -193,6 +204,9 @@ def _compute_derived(col, df: pd.DataFrame) -> pd.Series | None:
         func = _SCALAR_FUNCS.get(col.function)
         if func is None:
             raise GraphQLUnsupportedError(f"The GraphQL engine does not support the function {col.function.name}")
+        if isinstance(col.element, ScalarFunctionOperation):
+            inner = _compute_derived(col.element, df)
+            return None if inner is None else pd.Series(func(inner, col))
         if fn and fn not in df.columns and col.function == ScalarFunction.COALESCE:
             # a nested field is absent from every row when its parent object is null in all of them
             return pd.Series(func(pd.Series([None] * len(df), dtype=object), col))
