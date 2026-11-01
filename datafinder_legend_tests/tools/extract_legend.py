@@ -161,12 +161,35 @@ def extract_file(path: Path, root: Path) -> list[dict]:
         tests.append({
             "file": str(path.relative_to(root)),
             "name": header.group(2).split("::")[-1],
+            "qualified": header.group(2),
             "tags": header.group(1),
             "executions": execs,
             "kind": _classify(execs[0]["query"]) if execs else "other",
             "expected_sql": sqls,
         })
+    _qualify_repeated_names(tests)
     return tests
+
+
+def _qualify_repeated_names(tests: list[dict]) -> None:
+    """A file can hold several projection tests with the same last name in different Pure packages
+    (``rtrim::testProject`` and ``left::testProject``). Each gets as many trailing package segments as make its name
+    unique, so a test is identified by file and name. Only those tests, the ones the port is keyed on, are renamed: a
+    name that is not repeated among them stays the bare function name."""
+    by_name: dict[str, list[dict]] = {}
+    for test in tests:
+        if test["kind"] == "project" and test["expected_sql"]:
+            by_name.setdefault(test["name"], []).append(test)
+    for group in by_name.values():
+        if len(group) == 1:
+            continue
+        parts = [t["qualified"].split("::") for t in group]
+        for depth in range(2, max(len(p) for p in parts) + 1):
+            names = ["::".join(p[-depth:]) for p in parts]
+            if len(set(names)) == len(names):
+                for test, name in zip(group, names):
+                    test["name"] = name
+                break
 
 
 def main(argv: list[str]) -> None:
