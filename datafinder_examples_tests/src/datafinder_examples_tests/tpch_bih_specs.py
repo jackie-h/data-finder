@@ -137,22 +137,22 @@ ORDER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([4300.0, 3]),
         ),
         _unsupported(
-            "T3sys_compare_open_order_revenue_between_system_times",
+            "T3_sys_compare_open_order_revenue_between_system_times",
             "Requires comparing two independently aggregated time-travel subqueries, which finder specs cannot express",
             ["old_revenue", "new_revenue"],
         ),
         _unsupported(
-            "T3app_compare_open_order_revenue_between_application_times",
+            "T3_app_compare_open_order_revenue_between_application_times",
             "Requires comparing two independently aggregated time-travel subqueries, which finder specs cannot express",
             ["old_revenue", "new_revenue"],
         ),
         _unsupported(
-            "T4sys_top_ten_customers_by_open_to_filled_revenue_change",
+            "T4_sys_top_ten_customers_by_open_to_filled_revenue_change",
             "Requires joining two grouped time-travel subqueries and ordering by their aggregate difference",
             ["inc_revenue", "o_custkey"],
         ),
         _unsupported(
-            "T4app_top_ten_customers_by_open_order_revenue_change",
+            "T4_app_top_ten_customers_by_open_order_revenue_change",
             "Requires joining two grouped time-travel subqueries and ordering by their aggregate difference",
             ["inc_revenue", "o_custkey"],
         ),
@@ -163,7 +163,7 @@ ORDER_FINDER_SPECS = FinderSpec(
             ["o_custkey", "max(o_totalprice)", "supp_revenue"],
         ),
         TestExpectation(
-            name="T6sys_average_open_order_price_per_customer_at_system_time",
+            name="T6_sys_average_open_order_price_per_customer_at_system_time",
             query=lambda f: f.find_all(
                 None, "2022-06-01", [f.customer().customer_key(), f.total_price().average().alias("supp_revenue")],
                 f.order_status().eq("O"),
@@ -172,7 +172,7 @@ ORDER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([1, 800.0], [3, 500.0], [4, 3000.0]),
         ),
         TestExpectation(
-            name="T6app_average_open_order_price_per_customer_at_application_time",
+            name="T6_app_average_open_order_price_per_customer_at_application_time",
             query=lambda f: f.find_all(
                 "1996-06-01", None,
                 [f.customer().customer_key(), f.total_price().average().alias("supp_revenue")],
@@ -427,7 +427,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
     expectations=[
         # K.1: all system versions at one application-time point; all application versions as recorded now.
         TestExpectation(
-            name="K1sys_customer_system_history_at_application_point",
+            name="K1_sys_customer_system_history_at_application_point",
             query=lambda f: f.find_all(
                 "1995-06-01", None, [f.customer_key(), f.acct_bal(), f.sys_time_begin()], f.customer_key().eq(1),
             ).order_by(f.sys_time_begin().ascending()),
@@ -435,7 +435,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([1, 100.0, _S0], [1, 6000.0, _S1]),
         ),
         TestExpectation(
-            name="K1app_customer_application_history_as_recorded",
+            name="K1_app_customer_application_history_as_recorded",
             query=lambda f: f.find_all(
                 None, _NOW,
                 [f.customer_key(), f.acct_bal(), f.visible_time_begin(), f.visible_time_end()], f.customer_key().eq(1),
@@ -446,7 +446,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         # K.2: temporal ranges are expressible by filtering version bounds or using the business-range finder.
         TestExpectation(
-            name="K2sys_customer_system_history_range_at_application_point",
+            name="K2_sys_customer_system_history_range_at_application_point",
             query=lambda f: f.find_all(
                 "1995-06-01", None, [f.customer_key(), f.acct_bal(), f.sys_time_begin()],
                 f.customer_key().eq(1).and_(f.sys_time_begin() < _S2).and_(f.sys_time_end() > _S0),
@@ -455,7 +455,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([1, 100.0, _S0], [1, 6000.0, _S1]),
         ),
         TestExpectation(
-            name="K2app_customer_application_history_range_as_recorded",
+            name="K2_app_customer_application_history_range_as_recorded",
             query=lambda f: f.find_for_date_range(
                 "1993-01-01", "2022-01-01", _NOW,
                 [f.customer_key(), f.acct_bal(), f.visible_time_begin()], f.customer_key().eq(1),
@@ -465,7 +465,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         # K.3: MIN over either kind of temporal range.
         TestExpectation(
-            name="K3sys_minimum_balance_over_system_history",
+            name="K3_sys_minimum_balance_over_system_history",
             query=lambda f: f.find_all(
                 "1995-06-01", None, [f.acct_bal().min().alias("min_balance")],
                 f.customer_key().eq(1).and_(f.sys_time_begin() < _S2).and_(f.sys_time_end() > _S0),
@@ -474,7 +474,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([100.0]),
         ),
         TestExpectation(
-            name="K3app_minimum_balance_over_application_history",
+            name="K3_app_minimum_balance_over_application_history",
             query=lambda f: f.find_for_date_range(
                 "1993-01-01", "2022-01-01", _NOW, [f.acct_bal().min().alias("min_balance")],
                 f.customer_key().eq(1),
@@ -484,7 +484,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         # K.4: latest-version retrieval. The chosen key has only two versions, below HSIZE=10.
         TestExpectation(
-            name="K4sys_latest_ten_customer_system_versions",
+            name="K4_sys_latest_ten_customer_system_versions",
             query=lambda f: f.find_all(
                 "1995-06-01", None,
                 [f.customer_key(), f.acct_bal(), f.sys_time_begin(), f.sys_time_end()], f.customer_key().eq(1),
@@ -493,7 +493,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([1, 100.0, _S0, _S1], [1, 6000.0, _S1, _FOREVER]),
         ),
         TestExpectation(
-            name="K4app_latest_ten_customer_application_versions",
+            name="K4_app_latest_ten_customer_application_versions",
             query=lambda f: f.find_for_date_range(
                 "0001-01-01", "9999-12-30", _NOW,
                 [f.customer_key(), f.acct_bal(), f.visible_time_begin(), f.visible_time_end()], f.customer_key().eq(1),
@@ -504,7 +504,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         # K.5 uses adjacent versions here. The generated history is contiguous; arbitrary gaps would need correlated MAX.
         TestExpectation(
-            name="K5sys_preceding_customer_system_version",
+            name="K5_sys_preceding_customer_system_version",
             query=lambda f: f.find_all(
                 "1995-06-01", None, [f.other_version().acct_bal(), f.other_version().sys_time_begin()],
                 f.customer_key().eq(1).and_(f.sys_time_begin() <= _S2)
@@ -514,7 +514,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([100.0, _S0]),
         ),
         TestExpectation(
-            name="K5app_preceding_customer_application_version",
+            name="K5_app_preceding_customer_application_version",
             query=lambda f: f.find_all(
                 None, _NOW, [f.other_version().acct_bal(), f.other_version().visible_time_begin()],
                 f.customer_key().eq(1).and_(f.visible_time_begin() <= _D(2022, 1, 1))
@@ -525,7 +525,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         # K.6: a value predicate over the selected history is an ordinary finder filter.
         TestExpectation(
-            name="K6sys_customer_history_filtered_by_balance_at_application_point",
+            name="K6_sys_customer_history_filtered_by_balance_at_application_point",
             query=lambda f: f.find_all(
                 "1995-06-01", None, [f.customer_key(), f.acct_bal(), f.sys_time_begin()], f.acct_bal() > 5000.0,
             ).order_by(f.customer_key().ascending(), f.sys_time_begin().ascending()),
@@ -533,7 +533,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([1, 6000.0, _S1], [4, 9000.0, _S0]),
         ),
         TestExpectation(
-            name="K6app_customer_application_history_filtered_by_balance",
+            name="K6_app_customer_application_history_filtered_by_balance",
             query=lambda f: f.find_for_date_range(
                 "0001-01-01", "9999-12-30", _NOW,
                 [f.customer_key(), f.acct_bal(), f.visible_time_begin()], f.acct_bal() > 5000.0,
@@ -541,16 +541,16 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
             expected_columns=["Customer Key", "Acct Bal", "Visible Time Begin"],
             expected_result=_rows([1, 6000.0, _D(2021, 1, 1)], [4, 9000.0, _D(2019, 1, 1)]),
         ),
-        _unsupported("R1sys_customers_moving_to_us_in_system_time_interval",
+        _unsupported("R1_sys_customers_moving_to_us_in_system_time_interval",
                      "Requires grouped temporal subqueries and a range join over system-time transitions",
                      ["Name"]),
-        _unsupported("R1app_customers_moving_to_us_in_application_time_interval",
+        _unsupported("R1_app_customers_moving_to_us_in_application_time_interval",
                      "Requires grouped temporal subqueries and a range join over application-time transitions",
                      ["Name"]),
-        _unsupported("R2sys_mean_order_to_ship_time_over_system_history",
+        _unsupported("R2_sys_mean_order_to_ship_time_over_system_history",
                      "Requires grouped earliest system-time transitions and a join",
                      ["AVG"]),
-        _unsupported("R2app_mean_order_to_ship_time_as_currently_recorded",
+        _unsupported("R2_app_mean_order_to_ship_time_as_currently_recorded",
                      "Requires grouped earliest application-time transitions and a join",
                      ["AVG"]),
         # Supplemental CUSTOMER point queries. Benchmark T.1 is a PARTSUPP aggregate.
