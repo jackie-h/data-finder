@@ -23,7 +23,8 @@ Account 1 has two versions, which point at different branches:
     'Acme Ltd'  branch 10 (London)    in_z=2020-01-01 00:00:00, out_z=2022-01-01 00:00:00
     'Acme Corp' branch 11 (New York)  in_z=2022-01-01 00:00:00, out_z=9999-12-31 23:59:59
 Accounts are part of desks (1 Equities, 2 Rates, 3 Credit): 'Acme Ltd' is on Rates, 'Acme Corp' and 'Beta Inc' are on
-Equities, and no account is on Credit. Every position is on account 1, 'Acme'.
+Equities, and no account is on Credit. Every position is on account 1, 'Acme': 100 on 2023-01-15, 200 on 2023-01-16 and 100 on 2023-01-17 (so two of them have
+quantity 100), and a 90 on 2023-01-15 that was replaced by the 100.
 Account 2 only becomes live after MSFT does, so for a while MSFT has an account row but no live account:
     'Beta Inc'  branch 11 (New York)  in_z=2024-06-01 00:00:00, out_z=9999-12-31 23:59:59
 """
@@ -906,6 +907,31 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
         ),
         TestExpectation(
+            # A step given a value, as in accounts(name="Beta Inc"), is a condition on the accounts: it is inside the
+            # sub-select, and the step is still one row for a desk however many accounts match
+            name="a_step_given_a_value_filters_inside_the_sub_select",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Beta Inc").exists()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Equities"]], dtype=object),
+            expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.ACCT_NAME = 'Beta Inc' AND t2.in_z <="},
+        ),
+        TestExpectation(
+            # 'Acme Ltd' has expired by now, so no desk has an account of that name
+            name="a_step_given_a_value_that_matches_no_current_row_is_no_row",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Acme Ltd").exists()),
+            expected_columns=["Name"],
+            expected_result=np.empty((0, 1), dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+        TestExpectation(
+            name="not_exists_with_a_step_given_a_value",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Beta Inc").not_exists()
+            ).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
+        ),
+        TestExpectation(
             name="the_step_is_milestoned_inside_the_sub_select",
             query=lambda f: f.find_all(None, _BOTH_AT, [f.name()], f.accounts().exists()),
             expected_columns=["Name"],
@@ -917,7 +943,7 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
 )
 
 # An account has positions, which have a business date and are milestoned in processing time. With no business date every
-# position is found: at _MSFT_WITH_LIVE_ACCOUNT_AT Acme has two (100 on 2023-01-15 and 200 on 2023-01-16) and Beta none.
+# position is found: at _MSFT_WITH_LIVE_ACCOUNT_AT Acme has three (100, 200 and 100) and Beta none.
 _POSITIONS_RECORDED_AT = "2023-02-01 12:00:00"
 
 ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
@@ -943,6 +969,34 @@ ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions().not_exists()),
             expected_columns=["Name"],
             expected_result=np.array([["Beta Inc"]], dtype=object),
+        ),
+        TestExpectation(
+            # Two of Acme's positions have quantity 100: the value matches two rows, and the step is one row
+            name="a_step_given_a_value_that_matches_several_rows_is_one_row",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions(quantity=100.0).exists()
+            ),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "WHERE t2.QUANTITY = 100.0 AND"},
+        ),
+        TestExpectation(
+            name="a_step_given_a_value_that_matches_several_rows_counts_a_row_once",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [count_all()], f.positions(quantity=100.0).exists()
+            ),
+            expected_columns=["Count"],
+            expected_result=np.array([[1]], dtype=object),
+        ),
+        TestExpectation(
+            # Only the 200 on 2023-01-16 matches, and the step is still one row for the account
+            name="a_step_given_a_value_filters_inside_the_sub_select",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions(quantity=200.0).exists()
+            ),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "WHERE t2.QUANTITY = 200.0 AND"},
         ),
         TestExpectation(
             name="a_step_with_its_own_business_date_uses_it_inside_the_sub_select",
@@ -989,7 +1043,7 @@ ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name(), f.positions().quantity()], f.positions().exists()
             ).order_by(f.positions().quantity().ascending()),
             expected_columns=["Name", "Positions Quantity"],
-            expected_result=np.array([["Acme Corp", 100.0], ["Acme Corp", 200.0]], dtype=object),
+            expected_result=np.array([["Acme Corp", 100.0], ["Acme Corp", 100.0], ["Acme Corp", 200.0]], dtype=object),
             unexpected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
@@ -1008,7 +1062,7 @@ POSITION_DESK_EXISTS_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.quantity()], f.account().desk().accounts().exists()
             ).order_by(f.quantity().ascending()),
             expected_columns=["Quantity"],
-            expected_result=np.array([[100.0], [200.0]], dtype=object),
+            expected_result=np.array([[100.0], [100.0], [200.0]], dtype=object),
             expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
