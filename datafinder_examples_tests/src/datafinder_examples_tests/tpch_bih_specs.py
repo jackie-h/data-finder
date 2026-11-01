@@ -550,7 +550,7 @@ LINEITEM_FINDER_SPECS = FinderSpec(
     expectations=[
         TestExpectation(
             # Appendix B.2 H.1: current version in each temporal dimension; exact 1998-11-01 cutoff.
-            name="Q1_pricing_summary_report",
+            name="H1_pricing_summary_report",
             query=lambda f: f.find_all(
                 datetime.date(9999, 12, 30), _NOW,
                 [f.return_flag().alias("l_returnflag"), f.line_status().alias("l_linestatus"),
