@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND
+from datafinder_legend_tests.legend import BACKEND, EXISTS_SUB_SELECT_ORDER, ported, unsupported
 
 _SRC = "pureToSQLQuery/tests/testMergeRules.pure"
 
@@ -46,8 +46,17 @@ MERGE_RULES_SPECS = FinderSpec(
         unsupported("testToOneJoinTreeNodesForMilestoningFilterAndProjectMerge", f"{_SRC}::testToOneJoinTreeNodesForMilestoningFilterAndProjectMerge",
                     'select "root".name as "productName", "productclassificationtable_0".type as "productClassificationType" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= \'2015-10-16\' and "productclassificationtable_0".thru_z > \'2015-10-16\') where "productclassificationtable_0".type = \'STOCK\' and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                     'milestoned or to-many join merging'),
-        unsupported("testToManyJoinTreeNodesForMilestoningFilterAndProjectDoNotMerge", f"{_SRC}::testToManyJoinTreeNodesForMilestoningFilterAndProjectDoNotMerge",
-                    'select "root".name as "productName", "productsynonymtable_2".synonym as "productSynonymsName" from ProductTable as "root" left outer join (select distinct "productsynonymtable_1".name from ProductSynonymTable as "productsynonymtable_1" where "productsynonymtable_1".from_z <= \'2015-10-16\' and "productsynonymtable_1".thru_z > \'2015-10-16\' and "productsynonymtable_1".synonym = \'GS-Mod-S1\') as "productsynonymtable_0" on ("root".name = "productsynonymtable_0".name) left outer join ProductSynonymTable as "productsynonymtable_2" on ("root".name = "productsynonymtable_2".name and "productsynonymtable_2".from_z <= \'2015-10-16\' and "productsynonymtable_2".thru_z > \'2015-10-16\') where "productsynonymtable_0".name is not null and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
-                    'milestoned or to-many join merging'),
+    ],
+)
+
+
+MERGE_RULES_MILESTONING_SPECS = FinderSpec(
+    finder_name="ProductFinder",
+    mapping_file="milestoning/tests/business_date_mapping.md",
+    expectations=[
+        ported("testToManyJoinTreeNodesForMilestoningFilterAndProjectDoNotMerge", f"{_SRC}::testToManyJoinTreeNodesForMilestoningFilterAndProjectDoNotMerge",
+               'select "root".name as "productName", "productsynonymtable_2".synonym as "productSynonymsName" from ProductTable as "root" left outer join (select distinct "productsynonymtable_1".name from ProductSynonymTable as "productsynonymtable_1" where "productsynonymtable_1".from_z <= \'2015-10-16\' and "productsynonymtable_1".thru_z > \'2015-10-16\' and "productsynonymtable_1".synonym = \'GS-Mod-S1\') as "productsynonymtable_0" on ("root".name = "productsynonymtable_0".name) left outer join ProductSynonymTable as "productsynonymtable_2" on ("root".name = "productsynonymtable_2".name and "productsynonymtable_2".from_z <= \'2015-10-16\' and "productsynonymtable_2".thru_z > \'2015-10-16\') where "productsynonymtable_0".name is not null and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
+               lambda f: f.find_all("2015-10-16", None, [f.name(), f.synonyms(business_date="2015-10-16").synonym()], f.synonyms(business_date="2015-10-16", synonym="GS-Mod-S1").exists()),
+               known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
     ],
 )
