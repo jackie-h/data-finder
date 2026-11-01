@@ -2432,3 +2432,23 @@ class TestBusinessDateRangeOnly:
         view = View("v", "main", parent, [Alias(attr, "value")], NoOperation(), [])
         with pytest.raises(ViewDefinitionError, match="no business date to anchor"):
             check_view_joins(view)
+
+
+class TestGroupByAnExpression:
+
+    def test_group_by_a_date_extract(self):
+        table, attr = _make_date_attr()
+        sql = to_sql(None, None, [attr.year(), CountAllOperation(table.name)], table, NoOperation(), group_by=[attr.year()])
+        assert sql.endswith("GROUP BY EXTRACT(YEAR FROM t0.TRADE_DATE)")
+
+    def test_group_by_a_column_is_unchanged(self):
+        table, attr = _make_date_attr()
+        sql = to_sql(None, None, [attr, CountAllOperation(table.name)], table, NoOperation(), group_by=[attr])
+        assert sql.endswith("GROUP BY t0.TRADE_DATE")
+
+    def test_group_by_an_expression_and_a_column(self):
+        table, attr = _make_date_attr()
+        sql = to_sql(None, None, [attr.year(), attr, CountAllOperation(table.name)], table, NoOperation(),
+                     group_by=[attr.year(), attr])
+        assert sql.endswith("GROUP BY EXTRACT(YEAR FROM t0.TRADE_DATE), t0.TRADE_DATE")
+
