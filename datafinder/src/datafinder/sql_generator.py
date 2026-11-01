@@ -801,7 +801,8 @@ class SQLQueryGenerator:
         by too. A query that selects only aggregates over the root's own columns is not grouped: the aggregate covers
         every row."""
         if select.group_by or not isinstance(select, SelectOperation):
-            return [self.__attr_to_col_string(a) for a in select.group_by]
+            return [self.__attr_to_col_string(a) if isinstance(a, (Attribute, ColumnWithJoin, Column))
+                    else sql_operation_to_string(self.__rewrite_operation(a)) for a in select.group_by]
         aggregates = [c for c in select.display if contains_aggregate(c)]
         if not aggregates:
             return []
