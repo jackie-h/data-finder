@@ -4,9 +4,9 @@ import pytest
 
 from datafinder import StringAttribute, to_sql
 from datafinder import IntegerAttribute
-from datafinder.sql_generator import SQLQueryGenerator, needs_parentheses
+from datafinder.sql_generator import SQLQueryGenerator, check_view_joins, needs_parentheses
 from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute
-from model.relational import Table, Column, NoOperation, CountAllOperation, JoinOperation, JoinTreeNodeOperation, \
+from model.relational import Alias, Table, Column, NoOperation, CountAllOperation, JoinOperation, JoinTreeNodeOperation, \
     LogicalOperation, LogicalOperator
 
 
@@ -2271,3 +2271,103 @@ class TestOptionalPropertyGuard:
         table, age, _ = self._age()
         sql = to_sql(None, None, [when(age > 30).then(1.0).otherwise(0.0).sum()], table, NoOperation())
         assert "WHEN t0.AGE IS NOT NULL AND t0.AGE > 30 THEN" in sql
+
+
+class TestPerNavigationDates:
+    """A step can be given its own dates. It uses them, and so does every step below it that is given none; a step given
+    none uses those of the step above it, and at the top the query's."""
+
+    _QUERY_P = datetime.datetime(2023, 12, 1, 0, 0, 0)
+    _OWN_P = datetime.datetime(2021, 6, 1, 0, 0, 0)
+
+    @staticmethod
+    def _processing_table(name):
+        from model.milestoning import MilestonedTable, ProcessingTemporalColumns
+        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)],
+                               ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+                                                         infinite_datetime="9999-12-31 23:59:59"))
+
+    @staticmethod
+    def _bitemporal_table(name):
+        from model.milestoning import BiTemporalColumns, MilestonedTable
+        mc = BiTemporalColumns(Column("from_z", "DATE", name), Column("thru_z", "DATE", name),
+                               Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+                               infinite_datetime="9999-12-31 23:59:59")
+        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+
+    def _step(self, target, parent=None, **dates):
+        parent_name = "parent" if parent is None else parent.join.target.name
+        join = JoinOperation(target.name.title(), target, Column("id", "INT", parent_name), Column("fk", "INT", target.name))
+        return JoinTreeNodeOperation(join, parent, **dates)
+
+    @staticmethod
+    def _attr(step):
+        return IntegerAttribute("Value", "id", "INT", step.join.target.name, step)
+
+    def _sql(self, *attrs, business=None, business_to=None, processing=_QUERY_P):
+        return to_sql(business, processing, list(attrs), Table("parent", [Column("id", "INT", "parent")]), NoOperation(),
+                      business_date_to=business_to)
+
+    def test_a_step_without_dates_uses_the_querys(self):
+        child = self._step(self._processing_table("child"))
+        sql = self._sql(self._attr(child))
+        assert "t1.in_z <= '2023-12-01 00:00:00'" in sql
+
+    def test_a_step_given_a_processing_time_uses_it_and_not_the_querys(self):
+        child = self._step(self._processing_table("child"), processing_datetime=self._OWN_P)
+        sql = self._sql(self._attr(child))
+        assert "t1.in_z <= '2021-06-01 00:00:00'" in sql
+        assert "2023-12-01" not in sql
+
+    def test_a_sibling_keeps_the_querys_time(self):
+        given = self._step(self._processing_table("given"), processing_datetime=self._OWN_P)
+        other = self._step(self._processing_table("other"))
+        sql = self._sql(self._attr(given), self._attr(other))
+        assert "t1.in_z <= '2021-06-01 00:00:00'" in sql
+        assert "t2.in_z <= '2023-12-01 00:00:00'" in sql
+
+    def test_a_step_below_one_given_a_time_uses_that_time(self):
+        parent = self._step(self._processing_table("child"), processing_datetime=self._OWN_P)
+        grandchild = self._step(self._processing_table("grandchild"), parent)
+        sql = self._sql(self._attr(grandchild))
+        assert "t1.in_z <= '2021-06-01 00:00:00'" in sql and "t2.in_z <= '2021-06-01 00:00:00'" in sql
+
+    def test_a_step_given_its_own_time_overrides_the_one_above(self):
+        parent = self._step(self._processing_table("child"), processing_datetime=self._OWN_P)
+        own = datetime.datetime(2020, 1, 1, 0, 0, 0)
+        grandchild = self._step(self._processing_table("grandchild"), parent, processing_datetime=own)
+        sql = self._sql(self._attr(grandchild))
+        # the step given its own time uses it, and the one above it keeps the time it was given
+        assert sql.count("in_z <= '2021-06-01 00:00:00'") == 1 and sql.count("in_z <= '2020-01-01 00:00:00'") == 1
+        assert "2023-12-01" not in sql
+
+    def test_each_axis_is_taken_separately(self):
+        step = self._step(self._bitemporal_table("child"), business_date=datetime.date(2015, 10, 16))
+        sql = self._sql(self._attr(step), business=datetime.date(2017, 6, 10))
+        assert "t1.from_z <= '2015-10-16'" in sql and "t1.thru_z > '2015-10-16'" in sql
+        assert "t1.in_z <= '2023-12-01 00:00:00'" in sql
+
+    def test_a_business_date_given_to_a_step_ends_the_querys_range(self):
+        step = self._step(self._bitemporal_table("child"), business_date=datetime.date(2015, 10, 16))
+        sql = self._sql(self._attr(step), business=datetime.date(2015, 1, 1), business_to=datetime.date(2015, 9, 1))
+        assert "t1.from_z <= '2015-10-16'" in sql and "t1.thru_z > '2015-10-16'" in sql
+        assert "t1.from_z <= '2015-09-01'" not in sql
+
+    def test_a_step_with_no_date_of_its_own_keeps_the_querys_range(self):
+        step = self._step(self._bitemporal_table("child"))
+        sql = self._sql(self._attr(step), business=datetime.date(2015, 1, 1), business_to=datetime.date(2015, 9, 1))
+        assert "t1.from_z <= '2015-09-01'" in sql and "t1.thru_z > '2015-01-01'" in sql
+
+    def test_a_date_given_to_a_table_with_no_milestoning_is_passed_down_to_the_steps_below_it(self):
+        plain = self._step(Table("plain", [Column("id", "INT", "plain"), Column("fk", "INT", "plain")]),
+                           processing_datetime=self._OWN_P)
+        below = self._step(self._processing_table("below"), plain)
+        sql = self._sql(self._attr(below))
+        assert "in_z <= '2021-06-01 00:00:00'" in sql and "2023-12-01" not in sql
+
+    def test_a_view_refuses_a_step_given_a_date(self):
+        from model.view import View, ViewDefinitionError
+        step = self._step(self._processing_table("child"), processing_datetime=self._OWN_P)
+        view = View("v", "main", self._processing_table("parent"), [Alias(self._attr(step), "value")], NoOperation(), [])
+        with pytest.raises(ViewDefinitionError, match="given a date, but a view has no dates"):
+            check_view_joins(view)

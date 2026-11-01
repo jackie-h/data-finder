@@ -726,9 +726,15 @@ class JoinTreeNodeOperation:
     intermediate joins are emitted before the joins that depend on them.
     """
     def __init__(self, join: JoinOperation, parent: 'JoinTreeNodeOperation | None' = None, many: bool = False,
-                 optional: bool = False):
+                 optional: bool = False, business_date: 'datetime.date | None' = None,
+                 processing_datetime: 'datetime.datetime | datetime.date | None' = None):
         self.join = join
         self.parent = parent
+        # The dates this step was given for the milestoned table it reaches, if any. They are the ones it uses, and the
+        # ones every step below it uses unless it is given its own; a step with none uses those of the step above it,
+        # and at the top the query's.
+        self.business_date = business_date
+        self.processing_datetime = processing_datetime
         # True when the property this step follows is to-many, so a value read through it repeats the row. As in
         # Pure, that is the multiplicity of the property, not something the join itself says.
         self.many = many

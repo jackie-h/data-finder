@@ -310,6 +310,27 @@ def _apply_join_filters(query: QueryExpression,
             query.join_filters[id(node)] = combined
 
 
+def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | None,
+                    business_date_to: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None):
+    """The business date, its range end and the processing time for the table a step reaches.
+
+    A step uses the dates it was given, else those of the nearest step above it that was given any, else the query's.
+    Each axis is taken separately, and a business date given to a step is a point in time, so it ends any range the
+    query asked for.
+    """
+    explicit_business = explicit_processing = None
+    step: JoinTreeNodeOperation | None = node
+    while step is not None:
+        if explicit_business is None:
+            explicit_business = step.business_date
+        if explicit_processing is None:
+            explicit_processing = step.processing_datetime
+        step = step.parent
+    if explicit_business is not None:
+        business_date, business_date_to = explicit_business, None
+    return business_date, business_date_to, processing_datetime if explicit_processing is None else explicit_processing
+
+
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
                          columns: Sequence[Attribute], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
@@ -329,9 +350,10 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
     def milestoning_condition(node):
         if not isinstance(node.join.target, MilestonedTable):
             return None
-        if business_date_to is not None:
-            return build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, node.join.target, node)
-        return build_milestoning_filter_operation(business_date, processing_datetime, node.join.target, node)
+        bd, bd_to, pdt = _dates_for_node(node, business_date, business_date_to, processing_datetime)
+        if bd_to is not None:
+            return build_milestoning_filter_operation_for_date_range(bd, bd_to, pdt, node.join.target, node)
+        return build_milestoning_filter_operation(bd, pdt, node.join.target, node)
 
     _apply_join_filters(select, milestoning_condition)
     return select
@@ -1113,6 +1135,13 @@ def check_view_joins(view: View) -> None:
     """Raise ViewDefinitionError unless every joined milestoned table can be pinned to the root row's point in time."""
     assert view.table is not None
     for node in _joined_nodes(view):
+        step: JoinTreeNodeOperation | None = node
+        while step is not None:
+            if step.business_date is not None or step.processing_datetime is not None:
+                raise ViewDefinitionError(
+                    f"'{step.join.name}' was given a date, but a view has no dates: each joined table is pinned to the "
+                    f"point in time of the row it is joined from")
+            step = step.parent
         build_as_of_join_condition(view.table, node)
 
 
