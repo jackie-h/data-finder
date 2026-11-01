@@ -9,7 +9,7 @@ The rest are recorded as unsupported: the finder cannot express them yet, or the
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import AGGREGATE_IN_DERIVED_TABLE, BACKEND, CORRELATED_EXISTS, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, ported, unsupported
+from datafinder_legend_tests.legend import AGGREGATE_IN_DERIVED_TABLE, BACKEND, CORRELATED_EXISTS, EXISTS_COLUMN_SUB_SELECT, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, ported, unsupported
 
 _SRC = "milestoning/tests/testBusinessDateMilestoning.pure"
 _MAPPING = "milestoning/tests/business_date_mapping.md"
@@ -90,9 +90,6 @@ BUSINESS_DATE_MILESTONING_SPECS = FinderSpec(
                     'business date milestoning mapping not loaded in the port'),
         unsupported("testMilestoningFilterPropagationWithNowInFilter", f"{_SRC}::testMilestoningFilterPropagationWithNowInFilter",
                     'select "root".name as "name" from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) where "ordertable_0".orderDate < now() and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
-                    'business date milestoning mapping not loaded in the port'),
-        unsupported("testMilestoningFilterPropagationThroughProject", f"{_SRC}::testMilestoningFilterPropagationThroughProject",
-                    'select "root".name as "name", not "producttable_1".prodFk is null as "check" from ProductTable as "root" left outer join (select distinct "ordertable_0".prodFk from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) where "ordertable_0".id = 1) as "producttable_1" on ("producttable_1".prodFk = "root".id) where "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
                     'business date milestoning mapping not loaded in the port'),
         unsupported("testCalculationOnBusinessDateInGetAll", f"{_SRC}::testCalculationOnBusinessDateInGetAll",
                     'select "unionalias_0"."businessDate" as "businessDate", "unionalias_0"."name" as "name" from (select "root".name as "name", cast(truncate(\'2015-10-16\') as date) as "businessDate" from ProductTable as "root" where "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\' union all select "root".name as "name", cast(truncate(dateadd(DAY, -1, \'2015-10-16\')) as date) as "businessDate" from ProductTable as "root" where "root".from_z <= dateadd(DAY, -1, \'2015-10-16\') and "root".thru_z > dateadd(DAY, -1, \'2015-10-16\')) as "unionalias_0" order by "businessDate","name"',
@@ -181,5 +178,9 @@ BUSINESS_DATE_EXISTS_SPECS = FinderSpec(
                'select "root".name as "name" from ProductTable as "root" where not (not exists(select 1 from OrderTable as "ordertable_0" where "ordertable_0".id = 1 and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\' and "ordertable_0".prodFk = "root".id)) and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
                lambda f: f.find_all("2015-08-15", None, [f.name()], f.orders(id=1).exists()),
                known_gaps={BACKEND: CORRELATED_EXISTS}),
+        ported("testMilestoningFilterPropagationThroughProject", f"{_SRC}::testMilestoningFilterPropagationThroughProject",
+               'select "root".name as "name", not "producttable_1".prodFk is null as "check" from ProductTable as "root" left outer join (select distinct "ordertable_0".prodFk from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) where "ordertable_0".id = 1) as "producttable_1" on ("producttable_1".prodFk = "root".id) where "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
+               lambda f: f.find_all("2015-08-15", None, [f.name(), f.orders(id=1).exists()]),
+               known_gaps={BACKEND: EXISTS_COLUMN_SUB_SELECT}),
     ],
 )

@@ -72,6 +72,10 @@ EXISTS_ON_TO_ONE_STEP = (
     "Legend reads exists on a step that is declared to-one through a DISTINCT sub-select as it does for a to-many step; the "
     "finder keeps a to-one step as a join, which cannot repeat a row and so returns the same rows"
 )
+EXISTS_COLUMN_SUB_SELECT = (
+    "when exists is a projected column, Legend's DISTINCT sub-select joins the root table again inside the derived table "
+    "to reach the child; the finder's sub-select reads only the child's join column, which gives the same flag"
+)
 CONCAT_FUNCTION = (
     "Legend writes `+` on text as concat(a, b), which treats a NULL part as empty in DuckDB; the finder writes a || b, "
     "which is NULL when any part is"
