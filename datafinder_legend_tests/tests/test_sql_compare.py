@@ -144,3 +144,10 @@ def test_parentheses_around_a_whole_case_when_condition_group_nothing():
     # but they do when they are not the whole condition
     assert not sql_equivalent("SELECT CASE WHEN (a = 1 OR b = 2) AND c = 3 THEN 1 ELSE 0 END FROM t",
                               "SELECT CASE WHEN a = 1 OR b = 2 AND c = 3 THEN 1 ELSE 0 END FROM t")
+
+
+def test_group_concat_with_a_separator_is_the_string_aggregate():
+    legend = 'select group_concat("root".name separator \'*\') as "names" from t as "root"'
+    ours = "SELECT STRING_AGG(t0.name, '*') AS \"Names\" FROM t AS t0"
+    assert sql_equivalent(ours, legend)
+    assert not sql_equivalent(ours, legend.replace("'*'", "'+'"))

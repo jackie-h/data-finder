@@ -20,6 +20,7 @@ Only these are ignored, because they name things rather than say what the query 
 """
 from __future__ import annotations
 
+import re
 from functools import reduce
 
 import sqlglot
@@ -97,8 +98,14 @@ def _flatten_connectors(tree: exp.Expr) -> None:
 _FALLBACK_DIALECT = "tsql"
 
 
+# Legend writes a string aggregate as ``group_concat(x separator 's')``, MySQL grammar that no other dialect reads.
+_SEPARATOR_CLAUSE = re.compile(r"\s+separator\s+('(?:[^']|'')*')\s*\)", re.IGNORECASE)
+
+
 def parse(sql: str, dialect: str | None = None) -> exp.Expr:
-    """Parse ``sql`` in ``dialect``; if that fails, in the T-SQL grammar (for ``select top N``)."""
+    """Parse ``sql`` in ``dialect``; if that fails, in the T-SQL grammar (for ``select top N``). ``group_concat(x
+    separator s)`` is read as ``group_concat(x, s)``."""
+    sql = _SEPARATOR_CLAUSE.sub(r", \1)", sql)
     try:
         return sqlglot.parse_one(sql, read=dialect)
     except sqlglot.errors.ParseError:
