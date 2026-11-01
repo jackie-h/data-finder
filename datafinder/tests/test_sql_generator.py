@@ -2371,3 +2371,64 @@ class TestPerNavigationDates:
         view = View("v", "main", self._processing_table("parent"), [Alias(self._attr(step), "value")], NoOperation(), [])
         with pytest.raises(ViewDefinitionError, match="given a date, but a view has no dates"):
             check_view_joins(view)
+
+
+class TestBusinessDateRangeOnly:
+    """A table whose rows apply over a business date range and that has no processing columns."""
+
+    _B = datetime.date(2017, 6, 10)
+    _P = datetime.datetime(2017, 6, 11, 0, 0, 0)
+
+    @staticmethod
+    def _ranged(name="rates", infinite_datetime: str | None = None):
+        from model.milestoning import BusinessDateRangeColumns, MilestonedTable
+        mc = BusinessDateRangeColumns(Column("from_z", "DATE", name), Column("thru_z", "DATE", name),
+                                      infinite_datetime=infinite_datetime)
+        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+
+    def _id(self):
+        return IntegerAttribute("Id", "id", "INT", "rates")
+
+    def test_a_date_is_inside_the_range(self):
+        sql = to_sql(self._B, None, [self._id()], self._ranged(), NoOperation())
+        assert sql.endswith("WHERE t0.from_z <= '2017-06-10' AND (t0.thru_z > '2017-06-10' OR t0.thru_z IS NULL)")
+
+    def test_an_infinite_end_date_is_compared_not_tested_for_null(self):
+        sql = to_sql(self._B, None, [self._id()], self._ranged(infinite_datetime="9999-12-31"), NoOperation())
+        assert sql.endswith("WHERE t0.from_z <= '2017-06-10' AND t0.thru_z > '2017-06-10'")
+
+    def test_a_processing_time_has_no_column_to_filter(self):
+        with_time = to_sql(self._B, self._P, [self._id()], self._ranged(), NoOperation())
+        assert with_time == to_sql(self._B, None, [self._id()], self._ranged(), NoOperation())
+
+    def test_a_date_range_overlaps_the_row_range(self):
+        sql = to_sql(datetime.date(2020, 12, 1), None, [self._id()], self._ranged(), NoOperation(),
+                     business_date_to=datetime.date(2021, 2, 1))
+        assert sql.endswith("WHERE t0.from_z <= '2021-02-01' AND (t0.thru_z > '2020-12-01' OR t0.thru_z IS NULL)")
+
+    def test_a_joined_table_with_a_range_uses_the_query_date(self):
+        root = Table("parent", [Column("id", "INT", "parent")])
+        target = self._ranged("child")
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join))
+        sql = to_sql(self._B, None, [attr], root, NoOperation())
+        assert "t1.from_z <= '2017-06-10' AND (t1.thru_z > '2017-06-10' OR t1.thru_z IS NULL)" in sql
+
+    def test_a_view_pins_a_joined_range_to_the_root_rows_own_range_start(self):
+        from model.view import View
+        parent = self._ranged("parent")
+        target = self._ranged("child")
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join))
+        view = View("v", "main", parent, [Alias(attr, "value")], NoOperation(), [])
+        check_view_joins(view)
+
+    def test_a_view_refuses_a_joined_range_when_the_root_has_no_business_date(self):
+        from model.view import View, ViewDefinitionError
+        parent = Table("parent", [Column("id", "INT", "parent")])
+        target = self._ranged("child")
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join))
+        view = View("v", "main", parent, [Alias(attr, "value")], NoOperation(), [])
+        with pytest.raises(ViewDefinitionError, match="no business date to anchor"):
+            check_view_joins(view)

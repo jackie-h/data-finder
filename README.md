@@ -207,12 +207,15 @@ Milestoning lets you query data as it was at a specific point in time. Declare n
 | `business_date` | `business_date` | `business_date`, `processing_time` |
 | `business_date_processing` | `processing_start`, `processing_end`, `business_date` | `business_date`, `processing_time` |
 | `bitemporal` | `processing_start`, `processing_end`, `business_date_from`, `business_date_to` | `business_date`, `processing_time` |
+| `business_date_range` | `business_date_from`, `business_date_to` | `business_date`, `processing_time` |
 
 Tag a table with the scheme name in parentheses:
 
 ```markdown
 #### Table: trades → Trade (milestoning: processing_only)
 ```
+
+`business_date_range` is `bitemporal` without the processing columns: a row applies from `business_date_from` up to, but not including, `business_date_to`, and a NULL end (or `infinite_datetime`) is open-ended. Any processing time passed to it is ignored, though one still reaches tables it joins to that have processing columns.
 
 ---
 

@@ -8,7 +8,7 @@ import sqlglot.errors
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
 from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
-    BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, MilestonedTable
+    BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
@@ -77,7 +77,7 @@ def _business_predicate(mc: MilestoningColumns, business_date: datetime.date | N
     """The table's business range contains the business date, or its business date column equals it."""
     if business_date is None:
         return None
-    if isinstance(mc, BiTemporalColumns):
+    if isinstance(mc, BusinessDateRangeColumns):
         date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.qualified_name(), join_node)
         date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.qualified_name(), join_node)
         return LogicalOperation(date_from <= business_date, LogicalOperator.AND, _open_end_clause(date_to, business_date, mc.infinite_datetime))
@@ -93,7 +93,7 @@ def _business_range_predicate(mc: MilestoningColumns, business_date_from: dateti
     """The table's business range overlaps the business date range, or its business date column is within it."""
     if business_date_from is None or business_date_to is None:
         return None
-    if isinstance(mc, BiTemporalColumns):
+    if isinstance(mc, BusinessDateRangeColumns):
         date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.qualified_name(), join_node)
         date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.qualified_name(), join_node)
         return LogicalOperation(date_from <= business_date_to, LogicalOperator.AND, _open_end_clause(date_to, business_date_from, mc.infinite_datetime))
@@ -109,7 +109,7 @@ def build_milestoning_filter_operation_for_date_range(
         table: MilestonedTable, join_node: 'JoinTreeNodeOperation | None' = None) -> 'Operation | None':
     """Like build_milestoning_filter_operation but applies a business-date range filter.
 
-    For BiTemporalColumns the range uses interval overlap:
+    For BusinessDateRangeColumns the range uses interval overlap:
         business_date_from_col <= business_date_to AND business_date_to_col > business_date_from
     For single-date columns:
         business_date >= business_date_from AND business_date <= business_date_to
@@ -1089,7 +1089,7 @@ def _as_of_business_point(root: MilestoningColumns | None) -> Column | None:
     """The root row's point on the business-date axis: its date, or the start of its interval."""
     if isinstance(root, SingleBusinessDateColumn):
         return root.business_date_column
-    if isinstance(root, BiTemporalColumns):
+    if isinstance(root, BusinessDateRangeColumns):
         return root.business_date_from_column
     return None
 
@@ -1117,7 +1117,7 @@ def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -
                                                    _as_of_root_column(root.start_at_column), child.infinite_datetime,
                                                    node))
 
-    if isinstance(child, (SingleBusinessDateColumn, BiTemporalColumns)):
+    if isinstance(child, (SingleBusinessDateColumn, BusinessDateRangeColumns)):
         point = _as_of_business_point(root)
         if point is None:
             raise ViewDefinitionError(
