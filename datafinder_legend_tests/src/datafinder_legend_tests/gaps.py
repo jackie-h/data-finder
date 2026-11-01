@@ -231,6 +231,7 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     PROCESSING_SNAPSHOT_DATETIME: [_keep_truncated_datetime],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
+    NOT_EQUAL_NULL: [_drop_null_alternative_to_not_equal],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
 }
 
