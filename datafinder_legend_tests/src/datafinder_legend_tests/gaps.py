@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -62,6 +62,18 @@ def _truncate_datetime_date(tree: exp.Expr) -> exp.Expr:
             arg = call.this if isinstance(call, exp.Trunc) else call.expressions[0]
             if isinstance(arg, exp.Literal) and arg.is_string:
                 cast.replace(exp.Literal.string(arg.name[:10]))
+    return tree
+
+
+def _keep_truncated_datetime(tree: exp.Expr) -> exp.Expr:
+    """``cast(truncate('2015-08-26 02:00:00') as date)`` is read as the whole datetime ``'2015-08-26 02:00:00'``."""
+    for cast in list(tree.find_all(exp.Cast)):
+        call = cast.this
+        if cast.to.this == exp.DataType.Type.DATE and (isinstance(call, exp.Trunc) or (
+                isinstance(call, exp.Anonymous) and call.name.lower() == "truncate")):
+            arg = call.this if isinstance(call, exp.Trunc) else call.expressions[0]
+            if isinstance(arg, exp.Literal) and arg.is_string:
+                cast.replace(exp.Literal.string(arg.name))
     return tree
 
 
@@ -216,6 +228,7 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     EXISTS_SUB_SELECT_ORDER: [_order_sub_select_conditions, _order_left_joins],
     TYPED_DATE_LITERAL: [_untype_date_literals],
     DATETIME_MILESTONING_DATE: [_truncate_datetime_date],
+    PROCESSING_SNAPSHOT_DATETIME: [_keep_truncated_datetime],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
     FLOAT_DIVISION: [_drop_float_cast_in_division],

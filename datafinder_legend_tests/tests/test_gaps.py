@@ -2,7 +2,7 @@
 from datafinder_legend_tests.gaps import gap_is_only
 from datafinder_legend_tests.legend import (
     CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER,
-    NOT_EQUAL_NULL, TDS_FILTER_OPTIONAL_PROPERTY,
+    NOT_EQUAL_NULL, PROCESSING_SNAPSHOT_DATETIME, TDS_FILTER_OPTIONAL_PROPERTY,
 )
 
 def test_a_null_guard_is_covered_only_by_the_optional_property_gap():
@@ -26,6 +26,13 @@ def test_a_datetime_milestoning_date_is_the_date_of_the_datetime():
               "where \"root\".snapshotDate = cast(truncate('2015-08-26 02:00:00') as date)")
     assert gap_is_only(DATETIME_MILESTONING_DATE, "SELECT t0.id FROM p AS t0 WHERE t0.snapshotDate = '2015-08-26'", legend)
     assert not gap_is_only(DATETIME_MILESTONING_DATE, "SELECT t0.id FROM p AS t0 WHERE t0.snapshotDate = '2015-08-27'", legend)
+
+
+def test_a_processing_snapshot_datetime_is_kept_whole():
+    legend = ("select \"root\".id as \"id\" from p as \"root\" "
+              "where \"root\".snapshotDate = cast(truncate('2015-08-26 02:00:00') as date)")
+    assert gap_is_only(PROCESSING_SNAPSHOT_DATETIME, "SELECT t0.id FROM p AS t0 WHERE t0.snapshotDate = '2015-08-26 02:00:00'", legend)
+    assert not gap_is_only(PROCESSING_SNAPSHOT_DATETIME, "SELECT t0.id FROM p AS t0 WHERE t0.snapshotDate = '2015-08-26'", legend)
 
 
 _EXISTS_LEGEND = (
