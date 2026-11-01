@@ -10,10 +10,12 @@ from functools import reduce
 
 from sqlglot import exp
 
-from datafinder_examples_tests.sql_compare import _connect, _operands, normalize
+from datafinder_examples_tests.sql_compare import (
+    _canonical_aliases, _connect, _flatten_connectors, _operands, _order_join_equalities, normalize,
+)
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -89,9 +91,81 @@ def _drop_float_cast_in_division(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _drop_null_alternative_to_not_equal(tree: exp.Expr) -> exp.Expr:
+    """``col <> x OR col IS NULL`` is ``col <> x``."""
+    for node in reversed(list(tree.find_all(exp.Or))):
+        if isinstance(node.parent, exp.Or):
+            continue
+        operands = _operands(node, exp.Or)
+        unequal = {o.this.sql() for o in operands if isinstance(o, exp.NEQ)}
+        kept = [o for o in operands
+                if not (isinstance(o, exp.Is) and isinstance(o.expression, exp.Null) and o.this.sql() in unequal)]
+        if len(kept) != len(operands):
+            node.replace(reduce(lambda left, right: _connect(exp.Or, left, right), kept[1:], kept[0]))
+    return tree
+
+
+def _inline_isolated_join_filter(tree: exp.Expr) -> exp.Expr:
+    """``LEFT JOIN (SELECT c FROM t WHERE p) AS x ON j`` is ``LEFT JOIN t AS x ON j AND p``.
+
+    Only a derived table of one plain table that selects bare columns is inlined, and only under a left join, where a
+    row of ``t`` that fails ``p`` and a row that is missing both leave the joined columns NULL."""
+    for join in list(tree.find_all(exp.Join)):
+        derived = join.this
+        if not isinstance(derived, exp.Subquery) or (join.side or "").upper() != "LEFT" or not derived.alias:
+            continue
+        inner = derived.this
+        source = inner.args.get("from_") or inner.args.get("from")
+        if not isinstance(inner, exp.Select) or source is None or not isinstance(source.this, exp.Table) \
+                or inner.args.get("joins") or inner.args.get("group") or inner.args.get("distinct") \
+                or inner.args.get("limit") or inner.args.get("where") is None \
+                or not all(isinstance(e, exp.Column) for e in inner.expressions):
+            continue
+        outer_alias, inner_alias = derived.alias, source.this.alias_or_name
+        predicate = inner.args["where"].this.copy()
+        for column in predicate.find_all(exp.Column):
+            if column.table == inner_alias:
+                column.set("table", exp.to_identifier(outer_alias))
+        table = source.this.copy()
+        table.set("alias", exp.TableAlias(this=exp.to_identifier(outer_alias)))
+        condition = join.args.get("on")
+        join.set("this", table)
+        join.set("on", _connect(exp.And, condition.copy(), predicate) if condition is not None else predicate)
+    _canonical_aliases(tree)
+    _flatten_connectors(tree)
+    _order_join_equalities(tree)
+    return tree
+
+
+def _order_left_joins(tree: exp.Expr) -> exp.Expr:
+    """Write the left joins of each SELECT in one order: by table, with a join always after the joins it depends on."""
+    for select in tree.find_all(exp.Select):
+        joins = select.args.get("joins") or []
+        if len(joins) < 2 or any((j.side or "").upper() != "LEFT" for j in joins):
+            continue
+        provided = {t.alias_or_name for t in [(select.args.get("from_") or select.args.get("from")).this]}
+        remaining, ordered = list(joins), []
+        while remaining:
+            ready = [j for j in remaining
+                     if {c.table for c in j.find_all(exp.Column)} <= provided | {j.this.alias_or_name}]
+            if not ready:
+                break
+            pick = min(ready, key=lambda j: (j.this.name if isinstance(j.this, exp.Table) else "", j.sql()))
+            ordered.append(pick)
+            remaining.remove(pick)
+            provided.add(pick.this.alias_or_name)
+        if not remaining:
+            select.set("joins", ordered)
+    _canonical_aliases(tree)
+    _order_join_equalities(tree)
+    return tree
+
+
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     TDS_FILTER_OPTIONAL_PROPERTY: [_drop_not_null_guards],
+    ISOLATED_MILESTONED_JOIN: [_inline_isolated_join_filter],
+    LEFT_JOIN_ORDER: [_order_left_joins],
     TYPED_DATE_LITERAL: [_untype_date_literals],
     DATETIME_MILESTONING_DATE: [_truncate_datetime_date],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
