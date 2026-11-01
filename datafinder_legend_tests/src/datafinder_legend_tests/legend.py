@@ -38,6 +38,10 @@ DATETIME_MILESTONING_DATE = (
     "a DateTime given as a milestoning date is written by Legend as `cast(truncate('2015-08-26 02:00:00') as date)`; the "
     "finder works out the date itself and writes `'2015-08-26'`, which is the same date"
 )
+PROCESSING_SNAPSHOT_DATETIME = (
+    "a DateTime given to a processing snapshot is written by Legend as `cast(truncate('2015-08-26 02:00:00') as date)`; the "
+    "finder keeps the whole datetime and writes `'2015-08-26 02:00:00'`"
+)
 SECOND_JOIN_FOR_PROJECTED_MILESTONED_PROPERTY = (
     "when a milestoned navigation is used in both the filter and the projection, Legend joins its table a second time "
     "through a derived table to read the projected column; the finder joins it once and reads both from it, which "
