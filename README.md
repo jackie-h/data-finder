@@ -483,6 +483,17 @@ result = AccountFinder.find_all(
 )
 ```
 
+Reading a value through a to-many navigation gives a row for each of its rows. To ask only whether there is one, use
+`exists()` or `not_exists()`: an account with several trades is still one row, and counts once.
+
+```python
+AccountFinder.find_all(None, None, [AccountFinder.name()], AccountFinder.trades().exists())
+AccountFinder.find_all(None, None, [AccountFinder.name()], AccountFinder.trades().not_exists())
+```
+
+If the query also reads a value through the same navigation, as in `AccountFinder.trades().symbol()`, the rows are
+one for each trade, and `exists()` then holds for a trade that is in the result.
+
 ### Result formats
 
 ```python

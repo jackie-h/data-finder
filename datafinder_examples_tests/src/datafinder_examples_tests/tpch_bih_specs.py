@@ -748,13 +748,31 @@ ORDER_PRIORITY_FINDER_SPECS = FinderSpec(
     mapping_file=TPCH_BIH_MAPPING,
     expectations=[
         TestExpectation(
-            # TPC-H Q4 counts orders that have a line committed before it was received. An EXISTS is a join, so an
-            # aggregate over it would count an order once per line; counting the distinct orders does not.
+            # TPC-H Q4 counts orders that have a line committed before it was received. The condition is on the line, so
+            # it is a filter through the navigation (exists() takes no condition), which repeats an order once per
+            # such line; counting the distinct orders counts it once.
             name="H4_order_priority_checking",
             query=lambda f: f.find_all(
                 _H_APPLICATION, _H_SYSTEM,
                 [f.order_priority(), f.order_key().count_distinct().alias("order_count")],
                 f.line_items().commit_date() < f.line_items().receipt_date(),
+            ).order_by(f.order_priority().ascending()),
+            expected_columns=["Order Priority", "order_count"],
+            expected_result=_rows(["1-URGENT", 1], ["2-HIGH", 1]),
+        ),
+        # --- exists() on a to-many association is one row per order, not one per line ---
+        TestExpectation(
+            name="exists_to_many_returns_each_order_once",
+            query=lambda f: f.find_all(_H_APPLICATION, _H_SYSTEM, [f.order_key()], f.line_items().exists())
+            .order_by(f.order_key().ascending()),
+            expected_columns=["Order Key"],
+            expected_result=_rows([1], [2]),
+        ),
+        TestExpectation(
+            name="exists_to_many_counts_each_order_once",
+            query=lambda f: f.find_all(
+                _H_APPLICATION, _H_SYSTEM, [f.order_priority(), count_all().alias("order_count")],
+                f.line_items().exists(),
             ).order_by(f.order_priority().ascending()),
             expected_columns=["Order Priority", "order_count"],
             expected_result=_rows(["1-URGENT", 1], ["2-HIGH", 1]),

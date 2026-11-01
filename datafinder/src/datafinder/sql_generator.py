@@ -33,10 +33,14 @@ class TableAliasColumn(RelationalOperationElement):
 
 
 class Join:
-    def __init__(self, source: TableAliasColumn, target: TableAliasColumn, filter_op: RelationalOperationElement | None = None):
+    def __init__(self, source: TableAliasColumn, target: TableAliasColumn, filter_op: RelationalOperationElement | None = None,
+                 derived: bool = False):
         self.source = source
         self.target = target
         self.filter_op = filter_op
+        # True when the target is joined as ``(SELECT DISTINCT join column FROM target WHERE filter)``, so a parent that
+        # has several matching rows is still one row. The filter is then that select's WHERE, not the ON clause.
+        self.derived = derived
 
     def condition(self) -> str:
         """``source = target``, written with the key column first as Legend writes a join defined as key = foreign key."""
@@ -669,6 +673,7 @@ class SQLQueryGenerator:
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
         self.__elidable_ids: set = set()
+        self.__exists_only_ids: set = set()
         self._root_table = None
         self._join_filters: dict = {}
 
@@ -679,6 +684,32 @@ class SQLQueryGenerator:
         node_refs: dict = {}
         _required_joins(select, node_refs)
         return _compute_elidable_nodes(node_refs)
+
+    @staticmethod
+    def __compute_exists_only_ids(select: QueryExpression) -> set:
+        """The to-many steps the query reaches only to ask whether a row exists (``exists`` or ``not_exists``).
+
+        Joining such a step repeats the parent once per matching row, so it is joined as a ``SELECT DISTINCT`` of its
+        join column instead, as Legend does. A step the query also reads a value through is left as a join: those
+        values are one row per child, and the existence then holds for a child with those values. Nor can a step be
+        derived when a step below it is reached through it. A to-one step cannot repeat a row, so it stays a join.
+        """
+        required: dict = {}
+        node_refs: dict = {}
+        expressions = list(select.expressions())
+        having = getattr(select, 'having', None)
+        if having is not None:
+            expressions.append(having)
+        for expression in expressions:
+            collect_required_joins(expression, required, node_refs)
+        ancestors: set = set()
+        for node in required.values():
+            parent = node.parent
+            while parent is not None:
+                ancestors.add(id(parent))
+                parent = parent.parent
+        return {id(node) for node in required.values()
+                if node.many and id(node) not in node_refs and id(node) not in ancestors}
 
     def __resolve(self, op: 'Attribute | ColumnWithJoin') -> tuple[Column, JoinTreeNodeOperation | None]:
         """Return the (column, parent) an Attribute/ColumnWithJoin should actually reference,
@@ -715,6 +746,7 @@ class SQLQueryGenerator:
         self._root_table = select.table
         self._join_filters = select.join_filters
         self.__elidable_ids = self.__compute_elidable_ids(select)
+        self.__exists_only_ids = self.__compute_exists_only_ids(select)
         self.select(select.display)
         self._where = self.build_filter(self.__guarded(select.filter))
         required_joins: dict = {}
@@ -936,7 +968,7 @@ class SQLQueryGenerator:
         sc = TableAliasColumn(left, src_ta)
         right = join.right
         tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
-        self._join.append(Join(sc, tc, self._join_filters.get(id(node))))
+        self._join.append(Join(sc, tc, self._join_filters.get(id(node)), derived=id(node) in self.__exists_only_ids))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
@@ -1010,9 +1042,17 @@ class SQLQueryGenerator:
         return ta
 
     def build_query_string(self) -> str:
-        joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
-                              ' ON (' + j.condition()
-                              + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')', self._join)
+        def join_sql(j: Join) -> str:
+            alias = j.target.table_alias
+            if j.derived:
+                where = ' WHERE ' + self.build_filter(j.filter_op) if j.filter_op else ''
+                derived_table = '(SELECT DISTINCT ' + alias.alias + '.' + j.target.column.name + ' FROM ' + alias.table + \
+                                ' AS ' + alias.alias + where + ')'
+                return ' LEFT OUTER JOIN ' + derived_table + ' AS ' + alias.alias + ' ON (' + j.condition() + ')'
+            return ' LEFT OUTER JOIN ' + alias.table + ' AS ' + alias.alias + ' ON (' + j.condition() \
+                + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
+
+        joins = map(join_sql, self._join)
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
