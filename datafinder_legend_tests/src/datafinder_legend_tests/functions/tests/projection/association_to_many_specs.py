@@ -1,12 +1,12 @@
 """
 Ported from legend-engine core_relational ``functions/tests/projection/testAssociationToMany.pure``.
 
-Only the plain to-many projections are ported. The exists() filters and the qualified property are not (see the
+Only the plain to-many projections and the exists() filter are ported. The qualified property is not (see the
 coverage report). Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, BACKEND, unsupported
+from datafinder_legend_tests.legend import BACKEND, EXISTS_SUB_SELECT_ORDER, ported, unsupported
 
 _SRC = "functions/tests/projection/testAssociationToMany.pure"
 
@@ -33,9 +33,10 @@ ASSOCIATION_TO_MANY_PERSON_SPECS = FinderSpec(
         unsupported("testQualifiedPropertyUsingColumnProtocol", f"{_SRC}::testQualifiedPropertyUsingColumnProtocol",
                     'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "personName", "persontable_1".aggCol as "#30YrOldCoWorkers" from personTable as "root" left outer join (select "persontable_2".ID as ID, count(*) as aggCol from personTable as "persontable_2" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "persontable_2".FIRMID) left outer join personTable as "persontable_3" on ("firmtable_0".ID = "persontable_3".FIRMID) where "persontable_3".AGE < 30 group by "persontable_2".ID) as "persontable_1" on ("root".ID = "persontable_1".ID) where concat("root".FIRSTNAME, \' \', "root".LASTNAME) = \'Peter Smith\'',
                     'a mapping that the port does not load'),
-        unsupported("testAssociationToManyWithQuery", f"{_SRC}::testAssociationToManyWithQuery",
-                    'select "root".FIRSTNAME as "firstName", "locationtable_2".PLACE as "place" from personTable as "root" left outer join (select distinct "locationtable_1".PERSONID from locationTable as "locationtable_1" where "locationtable_1".PLACE = \'Hoboken\') as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID) left outer join locationTable as "locationtable_2" on ("root".ID = "locationtable_2".PERSONID) where "locationtable_0".PERSONID is not null',
-                    'a mapping that the port does not load'),
+        ported("testAssociationToManyWithQuery", f"{_SRC}::testAssociationToManyWithQuery",
+               'select "root".FIRSTNAME as "firstName", "locationtable_2".PLACE as "place" from personTable as "root" left outer join (select distinct "locationtable_1".PERSONID from locationTable as "locationtable_1" where "locationtable_1".PLACE = \'Hoboken\') as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID) left outer join locationTable as "locationtable_2" on ("root".ID = "locationtable_2".PERSONID) where "locationtable_0".PERSONID is not null',
+               lambda f: f.find_all(None, None, [f.first_name(), f.locations().place()], f.locations(place="Hoboken").exists()),
+               known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
     ],
 )
 
