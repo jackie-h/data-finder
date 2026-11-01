@@ -206,12 +206,12 @@ class TestGeneratePackageStructure:
         content = open(trade_finder_path).read()
         assert "def find_all(self," in content
         assert "business_date" in content
-        assert "processing_valid_at" in content
+        assert "processing_time" in content
         account_finder_path = os.path.join(self.tmp, "finance", "reference_data", "account_finder.py")
         content = open(account_finder_path).read()
         assert "def find_all(self," in content
         assert "business_date" in content
-        assert "processing_valid_at" in content
+        assert "processing_time" in content
 
     def test_synthetic_milestoning_property_docstring_uses_display_name(self):
         generate(self.mapping, self.tmp)

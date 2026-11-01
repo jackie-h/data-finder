@@ -90,17 +90,17 @@ class {{cm.clazz.name}}Finder:
 {% endfor %}
     def find_all(self,
                  business_date: Union[datetime.date, str],
-                 processing_valid_at: Union[datetime.datetime, datetime.date, str],
+                 processing_time: Union[datetime.datetime, datetime.date, str],
                  display_columns: list[Attribute],
                  filter_op: Operation = NoOperation()) -> FinderResult:
         """Returns data matching the optional filter."""
-        return convert_inputs_and_select(business_date, processing_valid_at, display_columns, self._query, filter_op)
+        return convert_inputs_and_select(business_date, processing_time, display_columns, self._query, filter_op)
 
     def find_for_date_range(self,
                             business_date_from: Union[datetime.date, str],
                             business_date_to: Union[datetime.date, str],
-                            processing_valid_at: Union[datetime.datetime, datetime.date, str],
+                            processing_time: Union[datetime.datetime, datetime.date, str],
                             display_columns: list[Attribute],
                             filter_op: Operation = NoOperation()) -> FinderResult:
         """Returns data for all records whose business date falls within the given range."""
-        return convert_inputs_and_select_for_date_range(business_date_from, business_date_to, processing_valid_at, display_columns, self._query, filter_op)
+        return convert_inputs_and_select_for_date_range(business_date_from, business_date_to, processing_time, display_columns, self._query, filter_op)

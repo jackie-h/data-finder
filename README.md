@@ -16,7 +16,7 @@ Generated finders expose every mapped property as a typed method, and queries ar
 from finance.trade.trade_finder import TradeFinder
 
 results = TradeFinder.find_all(
-    processing_valid_at=datetime.datetime.now(),
+    processing_time=datetime.datetime.now(),
     display_columns=[TradeFinder.symbol(), TradeFinder.price()],
     filter_op=TradeFinder.symbol().eq("AAPL"),
 )
@@ -203,10 +203,10 @@ Milestoning lets you query data as it was at a specific point in time. Declare n
 
 | Scheme | Required columns | find_all signature |
 |--------|------------------|--------------------|
-| `processing_only` | `processing_start`, `processing_end` | `processing_valid_at` |
-| `business_date` | `business_date` | `business_date`, `processing_valid_at` |
-| `business_date_processing` | `processing_start`, `processing_end`, `business_date` | `business_date`, `processing_valid_at` |
-| `bitemporal` | `processing_start`, `processing_end`, `business_date_from`, `business_date_to` | `business_date`, `processing_valid_at` |
+| `processing_only` | `processing_start`, `processing_end` | `processing_time` |
+| `business_date` | `business_date` | `business_date`, `processing_time` |
+| `business_date_processing` | `processing_start`, `processing_end`, `business_date` | `business_date`, `processing_time` |
+| `bitemporal` | `processing_start`, `processing_end`, `business_date_from`, `business_date_to` | `business_date`, `processing_time` |
 
 Tag a table with the scheme name in parentheses:
 
@@ -409,7 +409,7 @@ from finance.trade.trade_finder import TradeFinder
 
 # Trades as of now (processing_only milestoning)
 result = TradeFinder.find_all(
-    processing_valid_at=datetime.datetime.now(),
+    processing_time=datetime.datetime.now(),
     display_columns=[TradeFinder.symbol(), TradeFinder.price()],
     filter_op=TradeFinder.symbol().eq("AAPL"),
 )
@@ -419,7 +419,7 @@ from finance.trade.contractualposition_finder import ContractualPositionFinder
 
 result = ContractualPositionFinder.find_all(
     business_date=datetime.date(2023, 1, 15),
-    processing_valid_at=datetime.datetime(2023, 1, 16),
+    processing_time=datetime.datetime(2023, 1, 16),
     display_columns=[ContractualPositionFinder.quantity(), ContractualPositionFinder.npv()],
 )
 ```
@@ -449,7 +449,7 @@ Forward navigation — from Trade to its Account:
 
 ```python
 result = TradeFinder.find_all(
-    processing_valid_at=datetime.datetime.now(),
+    processing_time=datetime.datetime.now(),
     display_columns=[
         TradeFinder.symbol(),
         TradeFinder.account().name(),   # navigates the TradeAccount association
