@@ -1,5 +1,5 @@
 -- Test data from legend-engine core_relational businessDateMilestoningSetUp.pure::initDatabase
--- Tables: OrderTable, ProductTable, ProductClassificationTable, ProductExchangeTable
+-- Tables: OrderTable, ProductTable, ProductClassificationTable, ProductSynonymTable, ProductExchangeTable
 drop table if exists OrderTable;
 create table OrderTable (orderDate TIMESTAMP, id Integer, prodFk Integer);
 insert into OrderTable values('2015-8-26 00:00:00', 1, 1);
@@ -17,6 +17,14 @@ insert into ProductClassificationTable values('STOCK', 'STOCK DESC-V2', 'SYS1', 
 insert into ProductClassificationTable values('STOCK', 'STOCK DESC-V3', 'SYS1', 'LNSE', '2015-9-15', '2015-10-17');
 insert into ProductClassificationTable values('STOCK', 'STOCK DESC-V4', 'SYS1', 'LNSE', '2015-10-17', '9999-12-31');
 insert into ProductClassificationTable values('OPTION', 'OPTION DESC-V1', 'SYS1', 'ISE', '2015-1-15', '2015-1-16');
+drop table if exists ProductSynonymTable;
+create table ProductSynonymTable (prodId Integer, name VARCHAR(200), synonym VARCHAR(200), type VARCHAR(10), createdBy VARCHAR(200), from_z DATE, thru_z DATE);
+insert into ProductSynonymTable values(1, 'ProductName1', 'GS-Mod-S1', 'STOCK', 'Scottd', '2015-8-26', '2015-9-26');
+insert into ProductSynonymTable values(1, 'ProductName1', 'GS-Mod-S2', 'STOCK', 'Scottd', '2015-9-26', '2015-8-16');
+insert into ProductSynonymTable values(2, 'ProductName2', 'GS-Mod-S0', 'CUSIP', 'smith', '2015-1-1', '2015-10-15');
+insert into ProductSynonymTable values(2, 'ProductName2', 'GS-Mod-S1', 'CUSIP', 'smith', '2015-8-15', '9999-12-31');
+insert into ProductSynonymTable values(2, 'ProductName2', 'GS-Mod-S2', 'CUSIP', 'smith', '2015-8-15', '2015-10-17');
+insert into ProductSynonymTable values(2, 'ProductName2', 'GS-Mod-S3', 'CUSIP', 'smith', '2015-10-17', '9999-12-31');
 drop table if exists ProductExchangeTable;
 create table ProductExchangeTable (name VARCHAR(200), city VARCHAR(200), from_z DATE, thru_z DATE);
 insert into ProductExchangeTable values('ISE', 'Dublin', '2015-1-15', '2015-8-15');

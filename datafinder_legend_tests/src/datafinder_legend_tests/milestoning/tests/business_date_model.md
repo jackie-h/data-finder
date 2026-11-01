@@ -1,7 +1,7 @@
 # Legend Business Date Test Model
 
-Source: legend-engine core_relational `milestoning/tests/milestoningModel.pure` (the Order, Product, ProductClassification
-and Exchange subset the business date tests use). In Legend, Product, ProductClassification and Exchange are business
+Source: legend-engine core_relational `milestoning/tests/milestoningModel.pure` (the Order, Product, ProductClassification,
+ProductSynonym and Exchange subset the business date tests use). In Legend, Product, ProductClassification, ProductSynonym and Exchange are business
 temporal and Order is not. Each relation has an accessor on one class only, so each is a one-way
 association, apart from Order and Product, which Legend relates both ways (`orders`). OrderDescription is not ported.
 
@@ -39,6 +39,17 @@ association, apart from Order and Product, which Legend relates both ways (`orde
 | Type        | type        | String | 1            | Y   |             |
 | Description | description | String | 1            |     |             |
 
+### Class: ProductSynonym
+
+| Name           | Description |
+|----------------|-------------|
+| ProductSynonym |             |
+
+| Property | Id      | Type   | Multiplicity | Key | Description |
+|----------|---------|--------|--------------|-----|-------------|
+| Synonym  | synonym | String | 1            | Y   |             |
+| Type     | type    | String | 1            |     |             |
+
 ### Class: Exchange
 
 | Name     | Description |
@@ -60,6 +71,12 @@ association, apart from Order and Product, which Legend relates both ways (`orde
 | Name                      | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target                | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |---------------------------|---------|----------------------|--------------------|---------------------|-----------------------|----------------------|--------------------|---------------------|-------------|
 | ProductClassificationLink | Product | Classification       | classification     | 1                   | ProductClassification |                      |                    | *                   |             |
+
+### Association: ProductSynonymLink
+
+| Name               | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target         | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|--------------------|---------|----------------------|--------------------|---------------------|----------------|----------------------|--------------------|---------------------|-------------|
+| ProductSynonymLink | Product | Synonyms             | synonyms           | 1..*                | ProductSynonym |                      |                    | *                   |             |
 
 ### Association: ProductExchangeLink
 

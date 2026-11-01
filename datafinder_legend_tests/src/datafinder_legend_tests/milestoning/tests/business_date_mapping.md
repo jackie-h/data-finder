@@ -1,7 +1,7 @@
 # Legend Business Date Mapping
 
 Source: legend-engine core_relational `milestoning/tests/businessDateMilestoningSetUp.pure` (`db`, the Order, Product,
-ProductClassification and Exchange tables). Product, ProductClassification and Exchange rows apply from `from_z` up to
+ProductClassification, ProductSynonym and Exchange tables). Product, ProductClassification, ProductSynonym and Exchange rows apply from `from_z` up to
 but not including `thru_z`, and the infinity date is 9999-12-31. Order has no milestoning.
 
 ## Model: business_date_model.md
@@ -44,6 +44,12 @@ but not including `thru_z`, and the infinity date is 9999-12-31. Order has no mi
 |---------------|----------------------|---------------|
 | type          | ProductClassificationTable | type    |
 
+#### Association: ProductSynonymLink
+
+| Source Column | Target Table        | Target Column |
+|---------------|---------------------|---------------|
+| name          | ProductSynonymTable | name          |
+
 #### Association: ProductExchangeLink
 
 | Source Column | Target Table         | Target Column |
@@ -65,6 +71,16 @@ but not including `thru_z`, and the infinity date is 9999-12-31. Order has no mi
 | Source Column | Target Table         | Target Column |
 |---------------|----------------------|---------------|
 | exchange      | ProductExchangeTable | name          |
+
+#### Table: ProductSynonymTable → ProductSynonym (milestoning: business_date_range)
+
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| name | VARCHAR |  | Y |  |
+| synonym | VARCHAR | PK | N | synonym |
+| type | VARCHAR |  | Y | type |
+| from_z | DATE |  | Y | businessFrom |
+| thru_z | DATE |  | Y | businessThru |
 
 #### Table: ProductExchangeTable → Exchange (milestoning: business_date_range)
 
