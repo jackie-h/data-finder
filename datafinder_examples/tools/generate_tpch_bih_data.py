@@ -11,8 +11,8 @@ bounds it.
 System times:  S0 initial load (2020-01-01), S1 2021-01-01, S2 2022-01-01, S3 2023-01-01.
 
 Application dates are in the range TPC-H generates dates in, 1992 to 1998, so the queries that name dates in that range
-(Q1, Q7, Q8) find data. The history was designed on 2019 to 2024 and every date in it is moved back 27 years: ``D(2019, 1, 1)``
-is 1992-01-01. System times are not moved.
+(Q1, Q7, Q8) find data. The history was designed on 2019 to 2024 and every date in it is moved back 26 years: ``D(2019, 1, 1)``
+is 1993-01-01. System times are not moved.
 """
 import csv
 import datetime
@@ -22,7 +22,10 @@ from typing import Any
 INF_D = datetime.date(9999, 12, 31)
 INF_T = datetime.datetime(9999, 12, 31, 23, 59, 59)
 S0, S1, S2, S3 = (datetime.datetime(y, 1, 1) for y in (2020, 2021, 2022, 2023))
-SHIFT = 27
+SHIFT = 26
+
+
+R = datetime.date  # a date as it is, for the TPC-H columns that are written with the dates the queries ask about
 
 
 def D(year: int, month: int, day: int) -> datetime.date:
@@ -117,10 +120,10 @@ def build() -> list[Table]:
     part = Table("part", ("p_partkey",), "availability_time",
                  ["p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice",
                   "p_comment"])
-    for row in ((1, "Part#1", "Manufacturer#1", "Brand#13", "PROMO BRUSHED STEEL", 15, "SM BOX", 900.0, "part one"),
-                (2, "Part#2", "Manufacturer#2", "Brand#24", "STANDARD POLISHED BRASS", 20, "LG CASE", 1000.0, "part two"),
-                (3, "Part#3", "Manufacturer#1", "Brand#13", "PROMO PLATED TIN", 7, "SM BOX", 1100.0, "part three"),
-                (4, "Part#4", "Manufacturer#3", "Brand#35", "ECONOMY ANODIZED STEEL", 30, "MED BAG", 1200.0, "part four")):
+    for row in ((1, "green dim brush", "Manufacturer#1", "Brand#13", "PROMO BRUSHED STEEL", 3, "SM BOX", 900.0, "part one"),
+                (2, "blue olive tan", "Manufacturer#2", "Brand#24", "STANDARD POLISHED BRASS", 8, "MED BOX", 1000.0, "part two"),
+                (3, "green tan lace", "Manufacturer#1", "Brand#13", "PROMO PLATED TIN", 7, "SM BOX", 1100.0, "part three"),
+                (4, "plum rose khaki", "Manufacturer#3", "Brand#35", "ECONOMY ANODIZED STEEL", 12, "LG BOX", 1200.0, "part four")):
         part.insert(S0, **part.values(row))
     part.update(S1, (2,), app_from=D(2021, 3, 1), p_retailprice=1050.0)  # price change
     part.replace(S2, (4,), D(2022, 6, 1), INF_D)  # availability delayed
@@ -179,31 +182,35 @@ def build() -> list[Table]:
                         l_shipdate=ship, l_commitdate=commit, l_receiptdate=receipt, l_shipinstruct=instruct,
                         l_shipmode=mode, l_comment=f"line {n} of order {okey}")
 
+    # The application time of an order and its lines is as designed (D). Their TPC-H dates are the real dates (R) the
+    # queries' windows ask about, and each line is for a part and a supplier that PARTSUPP has.
+
     # S0: orders 1 to 3
     order(S0, 1, 1, "F", 1000.0, D(2019, 11, 1), "1-URGENT", "Clerk#1", 0, D(2019, 12, 1), D(2019, 11, 1), D(2019, 12, 15))
-    line(S0, 1, 1, 1, 1, 10.0, 9000.0, 0.05, 0.02, "R", "F", D(2019, 11, 10), D(2019, 11, 20), D(2019, 11, 25), "MAIL", D(2019, 11, 1), D(2019, 12, 15))
-    line(S0, 1, 2, 2, 1, 5.0, 5000.0, 0.10, 0.02, "A", "F", D(2019, 11, 12), D(2019, 11, 18), D(2019, 11, 28), "SHIP", D(2019, 11, 1), D(2019, 12, 15))
-    order(S0, 2, 2, "O", 2000.0, D(2019, 12, 10), "2-HIGH", "Clerk#2", 0, D(2019, 12, 20), D(2019, 12, 10))
-    line(S0, 2, 1, 1, 2, 20.0, 18000.0, 0.00, 0.05, "N", "O", D(2019, 12, 12), D(2019, 12, 30), D(2020, 1, 10), "MAIL", D(2019, 12, 10))
-    line(S0, 2, 2, 3, 2, 8.0, 8800.0, 0.07, 0.05, "N", "O", D(2019, 12, 15), D(2019, 12, 25), D(2020, 1, 12), "AIR", D(2019, 12, 10))
+    line(S0, 1, 1, 1, 1, 10.0, 9000.0, 0.05, 0.02, "R", "F", R(1993, 11, 10), R(1993, 11, 20), R(1993, 11, 25), "MAIL", D(2019, 11, 1), D(2019, 12, 15))
+    line(S0, 1, 2, 2, 1, 5.0, 5000.0, 0.10, 0.02, "A", "F", R(1993, 11, 12), R(1993, 11, 18), R(1993, 11, 28), "SHIP", D(2019, 11, 1), D(2019, 12, 15))
+    order(S0, 2, 2, "O", 2000.0, D(2019, 12, 10), "3-MEDIUM", "Clerk#2", 0, D(2019, 12, 20), D(2019, 12, 10))
+    line(S0, 2, 1, 1, 2, 20.0, 18000.0, 0.00, 0.05, "N", "O", R(1993, 12, 12), R(1993, 12, 25), R(1993, 12, 30), "MAIL", D(2019, 12, 10))
+    line(S0, 2, 2, 3, 2, 8.0, 8800.0, 0.07, 0.05, "R", "O", R(1993, 12, 15), R(1993, 12, 25), R(1994, 1, 12), "AIR", D(2019, 12, 10))
     order(S0, 3, 3, "O", 500.0, D(2019, 12, 20), "3-MEDIUM", "Clerk#1", 0, D(2020, 1, 5), D(2019, 12, 20))
-    line(S0, 3, 1, 4, 3, 2.0, 2400.0, 0.02, 0.01, "N", "O", D(2020, 1, 5), D(2020, 1, 15), D(2020, 1, 20), "TRUCK", D(2019, 12, 20))
+    line(S0, 3, 1, 4, 3, 24.0, 28800.0, 0.02, 0.01, "N", "O", R(1994, 1, 5), R(1994, 1, 15), R(1994, 1, 20), "AIR", D(2019, 12, 20))
 
     # S1: order 4
     order(S1, 4, 4, "O", 3000.0, D(2020, 12, 15), "1-URGENT", "Clerk#3", 0, D(2021, 1, 5), D(2020, 12, 15))
-    line(S1, 4, 1, 2, 3, 6.0, 6300.0, 0.04, 0.08, "N", "O", D(2021, 1, 5), D(2021, 1, 25), D(2021, 1, 30), "MAIL", D(2020, 12, 15))
-    line(S1, 4, 2, 3, 1, 3.0, 3300.0, 0.06, 0.08, "N", "O", D(2020, 12, 20), D(2021, 1, 10), D(2021, 1, 15), "AIR", D(2020, 12, 15))
+    line(S1, 4, 1, 2, 3, 12.0, 12000.0, 0.04, 0.08, "N", "O", R(1995, 3, 20), R(1995, 4, 10), R(1995, 4, 15), "AIR", D(2020, 12, 15))
+    line(S1, 4, 2, 1, 1, 3.0, 2700.0, 0.06, 0.08, "N", "O", R(1995, 4, 2), R(1995, 4, 20), R(1995, 4, 25), "AIR", D(2020, 12, 15))
 
     # S2: order 5 placed, order 2 delivered (its active time ends, its status and its lines' status change)
     order(S2, 5, 1, "O", 800.0, D(2021, 12, 20), "5-LOW", "Clerk#2", 0, D(2022, 1, 10), D(2021, 12, 20))
-    line(S2, 5, 1, 1, 1, 4.0, 3600.0, 0.00, 0.02, "N", "O", D(2022, 1, 5), D(2022, 1, 20), D(2022, 1, 25), "RAIL", D(2021, 12, 20))
+    line(S2, 5, 1, 1, 1, 4.0, 3600.0, 0.00, 0.02, "N", "O", R(1996, 1, 5), R(1996, 1, 20), R(1996, 1, 25), "RAIL", D(2021, 12, 20))
     orders.replace(S2, (2,), D(2019, 12, 10), D(2021, 12, 30), o_orderstatus="F")
     for n in (1, 2):
         lineitem.replace(S2, (2, n), D(2019, 12, 10), D(2021, 12, 30), l_linestatus="F")
 
     # S3: order 6 placed, order 5 cancelled, order 3's price manipulated with the same application time
     order(S3, 6, 2, "O", 1500.0, D(2022, 12, 20), "2-HIGH", "Clerk#3", 0, D(2023, 1, 10), D(2022, 12, 20))
-    line(S3, 6, 1, 2, 2, 9.0, 9450.0, 0.03, 0.04, "N", "O", D(2022, 12, 25), D(2023, 1, 5), D(2023, 1, 15), "SHIP", D(2022, 12, 20))
+    line(S3, 6, 1, 2, 1, 9.0, 9450.0, 0.03, 0.04, "N", "O", R(1996, 12, 25), R(1997, 1, 5), R(1997, 1, 15), "SHIP", D(2022, 12, 20))
+    line(S3, 6, 2, 2, 3, 11.0, 11000.0, 0.05, 0.04, "N", "O", R(1996, 12, 28), R(1997, 1, 10), R(1997, 1, 20), "MAIL", D(2022, 12, 20))
     orders.delete(S3, (5,))
     lineitem.delete(S3, (5, 1))
     orders.update(S3, (3,), o_totalprice=700.0)
