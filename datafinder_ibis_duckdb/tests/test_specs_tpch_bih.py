@@ -3,10 +3,10 @@ Runs the TPC-BiH specs (time travel, key in time, range-timeslice, bitemporal an
 ibis/DuckDB backend. See tpch_bih_specs.py for the schema, the history and the queries that are skipped.
 """
 import importlib
-import re
 import shutil
 import sys
 import tempfile
+from types import SimpleNamespace
 
 import duckdb
 import pytest
@@ -17,7 +17,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
-from datafinder_examples_tests.tpch_bih_specs import ALL_TPCH_BIH_SPECS, TPCH_BIH_MAPPING
+from datafinder_examples_tests.tpch_bih_specs import ALL_TPCH_BIH_CASES, TPCH_BIH_MAPPING
 
 _FINDERS = {
     "RegionFinder": "tpch.bih.region_finder",
@@ -87,7 +87,12 @@ def finders():
     for finder_name, module_name in _FINDERS.items():
         module = importlib.import_module(module_name)
         instances[finder_name] = getattr(module, finder_name)()
-    yield instances
+    yield SimpleNamespace(
+        order=instances["OrderFinder"],
+        customer=instances["CustomerFinder"],
+        partsupp=instances["PartSuppFinder"],
+        lineitem=instances["LineItemFinder"],
+    )
 
     if tmp in sys.path:
         sys.path.remove(tmp)
@@ -95,44 +100,12 @@ def finders():
     shutil.rmtree(tmp, ignore_errors=True)
 
 
-def _spec_order(expectation):
-    """Order the collected cases as they appear in Appendix B, then the extra TPC-H cases by query number."""
-    name = expectation.name
-
-    match = re.match(r"T(\d+)(?:_(sys|app))?", name)
-    if match:
-        return 0, int(match.group(1)), {None: 0, "sys": 0, "app": 1}[match.group(2)]
-
-    if name.startswith("H1_"):
-        return 1, 1, 0
-
-    match = re.match(r"K(\d+)_(sys|app)", name)
-    if match:
-        return 2, int(match.group(1)), {"sys": 0, "app": 1}[match.group(2)]
-
-    match = re.match(r"R(\d+)(?:_?(sys|app|a|b))?_", name)
-    if match:
-        variant = {None: 0, "sys": 0, "a": 0, "app": 1, "b": 1}[match.group(2)]
-        return 3, int(match.group(1)), variant
-
-    match = re.match(r"B5_(\d+)", name)
-    if match:
-        return 5, int(match.group(1)), 0
-
-    match = re.match(r"Q(\d+)", name)
-    if match:
-        return 6, int(match.group(1)), 0
-
-    return 7, name
+_CASES = [
+    pytest.param(expectation, id=expectation.name)
+    for expectation in ALL_TPCH_BIH_CASES
+]
 
 
-_CASES = sorted([
-    pytest.param(spec, expectation, id=f"{spec.finder_name}-{expectation.name}")
-    for spec in ALL_TPCH_BIH_SPECS
-    for expectation in spec.expectations
-], key=lambda case: _spec_order(case.values[1]))
-
-
-@pytest.mark.parametrize("spec, expectation", _CASES)
-def test_tpch_bih(spec, expectation, finders):
-    expectation.run(finders[spec.finder_name], backend="duckdb")
+@pytest.mark.parametrize("expectation", _CASES)
+def test_tpch_bih(expectation, finders):
+    expectation.run(finders, backend="duckdb")

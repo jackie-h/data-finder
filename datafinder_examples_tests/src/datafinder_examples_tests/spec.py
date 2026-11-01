@@ -27,7 +27,7 @@ class TestExpectation:
     """A single backend-agnostic query expectation."""
 
     name: str
-    query: Callable  # (finder) -> FinderResult
+    query: Callable  # (query_context) -> FinderResult
     expected_columns: list[str]
     expected_result: np.ndarray
     # Keyed by backend name (e.g. "duckdb"). Omit to skip SQL check for that backend.
@@ -37,10 +37,10 @@ class TestExpectation:
     # Keyed by backend name — reason the expectation does not apply to that backend. The run is skipped.
     skip_backends: dict[str, str] = field(default_factory=dict)
 
-    def run(self, finder: Any, backend: str | None = None) -> None:
+    def run(self, query_context: Any, backend: str | None = None) -> None:
         if backend and backend in self.skip_backends:
             pytest.skip(self.skip_backends[backend])
-        result = self.query(finder)
+        result = self.query(query_context)
         if backend and (backend in self.expected_sql or backend in self.unexpected_sql):
             actual_sql = result.to_sql()
             if backend in self.expected_sql:
