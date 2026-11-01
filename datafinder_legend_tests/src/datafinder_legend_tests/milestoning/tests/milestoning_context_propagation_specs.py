@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, EXISTS_ON_TO_ONE_STEP, ported, unsupported
 
 _SRC = "milestoning/tests/testMilestoningContextPropagation.pure"
 
@@ -75,9 +75,6 @@ MILESTONING_CONTEXT_PROPAGATION_SPECS = FinderSpec(
         unsupported("testMilestoneDatePropogationFromTypeQueryThroughNoArgMilestonedQpInMapWhereSubsequentProjectOverrides", f"{_SRC}::testMilestoneDatePropogationFromTypeQueryThroughNoArgMilestonedQpInMapWhereSubsequentProjectOverrides",
                     'select "ProductClassificationTable_d#2_f_d#4_d#2_f_d_m1".type_description as "productClassificationDescription", "ProductExchangeTable_d#6_d_m2_md".name as "productClassificationExchangeName" from ProductTable as "root" left outer join ProductClassificationTable as "ProductClassificationTable_d#2_f_d#4_d#2_f_d_m1" on ("root".type = "ProductClassificationTable_d#2_f_d#4_d#2_f_d_m1".type) left outer join (select "ProductExchangeTable_d#6".name as name from ProductExchangeTable as "ProductExchangeTable_d#6" where "ProductExchangeTable_d#6".from_z <= \'2014-01-15\' and "ProductExchangeTable_d#6".thru_z > \'2014-01-15\') as "ProductExchangeTable_d#6_d_m2_md" on ("ProductClassificationTable_d#2_f_d#4_d#2_f_d_m1".exchange = "ProductExchangeTable_d#6_d_m2_md".name) where "ProductClassificationTable_d#2_f_d#4_d#2_f_d_m1".from_z <= \'2015-10-16\' and "ProductClassificationTable_d#2_f_d#4_d#2_f_d_m1".thru_z > \'2015-10-16\' and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                     'milestoning date propagation on a mapping not loaded in the port'),
-        unsupported("testMilestoneDatePropogationThruExistsIsIndenpendentOfDateManipulationWithinTheFilter", f"{_SRC}::testMilestoneDatePropogationThruExistsIsIndenpendentOfDateManipulationWithinTheFilter",
-                    'select "root".id as "id", "productclassificationtable_2".type as "classificationType" from ProductTable as "root" left outer join (select distinct "productclassificationtable_1".type from ProductClassificationTable as "productclassificationtable_1" where "productclassificationtable_1".from_z <= \'2015-10-15\' and "productclassificationtable_1".thru_z > \'2015-10-15\' and "productclassificationtable_1".type = \'STOCK\') as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type) left outer join ProductClassificationTable as "productclassificationtable_2" on ("root".type = "productclassificationtable_2".type and "productclassificationtable_2".from_z <= \'2015-10-16\' and "productclassificationtable_2".thru_z > \'2015-10-16\') where "productclassificationtable_0".type is not null and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
-                    'milestoning date propagation on a mapping not loaded in the port'),
         unsupported("testMilestoningContextIsPropogatedThroughAutoMap", f"{_SRC}::testMilestoningContextIsPropogatedThroughAutoMap",
                     'select "root".id as "orderId", "productclassificationtable_0".type_description as "classificationDescription" from OrderTable as "root" left outer join ProductTable as "producttable_0" on ("root".prodFk = "producttable_0".id and "producttable_0".from_z <= \'2015-08-15\' and "producttable_0".thru_z > \'2015-08-15\') left outer join (select "productclassificationtable_1".type as type, "productclassificationtable_1".type_description as type_description from ProductClassificationTable as "productclassificationtable_1" where "productclassificationtable_1".from_z <= \'2015-08-15\' and "productclassificationtable_1".thru_z > \'2015-08-15\') as "productclassificationtable_0" on ("producttable_0".type = "productclassificationtable_0".type)',
                     'milestoning date propagation on a mapping not loaded in the port'),
@@ -105,5 +102,17 @@ MILESTONING_CONTEXT_PROPAGATION_SPECS = FinderSpec(
         unsupported("testDatePropagationWithInheritance", f"{_SRC}::testDatePropagationWithInheritance",
                     'select "ordertable_1".aggCol as "classificationDescription" from OrderTable as "root" left outer join (select "ordertable_2".id as id, group_concat("productclassificationtable_0".type_description ) as aggCol from OrderTable as "ordertable_2" left outer join ProductTable as "producttable_0" on ("ordertable_2".prodFk = "producttable_0".id and "producttable_0".from_z <= \'2015-08-14\' and "producttable_0".thru_z > \'2015-08-14\') left outer join (select "productclassificationtable_0".type as type, "productclassificationtable_0".type_description as type_description from ProductClassificationTable as "productclassificationtable_0" where "productclassificationtable_0".from_z <= \'2015-08-14\' and "productclassificationtable_0".thru_z > \'2015-08-14\') as "productclassificationtable_0" on ("producttable_0".type = "productclassificationtable_0".type) group by "ordertable_2".id) as "ordertable_1" on ("root".id = "ordertable_1".id)',
                     'milestoning date propagation on a mapping not loaded in the port'),
+    ],
+)
+
+
+PROPAGATION_EXISTS_SPECS = FinderSpec(
+    finder_name="ProductFinder",
+    mapping_file="milestoning/tests/business_date_mapping.md",
+    expectations=[
+        ported("testMilestoneDatePropogationThruExistsIsIndenpendentOfDateManipulationWithinTheFilter", f"{_SRC}::testMilestoneDatePropogationThruExistsIsIndenpendentOfDateManipulationWithinTheFilter",
+               'select "root".id as "id", "productclassificationtable_2".type as "classificationType" from ProductTable as "root" left outer join (select distinct "productclassificationtable_1".type from ProductClassificationTable as "productclassificationtable_1" where "productclassificationtable_1".from_z <= \'2015-10-15\' and "productclassificationtable_1".thru_z > \'2015-10-15\' and "productclassificationtable_1".type = \'STOCK\') as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type) left outer join ProductClassificationTable as "productclassificationtable_2" on ("root".type = "productclassificationtable_2".type and "productclassificationtable_2".from_z <= \'2015-10-16\' and "productclassificationtable_2".thru_z > \'2015-10-16\') where "productclassificationtable_0".type is not null and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
+               lambda f: f.find_all("2015-10-16", None, [f.id_(), f.classification().type_()], f.classification(business_date="2015-10-15", type="STOCK").exists()),
+               known_gaps={BACKEND: EXISTS_ON_TO_ONE_STEP}),
     ],
 )
