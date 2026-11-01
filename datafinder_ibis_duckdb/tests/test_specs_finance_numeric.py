@@ -1,6 +1,5 @@
 """
-Runs TRADE_NUMERIC_FINDER_SPECS (abs, ceil, floor, sqrt, mod, power, round)
-against the ibis/DuckDB backend.
+Runs TRADE_NUMERIC_FINDER_SPECS against the ibis/DuckDB backend.
 """
 import shutil
 import sys

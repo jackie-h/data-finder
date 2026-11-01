@@ -549,6 +549,15 @@ _SCALAR_SQL_NAMES = {
     ScalarFunction.REPLACE:   'REPLACE',
     ScalarFunction.SUBSTRING: 'SUBSTRING',
     ScalarFunction.COALESCE:  'COALESCE',
+    ScalarFunction.SIN:       'SIN',
+    ScalarFunction.COS:       'COS',
+    ScalarFunction.TAN:       'TAN',
+    ScalarFunction.ASIN:      'ASIN',
+    ScalarFunction.ACOS:      'ACOS',
+    ScalarFunction.ATAN:      'ATAN',
+    ScalarFunction.ATAN2:     'ATAN2',
+    ScalarFunction.EXP:       'EXP',
+    ScalarFunction.LOG:       'LN',
 }
 
 _WINDOW_SQL_NAMES = {

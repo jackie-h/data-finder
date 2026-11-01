@@ -488,6 +488,15 @@ class ScalarFunction(Enum):
     REPLACE = 18
     SUBSTRING = 19
     COALESCE = 20
+    SIN = 21
+    COS = 22
+    TAN = 23
+    ASIN = 24
+    ACOS = 25
+    ATAN = 26
+    ATAN2 = 27
+    EXP = 28
+    LOG = 29
 
 
 class WindowFunction(Enum):
@@ -507,7 +516,7 @@ class WindowFunctionOperation(Operation, Sortable):
     element: RelationalOperationElement | None
 
     def __init__(self, element: RelationalOperationElement | None, function: WindowFunction,
-                 display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None, window=None):
+                 display_name: str | None = None, second_arg: int | float | None = None, extra_args: list | None = None, window=None):
         super().__init__()
         self.element = element
         self.function = function
@@ -523,7 +532,10 @@ class WindowFunctionOperation(Operation, Sortable):
 
 
 _NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction.FLOOR, ScalarFunction.MOD,
-                      ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH}
+                      ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH,
+                      ScalarFunction.SIN, ScalarFunction.COS, ScalarFunction.TAN, ScalarFunction.ASIN,
+                      ScalarFunction.ACOS, ScalarFunction.ATAN, ScalarFunction.ATAN2, ScalarFunction.EXP,
+                      ScalarFunction.LOG}
 
 
 class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Sortable, Aggregates, StringPredicates):
@@ -539,7 +551,7 @@ class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Sortable, 
         return Arithmetic.__radd__(self, other) if self.function in _NUMERIC_FUNCTIONS else concat(other, self)
 
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
-                 display_name: str | None = None, second_arg: int | None = None, extra_args: list | None = None):
+                 display_name: str | None = None, second_arg: int | float | None = None, extra_args: list | None = None):
         super().__init__(element)
         self.function = function
         self.display_name = display_name
