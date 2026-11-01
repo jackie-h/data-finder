@@ -119,6 +119,8 @@ def build() -> list[Table]:
     partsupp.update(S2, (1, 2), app_from=D(2022, 3, 1), ps_supplycost=82.0)
     partsupp.update(S2, (2, 1), app_from=D(2022, 1, 1), ps_availqty=80)
     partsupp.update(S3, (1, 1), app_from=D(2023, 3, 1), ps_supplycost=125.0)
+    # supplier 3 stopped supplying part 4 in mid 2021, which is only recorded at S3 (a correction of application time)
+    partsupp.replace(S3, (4, 3), D(2019, 1, 1), D(2021, 6, 1))
     # a new supplier starts supplying part 1 in 2022
     partsupp.insert(S2, app_from=D(2022, 1, 1), ps_partkey=1, ps_suppkey=3, ps_availqty=10, ps_supplycost=95.0)
 

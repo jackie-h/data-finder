@@ -39,6 +39,21 @@ class Attribute(RelationalOperationElement, Aliasable):
     def _arithmetic_operand(self) -> ColumnWithJoin:
         return self._column_with_join()
 
+    def _compare(self, operator: ComparisonOperator, value) -> ComparisonOperation:
+        """A comparison of this column with a value, or with another column or expression: ``f.commit_date() <
+        f.receipt_date()``, ``f.price() > f.cost() * 1.075``."""
+        right = value._arithmetic_operand() if isinstance(value, RelationalOperationElement) else self._to_constant(value)
+        return ComparisonOperation(self._column_with_join(), operator, right)
+
+    def ne(self, value) -> ComparisonOperation:
+        """Return an inequality comparison with a value, or with another column or expression."""
+        return self._compare(ComparisonOperator.NOT_EQUAL, value)
+
+    def __ne__(self, value) -> ComparisonOperation:  # type: ignore[override]
+        """Return an inequality comparison. Without this, ``!=`` would be the negation of ``==``, which is a filter and
+        so always true, and the comparison would silently be False."""
+        return self.ne(value)
+
     def _function_input(self) -> ColumnWithJoin:
         return self._column_with_join()
 

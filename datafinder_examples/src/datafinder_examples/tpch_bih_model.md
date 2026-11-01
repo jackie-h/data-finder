@@ -172,3 +172,21 @@ columns are declared in the mapping, not here.
 | Name             | Source   | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------------|----------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|-------------|
 | LineItemSupplier | LineItem | Supplier             | supplier           | 1                   | Supplier | Line Items           | lineItems          | *                   |             |
+
+### Association: OrderOtherVersion
+
+| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
+| OrderOtherVersion | Order | Other Version | otherVersion | 0..1 | Order | | | * | The same order at another date: give the navigation its own business date or processing time |
+
+### Association: CustomerOtherVersion
+
+| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
+| CustomerOtherVersion | Customer | Other Version | otherVersion | 0..1 | Customer | | | * | The same customer at another date: give the navigation its own business date or processing time |
+
+### Association: PartSuppSamePart
+
+| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
+| PartSuppSamePart | PartSupp | Same Part | samePart | 0..1 | PartSupp | | | * | The rows of the same part, for any supplier (a part and a supplier make a composite key, which an association cannot join on) |

@@ -25,7 +25,7 @@ times are S0 = 2020-01-01 (the initial load), S1 = 2021-01-01, S2 = 2022-01-01 a
         (2,1) stock 30 -> 80 from 2022-01-01; supplier 3 starts supplying part 1 from 2022-01-01
     S3  order 6 placed; order 5 cancelled; order 3 price 500 -> 700 with the same application time;
         customer 3 balance 4000 -> 2000 from 2023-01-01; partsupp (1,1) cost 110 -> 125 from 2023-03-01;
-        supplier 2 balance 500 -> 450
+        supplier 2 balance 500 -> 450; supplier 3's rows for part 4 corrected to end 2021-06-01
 
 The queries are given a business date (application time) and a processing time (system time). None means all versions.
 """
@@ -81,6 +81,11 @@ def _rows(*rows) -> np.ndarray:
     return result
 
 
+def _overlap(a_begin, a_end, b_begin, b_end):
+    """The periods a and b overlap: each begins before the other ends."""
+    return (a_begin < b_end).and_(a_end > b_begin)
+
+
 def _discounted(extended_price: float, discount: float) -> float:
     """l_extendedprice * (1 - l_discount), written as the SQL evaluates it so the doubles match."""
     return extended_price * (1 - discount)
@@ -91,6 +96,15 @@ def _discounted(extended_price: float, discount: float) -> float:
 # ---------------------------------------------------------------------------------------------------------------------
 
 _ORDER_COLUMNS = ["Order Key", "Total Price"]
+
+
+def _price_changed(f):
+    """Orders whose price now differs from the price recorded at S0, with both: the order at two system times."""
+    at_s0 = f.other_version(processing_time=_S0)
+    return f.find_all(
+        "2022-06-01", _NOW, [f.order_key(), f.total_price(), at_s0.total_price()],
+        f.total_price() != at_s0.total_price(),
+    )
 
 ORDER_FINDER_SPECS = FinderSpec(
     finder_name="OrderFinder",
@@ -119,17 +133,20 @@ ORDER_FINDER_SPECS = FinderSpec(
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([1, 1000.0], [2, 2000.0]),
         ),
-        # --- T3, T4: two time travels on the same table, correlated ---
-        _unsupported(
-            "T3_two_system_times_same_table",
-            "Correlating the same table at two system times is a self-join with a different date on each side. "
-            "A finder takes one pair of dates for the root table and a navigation can only reach another table",
-            ["Order Key", "Total Price"],
+        # --- T3, T4: two time travels on the same table, correlated (a navigation to the order at another time) ---
+        TestExpectation(
+            name="T3_price_changed_between_two_system_times",
+            query=lambda f: _price_changed(f),
+            expected_columns=["Order Key", "Total Price", "Other Version Total Price"],
+            expected_result=_rows([3, 700.0, 500.0]),
         ),
-        _unsupported(
-            "T4_two_system_times_same_table_top_n",
-            "As T3: a self-join of the same table at two system times, then TOP N",
-            ["Order Key", "Total Price"],
+        TestExpectation(
+            name="T4_largest_price_change_between_two_system_times_top_n",
+            query=lambda f: _price_changed(f).order_by(
+                (f.total_price() - f.other_version(processing_time=_S0).total_price()).descending()
+            ).limit(1),
+            expected_columns=["Order Key", "Total Price", "Other Version Total Price"],
+            expected_result=_rows([3, 700.0, 500.0]),
         ),
         # --- T5: the whole history ---
         TestExpectation(
@@ -252,11 +269,20 @@ ORDER_FINDER_SPECS = FinderSpec(
             "boundaries). The finders aggregate over the versions a date selects, not over change points",
             ["Max Total Price"],
         ),
-        _unsupported(
-            "R5_temporal_join_customers_with_low_balance_and_orders",
-            "The join must hold while the customer's and the order's application periods overlap. A navigation takes "
-            "the version of the joined table that applies at the root's date, so it cannot correlate two periods",
-            ["Customer Customer Key"],
+        TestExpectation(
+            # How often a customer had a low balance while an order of theirs was active, in both dimensions: every
+            # pair of an order version and a customer version whose application and system periods overlap.
+            name="R5_temporal_join_customers_with_low_balance_and_orders",
+            query=lambda f: f.find_all(
+                None, None, [f.customer().customer_key(), count_all().alias("count")],
+                (f.customer().acct_bal() < 5000.0).and_(f.total_price() > 10.0)
+                .and_(_overlap(f.active_time_begin(), f.active_time_end(),
+                               f.customer().visible_time_begin(), f.customer().visible_time_end()))
+                .and_(_overlap(f.sys_time_begin(), f.sys_time_end(),
+                               f.customer().sys_time_begin(), f.customer().sys_time_end())),
+            ).order_by(f.customer().customer_key().ascending()),
+            expected_columns=["Customer Customer Key", "count"],
+            expected_result=_rows([1, 2], [2, 3], [3, 3]),
         ),
         TestExpectation(
             # R5 at one point in time: not the benchmark's temporal join, but the same filter on both tables.
@@ -272,6 +298,15 @@ ORDER_FINDER_SPECS = FinderSpec(
 )
 
 _CUSTOMER_COLUMNS = ["Customer Key", "Acct Bal", "Nation Name"]
+
+
+def _moved_to_us(f):
+    """Customers in the US at 2022-06-01 who were not on 2021-06-01: the customer at two application dates."""
+    before = f.other_version(business_date=_D(2021, 6, 1))
+    return f.find_all(
+        "2022-06-01", _NOW, [f.customer_key(), f.name()],
+        f.nation().name().eq("UNITED STATES").and_(before.nation().name() != "UNITED STATES"),
+    )
 
 
 def _customers_at(f, business_date, processing_time):
@@ -333,12 +368,12 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
                 [1, 100.0, _D(2019, 1, 1), _D(2021, 1, 1)], [1, 6000.0, _D(2021, 1, 1), _END_OF_TIME],
             ),
         ),
-        # --- R1 ---
-        _unsupported(
-            "R1_customers_who_moved_to_the_us_and_still_live_there",
-            "Two evaluations of the same table at different times, joined on the key (state change detection). "
-            "As T3, a finder cannot join a table to itself at another date",
-            ["Customer Key"],
+        # --- R1: customers who moved to the US between two dates and still live there ---
+        TestExpectation(
+            name="R1_customers_who_moved_to_the_us_and_still_live_there",
+            query=lambda f: _moved_to_us(f),
+            expected_columns=["Customer Key", "Name"],
+            expected_result=_rows([2, "Customer#2"]),
         ),
     ],
 )
@@ -350,22 +385,21 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
 _B3_COLUMNS = ["Part Part Key"]
 
 
-def _other_parts(f, business_date, processing_time):
+def _other_parts(f, business_date, processing_time, correlate=()):
     """PARTSUPP rows of other parts, for suppliers that also have a PARTSUPP row for part 1: a self-join of PARTSUPP
-    through SUPPLIER, which takes the one pair of dates for both sides."""
-    return f.find_all(
-        business_date, processing_time, [f.part().part_key()],
-        f.supplier().part_supps().part().name().eq("Part#1").and_(f.part().name().ne("Part#1")),
-    ).distinct().order_by(f.part().part_key().ascending())
-
-
-def _b3_correlation_unsupported(name: str, dimension: str) -> TestExpectation:
-    return _unsupported(
-        name,
-        f"The query correlates the {dimension} periods of the two PARTSUPP rows of the self-join (their periods must "
-        "overlap). A navigation takes the one date of the root, so it cannot compare the periods of two rows",
-        _B3_COLUMNS,
-    )
+    through SUPPLIER. A navigation takes the dates of the root, so a dimension that is a point (or agnostic) for both
+    rows is a date of the query, and one that is correlated is left open (None) and the periods of the two rows
+    are compared: ``correlate`` names "application" and "system"."""
+    other = f.supplier().part_supps()
+    condition = other.part().name().eq("Part#1").and_(f.part().name().ne("Part#1"))
+    if "application" in correlate:
+        condition = condition.and_(_overlap(f.validity_time_begin(), f.validity_time_end(),
+                                            other.validity_time_begin(), other.validity_time_end()))
+    if "system" in correlate:
+        condition = condition.and_(_overlap(f.sys_time_begin(), f.sys_time_end(),
+                                            other.sys_time_begin(), other.sys_time_end()))
+    return f.find_all(business_date, processing_time, [f.part().part_key()], condition) \
+        .distinct().order_by(f.part().part_key().ascending())
 
 
 PARTSUPP_FINDER_SPECS = FinderSpec(
@@ -374,10 +408,11 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
     expectations=[
         # --- B3.1, B3.2: point in both dimensions ---
         TestExpectation(
+            # Supplier 3's rows for part 4 ended in 2021 (recorded at S3), so part 4 is not found at 2023-06-01.
             name="B3_1_application_point_system_point_current",
             query=lambda f: _other_parts(f, "2023-06-01", _NOW),
             expected_columns=_B3_COLUMNS,
-            expected_result=_rows([2], [3], [4]),
+            expected_result=_rows([2], [3]),
         ),
         TestExpectation(
             name="B3_2_application_point_system_point_past",
@@ -417,12 +452,39 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3], [4]),
         ),
-        # --- B3.3, B3.4, B3.5, B3.8, B3.10: a time correlation in either dimension ---
-        _b3_correlation_unsupported("B3_3_application_correlation_system_point_current", "application time"),
-        _b3_correlation_unsupported("B3_4_application_point_system_correlation", "system time"),
-        _b3_correlation_unsupported("B3_5_application_correlation_system_correlation", "application and system time"),
-        _b3_correlation_unsupported("B3_8_application_agnostic_system_correlation", "system time"),
-        _b3_correlation_unsupported("B3_10_application_correlation_system_agnostic", "application time"),
+        # --- B3.3, B3.4, B3.5, B3.8, B3.10: the periods of the two rows must overlap in a dimension ---
+        # Only B3.3 loses part 4: the periods of supplier 3's rows for part 4 (ended in 2021) and for part 1 (from
+        # 2022) are disjoint in application time. In system time they overlapped until S3, when the first was corrected.
+        TestExpectation(
+            name="B3_3_application_correlation_system_point_current",
+            query=lambda f: _other_parts(f, None, _NOW, correlate=("application",)),
+            expected_columns=_B3_COLUMNS,
+            expected_result=_rows([2], [3]),
+        ),
+        TestExpectation(
+            name="B3_4_application_point_system_correlation",
+            query=lambda f: _other_parts(f, "2023-06-01", None, correlate=("system",)),
+            expected_columns=_B3_COLUMNS,
+            expected_result=_rows([2], [3], [4]),
+        ),
+        TestExpectation(
+            name="B3_5_application_correlation_system_correlation",
+            query=lambda f: _other_parts(f, None, None, correlate=("application", "system")),
+            expected_columns=_B3_COLUMNS,
+            expected_result=_rows([2], [3], [4]),
+        ),
+        TestExpectation(
+            name="B3_8_application_agnostic_system_correlation",
+            query=lambda f: _other_parts(f, None, None, correlate=("system",)),
+            expected_columns=_B3_COLUMNS,
+            expected_result=_rows([2], [3], [4]),
+        ),
+        TestExpectation(
+            name="B3_10_application_correlation_system_agnostic",
+            query=lambda f: _other_parts(f, None, None, correlate=("application",)),
+            expected_columns=_B3_COLUMNS,
+            expected_result=_rows([2], [3], [4]),
+        ),
         # --- The supply cost history (price change scenario) ---
         TestExpectation(
             name="supply_cost_change_effective_in_the_future_as_recorded",
@@ -467,10 +529,20 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
             "difference over all keys) as a nested aggregate over versions of the same table",
             ["Part Part Key"],
         ),
-        _unsupported(
-            "R7_suppliers_who_raised_a_price_by_more_than_7_5_percent_in_one_update",
-            "Compares each version with the one before it (a self-join of versions on the key and the timestamps)",
-            ["Supplier Supplier Key"],
+        TestExpectation(
+            # A version and the one before it: it ended when this one began, for the same supplier and part (rows of the
+            # same part are joined, and the supplier is compared), with application periods that overlap.
+            name="R7_suppliers_who_raised_a_price_by_more_than_7_5_percent_in_one_update",
+            query=lambda f: f.find_all(
+                None, None, [f.supplier().supplier_key()],
+                (f.supplier().supplier_key() == f.same_part().supplier().supplier_key())
+                .and_(f.same_part().sys_time_end() == f.sys_time_begin())
+                .and_(_overlap(f.validity_time_begin(), f.validity_time_end(),
+                               f.same_part().validity_time_begin(), f.same_part().validity_time_end()))
+                .and_(f.supply_cost() > f.same_part().supply_cost() * 1.075),
+            ).distinct(),
+            expected_columns=["Supplier Supplier Key"],
+            expected_result=_rows([1]),
         ),
     ],
 )
@@ -616,17 +688,6 @@ LINEITEM_FINDER_SPECS = FinderSpec(
         # --- The rest of the 22 ---
         _unsupported("H2_minimum_cost_supplier", _SKIP_SUBQUERY + " (the minimum cost per part)", ["Supplier Acct Bal"]),
         _unsupported(
-            "H4_order_priority_checking",
-            "Compares two columns (l_commitdate < l_receiptdate), and EXISTS is a join, so an aggregate over it counts "
-            "an order once per matching line",
-            ["Order Priority", "order_count"],
-        ),
-        _unsupported(
-            "H5_local_supplier_volume",
-            "The customer and supplier must be in the same nation, which compares two columns",
-            ["Supplier Nation Name", "revenue"],
-        ),
-        _unsupported(
             "H9_product_type_profit_measure",
             "Joins LINEITEM to PARTSUPP on a composite key (partkey and suppkey); an association joins on one column",
             ["Nation Name", "Year Ship Date", "sum_profit"],
@@ -652,17 +713,51 @@ LINEITEM_FINDER_SPECS = FinderSpec(
         _unsupported("H20_potential_part_promotion", _SKIP_SUBQUERY + " (nested IN and a correlated sum)", ["Supplier Name"]),
         _unsupported("H21_suppliers_who_kept_orders_waiting", _SKIP_SUBQUERY + " (EXISTS and NOT EXISTS on other suppliers)", ["Supplier Name", "numwait"]),
         _unsupported("H22_global_sales_opportunity", _SKIP_SUBQUERY + " (an average and NOT EXISTS), and the model has no phone", ["cntrycode", "numcust"]),
+        TestExpectation(
+            name="H5_local_supplier_volume",
+            query=lambda f: f.find_all(
+                "2022-01-15", "2022-06-01", [f.supplier().nation().name(), _revenue(f).sum().alias("revenue")],
+                f.supplier().nation().region().name().eq("AMERICA")
+                .and_(f.supplier().nation().nation_key() == f.order().customer().nation().nation_key())
+                .and_(f.order().order_date() >= _D(2020, 1, 1)),
+            ),
+            expected_columns=["Supplier Nation Name", "revenue"],
+            expected_result=_rows(["UNITED STATES", _discounted(6300.0, 0.04)]),
+        ),
         # --- R2, R3 ---
-        _unsupported(
-            "R2_state_durations_of_line_items",
-            "Subtracts one date column from another. diff_days takes a constant, not a column",
-            ["Order Key", "Line Number", "duration"],
+        TestExpectation(
+            name="R2_state_durations_of_line_items",
+            query=lambda f: f.find_all(
+                _H_APPLICATION, _H_SYSTEM,
+                [f.order().order_key(), f.line_number(), f.ship_date().diff_days(f.receipt_date()).alias("duration")],
+            ).order_by(f.order().order_key().ascending(), f.line_number().ascending()),
+            expected_columns=["Order Order Key", "Line Number", "duration"],
+            expected_result=_rows([1, 1, 15], [1, 2, 16], [2, 1, 29], [2, 2, 28]),
         ),
         _unsupported(
             "R3a_temporal_aggregation_greatest_number_of_unshipped_items",
             "Temporal aggregation groups by the points where the data changes (an interval join on the period "
             "boundaries), then takes the maximum over them",
             ["Max Count"],
+        ),
+    ],
+)
+
+ORDER_PRIORITY_FINDER_SPECS = FinderSpec(
+    finder_name="OrderFinder",
+    mapping_file=TPCH_BIH_MAPPING,
+    expectations=[
+        TestExpectation(
+            # TPC-H Q4 counts orders that have a line committed before it was received. An EXISTS is a join, so an
+            # aggregate over it would count an order once per line; counting the distinct orders does not.
+            name="H4_order_priority_checking",
+            query=lambda f: f.find_all(
+                _H_APPLICATION, _H_SYSTEM,
+                [f.order_priority(), f.order_key().count_distinct().alias("order_count")],
+                f.line_items().commit_date() < f.line_items().receipt_date(),
+            ).order_by(f.order_priority().ascending()),
+            expected_columns=["Order Priority", "order_count"],
+            expected_result=_rows(["1-URGENT", 1], ["2-HIGH", 1]),
         ),
     ],
 )
@@ -816,6 +911,7 @@ ALL_TPCH_BIH_SPECS = [
     CUSTOMER_FINDER_SPECS,
     PARTSUPP_FINDER_SPECS,
     LINEITEM_FINDER_SPECS,
+    ORDER_PRIORITY_FINDER_SPECS,
     CUSTOMER_REVENUE_FINDER_SPECS,
     CUSTOMER_JOIN_STRINGS_FINDER_SPECS,
     PART_FINDER_SPECS,

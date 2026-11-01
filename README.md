@@ -290,6 +290,17 @@ TradeFinder.symbol().eq("AAPL").and_(TradeFinder.price() > 100).or_(TradeFinder.
 The second is `(symbol is AAPL and price > 100) or symbol is MSFT`. To group differently, build the part that should
 bind first and combine it on the other side, e.g. `a.or_(b.and_(c))`.
 
+A comparison is with a value, or with another column or expression. `ne` and `!=` are the inequality:
+
+```python
+OrderFinder.find_all(None, None, [OrderFinder.id_()], OrderFinder.commit_date() < OrderFinder.receipt_date())
+TradeFinder.price() > TradeFinder.cost() * 1.075
+TradeFinder.symbol().ne("AAPL")      # or TradeFinder.symbol() != "AAPL"
+```
+
+A date difference takes a column too: `OrderFinder.ship_date().diff_days(OrderFinder.receipt_date())` is the number of
+days from the ship date to the receipt date.
+
 ### Aggregates
 
 A query that selects aggregates is grouped by its other columns, so you do not have to repeat them in `group_by`:
