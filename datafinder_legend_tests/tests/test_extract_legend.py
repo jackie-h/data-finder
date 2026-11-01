@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-from extract_legend import extract_file  # noqa: E402
+from extract_legend import extract_file  # type: ignore[import]  # noqa: E402
 
 _PURE = """
 function <<test.Test>> a::b::rtrim::testProject():Boolean[1]
