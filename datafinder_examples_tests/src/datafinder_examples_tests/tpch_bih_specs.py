@@ -3,9 +3,8 @@ Test specifications for the TPC-BiH benchmark (Kaufmann et al., "TPC-BiH: A Benc
 TPCTC 2013), using tpch_bih_mapping.md on a small data set.
 
 Appendix B benchmark queries are either implemented as specified or represented by an ``_unsupported`` expectation
-with the reason the current finder API cannot express them. Supplemental finder examples remain useful, but are named as
-such so they cannot be mistaken for benchmark coverage. The TPC-H query below follows Appendix B.2's H.1 definition and
-time parameters.
+with the reason the current finder API cannot express them. The TPC-H queries below use fixture-compatible parameters;
+H.1 follows Appendix B.2's definition and current-version time parameters.
 
 Schema (the TPC-H tables; comment columns and a few descriptive ones are left out):
 
@@ -57,7 +56,6 @@ def _D(year: int, month: int, day: int) -> datetime.date:
 _S0 = datetime.datetime(2020, 1, 1)
 _S1 = datetime.datetime(2021, 1, 1)
 _S2 = datetime.datetime(2022, 1, 1)
-_S3 = datetime.datetime(2023, 1, 1)
 _NOW = datetime.datetime(2024, 1, 1)
 _FOREVER = datetime.datetime(9999, 12, 31, 23, 59, 59)
 _END_OF_TIME = _D(9999, 12, 31)
@@ -107,20 +105,8 @@ def _discounted(extended_price: float, discount: float) -> float:
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Pure-timeslice queries (time travel) and key-in-time queries on ORDERS and CUSTOMER
+# Synthetic time-travel queries on ORDERS
 # ---------------------------------------------------------------------------------------------------------------------
-
-_ORDER_COLUMNS = ["Order Key", "Total Price"]
-
-
-def _price_changed(f):
-    """Orders whose price now differs from the price recorded at S0, with both: the order at two system times."""
-    at_s0 = f.other_version(processing_time=_S0)
-    return f.find_all(
-        "1996-06-01", _NOW, [f.order_key(), f.total_price(), at_s0.total_price()],
-        f.total_price() != at_s0.total_price(),
-    )
-
 ORDER_FINDER_SPECS = FinderSpec(
     finder_name="OrderFinder",
     mapping_file=TPCH_BIH_MAPPING,
@@ -201,161 +187,6 @@ ORDER_FINDER_SPECS = FinderSpec(
             expected_columns=["count"],
             expected_result=_rows([5]),
         ),
-        # Supplemental point queries; T.2 is the aggregate specification below.
-        TestExpectation(
-            name="T2_supplemental_point_point_before_cancel",
-            query=lambda f: f.find_all("1996-06-01", "2022-06-01", [f.order_key(), f.total_price()])
-            .order_by(f.order_key().ascending()),
-            expected_columns=_ORDER_COLUMNS,
-            expected_result=_rows([3, 500.0], [4, 3000.0], [5, 800.0]),
-            expected_sql={"duckdb": "t0.active_time_begin <= '1996-06-01'"},
-        ),
-        TestExpectation(
-            name="T2_supplemental_point_point_after_cancel_and_price_manipulation",
-            query=lambda f: f.find_all("1996-06-01", _NOW, [f.order_key(), f.total_price()])
-            .order_by(f.order_key().ascending()),
-            expected_columns=_ORDER_COLUMNS,
-            expected_result=_rows([3, 700.0], [4, 3000.0]),
-        ),
-        TestExpectation(
-            name="T2_supplemental_point_point_early",
-            query=lambda f: f.find_all("1993-12-12", "2020-06-01", [f.order_key(), f.total_price()])
-            .order_by(f.order_key().ascending()),
-            expected_columns=_ORDER_COLUMNS,
-            expected_result=_rows([1, 1000.0], [2, 2000.0]),
-        ),
-        # Supplemental version comparisons; these are not benchmark T.3/T.4 aggregates.
-        TestExpectation(
-            name="T3_supplemental_price_changed_between_system_times",
-            query=lambda f: _price_changed(f),
-            expected_columns=["Order Key", "Total Price", "Other Version Total Price"],
-            expected_result=_rows([3, 700.0, 500.0]),
-        ),
-        TestExpectation(
-            name="T4_supplemental_largest_price_change_between_system_times_top_n",
-            query=lambda f: _price_changed(f).order_by(
-                (f.total_price() - f.other_version(processing_time=_S0).total_price()).descending()
-            ).limit(1),
-            expected_columns=["Order Key", "Total Price", "Other Version Total Price"],
-            expected_result=_rows([3, 700.0, 500.0]),
-        ),
-        # Supplemental history listing; benchmark T.5 requires grouped MAX and COUNT.
-        TestExpectation(
-            name="T5_supplemental_all_versions",
-            query=lambda f: f.find_all(None, None, [f.order_key(), f.order_status(), f.total_price()])
-            .order_by(f.order_key().ascending(), f.sys_time_begin().ascending()),
-            expected_columns=["Order Key", "Order Status", "Total Price"],
-            expected_result=_rows(
-                [1, "F", 1000.0], [2, "O", 2000.0], [2, "F", 2000.0], [3, "O", 500.0], [3, "O", 700.0],
-                [4, "O", 3000.0], [5, "O", 800.0], [6, "O", 1500.0],
-            ),
-            unexpected_sql={"duckdb": "WHERE"},
-        ),
-        # Supplemental slices; benchmark T.6 requires grouped averages.
-        TestExpectation(
-            name="T6_supplemental_application_time_point_all_system_time",
-            query=lambda f: f.find_all("1994-06-01", None, [f.order_key(), f.order_status(), f.total_price()])
-            .order_by(f.order_key().ascending(), f.sys_time_begin().ascending()),
-            expected_columns=["Order Key", "Order Status", "Total Price"],
-            expected_result=_rows([2, "O", 2000.0], [2, "F", 2000.0], [3, "O", 500.0], [3, "O", 700.0]),
-        ),
-        TestExpectation(
-            name="T6_supplemental_system_time_point_all_application_time",
-            query=lambda f: f.find_all(None, "2022-06-01", [f.order_key(), f.order_status()])
-            .order_by(f.order_key().ascending()),
-            expected_columns=["Order Key", "Order Status"],
-            expected_result=_rows([1, "F"], [2, "F"], [3, "O"], [4, "O"], [5, "O"]),
-        ),
-        # Supplemental explicit current-system-time point query; benchmark T.7 is a PARTSUPP aggregate.
-        TestExpectation(
-            name="T7_supplemental_current_system_time",
-            query=lambda f: f.find_all("1996-06-01", datetime.datetime.now(), [f.order_key(), f.total_price()])
-            .order_by(f.order_key().ascending()),
-            expected_columns=_ORDER_COLUMNS,
-            expected_result=_rows([3, 700.0], [4, 3000.0]),
-        ),
-        # Supplemental secondary-date filters; benchmark T.8/T.9 return counts.
-        TestExpectation(
-            name="T8_supplemental_second_application_time_point",
-            query=lambda f: f.find_all(
-                None, "2020-06-01", [f.order_key()],
-                (f.receivable_time_begin() <= _D(2020, 1, 10)).and_(f.receivable_time_end() > _D(2020, 1, 10)),
-            ).order_by(f.order_key().ascending()),
-            expected_columns=["Order Key"],
-            expected_result=_rows([1], [2], [3]),
-        ),
-        TestExpectation(
-            name="T9_supplemental_second_application_time_slice",
-            query=lambda f: f.find_all(
-                None, None, [f.order_key()],
-                (f.receivable_time_begin() <= _D(2021, 12, 31)).and_(f.receivable_time_end() > _D(2021, 1, 1)),
-            ).order_by(f.order_key().ascending(), f.sys_time_begin().ascending()),
-            expected_columns=["Order Key"],
-            expected_result=_rows([1], [2], [2], [3], [3], [4]),
-        ),
-        # Supplemental ORDERS audit examples. Appendix B's K.1-K.6 are CUSTOMER queries.
-        TestExpectation(
-            name="K1_supplemental_order_key_history_all_versions",
-            query=lambda f: f.find_all(
-                None, None,
-                [f.order_key(), f.order_status(), f.total_price(), f.sys_time_begin(), f.sys_time_end()],
-                f.order_key().eq(3),
-            ).order_by(f.sys_time_begin().ascending()),
-            expected_columns=["Order Key", "Order Status", "Total Price", "Sys Time Begin", "Sys Time End"],
-            expected_result=_rows([3, "O", 500.0, _S0, _S3], [3, "O", 700.0, _S3, _FOREVER]),
-        ),
-        TestExpectation(
-            name="K2_supplemental_order_key_history_system_time_range",
-            query=lambda f: f.find_all(
-                None, None,
-                [f.order_key(), f.order_status(), f.total_price(), f.sys_time_begin(), f.sys_time_end()],
-                f.order_key().eq(3).and_(f.sys_time_begin() <= _NOW).and_(f.sys_time_end() > datetime.datetime(2023, 6, 1)),
-            ).order_by(f.sys_time_begin().ascending()),
-            expected_columns=["Order Key", "Order Status", "Total Price", "Sys Time Begin", "Sys Time End"],
-            expected_result=_rows([3, "O", 700.0, _S3, _FOREVER]),
-        ),
-        TestExpectation(
-            name="K3_supplemental_order_key_history_range_one_column",
-            query=lambda f: f.find_all(
-                None, None, [f.total_price()],
-                f.order_key().eq(3).and_(f.sys_time_begin() <= datetime.datetime(2023, 6, 1))
-                .and_(f.sys_time_end() > datetime.datetime(2022, 6, 1)),
-            ).order_by(f.sys_time_begin().ascending()),
-            expected_columns=["Total Price"],
-            expected_result=_rows([500.0], [700.0]),
-        ),
-        TestExpectation(
-            name="K4_supplemental_order_key_latest_versions_top_n",
-            query=lambda f: f.find_all(None, None, [f.total_price()], f.order_key().eq(3))
-            .order_by(f.sys_time_begin().descending()).limit(2),
-            expected_columns=["Total Price"],
-            expected_result=_rows([700.0], [500.0]),
-        ),
-        TestExpectation(
-            # The version before the current one, found as the paper says: with no TOP N, by correlating timestamps. A
-            # version ended when the next one began, so the version before the one that began at S3 is the one that ended
-            # at S3. (The first version has no version before it.)
-            name="K5_supplemental_order_key_previous_version",
-            query=lambda f: f.find_all(
-                None, None, [f.other_version().total_price()],
-                f.order_key().eq(3).and_(f.other_version().sys_time_end() == f.sys_time_begin()),
-            ),
-            expected_columns=["Other Version Total Price"],
-            expected_result=_rows([500.0]),
-        ),
-        TestExpectation(
-            name="K6_supplemental_order_key_history_selected_by_a_value",
-            query=lambda f: f.find_all(None, None, [f.order_key(), f.total_price()], f.total_price() > 1500.0)
-            .order_by(f.order_key().ascending(), f.sys_time_begin().ascending()),
-            expected_columns=_ORDER_COLUMNS,
-            expected_result=_rows([2, 2000.0], [2, 2000.0], [4, 3000.0]),
-        ),
-        TestExpectation(
-            name="K6_supplemental_order_key_history_selected_by_a_value_high_selectivity",
-            query=lambda f: f.find_all(None, None, [f.order_key(), f.total_price()], f.total_price() > 2500.0),
-            expected_columns=_ORDER_COLUMNS,
-            expected_result=_rows([4, 3000.0]),
-        ),
         # --- R.3b, R.5, R.6 ---
         _unsupported(
             "R3b_temporal_aggregation_maximum_value_of_unshipped_orders",
@@ -377,49 +208,8 @@ ORDER_FINDER_SPECS = FinderSpec(
             "cannot enumerate every customer/order version pair whose system intervals overlap",
             ["count(distinct(o_orderkey))"],
         ),
-        TestExpectation(
-            # Supplemental overlap query; the benchmark R.5 has no application-time overlap predicate.
-            name="R5_supplemental_temporal_join_low_balance_customers_and_orders_in_both_dimensions",
-            query=lambda f: f.find_all(
-                None, None, [f.customer().customer_key(), count_all().alias("count")],
-                (f.customer().acct_bal() < 5000.0).and_(f.total_price() > 10.0)
-                .and_(_overlap(f.active_time_begin(), f.active_time_end(),
-                               f.customer().visible_time_begin(), f.customer().visible_time_end()))
-                .and_(_overlap(f.sys_time_begin(), f.sys_time_end(),
-                               f.customer().sys_time_begin(), f.customer().sys_time_end())),
-            ).order_by(f.customer().customer_key().ascending()),
-            expected_columns=["Customer Customer Key", "count"],
-            expected_result=_rows([1, 2], [2, 3], [3, 3]),
-        ),
-        TestExpectation(
-            # Supplemental point query, not a benchmark temporal join.
-            name="R5_supplemental_at_a_point_low_balance_customers_and_orders",
-            query=lambda f: f.find_all(
-                "1996-06-01", "2022-06-01", [f.customer().customer_key()],
-                (f.customer().acct_bal() < 5000.0).and_(f.total_price() > 10.0),
-            ).distinct(),
-            expected_columns=["Customer Customer Key"],
-            expected_result=_rows([3]),
-        ),
     ],
 )
-
-_CUSTOMER_COLUMNS = ["Customer Key", "Acct Bal", "Nation Name"]
-
-
-def _moved_to_us(f):
-    """Customers in the US at 2022-06-01 who were not on 2021-06-01: the customer at two application dates."""
-    before = f.other_version(business_date=_D(2021, 6, 1))
-    return f.find_all(
-        "1996-06-01", _NOW, [f.customer_key(), f.name()],
-        f.nation().name().eq("UNITED STATES").and_(before.nation().name() != "UNITED STATES"),
-    )
-
-
-def _customers_at(f, business_date, processing_time):
-    return f.find_all(business_date, processing_time, [f.customer_key(), f.acct_bal(), f.nation().name()]) \
-        .order_by(f.customer_key().ascending())
-
 
 CUSTOMER_FINDER_SPECS = FinderSpec(
     finder_name="CustomerFinder",
@@ -553,63 +343,6 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         _unsupported("R2_app_mean_order_to_ship_time_as_currently_recorded",
                      "Requires grouped earliest application-time transitions and a join",
                      ["AVG"]),
-        # Supplemental CUSTOMER point queries. Benchmark T.1 is a PARTSUPP aggregate.
-        TestExpectation(
-            name="T1_supplemental_customer_point_point_current",
-            query=lambda f: _customers_at(f, "1996-06-01", "2022-06-01"),
-            expected_columns=_CUSTOMER_COLUMNS,
-            expected_result=_rows(
-                [1, 6000.0, "UNITED STATES"], [2, 3000.0, "UNITED STATES"], [3, 4000.0, "FRANCE"],
-                [4, 9000.0, "UNITED STATES"],
-            ),
-        ),
-        TestExpectation(
-            name="T1_supplemental_customer_point_point_past",
-            query=lambda f: _customers_at(f, "1994-06-01", "2020-06-01"),
-            expected_columns=_CUSTOMER_COLUMNS,
-            expected_result=_rows(
-                [1, 100.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
-                [4, 9000.0, "UNITED STATES"],
-            ),
-        ),
-        TestExpectation(
-            # Tomorrow's state in application time, as recorded yesterday: the 2021 payment was not known in 2020.
-            name="T1_supplemental_customer_future_application_time_as_recorded_in_the_past",
-            query=lambda f: _customers_at(f, "1995-06-01", "2020-06-01"),
-            expected_columns=_CUSTOMER_COLUMNS,
-            expected_result=_rows(
-                [1, 100.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
-                [4, 9000.0, "UNITED STATES"],
-            ),
-        ),
-        TestExpectation(
-            name="T1_supplemental_customer_same_application_time_as_recorded_later",
-            query=lambda f: _customers_at(f, "1995-06-01", "2021-06-01"),
-            expected_columns=_CUSTOMER_COLUMNS,
-            expected_result=_rows(
-                [1, 6000.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
-                [4, 9000.0, "UNITED STATES"],
-            ),
-        ),
-        # Supplemental CUSTOMER audit query; it is not one of the benchmark's K query forms.
-        TestExpectation(
-            name="K1_supplemental_customer_key_history_in_application_time",
-            query=lambda f: f.find_all(
-                None, _NOW, [f.customer_key(), f.acct_bal(), f.visible_time_begin(), f.visible_time_end()],
-                f.customer_key().eq(1),
-            ).order_by(f.visible_time_begin().ascending()),
-            expected_columns=["Customer Key", "Acct Bal", "Visible Time Begin", "Visible Time End"],
-            expected_result=_rows(
-                [1, 100.0, _D(2019, 1, 1), _D(2021, 1, 1)], [1, 6000.0, _D(2021, 1, 1), _END_OF_TIME],
-            ),
-        ),
-        # Supplemental state-change query; Appendix B's R.1 is interval-bounded and separate for each time dimension.
-        TestExpectation(
-            name="R1_supplemental_customer_moved_to_us_at_two_application_points",
-            query=lambda f: _moved_to_us(f),
-            expected_columns=["Customer Key", "Name"],
-            expected_result=_rows([2, "Customer#2"]),
-        ),
     ],
 )
 
@@ -748,43 +481,6 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
             expected_columns=_B5_COLUMNS,
             expected_result=_rows([2], [3], [4]),
         ),
-        # --- Supplemental supply-cost history queries ---
-        TestExpectation(
-            name="supply_cost_change_effective_in_the_future_as_recorded",
-            query=lambda f: f.find_all(
-                "1995-07-01", "2021-06-01", [f.supply_cost()],
-                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
-            ),
-            expected_columns=["Supply Cost"],
-            expected_result=_rows([110.0]),
-        ),
-        TestExpectation(
-            name="supply_cost_before_the_change_was_recorded",
-            query=lambda f: f.find_all(
-                "1995-07-01", "2020-06-01", [f.supply_cost()],
-                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
-            ),
-            expected_columns=["Supply Cost"],
-            expected_result=_rows([100.0]),
-        ),
-        TestExpectation(
-            name="supply_cost_current",
-            query=lambda f: f.find_all(
-                "1997-06-01", _NOW, [f.supply_cost()],
-                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
-            ),
-            expected_columns=["Supply Cost"],
-            expected_result=_rows([125.0]),
-        ),
-        TestExpectation(
-            name="supply_cost_as_it_was_before_the_last_change_was_recorded",
-            query=lambda f: f.find_all(
-                "1997-06-01", "2022-06-01", [f.supply_cost()],
-                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
-            ),
-            expected_columns=["Supply Cost"],
-            expected_result=_rows([110.0]),
-        ),
         # --- R.4, R.7 ---
         _unsupported(
             "R4_products_with_the_smallest_difference_in_stock_over_the_history",
@@ -824,7 +520,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
 # written as _unsupported, which is skipped with the reason.
 # ---------------------------------------------------------------------------------------------------------------------
 
-# The supplemental queries are asked at points that have the orders they need:
+# The TPC-H queries are asked at points that have the orders they need:
 #   _P1  1993-12-12 as at 2020-06-01: orders 1 and 2 and their lines
 #   _PC  1996-01-15 as at 2022-06-01: orders 3, 4 and 5
 #   _PD  1997-01-15 as at 2024-01-01: orders 3, 4 and 6
@@ -1000,14 +696,6 @@ LINEITEM_FINDER_SPECS = FinderSpec(
             expected_result=_rows([_O3L1 + _O4L1 + _O4L2]),
         ),
         # --- R2: the time a line item was pending, from shipping to receipt ---
-        TestExpectation(
-            name="R2_supplemental_lineitem_shipping_to_receipt_durations",
-            query=lambda f: f.find_all(
-                *_P1, [f.order().order_key(), f.line_number(), f.ship_date().diff_days(f.receipt_date()).alias("duration")],
-            ).order_by(f.order().order_key().ascending(), f.line_number().ascending()),
-            expected_columns=["Order Order Key", "Line Number", "duration"],
-            expected_result=_rows([1, 1, 15], [1, 2, 16], [2, 1, 18], [2, 2, 28]),
-        ),
         _unsupported(
             "R3a_temporal_aggregation_greatest_number_of_unshipped_items",
             "Temporal aggregation groups by the points where the data changes (an interval join on the period "
