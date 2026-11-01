@@ -43,6 +43,16 @@ SECOND_JOIN_FOR_PROJECTED_MILESTONED_PROPERTY = (
     "through a derived table to read the projected column; the finder joins it once and reads both from it, which "
     "returns the same rows"
 )
+ISOLATED_MILESTONED_JOIN = (
+    "Legend reads a milestoned table that is joined from another milestoned table through a derived table holding its "
+    "milestoning filter; the finder puts that filter in the join's ON clause, which keeps the same rows because the "
+    "join is a left outer join"
+)
+LEFT_JOIN_ORDER = (
+    "Legend writes the left joins of a query in the order its filter and projection first reach them; the finder writes "
+    "them in the order of the projection and then the filter. Left joins that do not depend on one another return the "
+    "same rows in either order"
+)
 CONCAT_FUNCTION = (
     "Legend writes `+` on text as concat(a, b), which treats a NULL part as empty in DuckDB; the finder writes a || b, "
     "which is NULL when any part is"
