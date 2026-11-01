@@ -1,8 +1,32 @@
 -- Test data from legend-engine core_relational businessDateMilestoningSetUp.pure::initDatabase
--- Tables: BiTemporalProductTable, BiTemporalProductClassificationTable
+-- Tables: OrderTable, ProductTable, ProductClassificationTable, BiTemporalProductTable, BiTemporalProductClassificationTable, TraderTable, BiTemporalLocationTable
+drop table if exists OrderTable;
+create table OrderTable (orderDate DATE, id Integer, prodFk Integer);
+insert into OrderTable values('2015-8-26', 1,1);
+insert into OrderTable values('2015-8-26', 2,2);
+drop table if exists ProductTable;
+create table ProductTable (id Integer, name VARCHAR(200),type VARCHAR(200),exchange VARCHAR(200), referenceSystemName VARCHAR(200),  classificationSystemId Integer, from_z DATE, thru_z DATE);
+insert into ProductTable values(1,'ProductName','STOCK','ISE', 'SYS1', 1, '2015-8-15', '2015-8-26');
+insert into ProductTable values(2,'ProductName1','STOCK','LNSE', 'SYS1', 1, '2015-8-26', '2015-10-16');
+insert into ProductTable values(2,'ProductName2','STOCK','LNSE', 'SYS1', 1, '2015-10-16', '9999-12-31');
+insert into ProductTable values(3,'ProductName3','OPTION','ISE', 'SYS1', 1, '2015-8-26', '9999-12-31');
 drop table if exists BiTemporalProductTable;
 create table BiTemporalProductTable (id Integer, type VARCHAR(200), in_z DATE, out_z DATE, from_z DATE, thru_z DATE);
 insert into BiTemporalProductTable values(1, 'STOCK', '2017-6-9', '9999-12-31', '2017-6-9', '2017-6-26');
+Drop table if exists BiTemporalLocationTable;
+Create Table BiTemporalLocationTable(id INT, kerberos VARCHAR(20), place VARCHAR(200), in_z DATE, out_z DATE, from_z DATE, thru_z DATE);
+insert into BiTemporalLocationTable values (1, 'ggekko', 'miami', '2015-6-9', '9999-12-31', '2017-6-9', '9999-12-29');
+drop table if exists ProductClassificationTable;
+create table ProductClassificationTable (type VARCHAR(200),type_description VARCHAR(400),system VARCHAR(200), exchange VARCHAR(200), from_z DATE, thru_z DATE);
+insert into ProductClassificationTable values('STOCK','STOCK DESC-V1','SYS1', 'LNSE', '2015-8-15', '2015-8-17');
+insert into ProductClassificationTable values('STOCK','STOCK DESC-V2','SYS1', 'LNSE', '2015-8-17','2015-9-15');
+insert into ProductClassificationTable values('STOCK','STOCK DESC-V3','SYS1', 'LNSE', '2015-9-15','2015-10-17');
+insert into ProductClassificationTable values('STOCK','STOCK DESC-V4','SYS1', 'LNSE', '2015-10-17','9999-12-31');
+insert into ProductClassificationTable values('OPTION','OPTION DESC-V1','SYS1', 'ISE', '2015-1-15','2015-1-16');
 drop table if exists BiTemporalProductClassificationTable;
 create table BiTemporalProductClassificationTable (type VARCHAR(200),type_description VARCHAR(400),system VARCHAR(200), exchange VARCHAR(200), in_z DATE, out_z DATE, from_z DATE, thru_z DATE);
 insert into BiTemporalProductClassificationTable values('STOCK','STOCK DESC-V1','SYS1', 'LNSE', '2017-6-11', '9999-12-31', '2017-6-10', '9999-12-31');
+Drop table if exists TraderTable;
+Create Table TraderTable(kerberos VARCHAR(20),in_z DATE, out_z DATE);
+insert into TraderTable (kerberos, in_z, out_z) values ('ggekko','2013-1-1','9999-12-31');
+insert into TraderTable (kerberos, in_z, out_z) values ('bfox','2015-1-1','9999-12-31');
