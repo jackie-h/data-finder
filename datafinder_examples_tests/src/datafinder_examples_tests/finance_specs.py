@@ -739,7 +739,7 @@ TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="navigation_given_its_own_processing_time_uses_it",
             query=lambda f: f.find_all(
-                None, _BOTH_AT, [f.symbol(), f.account(processing_valid_at=_AT).name()]
+                None, _BOTH_AT, [f.symbol(), f.account(processing_time=_AT).name()]
             ).order_by(f.symbol().ascending()),
             expected_columns=["Symbol", "Account Name"],
             expected_result=np.array([["AAPL", "Acme Corp"], ["GOOG", "Acme Corp"]], dtype=object),
@@ -758,7 +758,7 @@ TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
             name="sibling_navigation_keeps_the_querys_time",
             # the instrument is read at _BOTH_AT while the account is read at _AT
             query=lambda f: f.find_all(
-                None, _BOTH_AT, [f.symbol(), f.account(processing_valid_at=_AT).name(), f.instrument().price()]
+                None, _BOTH_AT, [f.symbol(), f.account(processing_time=_AT).name(), f.instrument().price()]
             ).order_by(f.symbol().ascending()),
             expected_columns=["Symbol", "Account Name", "Instrument Price"],
             expected_result=np.array([["AAPL", "Acme Corp", 150.0], ["GOOG", "Acme Corp", 2800.0]], dtype=object),
@@ -772,7 +772,7 @@ TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="navigation_time_given_as_a_datetime",
             query=lambda f: f.find_all(
-                None, _BOTH_AT, [f.symbol(), f.account(processing_valid_at=datetime.datetime(2023, 12, 1, 12, 0, 0)).name()]
+                None, _BOTH_AT, [f.symbol(), f.account(processing_time=datetime.datetime(2023, 12, 1, 12, 0, 0)).name()]
             ).order_by(f.symbol().ascending()),
             expected_columns=["Symbol", "Account Name"],
             expected_result=np.array([["AAPL", "Acme Corp"], ["GOOG", "Acme Corp"]], dtype=object),
@@ -782,7 +782,7 @@ TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
 
 
 def _call_with_a_time_then_plain(f):
-    f.account(processing_valid_at=_AT)  # the finder's own accessor is shared, so this must not leave a date on it
+    f.account(processing_time=_AT)  # the finder's own accessor is shared, so this must not leave a date on it
     return f.find_all(None, _BOTH_AT, [f.symbol(), f.account().name()]).order_by(f.symbol().ascending())
 
 

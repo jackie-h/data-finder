@@ -427,13 +427,13 @@ result = ContractualPositionFinder.find_all(
 #### A date on a navigation
 
 A query's dates reach every milestoned table it joins to. A navigation can be given its own with `business_date` and
-`processing_valid_at`, which it and the navigations below it then use instead:
+`processing_time`, which it and the navigations below it then use instead:
 
 ```python
 # the trades as of one time, each with the account as it was at another
 TradeFinder.find_all(
     None, datetime.datetime(2021, 6, 1),
-    [TradeFinder.symbol(), TradeFinder.account(processing_valid_at=datetime.datetime(2023, 12, 1)).name()],
+    [TradeFinder.symbol(), TradeFinder.account(processing_time=datetime.datetime(2023, 12, 1)).name()],
 )
 ```
 
