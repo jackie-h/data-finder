@@ -9,7 +9,7 @@ The rest are recorded as unsupported: the finder cannot express them yet, or the
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, AGGREGATE_IN_DERIVED_TABLE, BACKEND, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER
+from datafinder_legend_tests.legend import AGGREGATE_IN_DERIVED_TABLE, BACKEND, CORRELATED_EXISTS, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, ported, unsupported
 
 _SRC = "milestoning/tests/testBusinessDateMilestoning.pure"
 _MAPPING = "milestoning/tests/business_date_mapping.md"
@@ -24,12 +24,6 @@ BUSINESS_DATE_MILESTONING_SPECS = FinderSpec(
                     'business date milestoning mapping not loaded in the port'),
         unsupported("testMilestonedThisBusinessDateUsedAsParameterToFunctionParametersOfMilestonedQualifiedProperty", f"{_SRC}::testMilestonedThisBusinessDateUsedAsParameterToFunctionParametersOfMilestonedQualifiedProperty",
                     'select "root".name as "name", "productexchangetable_0".name as "classificationType" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= dateadd(DAY, 1, \'2015-10-16\') and "productclassificationtable_0".thru_z > dateadd(DAY, 1, \'2015-10-16\')) left outer join (select "productexchangetable_1".name as name from ProductExchangeTable as "productexchangetable_1" where "productexchangetable_1".from_z <= dateadd(DAY, 1, \'2015-10-16\') and "productexchangetable_1".thru_z > dateadd(DAY, 1, \'2015-10-16\')) as "productexchangetable_0" on ("productclassificationtable_0".exchange = "productexchangetable_0".name) where "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
-                    'business date milestoning mapping not loaded in the port'),
-        unsupported("testNonMilestoningQueryWithMilestoneFilterProject", f"{_SRC}::testNonMilestoningQueryWithMilestoneFilterProject",
-                    'select "root".id as "orderId", "producttable_2".name as "productName" from OrderTable as "root" left outer join (select distinct "producttable_1".id from ProductTable as "producttable_1" where "producttable_1".from_z <= \'2015-10-15\' and "producttable_1".thru_z > \'2015-10-15\' and "producttable_1".id = 2) as "producttable_0" on ("root".prodFk = "producttable_0".id) left outer join ProductTable as "producttable_2" on ("root".prodFk = "producttable_2".id and "producttable_2".from_z <= \'2015-10-15\' and "producttable_2".thru_z > \'2015-10-15\') where "producttable_0".id is not null',
-                    'business date milestoning mapping not loaded in the port'),
-        unsupported("testNonMilestoningQueryWithMilestoneFilterProjectUsingSamePropertyWithDifferentDates", f"{_SRC}::testNonMilestoningQueryWithMilestoneFilterProjectUsingSamePropertyWithDifferentDates",
-                    'select "root".id as "orderId", "producttable_2".name as "productName" from OrderTable as "root" left outer join (select distinct "producttable_1".id from ProductTable as "producttable_1" where "producttable_1".from_z <= \'2015-10-15\' and "producttable_1".thru_z > \'2015-10-15\' and "producttable_1".id = 2) as "producttable_0" on ("root".prodFk = "producttable_0".id) left outer join ProductTable as "producttable_2" on ("root".prodFk = "producttable_2".id and "producttable_2".from_z <= \'2015-10-16\' and "producttable_2".thru_z > \'2015-10-16\') where "producttable_0".id is not null',
                     'business date milestoning mapping not loaded in the port'),
         unsupported("testBusinessDateInjectionFromVarReferenceWithProject", f"{_SRC}::testBusinessDateInjectionFromVarReferenceWithProject",
                     'select "ordertable_1".type as "productType" from OrderTable as "root" left outer join ProductTable as "producttable_0" on ("root".prodFk = "producttable_0".id and "producttable_0".from_z <= "root".orderDate and "producttable_0".thru_z > "root".orderDate) left outer join (select "ordertable_2".id as id, "orderdetailstable_0".settlementDate as settlementDate, "producttable_1".type as type from OrderTable as "ordertable_2" left outer join ProductTable as "producttable_1" on ("ordertable_2".prodFk = "producttable_1".id) left outer join OrderDetailsTable as "orderdetailstable_0" on ("ordertable_2".id = "orderdetailstable_0".id) where "producttable_1".from_z <= "orderdetailstable_0".settlementDate and "producttable_1".thru_z > "orderdetailstable_0".settlementDate) as "ordertable_1" on ("root".id = "ordertable_1".id) where "producttable_0".type = \'STOCK\'',
@@ -90,9 +84,6 @@ BUSINESS_DATE_MILESTONING_SPECS = FinderSpec(
                     'business date milestoning mapping not loaded in the port'),
         unsupported("testMultiLevelIsolatedToSubSelectHasCorrectExtraColumns", f"{_SRC}::testMultiLevelIsolatedToSubSelectHasCorrectExtraColumns",
                     'select "root".id as "id", case when "productexchangetable_0".city = \'London\' then \'true\' else \'false\' end as "isBrexitClassificationTypeExchange" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".thru_z = TIMESTAMP\'9999-12-31 00:00:00.0000\') left outer join (select "productexchangetable_1".city as city, "productexchangetable_1".name as name from ProductExchangeTable as "productexchangetable_1" where "productexchangetable_1".thru_z = TIMESTAMP\'9999-12-31 00:00:00.0000\') as "productexchangetable_0" on ("productclassificationtable_0".exchange = "productexchangetable_0".name) where "root".thru_z = TIMESTAMP\'9999-12-31 00:00:00.0000\'',
-                    'business date milestoning mapping not loaded in the port'),
-        unsupported("testMilestoningFilterPropagationThroughFilter", f"{_SRC}::testMilestoningFilterPropagationThroughFilter",
-                    'select "root".name as "name" from ProductTable as "root" where not (not exists(select 1 from OrderTable as "ordertable_0" where "ordertable_0".id = 1 and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\' and "ordertable_0".prodFk = "root".id)) and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
                     'business date milestoning mapping not loaded in the port'),
         unsupported("testMilestoningFilterPropagationThroughNestedFilter", f"{_SRC}::testMilestoningFilterPropagationThroughNestedFilter",
                     'select "root".name as "name" from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) left outer join (select distinct "orderdescriptiontable_0".id from ProductTable as "root" left outer join OrderTable as "ordertable_1" on ("ordertable_1".prodFk = "root".id) left outer join OrderDescriptionTable as "orderdescriptiontable_0" on ("ordertable_1".id = "orderdescriptiontable_0".id and "orderdescriptiontable_0".id = 1) where "ordertable_1".id = 1 and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\') as "producttable_1" on ("ordertable_0".id = "producttable_1".id and "producttable_1".id = 1) where ("ordertable_0".id = 1 and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\' and not "producttable_1".id is null) and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
@@ -162,5 +153,33 @@ BUSINESS_DATE_AGG_SPECS = FinderSpec(
                'select "root".name as "prodName", "producttable_1".aggCol as "synonyms" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= \'2015-10-16\' and "productclassificationtable_0".thru_z > \'2015-10-16\') left outer join ProductExchangeTable as "productexchangetable_0" on ("root".exchange = "productexchangetable_0".name and "productexchangetable_0".from_z <= \'2015-10-17\' and "productexchangetable_0".thru_z > \'2015-10-17\') left outer join (select "producttable_2".name as name, "producttable_2".id as id, group_concat("productsynonymtable_0".synonym separator \'*\' ) as aggCol from ProductTable as "producttable_2" left outer join ProductSynonymTable as "productsynonymtable_0" on ("producttable_2".name = "productsynonymtable_0".name and "productsynonymtable_0".from_z <= \'2015-10-16\' and "productsynonymtable_0".thru_z > \'2015-10-16\') group by "producttable_2".id,"producttable_2".name) as "producttable_1" on ("root".name = "producttable_1".name and "root".id = "producttable_1".id) where ("productclassificationtable_0".type = \'STOCK\' and "productexchangetable_0".name = \'LNSE\') and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                lambda f: f.find_all("2015-10-16", None, [f.name(), f.synonyms(business_date="2015-10-16").synonym().join("*")], f.classification().type_().eq("STOCK").and_(f.exchange(business_date="2015-10-17").name().eq("LNSE"))),
                known_gaps={BACKEND: AGGREGATE_IN_DERIVED_TABLE}),
+    ],
+)
+
+
+BUSINESS_DATE_ORDER_SPECS = FinderSpec(
+    finder_name="OrderFinder",
+    mapping_file="milestoning/tests/business_date_mapping.md",
+    expectations=[
+        ported("testNonMilestoningQueryWithMilestoneFilterProject", f"{_SRC}::testNonMilestoningQueryWithMilestoneFilterProject",
+               'select "root".id as "orderId", "producttable_2".name as "productName" from OrderTable as "root" left outer join (select distinct "producttable_1".id from ProductTable as "producttable_1" where "producttable_1".from_z <= \'2015-10-15\' and "producttable_1".thru_z > \'2015-10-15\' and "producttable_1".id = 2) as "producttable_0" on ("root".prodFk = "producttable_0".id) left outer join ProductTable as "producttable_2" on ("root".prodFk = "producttable_2".id and "producttable_2".from_z <= \'2015-10-15\' and "producttable_2".thru_z > \'2015-10-15\') where "producttable_0".id is not null',
+               lambda f: f.find_all(None, None, [f.id_(), f.product(business_date="2015-10-15").name()], f.product(business_date="2015-10-15", id=2).exists()),
+               known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
+        ported("testNonMilestoningQueryWithMilestoneFilterProjectUsingSamePropertyWithDifferentDates", f"{_SRC}::testNonMilestoningQueryWithMilestoneFilterProjectUsingSamePropertyWithDifferentDates",
+               'select "root".id as "orderId", "producttable_2".name as "productName" from OrderTable as "root" left outer join (select distinct "producttable_1".id from ProductTable as "producttable_1" where "producttable_1".from_z <= \'2015-10-15\' and "producttable_1".thru_z > \'2015-10-15\' and "producttable_1".id = 2) as "producttable_0" on ("root".prodFk = "producttable_0".id) left outer join ProductTable as "producttable_2" on ("root".prodFk = "producttable_2".id and "producttable_2".from_z <= \'2015-10-16\' and "producttable_2".thru_z > \'2015-10-16\') where "producttable_0".id is not null',
+               lambda f: f.find_all(None, None, [f.id_(), f.product(business_date="2015-10-16").name()], f.product(business_date="2015-10-15", id=2).exists()),
+               known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
+    ],
+)
+
+
+BUSINESS_DATE_EXISTS_SPECS = FinderSpec(
+    finder_name="ProductFinder",
+    mapping_file="milestoning/tests/business_date_mapping.md",
+    expectations=[
+        ported("testMilestoningFilterPropagationThroughFilter", f"{_SRC}::testMilestoningFilterPropagationThroughFilter",
+               'select "root".name as "name" from ProductTable as "root" where not (not exists(select 1 from OrderTable as "ordertable_0" where "ordertable_0".id = 1 and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\' and "ordertable_0".prodFk = "root".id)) and "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
+               lambda f: f.find_all("2015-08-15", None, [f.name()], f.orders(id=1).exists()),
+               known_gaps={BACKEND: CORRELATED_EXISTS}),
     ],
 )

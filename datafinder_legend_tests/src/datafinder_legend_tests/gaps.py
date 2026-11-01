@@ -11,11 +11,11 @@ from functools import reduce
 from sqlglot import exp
 
 from datafinder_examples_tests.sql_compare import (
-    _canonical_aliases, _connect, _flatten_connectors, _operands, _order_join_equalities, normalize,
+    _canonical_aliases, _connect, _flatten_connectors, _operands, _order_join_equalities, _own, normalize,
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -137,8 +137,53 @@ def _inline_isolated_join_filter(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _on_columns(join: exp.Join) -> list[exp.Column]:
+    """The columns of a join's ON condition: what it depends on, not the columns inside a derived table it joins."""
+    condition = join.args.get("on")
+    return list(condition.find_all(exp.Column)) if condition is not None else []
+
+
+def _order_sub_select_conditions(tree: exp.Expr) -> exp.Expr:
+    """Write the and-ed conditions of a derived table's WHERE in one order, since a AND b is b AND a."""
+    for derived in list(tree.find_all(exp.Subquery)):
+        inner = derived.this
+        where = inner.args.get("where") if isinstance(inner, exp.Select) else None
+        if where is None:
+            continue
+        operands = sorted((o.copy() for o in _operands(where.this, exp.And)), key=lambda o: o.sql())
+        where.set("this", reduce(lambda left, right: _connect(exp.And, left, right), operands[1:], operands[0]))
+    return tree
+
+
+def _join_source_key(join: exp.Join) -> tuple[str, str]:
+    """What a join reads from, without its alias: a table's name, or a derived table's text."""
+    source = join.this
+    if isinstance(source, exp.Table):
+        return ("table", source.name)
+    inner = source.this
+    return ("derived", inner.sql())
+
+
+def _canonical_derived_aliases(tree: exp.Expr) -> None:
+    """Rename the derived tables a SELECT joins to d0, d1, ... in order of appearance."""
+    for select in tree.find_all(exp.Select):
+        mapping: dict[str, str] = {}
+        for join in select.args.get("joins") or []:
+            if isinstance(join.this, exp.Subquery) and join.this.alias:
+                mapping.setdefault(join.this.alias.lower(), f"d{len(mapping)}")
+        if not mapping:
+            continue
+        for join in select.args.get("joins") or []:
+            if isinstance(join.this, exp.Subquery) and join.this.alias:
+                join.this.set("alias", exp.TableAlias(this=exp.to_identifier(mapping[join.this.alias.lower()])))
+        for column in select.find_all(exp.Column):
+            if _own(select, column) and column.table.lower() in mapping:
+                column.set("table", exp.to_identifier(mapping[column.table.lower()]))
+
+
 def _order_left_joins(tree: exp.Expr) -> exp.Expr:
-    """Write the left joins of each SELECT in one order: by table, with a join always after the joins it depends on."""
+    """Write the left joins of each SELECT in one order: by what they read from, with a join always after the joins it
+    depends on, and name the derived tables by position."""
     for select in tree.find_all(exp.Select):
         joins = select.args.get("joins") or []
         source = select.args.get("from_") or select.args.get("from")
@@ -148,16 +193,17 @@ def _order_left_joins(tree: exp.Expr) -> exp.Expr:
         remaining, ordered = list(joins), []
         while remaining:
             ready = [j for j in remaining
-                     if {c.table for c in j.find_all(exp.Column)} <= provided | {j.this.alias_or_name}]
+                     if {c.table for c in _on_columns(j)} <= provided | {j.this.alias_or_name}]
             if not ready:
                 break
-            pick = min(ready, key=lambda j: (j.this.name if isinstance(j.this, exp.Table) else "", j.sql()))
+            pick = min(ready, key=_join_source_key)
             ordered.append(pick)
             remaining.remove(pick)
             provided.add(pick.this.alias_or_name)
         if not remaining:
             select.set("joins", ordered)
     _canonical_aliases(tree)
+    _canonical_derived_aliases(tree)
     _order_join_equalities(tree)
     return tree
 
@@ -167,6 +213,7 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     TDS_FILTER_OPTIONAL_PROPERTY: [_drop_not_null_guards],
     ISOLATED_MILESTONED_JOIN: [_inline_isolated_join_filter],
     LEFT_JOIN_ORDER: [_order_left_joins],
+    EXISTS_SUB_SELECT_ORDER: [_order_sub_select_conditions, _order_left_joins],
     TYPED_DATE_LITERAL: [_untype_date_literals],
     DATETIME_MILESTONING_DATE: [_truncate_datetime_date],
     CONCAT_FUNCTION: [_concat_function_to_pipes],

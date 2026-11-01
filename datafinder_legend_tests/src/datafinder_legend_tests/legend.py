@@ -58,6 +58,20 @@ AGGREGATE_IN_DERIVED_TABLE = (
     "table grouped by the root's keys and joins it back to the root; the finder groups the one query by the root's keys, "
     "which returns one row per root row with the same aggregate"
 )
+EXISTS_SUB_SELECT_ORDER = (
+    "for a to-many step that is only asked about, Legend writes the sub-select's milestoning before its property filter and "
+    "joins the sub-select before the join that reads values through the same step; the finder writes the property filter "
+    "first and the sub-select after the other join. And-ed conditions and independent left joins give the same rows in "
+    "either order"
+)
+CORRELATED_EXISTS = (
+    "when a query only filters on a to-many step, Legend writes `not (not exists (select 1 ... where child.fk = root.id))`; the "
+    "finder joins a DISTINCT sub-select of the child's join column and tests it is not null, which returns the same rows"
+)
+EXISTS_ON_TO_ONE_STEP = (
+    "Legend reads exists on a step that is declared to-one through a DISTINCT sub-select as it does for a to-many step; the "
+    "finder keeps a to-one step as a join, which cannot repeat a row and so returns the same rows"
+)
 CONCAT_FUNCTION = (
     "Legend writes `+` on text as concat(a, b), which treats a NULL part as empty in DuckDB; the finder writes a || b, "
     "which is NULL when any part is"
