@@ -105,7 +105,10 @@ def test_two_to_many_steps_do_not_multiply_each_other(con):
 def test_a_derived_table_is_used_only_for_exists(con):
     accounts, account_id, _, trades, _ = _accounts()
     sql = to_sql(None, NOW, [account_id], accounts, trades.exists())
-    assert "SELECT DISTINCT t1.account_id FROM trades AS t1" in sql
+    # the table inside the sub-select and the sub-select itself have their own aliases
+    assert "LEFT OUTER JOIN (SELECT DISTINCT t2.account_id FROM trades AS t2 WHERE " in sql
+    assert ") AS t1 ON (t0.ID = t1.account_id)" in sql
+    assert "WHERE t1.account_id IS NOT NULL" in sql
 
 
 def test_reading_a_value_through_the_step_keeps_a_row_per_child(con):

@@ -20,9 +20,28 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     SelectOperation, QueryExpression, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
 
 class TableAlias:
-    def __init__(self, table: str, alias: str):
+    """A name for a relation in a query. As in Legend, the relation is a table or a query: ``table`` is the table's name,
+    or a SubSelect when the alias stands for ``(SELECT ...)``."""
+
+    def __init__(self, table: 'str | SubSelect', alias: str):
         self.table = table
         self.alias = alias
+
+
+class SubSelect:
+    """A query used where a table is: ``(SELECT [DISTINCT] <columns> FROM <source> [WHERE <filter>])``.
+
+    ``filter_op`` is written against the step it was built for, ``scope`` (the join step whose columns it reads), and
+    reads them from ``source``, the alias the sub-select gives that step's table inside itself.
+    """
+
+    def __init__(self, source: TableAlias, columns: Sequence[Column], filter_op: RelationalOperationElement | None = None,
+                 distinct: bool = False, scope: 'JoinTreeNodeOperation | None' = None):
+        self.source = source
+        self.columns = columns
+        self.filter_op = filter_op
+        self.distinct = distinct
+        self.scope = scope
 
 
 class TableAliasColumn(RelationalOperationElement):
@@ -33,14 +52,10 @@ class TableAliasColumn(RelationalOperationElement):
 
 
 class Join:
-    def __init__(self, source: TableAliasColumn, target: TableAliasColumn, filter_op: RelationalOperationElement | None = None,
-                 derived: bool = False):
+    def __init__(self, source: TableAliasColumn, target: TableAliasColumn, filter_op: RelationalOperationElement | None = None):
         self.source = source
         self.target = target
         self.filter_op = filter_op
-        # True when the target is joined as ``(SELECT DISTINCT join column FROM target WHERE filter)``, so a parent that
-        # has several matching rows is still one row. The filter is then that select's WHERE, not the ON clause.
-        self.derived = derived
 
     def condition(self) -> str:
         """``source = target``, written with the key column first as Legend writes a join defined as key = foreign key."""
@@ -968,7 +983,9 @@ class SQLQueryGenerator:
         sc = TableAliasColumn(left, src_ta)
         right = join.right
         tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
-        self._join.append(Join(sc, tc, self._join_filters.get(id(node)), derived=id(node) in self.__exists_only_ids))
+        # a sub-select carries the step's filter itself, so it is not repeated in the ON clause
+        on_filter = None if isinstance(tc.table_alias.table, SubSelect) else self._join_filters.get(id(node))
+        self._join.append(Join(sc, tc, on_filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
@@ -1036,25 +1053,60 @@ class SQLQueryGenerator:
         cache_key = key if key is not None else table
         if cache_key in self.__table_aliases_by_table:
             return self.__table_aliases_by_table[cache_key]
-        ta = TableAlias(table, "t" + str(self.__table_alias_incr))
-        self.__table_alias_incr += 1
+        if key is not None and id(key) in self.__exists_only_ids:
+            ta = self.__sub_select_alias(key)
+        else:
+            ta = self.__new_alias(table)
         self.__table_aliases_by_table[cache_key] = ta
         return ta
+
+    def __new_alias(self, table: 'str | SubSelect') -> TableAlias:
+        ta = TableAlias(table, "t" + str(self.__table_alias_incr))
+        self.__table_alias_incr += 1
+        return ta
+
+    def __sub_select_alias(self, node: JoinTreeNodeOperation) -> TableAlias:
+        """The alias of a step the query only asks the existence of: ``SELECT DISTINCT`` of its join column, with the
+        step's own conditions (milestoning and the like) inside. Distinct on the join column makes it at most one row for a
+        parent, however many rows of the table match."""
+        right = node.join.right
+        if right.owner is None:
+            raise TypeError
+        outer = self.__new_alias(right.owner)  # numbered first, then given the sub-select
+        source = self.__new_alias(right.owner)
+        outer.table = SubSelect(source, [right], self._join_filters.get(id(node)), distinct=True, scope=node)
+        return outer
+
+    def __relation_sql(self, alias: TableAlias) -> str:
+        """What follows FROM or JOIN: the table's name, or the sub-select in parentheses."""
+        sub = alias.table
+        if isinstance(sub, str):
+            return sub
+        where = ''
+        if sub.filter_op is not None:
+            # the filter reads the step it was built for, which inside the sub-select is the source alias
+            outer = self.__table_aliases_by_table.get(sub.scope)
+            if sub.scope is not None:
+                self.__table_aliases_by_table[sub.scope] = sub.source
+            try:
+                where = ' WHERE ' + self.build_filter(sub.filter_op)
+            finally:
+                if sub.scope is not None:
+                    self.__table_aliases_by_table[sub.scope] = outer
+        columns = ', '.join(sub.source.alias + '.' + c.name for c in sub.columns)
+        assert isinstance(sub.source.table, str)
+        return '(SELECT ' + ('DISTINCT ' if sub.distinct else '') + columns + ' FROM ' + sub.source.table + \
+            ' AS ' + sub.source.alias + where + ')'
 
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:
             alias = j.target.table_alias
-            if j.derived:
-                where = ' WHERE ' + self.build_filter(j.filter_op) if j.filter_op else ''
-                derived_table = '(SELECT DISTINCT ' + alias.alias + '.' + j.target.column.name + ' FROM ' + alias.table + \
-                                ' AS ' + alias.alias + where + ')'
-                return ' LEFT OUTER JOIN ' + derived_table + ' AS ' + alias.alias + ' ON (' + j.condition() + ')'
-            return ' LEFT OUTER JOIN ' + alias.table + ' AS ' + alias.alias + ' ON (' + j.condition() \
+            return ' LEFT OUTER JOIN ' + self.__relation_sql(alias) + ' AS ' + alias.alias + ' ON (' + j.condition() \
                 + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
 
         joins = map(join_sql, self._join)
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
-            + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
+            + ' FROM ' + ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
             + self.__build_where() \
             + self.__build_group_by() \
