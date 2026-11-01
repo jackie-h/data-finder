@@ -581,13 +581,9 @@ LINEITEM_FINDER_SPECS = FinderSpec(
             expected_columns=["revenue"],
             expected_result=_rows([_O1L1 + _O1L2 + _O2L2]),
         ),
-        # --- Queries that are right on a milestoned root but wrong on a milestoned navigation inside a CASE ---
+        # --- A milestoned navigation used only inside a CASE is joined at the query's dates ---
         TestExpectation(
             name="H12_shipping_modes_and_order_priority",
-            skip_backends=_skip(
-                "A navigation used only inside a CASE is joined without its milestoning predicates, so the order is "
-                "counted once per version of it (MAIL gives 2 where 1 is right)"
-            ),
             query=lambda f: f.find_all(
                 _H_APPLICATION, _H_SYSTEM,
                 [f.ship_mode(),
@@ -599,10 +595,6 @@ LINEITEM_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="H14_promotion_effect",
-            skip_backends=_skip(
-                "A navigation used only inside a CASE is joined without its milestoning predicates, so each line is "
-                "repeated once per version of its part"
-            ),
             query=lambda f: f.find_all(
                 "2022-01-15", "2022-06-01",
                 [when(f.part().type_().starts_with("PROMO")).then(_revenue(f)).otherwise(0).sum().alias("promo_revenue"),
@@ -617,8 +609,8 @@ LINEITEM_FINDER_SPECS = FinderSpec(
         ),
         _unsupported(
             "H8_national_market_share",
-            "Divides one CASE sum by another over nations reached through navigations, which hits the CASE "
-            "milestoning problem of H12 and H14",
+            "Divides one CASE sum by another next to a date extract. That expression is not recognised as an aggregate, so "
+            "the extract is not grouped, and group_by does not accept an extract",
             ["Year Ship Date", "mkt_share"],
         ),
         # --- The rest of the 22 ---
@@ -691,6 +683,24 @@ CUSTOMER_REVENUE_FINDER_SPECS = FinderSpec(
             ).group_by(f.customer_key(), f.name(), f.acct_bal(), f.nation().name()),
             expected_columns=["Customer Key", "Name", "revenue", "Acct Bal", "Nation Name"],
             expected_result=_rows([1, "Customer#1", _O1L1, 100.0, "UNITED STATES"]),
+        ),
+    ],
+)
+
+CUSTOMER_JOIN_STRINGS_FINDER_SPECS = FinderSpec(
+    finder_name="CustomerFinder",
+    mapping_file=TPCH_BIH_MAPPING,
+    expectations=[
+        TestExpectation(
+            # The orders are reached only through the aggregate's ORDER BY, and are joined at the query's dates:
+            # order 2 has two versions and order 5 was cancelled later, so an unmilestoned join repeats customers.
+            name="join_strings_ordered_by_a_navigation_is_milestoned",
+            query=lambda f: f.find_all(
+                "2022-06-01", "2022-06-01",
+                [f.nation().name(), f.name().join(", ", order_by=[f.orders().total_price().ascending()])],
+            ).order_by(f.nation().name().ascending()),
+            expected_columns=["Nation Name", "Join Name"],
+            expected_result=_rows(["FRANCE", "Customer#3"], ["UNITED STATES", "Customer#1, Customer#4, Customer#2"]),
         ),
     ],
 )
@@ -807,6 +817,7 @@ ALL_TPCH_BIH_SPECS = [
     PARTSUPP_FINDER_SPECS,
     LINEITEM_FINDER_SPECS,
     CUSTOMER_REVENUE_FINDER_SPECS,
+    CUSTOMER_JOIN_STRINGS_FINDER_SPECS,
     PART_FINDER_SPECS,
     SUPPLIER_FINDER_SPECS,
     NATION_FINDER_SPECS,

@@ -195,6 +195,12 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
     elif isinstance(op, AggregateOperation):
         collect_required_joins(op.element, required_joins, node_refs)
         collect_required_joins(op.window, required_joins, node_refs)
+        for sort_op in op.order_by:
+            collect_required_joins(sort_op.column, required_joins, node_refs)
+    elif isinstance(op, CaseOperation):
+        collect_required_joins(op.condition, required_joins, node_refs)
+        collect_required_joins(op.then, required_joins, node_refs)
+        collect_required_joins(op.default, required_joins, node_refs)
     elif isinstance(op, ScalarFunctionOperation):
         collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, (DateExtractOperation, DateTruncOperation)):
