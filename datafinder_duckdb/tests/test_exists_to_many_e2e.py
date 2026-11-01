@@ -12,7 +12,7 @@ import pytest
 from datafinder import to_sql, count_all
 from datafinder.finder import RelatedFinder
 from datafinder.typed_attributes import IntegerAttribute, StringAttribute
-from model.milestoning import MilestonedTable, ProcessingTemporalColumns
+from model.milestoning import BiTemporalColumns, MilestonedTable, ProcessingTemporalColumns
 from model.relational import Column, JoinOperation, JoinTreeNodeOperation, Table
 
 INFINITE = "9999-12-31 23:59:59"
@@ -39,8 +39,9 @@ def con():
     return conn
 
 
-def _accounts():
-    """Accounts with two to-many navigations: trades (milestoned) and positions."""
+def _accounts(trades_processing_datetime=None):
+    """Accounts with two to-many navigations: trades (milestoned) and positions. The trades step can be given a processing
+    time of its own."""
     accounts = Table("accounts", [])
     trades_table = MilestonedTable(
         "trades", [], ProcessingTemporalColumns(Column("start_at", "TIMESTAMP"), Column("end_at", "TIMESTAMP"),
@@ -48,7 +49,7 @@ def _accounts():
     positions_table = Table("positions", [])
     trades_node = JoinTreeNodeOperation(
         JoinOperation("Trades", trades_table, Column("ID", "INT", "accounts", primary_key=True),
-                      Column("account_id", "INT", "trades")), many=True)
+                      Column("account_id", "INT", "trades")), many=True, processing_datetime=trades_processing_datetime)
     positions_node = JoinTreeNodeOperation(
         JoinOperation("Positions", positions_table, Column("ID", "INT", "accounts", primary_key=True),
                       Column("account_id", "INT", "positions")), many=True)
@@ -134,3 +135,36 @@ def test_exists_through_a_to_one_step(con):
     sql = to_sql(None, NOW, [position_id], positions_table, RelatedFinder(trades_node).exists())
     assert _ids(con, sql) == [21, 22]  # both positions of Acme, once each
     assert "SELECT DISTINCT" in sql
+
+
+def test_a_step_with_its_own_processing_time_uses_it_inside_the_query(con):
+    # the query is as of now, but the trades are looked at as they were in 2020: Acme's GS and Delta's OLD were valid then
+    accounts, account_id, _, trades, _ = _accounts(trades_processing_datetime=PAST)
+    sql = to_sql(None, NOW, [account_id], accounts, trades.exists())
+    assert _ids(con, sql) == [1, 4]
+    inner = sql[sql.index("(SELECT DISTINCT"):sql.index(") AS ")]
+    assert "2020-06-01" in inner and "2024-06-01" not in inner
+
+
+def test_exists_over_a_business_date_range_is_one_row_per_parent(con):
+    con.execute("CREATE TABLE contracts (id INTEGER, account_id INTEGER, from_d DATE, to_d DATE, in_z TIMESTAMP, out_z TIMESTAMP)")
+    con.execute(
+        "INSERT INTO contracts VALUES "
+        f"(31, 1, '2024-01-01', '2024-06-30', '2024-01-01 00:00:00', '{INFINITE}'), "  # Acme: two that overlap the range
+        f"(32, 1, '2024-03-01', '9999-12-31', '2024-01-01 00:00:00', '{INFINITE}'), "
+        f"(33, 2, '2023-01-01', '2023-12-31', '2024-01-01 00:00:00', '{INFINITE}')"  # Beta: ended before it
+    )
+    contracts = MilestonedTable(
+        "contracts", [], BiTemporalColumns(Column("from_d", "DATE"), Column("to_d", "DATE"), Column("in_z", "TIMESTAMP"),
+                                           Column("out_z", "TIMESTAMP"), infinite_datetime=INFINITE))
+    node = JoinTreeNodeOperation(
+        JoinOperation("Contracts", contracts, Column("ID", "INT", "accounts", primary_key=True),
+                      Column("account_id", "INT", "contracts")), many=True)
+    accounts = Table("accounts", [])
+    account_id = IntegerAttribute("Id", "ID", "INT", "accounts")
+    in_range = to_sql(datetime.date(2024, 2, 1), NOW, [account_id], accounts, RelatedFinder(node).exists(),
+                      business_date_to=datetime.date(2024, 4, 1))
+    assert _ids(con, in_range) == [1]  # both of Acme's contracts overlap the range, and it is one row
+    before = to_sql(datetime.date(2022, 1, 1), NOW, [account_id], accounts, RelatedFinder(node).exists(),
+                    business_date_to=datetime.date(2022, 2, 1))
+    assert _ids(con, before) == []
