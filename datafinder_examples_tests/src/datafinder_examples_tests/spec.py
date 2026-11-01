@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -22,12 +23,24 @@ def _normalize_missing(values: np.ndarray) -> np.ndarray:
     return np.array(flat, dtype=object).reshape(np.asarray(values, dtype=object).shape)
 
 
+def _assert_rows_close(actual: np.ndarray, expected: np.ndarray, name: str) -> None:
+    """Rows equal, except that two floats are equal when they agree to a relative 1e-9: the last digits of an aggregate
+    depend on the order the rows were added in, which is not defined."""
+    assert actual.shape == expected.shape, f"[{name}] Result shape mismatch: {actual.shape} actual, {expected.shape} expected"
+    for index in np.ndindex(actual.shape):
+        a, e = actual[index], expected[index]
+        if isinstance(a, float) and isinstance(e, float):
+            assert math.isclose(a, e, rel_tol=1e-9, abs_tol=1e-9), f"[{name}] Result mismatch at {index}: {a!r} actual, {e!r} expected"
+        else:
+            assert a == e, f"[{name}] Result mismatch at {index}: {a!r} actual, {e!r} expected"
+
+
 @dataclass
 class TestExpectation:
     """A single backend-agnostic query expectation."""
 
     name: str
-    query: Callable  # (query_context) -> FinderResult
+    query: Callable  # (finder) -> FinderResult
     expected_columns: list[str]
     expected_result: np.ndarray
     # Keyed by backend name (e.g. "duckdb"). Omit to skip SQL check for that backend.
@@ -36,11 +49,13 @@ class TestExpectation:
     unexpected_sql: dict[str, str] = field(default_factory=dict)
     # Keyed by backend name — reason the expectation does not apply to that backend. The run is skipped.
     skip_backends: dict[str, str] = field(default_factory=dict)
+    # Compare floats to a relative 1e-9, not exactly: for an aggregate whose last digits depend on the order of the rows.
+    approximate: bool = False
 
-    def run(self, query_context: Any, backend: str | None = None) -> None:
+    def run(self, finder: Any, backend: str | None = None) -> None:
         if backend and backend in self.skip_backends:
             pytest.skip(self.skip_backends[backend])
-        result = self.query(query_context)
+        result = self.query(finder)
         if backend and (backend in self.expected_sql or backend in self.unexpected_sql):
             actual_sql = result.to_sql()
             if backend in self.expected_sql:
@@ -63,6 +78,9 @@ class TestExpectation:
             f"Expected: {self.expected_columns}\n"
             f"Actual:   {list(df.columns)}"
         )
+        if self.approximate:
+            _assert_rows_close(_normalize_missing(df.values), _normalize_missing(self.expected_result), self.name)
+            return
         assert_array_equal(
             _normalize_missing(df.values),
             _normalize_missing(self.expected_result),

@@ -1,6 +1,0 @@
-s_suppkey,s_name,s_address,s_nationkey,s_phone,s_acctbal,s_comment,sys_time_begin,sys_time_end
-1,Supplier#1,1 Supplier Street,1,11-101-201-3001,1000.0,supplier 1 is a regular supplier,2020-01-01 00:00:00,2022-01-01 00:00:00
-1,Supplier#1,1 Supplier Street,1,11-101-201-3001,1200.0,supplier 1 is a regular supplier,2022-01-01 00:00:00,9999-12-31 23:59:59
-2,Supplier#2,2 Supplier Street,2,12-102-202-3002,500.0,supplier 2 is a regular supplier,2020-01-01 00:00:00,2023-01-01 00:00:00
-2,Supplier#2,2 Supplier Street,2,12-102-202-3002,450.0,supplier 2 is a regular supplier,2023-01-01 00:00:00,9999-12-31 23:59:59
-3,Supplier#3,3 Supplier Street,0,10-103-203-3003,800.0,supplier 3 is a regular supplier,2020-01-01 00:00:00,9999-12-31 23:59:59

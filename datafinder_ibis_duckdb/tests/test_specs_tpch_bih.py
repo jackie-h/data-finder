@@ -17,6 +17,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
+from datafinder_examples_tests.tpch_bih_data import csv_dir
 from datafinder_examples_tests.tpch_bih_specs import ALL_TPCH_BIH_CASES, TPCH_BIH_MAPPING
 
 _FINDERS = {
@@ -61,7 +62,7 @@ def _seed_db() -> None:
     for table, columns in _TABLES.items():
         conn.execute(f"CREATE TABLE tpch.{table} ({columns})")
         conn.execute(
-            f"INSERT INTO tpch.{table} SELECT * FROM read_csv_auto('{str(example_path(f'tpch_bih_{table}.csv'))}')"
+            f"INSERT INTO tpch.{table} SELECT * FROM read_csv_auto('{str(csv_dir() / f'tpch_bih_benchmark_{table}.csv')}')"
         )
     conn.close()
 
