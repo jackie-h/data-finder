@@ -34,11 +34,15 @@ def _build_repo():
     repo = Database("finance_db", "duckdb://test.db")
     ref = Schema("ref_data", repo)
     trd = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"),
+    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"), Column("DESK_ID", "INT"),
                              Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
     Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref)
+    Table("desk", [Column("ID", "INT"), Column("NAME", "VARCHAR")], ref)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
+    Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"), Column("NPV", "DOUBLE"),
+                                      Column("ACCOUNT_ID", "INT"), Column("in_z", "TIMESTAMP"),
+                                      Column("out_z", "TIMESTAMP")], trd)
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
                      Column("is_settled", "BOOLEAN"), Column("account_id", "INT"),
                      Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trd)

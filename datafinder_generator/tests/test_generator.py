@@ -85,11 +85,15 @@ class TestGeneratePackageStructure:
         repo = Database("finance_db", "duckdb://test.db")
         ref_data = Schema("ref_data", repo)
         trading = Schema("trading", repo)
-        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"),
+        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"), Column("DESK_ID", "INT"),
                                  Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
         Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref_data)
+        Table("desk", [Column("ID", "INT"), Column("NAME", "VARCHAR")], ref_data)
         Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                         Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
+        Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"), Column("NPV", "DOUBLE"),
+                                          Column("ACCOUNT_ID", "INT"), Column("in_z", "TIMESTAMP"),
+                                          Column("out_z", "TIMESTAMP")], trading)
         Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
                          Column("is_settled", "BOOLEAN"), Column("account_id", "INT"),
                          Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)

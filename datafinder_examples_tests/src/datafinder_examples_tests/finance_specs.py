@@ -6,10 +6,11 @@ before running these specs.  Column ordering matches the tables in finance_mappi
 
     ref_data.account_master  — ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT, in_z TIMESTAMP, out_z TIMESTAMP
     ref_data.branch          — ID INT, CITY VARCHAR
+    ref_data.desk            — ID INT, NAME VARCHAR
     ref_data.price           — SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP
     trading.trades           — sym VARCHAR, price DOUBLE, is_settled BOOLEAN,
                                account_id INT, in_z TIMESTAMP, out_z TIMESTAMP
-    trading.contractualposition — DATE DATE, QUANTITY DOUBLE, NPV DOUBLE,
+    trading.contractualposition — DATE DATE, QUANTITY DOUBLE, NPV DOUBLE, ACCOUNT_ID INT,
                                   in_z TIMESTAMP, out_z TIMESTAMP
 
 Trade data:
@@ -21,6 +22,8 @@ Trade data:
 Account 1 has two versions, which point at different branches:
     'Acme Ltd'  branch 10 (London)    in_z=2020-01-01 00:00:00, out_z=2022-01-01 00:00:00
     'Acme Corp' branch 11 (New York)  in_z=2022-01-01 00:00:00, out_z=9999-12-31 23:59:59
+Accounts are part of desks (1 Equities, 2 Rates, 3 Credit): 'Acme Ltd' is on Rates, 'Acme Corp' and 'Beta Inc' are on
+Equities, and no account is on Credit. Every position is on account 1, 'Acme'.
 Account 2 only becomes live after MSFT does, so for a while MSFT has an account row but no live account:
     'Beta Inc'  branch 11 (New York)  in_z=2024-06-01 00:00:00, out_z=9999-12-31 23:59:59
 """
@@ -875,6 +878,138 @@ BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
             expected_columns=["City", "Accounts Name"],
             expected_result=np.array([["New York", "Acme Corp"], ["New York", "Beta Inc"]], dtype=object),
             unexpected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+    ],
+)
+
+_GRAPHQL_NO_DESKS = "The finance GraphQL mapping does not map desks or the positions of an account"
+
+# A desk has accounts, milestoned in processing time: at _MSFT_WITH_LIVE_ACCOUNT_AT Equities has two ('Acme Corp' and
+# 'Beta Inc'), and Rates and Credit have none; at _BOTH_AT Rates has 'Acme Ltd'.
+DESK_EXISTS_FINDER_SPECS = FinderSpec(
+    finder_name="DeskFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": _GRAPHQL_NO_DESKS},
+    expectations=[
+        TestExpectation(
+            name="exists_to_many_is_one_row_however_many_rows_match",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts().exists()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Equities"]], dtype=object),
+            expected_sql={"duckdb": 'SELECT DISTINCT t2.DESK_ID AS "DESK_ID" FROM ref_data.account_master AS t2'},
+        ),
+        TestExpectation(
+            name="not_exists_to_many_is_a_row_with_no_match",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts().not_exists())
+            .order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_step_is_milestoned_inside_the_sub_select",
+            query=lambda f: f.find_all(None, _BOTH_AT, [f.name()], f.accounts().exists()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Rates"]], dtype=object),
+            expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.in_z <="},
+            unexpected_sql={"duckdb": "t1.in_z"},
+        ),
+    ],
+)
+
+# An account has positions, which have a business date and are milestoned in processing time. With no business date every
+# position is found: at _MSFT_WITH_LIVE_ACCOUNT_AT Acme has two (100 on 2023-01-15 and 200 on 2023-01-16) and Beta none.
+_POSITIONS_RECORDED_AT = "2023-02-01 12:00:00"
+
+ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
+    finder_name="AccountFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": _GRAPHQL_NO_DESKS},
+    expectations=[
+        TestExpectation(
+            name="exists_to_many_is_one_row_however_many_rows_match",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions().exists()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+        TestExpectation(
+            name="exists_to_many_counts_a_row_once",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [count_all()], f.positions().exists()),
+            expected_columns=["Count"],
+            expected_result=np.array([[1]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_exists_to_many_is_a_row_with_no_match",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions().not_exists()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Beta Inc"]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_step_with_its_own_business_date_uses_it_inside_the_sub_select",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()],
+                f.positions(business_date=datetime.date(2023, 1, 16)).exists(),
+            ),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "2023-01-16"},
+        ),
+        TestExpectation(
+            name="a_step_with_a_business_date_with_no_position_is_no_row",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()],
+                f.positions(business_date=datetime.date(2023, 2, 1)).exists(),
+            ),
+            expected_columns=["Name"],
+            expected_result=np.empty((0, 1), dtype=object),
+        ),
+        TestExpectation(
+            # The 90 position on 2023-01-15 was replaced by the 100 on that day; before that it is the one found
+            name="a_step_with_its_own_processing_time_uses_it_inside_the_sub_select",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()],
+                f.positions(processing_time="2023-01-12 12:00:00").exists(),
+            ),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+        ),
+        TestExpectation(
+            # Acme has one live trade (AAPL) and two positions here: two rows as joins
+            name="two_to_many_steps_do_not_multiply_each_other",
+            query=lambda f: f.find_all(
+                None, _POSITIONS_RECORDED_AT, [f.name()], f.trades().exists().and_(f.positions().exists())
+            ),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+        ),
+        TestExpectation(
+            # A value read through the step is a row for each position, and exists() then holds for a position in the result
+            name="reading_a_value_through_the_step_keeps_a_row_for_each_match",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name(), f.positions().quantity()], f.positions().exists()
+            ).order_by(f.positions().quantity().ascending()),
+            expected_columns=["Name", "Positions Quantity"],
+            expected_result=np.array([["Acme Corp", 100.0], ["Acme Corp", 200.0]], dtype=object),
+            unexpected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+    ],
+)
+
+POSITION_DESK_EXISTS_FINDER_SPECS = FinderSpec(
+    finder_name="ContractualPositionFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": _GRAPHQL_NO_DESKS},
+    expectations=[
+        TestExpectation(
+            # position -> account -> desk are to-one; the accounts of the desk are to-many. Equities has two accounts,
+            # so a join would repeat each position.
+            name="exists_to_many_through_to_one_steps_is_one_row_per_position",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.quantity()], f.account().desk().accounts().exists()
+            ).order_by(f.quantity().ascending()),
+            expected_columns=["Quantity"],
+            expected_result=np.array([[100.0], [200.0]], dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
 )

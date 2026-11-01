@@ -20,15 +20,16 @@ def _build_repository() -> Database:
     repo = Database("finance_db", "duckdb://test.db")
     ref_data = Schema("ref_data", repo)
     trading = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"),
+    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"), Column("DESK_ID", "INT"),
                              Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
     Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref_data)
+    Table("desk", [Column("ID", "INT"), Column("NAME", "VARCHAR")], ref_data)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("is_settled", "BOOLEAN"),
                      Column("account_id", "INT"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
     Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"),
-                                  Column("NPV", "DOUBLE"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
+                                  Column("NPV", "DOUBLE"), Column("ACCOUNT_ID", "INT"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
     return repo
 
 
@@ -43,7 +44,7 @@ class TestMarkdownMappingLoad:
         assert self.mapping.name == "Finance Mapping"
 
     def test_classes_mapped(self):
-        assert set(self.by_class.keys()) == {"Account", "Branch", "Instrument", "Trade", "ContractualPosition"}
+        assert set(self.by_class.keys()) == {"Account", "Branch", "Desk", "Instrument", "Trade", "ContractualPosition"}
 
     def test_account_column_mappings(self):
         rcm = self.by_class["Account"]
@@ -56,7 +57,7 @@ class TestMarkdownMappingLoad:
         for pm in rcm.property_mappings:
             assert isinstance(pm, RelationalPropertyMapping)
             # branch is an association, so it maps to a join; everything else to a column
-            assert isinstance(pm.target, Join if pm.property.id == "branch" else Column)
+            assert isinstance(pm.target, Join if pm.property.id in ("branch", "desk") else Column)
 
     def test_classes_resolved_from_model_file(self):
         account = self.by_class["Account"].clazz
@@ -166,7 +167,7 @@ class TestMarkdownMappingLoad:
         by_prop = {pm.property.id: pm for pm in rcm.property_mappings}
         account_table = by_prop["id"].target.table
         assert [(fk.column.name, fk.references.table.name) for fk in account_table.foreign_keys] == \
-            [("BRANCH_ID", "branch")]
+            [("BRANCH_ID", "branch"), ("DESK_ID", "desk")]
 
     def test_join_mapping_for_non_primitive_property(self):
         rcm = self.by_class["Trade"]
@@ -201,7 +202,7 @@ class TestMarkdownMappingSave:
         repo2 = _build_repository()
         mapping2 = loads(content, self.packages, repo2)
         by_class2 = {rcm.clazz.name: rcm for rcm in mapping2.mappings}
-        assert set(by_class2.keys()) == {"Account", "Branch", "Instrument", "Trade", "ContractualPosition"}
+        assert set(by_class2.keys()) == {"Account", "Branch", "Desk", "Instrument", "Trade", "ContractualPosition"}
         assert isinstance(by_class2["Trade"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
         assert by_class2["Branch"].milestone_mapping is None
         assert isinstance(by_class2["Account"].milestone_mapping, ProcessingDateMilestonesPropertyMapping)
@@ -242,7 +243,7 @@ class TestMarkdownMappingSave:
             save(temp_path, "Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
             repo2 = _build_repository()
             mapping2 = load(temp_path, repo2)
-            assert len(mapping2.mappings) == 5
+            assert len(mapping2.mappings) == 6
         finally:
             os.unlink(temp_path)
 
@@ -308,7 +309,7 @@ class TestMarkdownMappingLoadNoRepository:
         self.by_class = {rcm.clazz.name: rcm for rcm in self.mapping.mappings}
 
     def test_classes_mapped(self):
-        assert set(self.by_class.keys()) == {"Account", "Branch", "Instrument", "Trade", "ContractualPosition"}
+        assert set(self.by_class.keys()) == {"Account", "Branch", "Desk", "Instrument", "Trade", "ContractualPosition"}
 
     def test_repository_built_from_markdown(self):
         table = self.by_class["Account"].property_mappings[0].target.table

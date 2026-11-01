@@ -59,7 +59,7 @@ def test_mapping_tables_columns_and_classes(finance):
     assert finance["models"] == ["finance.md", "finance_trade.md"]
     assert finance["dataStore"] == {"name": "finance_db", "type": "Database"}
     tables = {(s["name"], t["name"]): t for s in finance["schemas"] for t in s["tables"]}
-    assert set(tables) == {("ref_data", "account_master"), ("ref_data", "branch"), ("ref_data", "price"),
+    assert set(tables) == {("ref_data", "account_master"), ("ref_data", "branch"), ("ref_data", "desk"), ("ref_data", "price"),
                            ("trading", "trades"), ("trading", "contractualposition")}
     account = tables[("ref_data", "account_master")]
     assert account["class"] == "Account"
