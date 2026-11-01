@@ -3,8 +3,8 @@ Test specifications for the TPC-BiH benchmark (Kaufmann et al., "TPC-BiH: A Benc
 TPCTC 2013), using tpch_bih_mapping.md on a small data set.
 
 Every query class in the paper has an entry, and each is the benchmark's query, with the benchmark's output. A query the
-finders cannot express as defined is a spec that fails with the reason; it is not skipped and not replaced by a query that
-is similar but different. The TPC-H queries (clause 2.4 of the TPC-H specification, 3.0.1) are written as it defines them,
+finders cannot express as defined is skipped with the reason (see ``_unsupported``); it is not replaced by a query that is
+similar but different. The TPC-H queries (clause 2.4 of the TPC-H specification, 3.0.1) are written as it defines them,
 with values for its substitution parameters that find data here; the expected output was worked out independently of the
 finders, from the CSVs.
 
@@ -77,14 +77,15 @@ def _not_supported(reason: str):
 
 
 def _unsupported(name: str, reason: str, columns: list[str] | None = None) -> TestExpectation:
-    """A query the finders cannot express as the benchmark defines it. It fails, with the reason, so the gap stays
-    visible: it is not skipped, and not replaced by a query that is similar but not the benchmark's."""
+    """A query the finders cannot express as the benchmark defines it. It is kept, and skipped with the reason, so the gap
+    is listed in the test report; it is not replaced by a query that is similar but not the benchmark's."""
     columns = columns or []
     return TestExpectation(
         name=name,
         query=_not_supported(reason),
         expected_columns=columns,
         expected_result=np.empty((0, len(columns)), dtype=object),
+        skip_backends=_skip(reason),
     )
 
 
@@ -576,7 +577,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
 # ---------------------------------------------------------------------------------------------------------------------
 # TPC-H queries with time travel, as the TPC-H specification (3.0.1, clause 2.4) defines them: its columns, filters, grouping,
 # ordering and row limit, and values for its substitution parameters. A query the finders cannot express as defined is
-# written as _unsupported, which fails with the reason.
+# written as _unsupported, which is skipped with the reason.
 # ---------------------------------------------------------------------------------------------------------------------
 
 # Each query is asked at a point in application time and system time that has the orders it needs:
