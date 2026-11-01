@@ -32,8 +32,8 @@ SIMPLE_PROJECTION_SPECS = FinderSpec(
                lambda f: f.find_all(None, None, [f.first_name()])),
         ported("testAllTwoSimpleProperties", f"{_SRC}::testAllTwoSimpleProperties", _FIRST_LAST,
                lambda f: f.find_all(None, None, [f.first_name(), f.last_name()])),
-        unsupported("testAllOneSimplePropertyUsingVariables2", f"{_SRC}::testAllOneSimplePropertyUsingVariables2",
-                    'select "root".FIRSTNAME as "First Name" from personTable as "root"',
-                    'a mapping that the port does not load'),
+        ported("testAllOneSimplePropertyUsingVariables2", f"{_SRC}::testAllOneSimplePropertyUsingVariables2",
+               'select "root".FIRSTNAME as "First Name" from personTable as "root"',
+               lambda f: f.find_all(None, None, [f.first_name()])),
     ],
 )
