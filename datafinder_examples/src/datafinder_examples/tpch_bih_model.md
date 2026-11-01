@@ -203,9 +203,3 @@ columns are declared in the mapping, not here.
 | Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
 | PartSuppSamePart | PartSupp | Same Part | samePart | 0..1 | PartSupp | | | * | The rows of the same part, for any supplier (a part and a supplier make a composite key, which an association cannot join on) |
-
-### Association: LineItemPartSupp
-
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| LineItemPartSupp | LineItem | Part Supps | partSupps | * | PartSupp | | | * | The rows of the line's part, for any supplier (a part and a supplier make a composite key, which an association cannot join on, so a query also compares the supplier) |

@@ -636,18 +636,12 @@ LINEITEM_FINDER_SPECS = FinderSpec(
             expected_columns=["l_orderkey", "revenue", "o_orderdate", "o_shippriority"],
             expected_result=_rows([4, _O4L1 + _O4L2, datetime.date(1994, 12, 15), 0]),
         ),
-        TestExpectation(
-            # Q5, REGION AMERICA, DATE 1994-01-01: the customer and the supplier are in the same nation
-            name="Q5_local_supplier_volume",
-            query=lambda f: f.find_all(
-                *_PC, [f.supplier().nation().name().alias("n_name"), _revenue(f).sum().alias("revenue")],
-                f.order().customer().nation().nation_key().eq(f.supplier().nation().nation_key())
-                .and_(f.supplier().nation().region().name().eq("AMERICA"))
-                .and_(f.order().order_date() >= datetime.date(1994, 1, 1))
-                .and_(f.order().order_date() < datetime.date(1995, 1, 1)),
-            ).order_by(_revenue(f).sum().descending()),
-            expected_columns=["n_name", "revenue"],
-            expected_result=_rows(["UNITED STATES", _O4L1]),
+        _unsupported(
+            "Q5_local_supplier_volume",
+            "c_nationkey = s_nationkey compares two foreign key columns. A foreign key is a navigation (customer.nation, "
+            "supplier.nation) and not an attribute, so the comparison can only be made through a join to the nation "
+            "table for each side, which is not the query",
+            ["n_name", "revenue"],
         ),
         TestExpectation(
             # Q6, DATE 1993-01-01, DISCOUNT 0.06, QUANTITY 24
@@ -695,22 +689,11 @@ LINEITEM_FINDER_SPECS = FinderSpec(
             expected_columns=["o_year", "mkt_share"],
             expected_result=_rows([1996, _O6L2 / (_O6L1 + _O6L2)]),
         ),
-        TestExpectation(
-            # Q9, COLOR green. PARTSUPP is joined on the part and the supplier together; an association joins on one
-            # column, so the line is joined to the rows of its part and the supplier is compared in the filter.
-            name="Q9_product_type_profit_measure",
-            query=lambda f: f.find_all(
-                *_P1,
-                [f.supplier().nation().name().alias("nation"), f.order().order_date().year().alias("o_year"),
-                 (_revenue(f) - f.part_supps().supply_cost() * f.quantity()).sum().alias("sum_profit")],
-                f.part_supps().supplier().supplier_key().eq(f.supplier().supplier_key())
-                .and_(f.part().name().contains("green")),
-            ).order_by(f.supplier().nation().name().ascending(), f.order().order_date().year().descending()),
-            expected_columns=["nation", "o_year", "sum_profit"],
-            expected_result=_rows(
-                ["FRANCE", 1993, (_O2L1 - 80.0 * 20.0) + (_O2L2 - 300.0 * 8.0)],
-                ["GERMANY", 1993, _O1L1 - 100.0 * 10.0],
-            ),
+        _unsupported(
+            "Q9_product_type_profit_measure",
+            "Joins PARTSUPP on a composite key: ps_partkey = l_partkey and ps_suppkey = l_suppkey. An association joins "
+            "on one column",
+            ["nation", "o_year", "sum_profit"],
         ),
         TestExpectation(
             # Q12, SHIPMODE1 MAIL, SHIPMODE2 SHIP, DATE 1993-01-01

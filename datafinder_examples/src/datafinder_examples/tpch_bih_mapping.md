@@ -210,9 +210,3 @@
 | Source Column | Target Table | Target Column |
 |---------------|--------------|---------------|
 | l_suppkey     | supplier     | s_suppkey     |
-
-#### Association: LineItemPartSupp
-
-| Source Column | Target Table | Target Column |
-|---------------|--------------|---------------|
-| l_partkey     | partsupp     | ps_partkey    |
