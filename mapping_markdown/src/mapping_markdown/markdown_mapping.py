@@ -8,7 +8,8 @@ from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_TO_ONE, ZERO_TO_ONE
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
-    BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping
+    BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping, \
+    BusinessDateRangeMilestonePropertyMapping
 from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
 
@@ -524,6 +525,11 @@ def _build_milestone_mapping(scheme_name, property_mappings, repository, table_n
         )
     elif has_single_date:
         return SingleBusinessDateMilestonePropertyMapping(_require(scheme.business_date))
+    elif has_range_date:
+        return BusinessDateRangeMilestonePropertyMapping(
+            _require(scheme.business_date_from), _require(scheme.business_date_to),
+            infinite_datetime=scheme.infinite_datetime,
+        )
     return None
 
 
@@ -539,6 +545,12 @@ def _milestone_scheme_name(rcm: RelationalClassMapping, repo: DataStore) -> Opti
         for s in repo.milestoning_schemes:
             if s.business_date_from == date_from_col and s.business_date_to == date_to_col \
                     and s.processing_start == in_col and s.processing_end == out_col:
+                return s.name
+    elif isinstance(mm, BusinessDateRangeMilestonePropertyMapping):
+        date_from_col = mm._date_from.target.name if isinstance(mm._date_from.target, Column) else None
+        date_to_col = mm._date_to.target.name if isinstance(mm._date_to.target, Column) else None
+        for s in repo.milestoning_schemes:
+            if s.business_date_from == date_from_col and s.business_date_to == date_to_col and not s.processing_start:
                 return s.name
     elif isinstance(mm, BusinessDateAndProcessingMilestonePropertyMapping):
         date_col = mm._date.target.name if isinstance(mm._date.target, Column) else None

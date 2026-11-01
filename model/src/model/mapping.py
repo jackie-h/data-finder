@@ -31,12 +31,19 @@ class BusinessDateAndProcessingMilestonePropertyMapping(SingleBusinessDateMilest
         ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, infinite_datetime)
 
 
-class BiTemporalMilestonePropertyMapping(ProcessingDateMilestonesPropertyMapping):
-    def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping,
-                 _in: PropertyMapping, _out: PropertyMapping, infinite_datetime: str | None = None):
-        super().__init__(_in, _out, infinite_datetime)
+class BusinessDateRangeMilestonePropertyMapping(MilestonePropertyMapping):
+    def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping, infinite_datetime: str | None = None):
         self._date_from = _date_from
         self._date_to = _date_to
+        self.infinite_datetime = infinite_datetime
+
+
+class BiTemporalMilestonePropertyMapping(BusinessDateRangeMilestonePropertyMapping,
+                                         ProcessingDateMilestonesPropertyMapping):
+    def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping,
+                 _in: PropertyMapping, _out: PropertyMapping, infinite_datetime: str | None = None):
+        BusinessDateRangeMilestonePropertyMapping.__init__(self, _date_from, _date_to, infinite_datetime)
+        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, infinite_datetime)
 
 class ClassMapping:
     def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):

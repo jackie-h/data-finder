@@ -1032,3 +1032,36 @@ class TestEmbeddedMappingErrors:
         assert [pm.property.id for pm in account.target.property_mappings] == ["name"]
         written = to_markdown("Finance Mapping", mapping)
         assert "account.name" in written and "Association: TradeAccount" not in written
+
+
+class TestBusinessDateRangeScheme:
+    """A scheme with a business date range and no processing columns."""
+
+    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src",
+                                          "datafinder_examples", "business_range_mapping.md"))
+
+    @staticmethod
+    def _repo() -> Database:
+        repo = Database("rates_db", "duckdb://test.db")
+        Table("rates", [Column("code", "VARCHAR"), Column("amount", "DOUBLE"),
+                        Column("from_z", "DATE"), Column("thru_z", "DATE")], Schema("mkt", repo))
+        return repo
+
+    def test_it_loads_as_a_business_date_range_mapping(self):
+        from model.mapping import BusinessDateRangeMilestonePropertyMapping
+        mapping = load(self._FILE, self._repo())
+        mm = mapping.mappings[0].milestone_mapping
+        assert type(mm) is BusinessDateRangeMilestonePropertyMapping
+        assert (mm._date_from.target.name, mm._date_to.target.name) == ("from_z", "thru_z")
+
+    def test_it_is_written_back_with_its_scheme(self):
+        mapping = load(self._FILE, self._repo())
+        assert "(milestoning: business_date_range)" in to_markdown("Rates", mapping, ["business_range_model.md"])
+
+    def test_a_missing_range_column_is_refused(self, tmp_path):
+        folder = os.path.dirname(self._FILE)
+        (tmp_path / "business_range_model.md").write_text(open(os.path.join(folder, "business_range_model.md")).read())
+        content = open(self._FILE).read().replace("| thru_z | DATE    |     | Y        | businessThru |\n", "")
+        (tmp_path / "mapping.md").write_text(content)
+        with pytest.raises(ValueError, match="missing required column 'thru_z'"):
+            load(str(tmp_path / "mapping.md"), self._repo())
