@@ -9,7 +9,7 @@ from markdown_it.tree import SyntaxTreeNode
 from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_TO_ONE, ZERO_TO_ONE
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping, \
-    BusinessDateRangeMilestonePropertyMapping
+    BusinessDateRangeMilestonePropertyMapping, SingleProcessingDatetimeMilestonePropertyMapping
 from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
 
@@ -187,6 +187,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                 business_date_from=row.get("business_date_from", "").strip() or None,
                                 business_date_to=row.get("business_date_to", "").strip() or None,
                                 infinite_datetime=row.get("infinite_datetime", "").strip() or None,
+                                processing_datetime=row.get("processing_datetime", "").strip() or None,
                             ))
                     i += 1
                 continue
@@ -472,7 +473,7 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
         return None
     milestoning_cols = {
         scheme.processing_start, scheme.processing_end,
-        scheme.business_date, scheme.business_date_from, scheme.business_date_to,
+        scheme.business_date, scheme.business_date_from, scheme.business_date_to, scheme.processing_datetime,
     } - {None}
     if col_name in milestoning_cols:
         # An end column holds NULL, rather than an infinity date, when the scheme has no infinite_datetime.
@@ -501,6 +502,17 @@ def _build_milestone_mapping(scheme_name, property_mappings, repository, table_n
                 f"but is missing required column '{col_name}' in its property mappings"
             )
         return pm
+
+    if scheme.processing_datetime:
+        others = [name for name, value in (
+            ("processing_start", scheme.processing_start), ("processing_end", scheme.processing_end),
+            ("business_date", scheme.business_date), ("business_date_from", scheme.business_date_from),
+            ("business_date_to", scheme.business_date_to)) if value]
+        if others:
+            raise ValueError(
+                f"Milestoning scheme '{scheme_name}' has a processing_datetime, a processing snapshot, which cannot "
+                f"be combined with {', '.join(others)}")
+        return SingleProcessingDatetimeMilestonePropertyMapping(_require(scheme.processing_datetime))
 
     has_processing = scheme.processing_start and scheme.processing_end
     has_single_date = scheme.business_date and not scheme.business_date_from
@@ -567,6 +579,11 @@ def _milestone_scheme_name(rcm: RelationalClassMapping, repo: DataStore) -> Opti
             if s.processing_start == in_col and s.processing_end == out_col \
                     and not s.business_date and not s.business_date_from:
                 return s.name
+    elif isinstance(mm, SingleProcessingDatetimeMilestonePropertyMapping):
+        datetime_col = mm._datetime.target.name if isinstance(mm._datetime.target, Column) else None
+        for s in repo.milestoning_schemes:
+            if s.processing_datetime == datetime_col:
+                return s.name
     elif isinstance(mm, SingleBusinessDateMilestonePropertyMapping):
         date_col = mm._date.target.name if isinstance(mm._date.target, Column) else None
         for s in repo.milestoning_schemes:
@@ -592,6 +609,18 @@ def _find_association_name(source_cls: Class, target_cls: Class, property_id: st
 def save(path: str, title: str, mapping: Mapping, model_paths: list[str] | None = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
         f.write(to_markdown(title, mapping, model_paths))
+
+
+def _scheme_table(schemes: list) -> str:
+    """The DataStore's milestoning schemes as a table. The ``processing_datetime`` column is written only when a scheme
+    uses it, so mappings without a processing snapshot are written as they always were."""
+    snapshot = any(s.processing_datetime for s in schemes)
+    headers = ["Scheme", "processing_start", "processing_end"] + (["processing_datetime"] if snapshot else []) + [
+        "business_date", "business_date_from", "business_date_to", "infinite_datetime"]
+    rows = [[s.name, s.processing_start or "", s.processing_end or ""] + ([s.processing_datetime or ""] if snapshot else []) + [
+        s.business_date or "", s.business_date_from or "", s.business_date_to or "", s.infinite_datetime or ""]
+        for s in schemes]
+    return _md_table(headers, rows)
 
 
 def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = None) -> str:
@@ -634,16 +663,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         lines.append("")
 
         if repo and repo.milestoning_schemes:
-            scheme_rows = [
-                [s.name, s.processing_start or "", s.processing_end or "",
-                 s.business_date or "", s.business_date_from or "", s.business_date_to or "",
-                 s.infinite_datetime or ""]
-                for s in repo.milestoning_schemes
-            ]
-            lines.append(_md_table(
-                ["Scheme", "processing_start", "processing_end", "business_date",
-                 "business_date_from", "business_date_to", "infinite_datetime"],
-                scheme_rows))
+            lines.append(_scheme_table(repo.milestoning_schemes))
             lines.append("")
 
         for schema_name, rcms in repo_schema_map[repo_name].items():
@@ -709,16 +729,7 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
     lines.append("")
 
     if repo.milestoning_schemes:
-        scheme_rows = [
-            [s.name, s.processing_start or "", s.processing_end or "", s.business_date or "",
-             s.business_date_from or "", s.business_date_to or "", s.infinite_datetime or ""]
-            for s in repo.milestoning_schemes
-        ]
-        lines.append(_md_table(
-            ["Scheme", "processing_start", "processing_end", "business_date",
-             "business_date_from", "business_date_to", "infinite_datetime"],
-            scheme_rows,
-        ))
+        lines.append(_scheme_table(repo.milestoning_schemes))
         lines.append("")
 
     for schema in repo.schemas:

@@ -455,3 +455,38 @@ class TestAssociationPropertyDocstring:
         content = open(os.path.join(self.tmp, "trade_finder.py")).read()
         assert '"""Account"""' in content
         assert '"""account"""' not in content
+
+
+class TestProcessingSnapshotFinder:
+    """A table with a processing snapshot is read at one processing time or over a range of them."""
+
+    def setup_method(self):
+        from datafinder_examples import example_path
+        from model.relational import Database, Schema, Table, Column
+        repo = Database("snapshots_db", "duckdb://test.db")
+        schema = Schema("mkt", repo)
+        Table("quotes", [Column("id", "INT"), Column("symbol", "VARCHAR"), Column("price", "DOUBLE"),
+                         Column("taken_at", "TIMESTAMP")], schema)
+        Table("positions", [Column("id", "INT"), Column("symbol", "VARCHAR")], schema)
+        self.mapping = load(str(example_path("processing_snapshot_mapping.md")), repo)
+        self.tmp = tempfile.mkdtemp()
+        generate(self.mapping, self.tmp)
+
+    def teardown_method(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _read(self, name):
+        return open(os.path.join(self.tmp, "snapshots", "market", name)).read()
+
+    def test_the_snapshot_finder_has_a_processing_range_and_no_business_range(self):
+        content = self._read("quote_finder.py")
+        assert "def find_for_processing_range(self," in content
+        assert "def find_for_date_range" not in content
+        assert "SingleProcessingDatetimeColumn(" in content
+
+    def test_the_base_finder_declares_the_processing_range(self):
+        assert "def find_for_processing_range(self," in self._read("quote_finder_base.py")
+
+    def test_a_finder_with_no_milestoning_has_neither_range(self):
+        content = self._read("position_finder.py")
+        assert "find_for_processing_range" not in content and "find_for_date_range" not in content

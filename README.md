@@ -208,6 +208,7 @@ Milestoning lets you query data as it was at a specific point in time. Declare n
 | `business_date_processing` | `processing_start`, `processing_end`, `business_date` | `business_date`, `processing_time` |
 | `bitemporal` | `processing_start`, `processing_end`, `business_date_from`, `business_date_to` | `business_date`, `processing_time` |
 | `business_date_range` | `business_date_from`, `business_date_to` | `business_date`, `processing_time` |
+| `processing_snapshot` | `processing_datetime` | `processing_time` |
 
 Tag a table with the scheme name in parentheses:
 
@@ -216,6 +217,32 @@ Tag a table with the scheme name in parentheses:
 ```
 
 `business_date_range` is `bitemporal` without the processing columns: a row applies from `business_date_from` up to, but not including, `business_date_to`, and a NULL end (or `infinite_datetime`) is open-ended. Any processing time passed to it is ignored, though one still reaches tables it joins to that have processing columns.
+
+`processing_snapshot` is a single `processing_datetime` column holding the processing time each row was taken at, as a
+`TIMESTAMP`. The query's processing time must equal it, and is compared whole: it is never cut back to its date, so
+`find_all(None, "2024-01-01", …)` asks for midnight. A time with no row returns nothing. It is a scheme on its own, so a
+`processing_datetime` cannot be declared beside `processing_start`, `processing_end` or a business date column.
+
+```markdown
+| Scheme              | processing_start | processing_end | processing_datetime | business_date |
+|---------------------|------------------|----------------|---------------------|---------------|
+| processing_snapshot |                  |                | taken_at            |               |
+```
+
+The rows taken over a span of times are read with `find_for_processing_range`, which a table with a processing snapshot
+has in place of `find_for_date_range`. Both ends are included. The business date comes last, and is `None` if there is no
+business axis:
+
+```python
+QuoteFinder.find_for_processing_range(
+    datetime.datetime(2024, 1, 1, 9), datetime.datetime(2024, 1, 2, 9), None,
+    [QuoteFinder.symbol(), QuoteFinder.price()],
+)
+```
+
+A table joined from a query with a processing range is read over the same range: a snapshot column must be within it, and
+a table with `processing_start` and `processing_end` must overlap it. A navigation given its own `processing_time`
+reads that one time instead.
 
 ---
 

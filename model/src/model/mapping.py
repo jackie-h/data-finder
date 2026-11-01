@@ -18,6 +18,11 @@ class ProcessingDateMilestonesPropertyMapping(MilestonePropertyMapping):
         self._out = _out
         self.infinite_datetime = infinite_datetime
 
+class SingleProcessingDatetimeMilestonePropertyMapping(MilestonePropertyMapping):
+    def __init__(self, _datetime: PropertyMapping):
+        self._datetime = _datetime
+
+
 class SingleBusinessDateMilestonePropertyMapping(MilestonePropertyMapping):
     def __init__(self, _date: PropertyMapping):
         self._date = _date

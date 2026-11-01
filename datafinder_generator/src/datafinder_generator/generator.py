@@ -8,7 +8,8 @@ from model.m3 import Association
 from model.naming import to_python_name, to_snake_case
 from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
-    BiTemporalMilestonePropertyMapping, BusinessDateRangeMilestonePropertyMapping
+    BiTemporalMilestonePropertyMapping, BusinessDateRangeMilestonePropertyMapping, \
+    SingleProcessingDatetimeMilestonePropertyMapping
 from model.relational import Column
 from model.relational_mapping import Join, EmbeddedSetMapping
 
@@ -119,6 +120,9 @@ def has_bitemporal(mapping: MilestonePropertyMapping) -> bool:
 def has_business_date_range(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, BusinessDateRangeMilestonePropertyMapping) and not isinstance(mapping, BiTemporalMilestonePropertyMapping)
 
+def has_processing_snapshot(mapping: MilestonePropertyMapping) -> bool:
+    return isinstance(mapping, SingleProcessingDatetimeMilestonePropertyMapping)
+
 def display_name(prop: Property) -> str:
     return prop.name
 
@@ -217,6 +221,7 @@ def generate(mapping: Mapping, output_directory):
         has_business_date_and_processing=has_business_date_and_processing,
         has_bitemporal=has_bitemporal,
         has_business_date_range=has_business_date_range,
+        has_processing_snapshot=has_processing_snapshot,
         display_name=display_name,
         to_python_name=to_python_name,
         table_qualified_name=table_qualified_name,

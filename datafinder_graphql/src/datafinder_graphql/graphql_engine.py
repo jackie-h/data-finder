@@ -685,7 +685,10 @@ class GraphQLConnect(QueryRunnerBase):
                columns: list, table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,
-               distinct: bool = False, offset: int | None = None, having=None) -> DataFrame:
+               distinct: bool = False, offset: int | None = None, having=None,
+               processing_datetime_to: datetime.datetime | datetime.date | None = None) -> DataFrame:
+        if processing_datetime_to is not None:
+            raise GraphQLUnsupportedError("The GraphQL engine has no processing time range")
         if having is not None:
             raise GraphQLUnsupportedError("The GraphQL engine cannot filter the groups of an aggregation")
 

@@ -601,7 +601,8 @@ class Relation:
 class MilestoningScheme:
     def __init__(self, name: str, processing_start: str | None = None, processing_end: str | None = None,
                  business_date: str | None = None, business_date_from: str | None = None,
-                 business_date_to: str | None = None, infinite_datetime: str | None = None):
+                 business_date_to: str | None = None, infinite_datetime: str | None = None,
+                 processing_datetime: str | None = None):
         self.name = name
         self.processing_start = processing_start
         self.processing_end = processing_end
@@ -609,6 +610,8 @@ class MilestoningScheme:
         self.business_date_from = business_date_from
         self.business_date_to = business_date_to
         self.infinite_datetime = infinite_datetime
+        # a single datetime column that holds the processing time a row was taken at (a processing snapshot)
+        self.processing_datetime = processing_datetime
 
 
 from abc import ABC, abstractmethod
