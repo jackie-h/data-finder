@@ -3,7 +3,6 @@ Runs the TPC-BiH specs (time travel, key in time, range-timeslice, bitemporal an
 ibis/DuckDB backend. See tpch_bih_specs.py for the schema, the history and the queries that are skipped.
 """
 import importlib
-import re
 import shutil
 import sys
 import tempfile
@@ -101,41 +100,10 @@ def finders():
     shutil.rmtree(tmp, ignore_errors=True)
 
 
-def _spec_order(expectation):
-    """Order the collected cases as they appear in Appendix B, then the extra TPC-H cases by query number."""
-    name = expectation.name
-
-    match = re.match(r"T(\d+)(?:_(sys|app))?", name)
-    if match:
-        return 0, int(match.group(1)), {None: 0, "sys": 0, "app": 1}[match.group(2)]
-
-    if name.startswith("H1_"):
-        return 1, 1, 0
-
-    match = re.match(r"K(\d+)_(sys|app)", name)
-    if match:
-        return 2, int(match.group(1)), {"sys": 0, "app": 1}[match.group(2)]
-
-    match = re.match(r"R(\d+)(?:_?(sys|app|a|b))?_", name)
-    if match:
-        variant = {None: 0, "sys": 0, "a": 0, "app": 1, "b": 1}[match.group(2)]
-        return 3, int(match.group(1)), variant
-
-    match = re.match(r"B5_(\d+)", name)
-    if match:
-        return 5, int(match.group(1)), 0
-
-    match = re.match(r"Q(\d+)", name)
-    if match:
-        return 6, int(match.group(1)), 0
-
-    return 7, name
-
-
-_CASES = sorted([
+_CASES = [
     pytest.param(expectation, id=expectation.name)
     for expectation in ALL_TPCH_BIH_CASES
-], key=lambda case: _spec_order(case.values[0]))
+]
 
 
 @pytest.mark.parametrize("expectation", _CASES)

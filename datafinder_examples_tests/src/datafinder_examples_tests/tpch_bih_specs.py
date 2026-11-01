@@ -35,6 +35,7 @@ The queries are given a business date (application time) and a processing time (
 """
 import datetime
 import decimal
+import re
 
 import numpy as np
 
@@ -788,11 +789,45 @@ CUSTOMER_REVENUE_CASES = [
     ),
 ]
 
-ALL_TPCH_BIH_CASES = [
-*ORDER_CASES,
-*CUSTOMER_CASES,
-*PARTSUPP_CASES,
-*LINEITEM_CASES,
-*ORDER_PRIORITY_CASES,
-*CUSTOMER_REVENUE_CASES,
-]
+def _benchmark_order(expectation):
+    """Order expectations as they appear in Appendix B, then TPC-H cases by query number."""
+    name = expectation.name
+
+    match = re.match(r"T(\d+)(?:_(sys|app))?", name)
+    if match:
+        return 0, int(match.group(1)), {None: 0, "sys": 0, "app": 1}[match.group(2)]
+
+    if name.startswith("H1_"):
+        return 1, 1, 0
+
+    match = re.match(r"K(\d+)_(sys|app)", name)
+    if match:
+        return 2, int(match.group(1)), {"sys": 0, "app": 1}[match.group(2)]
+
+    match = re.match(r"R(\d+)(?:_?(sys|app|a|b))?_", name)
+    if match:
+        variant = {None: 0, "sys": 0, "a": 0, "app": 1, "b": 1}[match.group(2)]
+        return 3, int(match.group(1)), variant
+
+    match = re.match(r"B5_(\d+)", name)
+    if match:
+        return 5, int(match.group(1)), 0
+
+    match = re.match(r"Q(\d+)", name)
+    if match:
+        return 6, int(match.group(1)), 0
+
+    raise ValueError(f"Expectation {name!r} has no benchmark identifier")
+
+
+ALL_TPCH_BIH_CASES = sorted(
+    [
+        *ORDER_CASES,
+        *CUSTOMER_CASES,
+        *PARTSUPP_CASES,
+        *LINEITEM_CASES,
+        *ORDER_PRIORITY_CASES,
+        *CUSTOMER_REVENUE_CASES,
+    ],
+    key=_benchmark_order,
+)
