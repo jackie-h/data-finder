@@ -20,7 +20,7 @@ from typing import Any
 
 from model.m3 import Association, Class, PrimitiveType, TaggedValue
 from model.relational import Column, Table
-from model.relational_mapping import Join
+from model.relational_mapping import EmbeddedSetMapping, Join
 from model_markdown import markdown_model
 
 from mapping_markdown import markdown_mapping
@@ -98,6 +98,28 @@ def _mapped_table(class_mapping) -> Table | None:
     return None
 
 
+def _join_entry(assoc: Association | None, source_class: str, join: Join) -> dict[str, Any]:
+    """A join as the viewer reads it: one row for each table the join passes through, then the one it ends at."""
+    rows = []
+    for lhs, rhs in join.via + [(join.lhs, join.rhs)]:
+        (src_schema, src_table, src_column), (tgt_schema, tgt_table, tgt_column) = _located(lhs), _located(rhs)
+        rows.append({
+            "sourceSchema": src_schema,
+            "sourceTable": src_table,
+            "sourceColumn": src_column,
+            "targetSchema": tgt_schema,
+            "targetTable": tgt_table,
+            "targetColumn": tgt_column,
+        })
+    return {
+        "name": assoc.name if assoc else None,
+        "sourceClass": source_class,
+        "sourceMultiplicity": str(assoc.source_multiplicity) if assoc else None,
+        "targetMultiplicity": str(assoc.target_multiplicity) if assoc else None,
+        "rows": rows,
+    }
+
+
 def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
     with open(path, encoding="utf-8") as f:
         content = f.read()
@@ -131,22 +153,11 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
             if isinstance(pm.target, Column):
                 column_property[id(pm.target)] = pm.property.id
             elif isinstance(pm.target, Join):
-                assoc = associations_by_nav.get((cm.clazz.name, pm.property.id))
-                (src_schema, src_table, src_column), (tgt_schema, tgt_table, tgt_column) = _located(pm.target.lhs), _located(pm.target.rhs)
-                joins.append({
-                    "name": assoc.name if assoc else None,
-                    "sourceClass": cm.clazz.name,
-                    "sourceMultiplicity": str(assoc.source_multiplicity) if assoc else None,
-                    "targetMultiplicity": str(assoc.target_multiplicity) if assoc else None,
-                    "rows": [{
-                        "sourceSchema": src_schema,
-                        "sourceTable": src_table,
-                        "sourceColumn": src_column,
-                        "targetSchema": tgt_schema,
-                        "targetTable": tgt_table,
-                        "targetColumn": tgt_column,
-                    }],
-                })
+                joins.append(_join_entry(associations_by_nav.get((cm.clazz.name, pm.property.id)), cm.clazz.name, pm.target))
+            elif isinstance(pm.target, EmbeddedSetMapping):
+                # a property of an object embedded in the row that reaches another table
+                for holder, prop, join, _ in markdown_mapping._embedded_joins(pm.target, [pm.property.id]):
+                    joins.append(_join_entry(associations_by_nav.get((holder.clazz.name, prop.id)), cm.clazz.name, join))
 
     return {
         "file": name,

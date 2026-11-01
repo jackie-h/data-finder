@@ -15,7 +15,7 @@ from model.relational_mapping import RelationalClassMapping, RelationalPropertyM
 
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
-_TABLE_RE = re.compile(r'(\S+)\s*→\s*(\w+)(?:\s*\(milestoning:\s*(\w+)\))?')
+_TABLE_RE = re.compile(r'(\S+)(?:\s*→\s*(\w+))?(?:\s*\(milestoning:\s*(\w+)\))?\s*$')
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +199,16 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     continue
                 table_name, class_name, scheme_name = m.group(1), m.group(2), m.group(3)
 
+                if class_name is None:
+                    # a table no class is mapped to: it is only reached by a join (a link table, say), and says how
+                    # its rows are milestoned if they are
+                    link = tables_by_name.get(table_name)
+                    if link is not None and scheme_name:
+                        link.milestoning_scheme = next((sc for sc in repository.milestoning_schemes if sc.name == scheme_name), None)
+                        if link.milestoning_scheme is None:
+                            raise ValueError(f"Table '{table_name}': milestoning scheme '{scheme_name}' is not defined")
+                    i += 2 if i + 1 < len(nodes) and nodes[i + 1].type == "table" else 1
+                    continue
                 cls = classes_by_name.get(class_name)
                 table = tables_by_name.get(table_name)
                 if cls is None or table is None:
@@ -261,7 +271,10 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 continue
 
             elif level == "h4" and text.startswith("Association:"):
-                assoc_name = text[len("Association:"):].strip()
+                heading = text[len("Association:"):].strip()
+                # ``Association: Name (embedded in Class.path)`` reads a property of an object embedded in Class's row
+                embedded_in = _EMBEDDED_IN_RE.search(heading)
+                assoc_name = heading[:embedded_in.start()].strip() if embedded_in else heading
                 i += 1
 
                 # Find the Association in the model to determine source class and nav property.
@@ -280,59 +293,48 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         i += 1
                     continue
 
-                src_cls_name = assoc_def.source
                 nav_prop_id = assoc_def.source_property.id
-                pm_list, cols_by_name, embedded_by_nav = class_context.get(src_cls_name, (None, {}, {}))
+                owner_cls_name = embedded_in.group(1) if embedded_in else assoc_def.source
+                src_cls_name = assoc_def.source
+                pm_list, cols_by_name, embedded_by_nav = class_context.get(owner_cls_name, (None, {}, {}))
                 nav = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
                 target_cls = classes_by_name.get(nav[0]) if nav else None
 
                 if pm_list is None:
                     raise ValueError(
-                        f"Association '{assoc_name}': source class '{src_cls_name}' "
+                        f"Association '{assoc_name}': source class '{owner_cls_name}' "
                         f"has no Table section defined before this Association"
                     )
 
                 if i < len(nodes) and nodes[i].type == "table":
-                    for row in _parse_ast_table(nodes[i], _ASSOCIATION_HEADERS):
-                        src_col = row.get("Source Column", "").strip()
-                        tgt_table_name = row.get("Target Table", "").strip()
-                        tgt_col_name = row.get("Target Column", "").strip()
-
-                        lhs_col = cols_by_name.get(src_col)
-                        tgt_table = tables_by_name.get(tgt_table_name)
-
-                        if lhs_col is None:
-                            _log.warning(
-                                "Association '%s': source column '%s' not found in table for class '%s'",
-                                assoc_name, src_col, src_cls_name,
+                    hops = _association_hops(assoc_name, _parse_ast_table(nodes[i], _ASSOCIATION_HEADERS),
+                                             cols_by_name, tables_by_name)
+                    if hops and target_cls is not None:
+                        first_lhs = hops[0][0]
+                        last_lhs, last_rhs = hops[-1]
+                        via = hops[:-1]
+                        if embedded_in is not None:
+                            _resolve_embedded_join(assoc_name, embedded_by_nav, embedded_in.group(2).split("."),
+                                                   nav_prop_id, last_lhs, last_rhs, via)
+                        elif any(pm.property.id == nav_prop_id for pm in pm_list):
+                            raise ValueError(
+                                f"Association '{assoc_name}': navigation property '{nav_prop_id}' "
+                                f"on class '{owner_cls_name}' is already mapped"
                             )
-                            continue
-                        if tgt_table is None:
-                            _log.warning(
-                                "Association '%s': target table '%s' not found",
-                                assoc_name, tgt_table_name,
-                            )
-                            continue
-
-                        tgt_col = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
-
-                        if tgt_col and nav_prop_id and target_cls:
-                            if any(pm.property.id == nav_prop_id for pm in pm_list):
-                                raise ValueError(
-                                    f"Association '{assoc_name}': navigation property '{nav_prop_id}' "
-                                    f"on class '{src_cls_name}' is already mapped"
-                                )
+                        else:
                             prop = Property(assoc_def.source_property.name, nav_prop_id, target_cls, assoc_def.source_multiplicity)
                             embedded_entry = embedded_by_nav.pop(nav_prop_id, None)
                             embedded = embedded_entry[1] if embedded_entry is not None else None
-                            pm_list.append(RelationalPropertyMapping(prop, Join(lhs_col, tgt_col, embedded=embedded)))
-                            lhs_col.table.foreign_keys.append(ForeignKey(lhs_col, tgt_col))
-                        else:
-                            _log.warning(
-                                "Association '%s': could not resolve navigation property "
-                                "for source class '%s'",
-                                assoc_name, src_cls_name,
-                            )
+                            pm_list.append(RelationalPropertyMapping(prop, Join(last_lhs, last_rhs, embedded=embedded, via=via)))
+                        for lhs, rhs in hops:
+                            if lhs.table is not None:
+                                lhs.table.foreign_keys.append(ForeignKey(lhs, rhs))
+                    else:
+                        _log.warning(
+                            "Association '%s': could not resolve navigation property "
+                            "for source class '%s'",
+                            assoc_name, owner_cls_name,
+                        )
                     i += 1
                 continue
 
@@ -342,9 +344,67 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     # class's own row, so the navigation property maps straight to the embedded columns.
     for pm_list, _, embedded_by_nav in class_context.values():
         for nav_prop, embedded in embedded_by_nav.values():
+            _check_embedded_joins(nav_prop.id, embedded)
             pm_list.append(RelationalPropertyMapping(nav_prop, embedded))
 
     return Mapping(title, class_mappings)
+
+
+def _association_hops(assoc_name: str, rows: list[dict], first_columns: dict, tables_by_name: dict) -> list[tuple[Column, Column]]:
+    """The (from, to) columns of each row of an Association table, in order. A row after the first starts from a
+    column of the table the row before it reaches, so several rows are a path through several tables."""
+    hops: list[tuple[Column, Column]] = []
+    source_columns = first_columns
+    for row in rows:
+        src_col = row.get("Source Column", "").strip()
+        tgt_table_name = row.get("Target Table", "").strip()
+        tgt_col_name = row.get("Target Column", "").strip()
+        lhs = source_columns.get(src_col)
+        tgt_table = tables_by_name.get(tgt_table_name)
+        if lhs is None:
+            _log.warning("Association '%s': source column '%s' not found in table for class", assoc_name, src_col)
+            return []
+        if tgt_table is None:
+            _log.warning("Association '%s': target table '%s' not found", assoc_name, tgt_table_name)
+            return []
+        rhs = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
+        if rhs is None:
+            _log.warning("Association '%s': target column '%s' not found in table '%s'", assoc_name, tgt_col_name,
+                         tgt_table_name)
+            return []
+        hops.append((lhs, rhs))
+        source_columns = {c.name: c for c in tgt_table.columns}
+    return hops
+
+
+def _check_embedded_joins(path: str, esm: EmbeddedSetMapping) -> None:
+    """Every join of an embedded object has been given its columns by an Association section."""
+    for pm in esm.property_mappings:
+        if isinstance(pm.target, Join) and not pm.target.resolved:
+            raise ValueError(
+                f"'{path}.{pm.property.id}' is mapped to a column but reaches another table: add an Association "
+                f"section headed '(embedded in <Class>.{path})' that says which table")
+        if isinstance(pm.target, EmbeddedSetMapping):
+            _check_embedded_joins(f"{path}.{pm.property.id}", pm.target)
+
+
+def _resolve_embedded_join(assoc_name: str, embedded_by_nav: dict, path: list[str], nav_prop_id: str,
+                           lhs: Column, rhs: Column, via: list[tuple[Column, Column]]) -> None:
+    """Point the pending join of the embedded object at ``path`` (e.g. classification), named ``nav_prop_id``, at its
+    columns."""
+    entry = embedded_by_nav.get(path[0])
+    esm = entry[1] if entry is not None else None
+    for seg in path[1:]:
+        esm = next((pm.target for pm in esm.property_mappings
+                    if pm.property.id == seg and isinstance(pm.target, EmbeddedSetMapping)), None) if esm else None
+    pending = next((pm.target for pm in esm.property_mappings
+                    if pm.property.id == nav_prop_id and isinstance(pm.target, Join)), None) if esm else None
+    if pending is None:
+        raise ValueError(
+            f"Association '{assoc_name}': no property '{'.'.join(path)}.{nav_prop_id}' is mapped on a column of the "
+            f"table; give the foreign key column that Property ID")
+    pending.lhs, pending.rhs, pending.via = lhs, rhs, via
+    pending.resolved = True
 
 
 def _resolve_nav_property(cls_name: str, seg: str, classes_by_name: dict, assoc_nav_lookup: dict,
@@ -397,6 +457,15 @@ def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: d
                 leaf_id = segs[0]
                 leaf_prop = target_all_props.get(leaf_id)
                 if leaf_prop is None or not isinstance(leaf_prop.type, PrimitiveType):
+                    nav_leaf = _resolve_nav_property(target_cls.name, leaf_id, classes_by_name, assoc_nav_lookup, target_all_props)
+                    if nav_leaf is not None:
+                        # a property of the embedded class that reaches another table: its Association section, headed
+                        # ``(embedded in ...)``, gives the join; until then the foreign key column stands in for it
+                        pending = Join(col, col)
+                        pending.resolved = False
+                        nested_pms.append(RelationalPropertyMapping(nav_leaf, pending))
+                        continue
+                if leaf_prop is None or not isinstance(leaf_prop.type, PrimitiveType):
                     raise ValueError(
                         f"Embedded mapping: property '{leaf_id}' not found (or not primitive) "
                         f"on class '{target_cls.name}'"
@@ -422,12 +491,46 @@ def _flatten_embedded_rows(esm: EmbeddedSetMapping, prefix: str) -> list[list[st
         dotted = f"{prefix}.{pm.property.id}"
         if isinstance(pm.target, Column):
             rows.append([pm.target.name, pm.target.type or "", "", _nullable_cell(pm.target), dotted])
+        elif isinstance(pm.target, Join):
+            first = _first_column(pm.target)
+            rows.append([first.name, first.type or "", "FK", _nullable_cell(first), dotted])
         elif isinstance(pm.target, EmbeddedSetMapping):
             rows.extend(_flatten_embedded_rows(pm.target, dotted))
     return rows
 
 
+def _embedded_joins(esm: EmbeddedSetMapping, path: list[str]) -> list[tuple[EmbeddedSetMapping, Property, Join, list[str]]]:
+    """The joins of the objects embedded in a row, each with the object that holds it and the path to that object."""
+    found = []
+    for pm in esm.property_mappings:
+        if isinstance(pm.target, Join):
+            found.append((esm, pm.property, pm.target, path))
+        elif isinstance(pm.target, EmbeddedSetMapping):
+            found.extend(_embedded_joins(pm.target, path + [pm.property.id]))
+    return found
+
+
+def _first_column(join: Join) -> Column:
+    """The column of the owning row a join starts from: the first hop's, whether or not it has hops before the last."""
+    return join.via[0][0] if join.via else join.lhs
+
+
+def _association_rows(join: Join) -> list[list[str]]:
+    """The rows of an Association table: a row for each table the join passes through, then the one it ends at."""
+    return [[lhs.name, rhs.table.name if rhs.table else "", rhs.name] for lhs, rhs in join.via + [(join.lhs, join.rhs)]]
+
+
+def _link_tables(rcm: RelationalClassMapping) -> list[Table]:
+    """The tables the joins of a class mapping pass through on the way to another class's table."""
+    joins = [pm.target for pm in rcm.property_mappings if isinstance(pm.target, Join)]
+    for pm in rcm.property_mappings:
+        if isinstance(pm.target, EmbeddedSetMapping):
+            joins.extend(j for _, _, j, _ in _embedded_joins(pm.target, [pm.property.id]))
+    return [rhs.table for j in joins for _, rhs in j.via if rhs.table is not None]
+
+
 _COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Nullable", "Property ID"]
+_EMBEDDED_IN_RE = re.compile(r'\(\s*embedded in\s+(\w+)\.([\w.]+)\s*\)\s*$')
 _ASSOCIATION_HEADERS = ["Source Column", "Target Table", "Target Column"]
 
 
@@ -629,6 +732,8 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         lines.append(f"## Model: {mp}")
         lines.append("")
 
+    # tables a join passes through that no class is mapped to, by (repo, schema) and name
+    link_tables: dict = {}
     # Group by repo → schema, preserving insertion order
     repos_seen: list[str] = []
     repo_objs: dict = {}
@@ -653,6 +758,10 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         if schema_name not in repo_schema_map[repo_name]:
             repo_schema_map[repo_name][schema_name] = []
         repo_schema_map[repo_name][schema_name].append(rcm)
+        for link in _link_tables(rcm):
+            link_schema = link.schema.name if link.schema else "(none)"
+            link_tables.setdefault((repo_name, link_schema), {})[link.name] = link
+            repo_schema_map[repo_name].setdefault(link_schema, [])
 
     for repo_name in repos_seen:
         repo = repo_objs[repo_name]
@@ -690,7 +799,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                         key = "PK" if pm.target.primary_key else ""
                         col_rows.append([pm.target.name, pm.target.type or "", key, _nullable_cell(pm.target), pm.property.id])
                     elif isinstance(pm.target, Join):
-                        lhs = pm.target.lhs
+                        lhs = _first_column(pm.target)
                         if lhs.name in mapped_cols:
                             if pm.target.embedded is not None:
                                 col_rows.extend(_flatten_embedded_rows(pm.target.embedded, pm.property.id))
@@ -704,17 +813,34 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                 lines.append(_md_table(_COLUMN_MAPPING_HEADERS, col_rows))
                 lines.append("")
 
+            for link in link_tables.get((repo_name, schema_name), {}).values():
+                heading = f"#### Table: {link.name}"
+                if link.milestoning_scheme is not None:
+                    heading += f" (milestoning: {link.milestoning_scheme.name})"
+                lines.append(heading)
+                lines.append("")
+                lines.append(_md_table(_COLUMN_MAPPING_HEADERS, [
+                    [c.name, c.type or "", "PK" if c.primary_key else "", _nullable_cell(c), ""] for c in link.columns]))
+                lines.append("")
+
             for rcm in rcms:
                 for pm in rcm.property_mappings:
                     if isinstance(pm.target, Join):
                         assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
                         lines.append(f"#### Association: {assoc_name}")
                         lines.append("")
-                        lines.append(_md_table(
-                            ["Source Column", "Target Table", "Target Column"],
-                            [[pm.target.lhs.name, pm.target.rhs.table.name if pm.target.rhs.table else "", pm.target.rhs.name]],
-                        ))
+                        lines.append(_md_table(["Source Column", "Target Table", "Target Column"],
+                                               _association_rows(pm.target)))
                         lines.append("")
+                    elif isinstance(pm.target, EmbeddedSetMapping):
+                        for holder, prop, join, path in _embedded_joins(pm.target, [pm.property.id]):
+                            assert isinstance(prop.type, Class)
+                            assoc_name = _find_association_name(holder.clazz, prop.type, prop.id)
+                            lines.append(f"#### Association: {assoc_name} (embedded in {rcm.clazz.name}.{'.'.join(path)})")
+                            lines.append("")
+                            lines.append(_md_table(["Source Column", "Target Table", "Target Column"],
+                                                   _association_rows(join)))
+                            lines.append("")
 
     return "\n".join(lines)
 

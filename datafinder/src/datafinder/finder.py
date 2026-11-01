@@ -1,4 +1,13 @@
-from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation
+from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation
+
+
+def via_joins(parent: JoinTreeNodeOperation | None, hops: list) -> JoinTreeNodeOperation | None:
+    """The step a property mapped through other tables hangs from: ``parent`` followed by a step through each hop, a
+    (from column, table, to column) triple, in order. The tables carry no class, so the steps have no name."""
+    node = parent
+    for source, table, target in hops:
+        node = JoinTreeNodeOperation(JoinOperation('', table, source, target), node, optional=True)
+    return node
 
 
 def display_prefix(relation_name: str, parent_join: JoinTreeNodeOperation | None) -> str:
@@ -9,7 +18,7 @@ def display_prefix(relation_name: str, parent_join: JoinTreeNodeOperation | None
     while node is not None:
         names.append(node.join.name)
         node = node.parent
-    return ' '.join(name.title() for name in reversed(names))
+    return ' '.join(name.title() for name in reversed(names) if name)
 
 
 class RelatedFinder:

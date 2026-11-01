@@ -490,3 +490,62 @@ class TestProcessingSnapshotFinder:
     def test_a_finder_with_no_milestoning_has_neither_range(self):
         content = self._read("position_finder.py")
         assert "find_for_processing_range" not in content and "find_for_date_range" not in content
+
+
+class TestJoinsThroughTablesFinder:
+    """A property of an embedded object that reaches another table, and a property mapped through other tables."""
+
+    def setup_method(self):
+        from datafinder_examples import example_path
+        from model.relational import Database, Schema, Table, Column
+        repo = Database("hr_db", "duckdb://test.db")
+        schema = Schema("hr", repo)
+        Table("employees", [Column("id", "INT"), Column("name", "VARCHAR"), Column("street", "VARCHAR"),
+                            Column("home_country", "INT"), Column("citizen_ref", "INT")], schema)
+        Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR")], schema)
+        Table("countries", [Column("code", "VARCHAR"), Column("name", "VARCHAR")], schema)
+        self.tmp = tempfile.mkdtemp()
+        generate(load(str(example_path("joins_through_tables_mapping.md")), repo), self.tmp)
+        for m in ("people", "people.hr", "people.hr.employee_finder", "people.hr.employee_finder_base",
+                  "people.hr.country_finder", "people.hr.country_finder_base"):
+            sys.modules.pop(m, None)
+        sys.path.insert(0, self.tmp)
+        from people.hr.employee_finder import EmployeeFinder  # type: ignore[import]
+        self.finder = EmployeeFinder()
+
+    def teardown_method(self):
+        if self.tmp in sys.path:
+            sys.path.remove(self.tmp)
+        for m in list(sys.modules):
+            if m == "people" or m.startswith("people."):
+                del sys.modules[m]
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_a_property_of_an_embedded_object_is_read_through_the_tables_on_the_way(self):
+        f = self.finder
+        sql = f.find_all(None, None, [f.home().country().name()]).to_sql()
+        assert ("FROM hr.employees AS t0 LEFT OUTER JOIN hr.country_refs AS t2 ON (t0.home_country = t2.ref) "
+                "LEFT OUTER JOIN hr.countries AS t1 ON (t1.code = t2.code)") in sql
+
+    def test_the_embedded_columns_of_the_same_object_need_no_join(self):
+        f = self.finder
+        assert "JOIN" not in f.find_all(None, None, [f.home().street()]).to_sql()
+
+    def test_a_property_mapped_through_tables_is_read_through_them(self):
+        f = self.finder
+        sql = f.find_all(None, None, [f.citizenship().name()]).to_sql()
+        assert "JOIN hr.country_refs AS t2 ON (t0.citizen_ref = t2.ref) LEFT OUTER JOIN hr.countries AS t1" in sql
+
+    def test_the_tables_on_the_way_add_nothing_to_a_display_name(self):
+        f = self.finder
+        sql = f.find_all(None, None, [f.home().country().name(), f.citizenship().name()]).to_sql()
+        assert 'AS "Home Country Name"' in sql and 'AS "Citizenship Name"' in sql
+
+    def test_a_filter_on_a_property_through_tables_joins_them(self):
+        f = self.finder
+        sql = f.find_all(None, None, [f.id_()], f.citizenship().name().eq("Finland")).to_sql()
+        assert "JOIN hr.country_refs" in sql and "t1.name = 'Finland'" in sql
+
+    def test_a_property_through_tables_has_no_reverse_accessor(self):
+        from people.hr.country_finder import CountryFinder  # type: ignore[import]
+        assert not hasattr(CountryFinder(), "citizenship")
