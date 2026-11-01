@@ -29,6 +29,10 @@ MERGE_RULES_FIRM_SPECS = FinderSpec(
         ported("testZeroToOneJoinTreeNodesForFilterAndProjectMerge", f"{_SRC}::testZeroToOneJoinTreeNodesForFilterAndProjectMerge",
                'select "root".LEGALNAME as "legalName", "addresstable_0".NAME as "firmAddress" from firmTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) where "addresstable_0".NAME = \'Tokyo\'',
                lambda f: f.find_all(None, None, [f.legal_name(), f.address().name()], f.address().name().eq("Tokyo"))),
+        ported("testToManyJoinTreeNodesForFilterAndProjectDoNotMerge", f"{_SRC}::testToManyJoinTreeNodesForFilterAndProjectDoNotMerge",
+               'select "root".LEGALNAME as "legalName", "persontable_2".LASTNAME as "lastName" from firmTable as "root" left outer join (select distinct "persontable_1".FIRMID from personTable as "persontable_1" where "persontable_1".LASTNAME = \'Smith\') as "persontable_0" on ("root".ID = "persontable_0".FIRMID) left outer join personTable as "persontable_2" on ("root".ID = "persontable_2".FIRMID) where "persontable_0".FIRMID is not null',
+               lambda f: f.find_all(None, None, [f.legal_name(), f.employees().last_name()], f.employees(lastName="Smith").exists()),
+               known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
     ],
 )
 
@@ -37,9 +41,6 @@ MERGE_RULES_SPECS = FinderSpec(
     finder_name="PersonFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testToManyJoinTreeNodesForFilterAndProjectDoNotMerge", f"{_SRC}::testToManyJoinTreeNodesForFilterAndProjectDoNotMerge",
-                    'select "root".LEGALNAME as "legalName", "persontable_2".LASTNAME as "lastName" from firmTable as "root" left outer join (select distinct "persontable_1".FIRMID from personTable as "persontable_1" where "persontable_1".LASTNAME = \'Smith\') as "persontable_0" on ("root".ID = "persontable_0".FIRMID) left outer join personTable as "persontable_2" on ("root".ID = "persontable_2".FIRMID) where "persontable_0".FIRMID is not null',
-                    'milestoned or to-many join merging'),
         unsupported("testToManyJoinTreeNodesForInvalidUsageOfFilterAndProjectDoMergeGivingWrongResults", f"{_SRC}::testToManyJoinTreeNodesForInvalidUsageOfFilterAndProjectDoMergeGivingWrongResults",
                     'select "root".LEGALNAME as "legalName", "personTable_d#4_d_m2".LASTNAME as "lastName" from firmTable as "root" left outer join (select distinct "personTable_d#4".FIRMID from personTable as "personTable_d#4" where "personTable_d#4".LASTNAME = \'Smith\') as "personTable_d#4_ecq_d#2_m1" on ("root".ID = "personTable_d#4_ecq_d#2_m1".FIRMID) left outer join personTable as "personTable_d#4_d_m2" on ("root".ID = "personTable_d#4_d_m2".FIRMID) where "personTable_d#4_ecq_d#2_m1".FIRMID is not null',
                     'milestoned or to-many join merging'),
