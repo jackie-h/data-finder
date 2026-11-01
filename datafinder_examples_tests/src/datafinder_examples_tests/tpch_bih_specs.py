@@ -655,6 +655,45 @@ LINEITEM_FINDER_SPECS = FinderSpec(
         ),
         # --- A milestoned navigation used only inside a CASE is joined at the query's dates ---
         TestExpectation(
+            # TPC-H Q8 is the share of a nation's revenue for a region and part type by order year. Here: the share of
+            # revenue from FRANCE suppliers, by ship year.
+            name="H8_national_market_share",
+            query=lambda f: f.find_all(
+                _H_APPLICATION, _H_SYSTEM,
+                [f.ship_date().year().alias("o_year"),
+                 (when(f.supplier().nation().name().eq("FRANCE")).then(_revenue(f)).otherwise(0).sum()
+                  / _revenue(f).sum()).alias("mkt_share")],
+            ).group_by(f.ship_date().year()),
+            expected_columns=["o_year", "mkt_share"],
+            expected_result=_rows([2019, (_O2L1 + _O2L2) / (_O1L1 + _O1L2 + _O2L1 + _O2L2)]),
+        ),
+        TestExpectation(
+            # TPC-H Q9 joins LINEITEM to PARTSUPP on the part and the supplier together. An association joins on one
+            # column, so the line is joined to the rows of its part and the supplier is compared in the filter.
+            name="H9_product_type_profit_measure",
+            query=lambda f: f.find_all(
+                _H_APPLICATION, _H_SYSTEM,
+                [f.supplier().nation().name().alias("nation"), f.order().order_date().year().alias("o_year"),
+                 (_revenue(f) - f.part_supps().supply_cost() * f.quantity()).sum().alias("sum_profit")],
+                f.part_supps().supplier().supplier_key() == f.supplier().supplier_key(),
+            ).order_by(f.supplier().nation().name().ascending(), f.order().order_date().year().descending()),
+            expected_columns=["nation", "o_year", "sum_profit"],
+            expected_result=_rows(
+                ["FRANCE", 2019, (_O2L1 - 80.0 * 20.0) + (_O2L2 - 300.0 * 8.0)],
+                ["GERMANY", 2019, (_O1L1 - 100.0 * 10.0) + (_O1L2 - 200.0 * 5.0)],
+            ),
+        ),
+        TestExpectation(
+            # TPC-H Q15 takes the supplier whose revenue is the maximum; the same supplier is the first by revenue
+            # (they differ only if two suppliers tie, when Q15 returns both).
+            name="H15_top_supplier",
+            query=lambda f: f.find_all(
+                _H_APPLICATION, _H_SYSTEM, [f.supplier().supplier_key(), _revenue(f).sum().alias("total_revenue")],
+            ).order_by(_revenue(f).sum().descending()).limit(1),
+            expected_columns=["Supplier Supplier Key", "total_revenue"],
+            expected_result=_rows([2, _O2L1 + _O2L2]),
+        ),
+        TestExpectation(
             name="H12_shipping_modes_and_order_priority",
             query=lambda f: f.find_all(
                 _H_APPLICATION, _H_SYSTEM,
@@ -679,19 +718,8 @@ LINEITEM_FINDER_SPECS = FinderSpec(
                 + _discounted(3600.0, 0.00),
             ]),
         ),
-        _unsupported(
-            "H8_national_market_share",
-            "Divides one CASE sum by another next to a date extract. That expression is not recognised as an aggregate, so "
-            "the extract is not grouped, and group_by does not accept an extract",
-            ["Year Ship Date", "mkt_share"],
-        ),
         # --- The rest of the 22 ---
         _unsupported("H2_minimum_cost_supplier", _SKIP_SUBQUERY + " (the minimum cost per part)", ["Supplier Acct Bal"]),
-        _unsupported(
-            "H9_product_type_profit_measure",
-            "Joins LINEITEM to PARTSUPP on a composite key (partkey and suppkey); an association joins on one column",
-            ["Nation Name", "Year Ship Date", "sum_profit"],
-        ),
         _unsupported("H11_important_stock_identification", _SKIP_SUBQUERY + " (HAVING against a total)", ["Part Key"]),
         _unsupported(
             "H13_customer_distribution",
@@ -699,19 +727,19 @@ LINEITEM_FINDER_SPECS = FinderSpec(
             ["c_count", "custdist"],
         ),
         _unsupported(
-            "H15_top_supplier",
-            "Selects the supplier whose revenue equals the maximum revenue over all suppliers (a view and a subquery)",
-            ["Supplier Key", "total_revenue"],
-        ),
-        _unsupported(
             "H16_parts_supplier_relationship",
-            "Needs COUNT(DISTINCT) of suppliers and NOT IN a subquery",
+            "Excludes suppliers whose comment mentions complaints with NOT IN a subquery (the model has no comments), "
+            "and the finders have no negated pattern match (NOT LIKE) for the part type",
             ["Brand", "Type", "Size", "supplier_cnt"],
         ),
         _unsupported("H17_small_quantity_order_revenue", _SKIP_SUBQUERY + " (the average quantity per part)", ["avg_yearly"]),
-        _unsupported("H18_large_volume_customer", _SKIP_SUBQUERY + " (IN a grouped subquery)", ["Customer Name"]),
         _unsupported("H20_potential_part_promotion", _SKIP_SUBQUERY + " (nested IN and a correlated sum)", ["Supplier Name"]),
-        _unsupported("H21_suppliers_who_kept_orders_waiting", _SKIP_SUBQUERY + " (EXISTS and NOT EXISTS on other suppliers)", ["Supplier Name", "numwait"]),
+        _unsupported(
+            "H21_suppliers_who_kept_orders_waiting",
+            "Needs exists(condition): EXISTS a line of the same order from another supplier, and NOT EXISTS such a line "
+            "that was late. exists() takes no condition, and a filter through the navigation joins instead of testing",
+            ["Supplier Name", "numwait"],
+        ),
         _unsupported("H22_global_sales_opportunity", _SKIP_SUBQUERY + " (an average and NOT EXISTS), and the model has no phone", ["cntrycode", "numcust"]),
         TestExpectation(
             name="H5_local_supplier_volume",
@@ -747,6 +775,22 @@ ORDER_PRIORITY_FINDER_SPECS = FinderSpec(
     finder_name="OrderFinder",
     mapping_file=TPCH_BIH_MAPPING,
     expectations=[
+        TestExpectation(
+            # TPC-H Q18 lists the orders whose lines add up to more than a quantity, found with IN a subquery that
+            # groups the lines by order. The outer query sums the same lines for each order, so a HAVING on that sum
+            # gives the same rows. The quantity is 20 here, not 300, for the size of the data.
+            name="H18_large_volume_customer",
+            query=lambda f: f.find_all(
+                _H_APPLICATION, _H_SYSTEM,
+                [f.customer().name(), f.customer().customer_key(), f.order_key(), f.order_date(), f.total_price(),
+                 f.line_items().quantity().sum().alias("sum_quantity")],
+            ).group_by(f.customer().name(), f.customer().customer_key(), f.order_key(), f.order_date(), f.total_price())
+            .having(f.line_items().quantity().sum() > 20.0)
+            .order_by(f.total_price().descending(), f.order_date().ascending()).limit(100),
+            expected_columns=["Customer Name", "Customer Customer Key", "Order Key", "Order Date", "Total Price",
+                              "sum_quantity"],
+            expected_result=_rows(["Customer#2", 2, 2, _D(2019, 12, 10), 2000.0, 28.0]),
+        ),
         TestExpectation(
             # TPC-H Q4 counts orders that have a line committed before it was received. The condition is on the line, so
             # it is a filter through the navigation (exists() takes no condition), which repeats an order once per
