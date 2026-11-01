@@ -93,9 +93,6 @@ def finders():
         customer=instances["CustomerFinder"],
         partsupp=instances["PartSuppFinder"],
         lineitem=instances["LineItemFinder"],
-        part=instances["PartFinder"],
-        supplier=instances["SupplierFinder"],
-        nation=instances["NationFinder"],
     )
 
     if tmp in sys.path:
