@@ -1,4 +1,4 @@
-n_nationkey,n_name,n_regionkey
-0,UNITED STATES,0
-1,GERMANY,1
-2,FRANCE,1
+n_nationkey,n_name,n_regionkey,n_comment
+0,UNITED STATES,0,the nation united states
+1,GERMANY,1,the nation germany
+2,FRANCE,1,the nation france

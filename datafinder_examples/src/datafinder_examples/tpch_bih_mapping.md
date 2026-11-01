@@ -20,6 +20,7 @@
 |-------------|---------|-----|----------|-------------|
 | r_regionkey | INT     | PK  | N        | regionKey   |
 | r_name      | VARCHAR |     | N        | name        |
+| r_comment              | VARCHAR   |     | Y        | comment      |
 
 #### Table: nation → Nation
 
@@ -28,6 +29,7 @@
 | n_nationkey | INT     | PK  | N        | nationKey   |
 | n_name      | VARCHAR |     | N        | name        |
 | n_regionkey | INT     | FK  | N        | region      |
+| n_comment              | VARCHAR   |     | Y        | comment      |
 
 #### Association: NationRegion
 
@@ -43,6 +45,9 @@
 | s_name         | VARCHAR   |     | N        | name        |
 | s_nationkey    | INT       | FK  | N        | nation      |
 | s_acctbal      | DOUBLE    |     | N        | acctBal     |
+| s_address              | VARCHAR   |     | Y        | address      |
+| s_phone                | VARCHAR   |     | Y        | phone        |
+| s_comment              | VARCHAR   |     | Y        | comment      |
 | sys_time_begin | TIMESTAMP |     | N        | sysTimeBegin |
 | sys_time_end   | TIMESTAMP |     | N        | sysTimeEnd  |
 
@@ -64,6 +69,7 @@
 | p_size                  | INT       |     | N        | size         |
 | p_container             | VARCHAR   |     | N        | container    |
 | p_retailprice           | DOUBLE    |     | N        | retailPrice  |
+| p_comment              | VARCHAR   |     | Y        | comment      |
 | availability_time_begin | DATE      |     | N        | availabilityTimeBegin |
 | availability_time_end   | DATE      |     | N        | availabilityTimeEnd   |
 | sys_time_begin          | TIMESTAMP |     | N        | sysTimeBegin |
@@ -77,6 +83,7 @@
 | ps_suppkey          | INT       | FK  | N        | supplier     |
 | ps_availqty         | INT       |     | N        | availQty     |
 | ps_supplycost       | DOUBLE    |     | N        | supplyCost   |
+| ps_comment             | VARCHAR   |     | Y        | comment      |
 | validity_time_begin | DATE      |     | N        | validityTimeBegin |
 | validity_time_end   | DATE      |     | N        | validityTimeEnd   |
 | sys_time_begin      | TIMESTAMP |     | N        | sysTimeBegin |
@@ -109,6 +116,9 @@
 | c_nationkey        | INT       | FK  | N        | nation       |
 | c_acctbal          | DOUBLE    |     | N        | acctBal      |
 | c_mktsegment       | VARCHAR   |     | N        | mktSegment   |
+| c_address              | VARCHAR   |     | Y        | address      |
+| c_phone                | VARCHAR   |     | Y        | phone        |
+| c_comment              | VARCHAR   |     | Y        | comment      |
 | visible_time_begin | DATE      |     | N        | visibleTimeBegin |
 | visible_time_end   | DATE      |     | N        | visibleTimeEnd   |
 | sys_time_begin     | TIMESTAMP |     | N        | sysTimeBegin |
@@ -138,6 +148,7 @@
 | o_orderpriority       | VARCHAR   |     | N        | orderPriority       |
 | o_clerk               | VARCHAR   |     | N        | clerk               |
 | o_shippriority        | INT       |     | N        | shipPriority        |
+| o_comment              | VARCHAR   |     | Y        | comment      |
 | receivable_time_begin | DATE      |     | N        | receivableTimeBegin |
 | receivable_time_end   | DATE      |     | N        | receivableTimeEnd   |
 | active_time_begin     | DATE      |     | N        | activeTimeBegin     |
@@ -174,7 +185,9 @@
 | l_shipdate        | DATE      |     | N        | shipDate        |
 | l_commitdate      | DATE      |     | N        | commitDate      |
 | l_receiptdate     | DATE      |     | N        | receiptDate     |
+| l_shipinstruct         | VARCHAR   |     | Y        | shipInstruct |
 | l_shipmode        | VARCHAR   |     | N        | shipMode        |
+| l_comment              | VARCHAR   |     | Y        | comment      |
 | active_time_begin | DATE      |     | N        | activeTimeBegin |
 | active_time_end   | DATE      |     | N        | activeTimeEnd   |
 | sys_time_begin    | TIMESTAMP |     | N        | sysTimeBegin    |

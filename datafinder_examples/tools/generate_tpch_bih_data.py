@@ -9,6 +9,10 @@ versions it replaces and adds the new ones. Application time is left open ended 
 bounds it.
 
 System times:  S0 initial load (2020-01-01), S1 2021-01-01, S2 2022-01-01, S3 2023-01-01.
+
+Application dates are in the range TPC-H generates dates in, 1992 to 1998, so the queries that name dates in that range
+(Q1, Q7, Q8) find data. The history was designed on 2019 to 2024 and every date in it is moved back 27 years: ``D(2019, 1, 1)``
+is 1992-01-01. System times are not moved.
 """
 import csv
 import datetime
@@ -18,7 +22,12 @@ from typing import Any
 INF_D = datetime.date(9999, 12, 31)
 INF_T = datetime.datetime(9999, 12, 31, 23, 59, 59)
 S0, S1, S2, S3 = (datetime.datetime(y, 1, 1) for y in (2020, 2021, 2022, 2023))
-D = datetime.date
+SHIFT = 27
+
+
+def D(year: int, month: int, day: int) -> datetime.date:
+    """An application date: the year is given as the history was designed, and moved into TPC-H's range."""
+    return datetime.date(year - SHIFT, month, day)
 
 
 class Table:
@@ -84,37 +93,44 @@ class Table:
 
 
 def build() -> list[Table]:
-    region = Table("region", ("r_regionkey",), None, ["r_regionkey", "r_name"], system=False)
-    nation = Table("nation", ("n_nationkey",), None, ["n_nationkey", "n_name", "n_regionkey"], system=False)
+    region = Table("region", ("r_regionkey",), None, ["r_regionkey", "r_name", "r_comment"], system=False)
+    nation = Table("nation", ("n_nationkey",), None, ["n_nationkey", "n_name", "n_regionkey", "n_comment"], system=False)
     for k, n in ((0, "AMERICA"), (1, "EUROPE")):
-        region.insert(S0, r_regionkey=k, r_name=n)
+        region.insert(S0, r_regionkey=k, r_name=n, r_comment=f"the {n.lower()} region")
     for k, n, r in ((0, "UNITED STATES", 0), (1, "GERMANY", 1), (2, "FRANCE", 1)):
-        nation.insert(S0, n_nationkey=k, n_name=n, n_regionkey=r)
+        nation.insert(S0, n_nationkey=k, n_name=n, n_regionkey=r, n_comment=f"the nation {n.lower()}")
+
+    def phone(nation_key: int, n: int) -> str:
+        """A phone number as TPC-H makes them: the country code is the nation key plus 10."""
+        return f"{nation_key + 10}-{100 + n}-{200 + n}-{3000 + n}"
 
     # SUPPLIER: degenerate, system time only
-    supplier = Table("supplier", ("s_suppkey",), None, ["s_suppkey", "s_name", "s_nationkey", "s_acctbal"])
+    supplier = Table("supplier", ("s_suppkey",), None,
+                     ["s_suppkey", "s_name", "s_address", "s_nationkey", "s_phone", "s_acctbal", "s_comment"])
     for k, n, nat, bal in ((1, "Supplier#1", 1, 1000.0), (2, "Supplier#2", 2, 500.0), (3, "Supplier#3", 0, 800.0)):
-        supplier.insert(S0, s_suppkey=k, s_name=n, s_nationkey=nat, s_acctbal=bal)
+        supplier.insert(S0, s_suppkey=k, s_name=n, s_address=f"{k} Supplier Street", s_nationkey=nat,
+                        s_phone=phone(nat, k), s_acctbal=bal, s_comment=f"supplier {k} is a regular supplier")
     supplier.update(S2, (1,), s_acctbal=1200.0)
     supplier.update(S3, (2,), s_acctbal=450.0)
 
     # PART: availability_time
     part = Table("part", ("p_partkey",), "availability_time",
-                 ["p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice"])
-    for row in ((1, "Part#1", "Manufacturer#1", "Brand#13", "PROMO BRUSHED STEEL", 15, "SM BOX", 900.0),
-                (2, "Part#2", "Manufacturer#2", "Brand#24", "STANDARD POLISHED BRASS", 20, "LG CASE", 1000.0),
-                (3, "Part#3", "Manufacturer#1", "Brand#13", "PROMO PLATED TIN", 7, "SM BOX", 1100.0),
-                (4, "Part#4", "Manufacturer#3", "Brand#35", "ECONOMY ANODIZED STEEL", 30, "MED BAG", 1200.0)):
+                 ["p_partkey", "p_name", "p_mfgr", "p_brand", "p_type", "p_size", "p_container", "p_retailprice",
+                  "p_comment"])
+    for row in ((1, "Part#1", "Manufacturer#1", "Brand#13", "PROMO BRUSHED STEEL", 15, "SM BOX", 900.0, "part one"),
+                (2, "Part#2", "Manufacturer#2", "Brand#24", "STANDARD POLISHED BRASS", 20, "LG CASE", 1000.0, "part two"),
+                (3, "Part#3", "Manufacturer#1", "Brand#13", "PROMO PLATED TIN", 7, "SM BOX", 1100.0, "part three"),
+                (4, "Part#4", "Manufacturer#3", "Brand#35", "ECONOMY ANODIZED STEEL", 30, "MED BAG", 1200.0, "part four")):
         part.insert(S0, **part.values(row))
     part.update(S1, (2,), app_from=D(2021, 3, 1), p_retailprice=1050.0)  # price change
     part.replace(S2, (4,), D(2022, 6, 1), INF_D)  # availability delayed
 
     # PARTSUPP: validity_time
     partsupp = Table("partsupp", ("ps_partkey", "ps_suppkey"), "validity_time",
-                     ["ps_partkey", "ps_suppkey", "ps_availqty", "ps_supplycost"])
+                     ["ps_partkey", "ps_suppkey", "ps_availqty", "ps_supplycost", "ps_comment"])
     for row in ((1, 1, 50, 100.0), (1, 2, 70, 80.0), (2, 1, 30, 200.0), (2, 3, 40, 210.0), (3, 2, 60, 300.0),
                 (4, 3, 20, 400.0)):
-        partsupp.insert(S0, **partsupp.values(row))
+        partsupp.insert(S0, **partsupp.values((*row, f"part {row[0]} from supplier {row[1]}")))
     partsupp.update(S1, (1, 1), app_from=D(2021, 6, 1), ps_supplycost=110.0)
     partsupp.update(S2, (1, 2), app_from=D(2022, 3, 1), ps_supplycost=82.0)
     partsupp.update(S2, (2, 1), app_from=D(2022, 1, 1), ps_availqty=80)
@@ -122,14 +138,18 @@ def build() -> list[Table]:
     # supplier 3 stopped supplying part 4 in mid 2021, which is only recorded at S3 (a correction of application time)
     partsupp.replace(S3, (4, 3), D(2019, 1, 1), D(2021, 6, 1))
     # a new supplier starts supplying part 1 in 2022
-    partsupp.insert(S2, app_from=D(2022, 1, 1), ps_partkey=1, ps_suppkey=3, ps_availqty=10, ps_supplycost=95.0)
+    partsupp.insert(S2, app_from=D(2022, 1, 1), ps_partkey=1, ps_suppkey=3, ps_availqty=10, ps_supplycost=95.0,
+                    ps_comment="part 1 from supplier 3")
 
     # CUSTOMER: visible_time
     customer = Table("customer", ("c_custkey",), "visible_time",
-                     ["c_custkey", "c_name", "c_nationkey", "c_acctbal", "c_mktsegment"])
-    for row in ((1, "Customer#1", 0, 100.0, "BUILDING"), (2, "Customer#2", 1, 3000.0, "AUTOMOBILE"),
-                (3, "Customer#3", 2, 4000.0, "BUILDING"), (4, "Customer#4", 0, 9000.0, "MACHINERY")):
-        customer.insert(S0, **customer.values(row))
+                     ["c_custkey", "c_name", "c_address", "c_nationkey", "c_phone", "c_acctbal", "c_mktsegment",
+                      "c_comment"])
+    for k, n, nat, bal, seg in ((1, "Customer#1", 0, 100.0, "BUILDING"), (2, "Customer#2", 1, 3000.0, "AUTOMOBILE"),
+                                (3, "Customer#3", 2, 4000.0, "BUILDING"), (4, "Customer#4", 0, 9000.0, "MACHINERY")):
+        customer.insert(S0, c_custkey=k, c_name=n, c_address=f"{k} Customer Avenue", c_nationkey=nat,
+                        c_phone=phone(nat, k), c_acctbal=bal, c_mktsegment=seg,
+                        c_comment=f"customer {k} is a regular customer")
     customer.update(S1, (1,), app_from=D(2021, 1, 1), c_acctbal=6000.0)
     customer.update(S2, (2,), app_from=D(2022, 1, 1), c_nationkey=0)  # moves to the US
     customer.update(S3, (3,), app_from=D(2023, 1, 1), c_acctbal=2000.0)
@@ -137,25 +157,27 @@ def build() -> list[Table]:
     # ORDERS: active_time, plus receivable_time as ordinary dates
     orders = Table("orders", ("o_orderkey",), "active_time",
                    ["o_orderkey", "o_custkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority",
-                    "o_clerk", "o_shippriority", "receivable_time_begin", "receivable_time_end"])
+                    "o_clerk", "o_shippriority", "o_comment", "receivable_time_begin", "receivable_time_end"])
     lineitem = Table("lineitem", ("l_orderkey", "l_linenumber"), "active_time",
                      ["l_orderkey", "l_linenumber", "l_partkey", "l_suppkey", "l_quantity", "l_extendedprice",
                       "l_discount", "l_tax", "l_returnflag", "l_linestatus", "l_shipdate", "l_commitdate",
-                      "l_receiptdate", "l_shipmode"])
+                      "l_receiptdate", "l_shipinstruct", "l_shipmode", "l_comment"])
 
     def order(sys_at, key, cust, status, total, odate, prio, clerk, ship_prio, recv_from, active_from,
               active_to=INF_D):
         orders.insert(sys_at, app_from=active_from, app_to=active_to, o_orderkey=key, o_custkey=cust, o_orderstatus=status,
                       o_totalprice=total, o_orderdate=odate, o_orderpriority=prio, o_clerk=clerk,
-                      o_shippriority=ship_prio, receivable_time_begin=recv_from, receivable_time_end=INF_D)
+                      o_shippriority=ship_prio, o_comment=f"order {key}", receivable_time_begin=recv_from,
+                      receivable_time_end=INF_D)
 
     def line(sys_at, okey, n, part_, supp, qty, price, disc, tax, flag, status, ship, commit, receipt, mode,
-             active_from, active_to=INF_D):
+             active_from, active_to=INF_D, instruct="DELIVER IN PERSON"):
         """A line is valid from its order's date until the order is delivered or cancelled."""
         lineitem.insert(sys_at, app_from=active_from, app_to=active_to,
                         l_orderkey=okey, l_linenumber=n, l_partkey=part_, l_suppkey=supp, l_quantity=qty,
                         l_extendedprice=price, l_discount=disc, l_tax=tax, l_returnflag=flag, l_linestatus=status,
-                        l_shipdate=ship, l_commitdate=commit, l_receiptdate=receipt, l_shipmode=mode)
+                        l_shipdate=ship, l_commitdate=commit, l_receiptdate=receipt, l_shipinstruct=instruct,
+                        l_shipmode=mode, l_comment=f"line {n} of order {okey}")
 
     # S0: orders 1 to 3
     order(S0, 1, 1, "F", 1000.0, D(2019, 11, 1), "1-URGENT", "Clerk#1", 0, D(2019, 12, 1), D(2019, 11, 1), D(2019, 12, 15))

@@ -39,7 +39,15 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 TPCH_BIH_MAPPING = "tpch_bih_mapping.md"
 
-_D = datetime.date
+_SHIFT = 27
+
+
+def _D(year: int, month: int, day: int) -> datetime.date:
+    """An application date. The history was designed on 2019 to 2024 and the data has it moved back 27 years, into TPC-H's
+    range (see generate_tpch_bih_data.py), so the years here are as designed. The end of time is not moved."""
+    return datetime.date(year if year > 3000 else year - _SHIFT, month, day)
+
+
 _S0 = datetime.datetime(2020, 1, 1)
 _S1 = datetime.datetime(2021, 1, 1)
 _S2 = datetime.datetime(2022, 1, 1)
@@ -102,7 +110,7 @@ def _price_changed(f):
     """Orders whose price now differs from the price recorded at S0, with both: the order at two system times."""
     at_s0 = f.other_version(processing_time=_S0)
     return f.find_all(
-        "2022-06-01", _NOW, [f.order_key(), f.total_price(), at_s0.total_price()],
+        "1995-06-01", _NOW, [f.order_key(), f.total_price(), at_s0.total_price()],
         f.total_price() != at_s0.total_price(),
     )
 
@@ -113,22 +121,22 @@ ORDER_FINDER_SPECS = FinderSpec(
         # --- T2: point in both dimensions on ORDERS (insert-heavy history) ---
         TestExpectation(
             name="T2_point_point_before_cancel",
-            query=lambda f: f.find_all("2022-06-01", "2022-06-01", [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1995-06-01", "2022-06-01", [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([3, 500.0], [4, 3000.0], [5, 800.0]),
-            expected_sql={"duckdb": "t0.active_time_begin <= '2022-06-01'"},
+            expected_sql={"duckdb": "t0.active_time_begin <= '1995-06-01'"},
         ),
         TestExpectation(
             name="T2_point_point_after_cancel_and_price_manipulation",
-            query=lambda f: f.find_all("2022-06-01", _NOW, [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1995-06-01", _NOW, [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([3, 700.0], [4, 3000.0]),
         ),
         TestExpectation(
             name="T2_point_point_early",
-            query=lambda f: f.find_all("2019-12-12", "2020-06-01", [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1992-12-12", "2020-06-01", [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([1, 1000.0], [2, 2000.0]),
@@ -163,7 +171,7 @@ ORDER_FINDER_SPECS = FinderSpec(
         # --- T6: one dimension a point, the other the whole history ---
         TestExpectation(
             name="T6_application_time_point_all_system_time",
-            query=lambda f: f.find_all("2020-06-01", None, [f.order_key(), f.order_status(), f.total_price()])
+            query=lambda f: f.find_all("1993-06-01", None, [f.order_key(), f.order_status(), f.total_price()])
             .order_by(f.order_key().ascending(), f.sys_time_begin().ascending()),
             expected_columns=["Order Key", "Order Status", "Total Price"],
             expected_result=_rows([2, "O", 2000.0], [2, "F", 2000.0], [3, "O", 500.0], [3, "O", 700.0]),
@@ -178,7 +186,7 @@ ORDER_FINDER_SPECS = FinderSpec(
         # --- T7: current system time given implicitly (here, the time now) ---
         TestExpectation(
             name="T7_current_system_time",
-            query=lambda f: f.find_all("2022-06-01", datetime.datetime.now(), [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1995-06-01", datetime.datetime.now(), [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([3, 700.0], [4, 3000.0]),
@@ -288,7 +296,7 @@ ORDER_FINDER_SPECS = FinderSpec(
             # R5 at one point in time: not the benchmark's temporal join, but the same filter on both tables.
             name="R5_at_a_point_customers_with_low_balance_and_orders",
             query=lambda f: f.find_all(
-                "2022-06-01", "2022-06-01", [f.customer().customer_key()],
+                "1995-06-01", "2022-06-01", [f.customer().customer_key()],
                 (f.customer().acct_bal() < 5000.0).and_(f.total_price() > 10.0),
             ).distinct(),
             expected_columns=["Customer Customer Key"],
@@ -304,7 +312,7 @@ def _moved_to_us(f):
     """Customers in the US at 2022-06-01 who were not on 2021-06-01: the customer at two application dates."""
     before = f.other_version(business_date=_D(2021, 6, 1))
     return f.find_all(
-        "2022-06-01", _NOW, [f.customer_key(), f.name()],
+        "1995-06-01", _NOW, [f.customer_key(), f.name()],
         f.nation().name().eq("UNITED STATES").and_(before.nation().name() != "UNITED STATES"),
     )
 
@@ -321,7 +329,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         # --- T1: point in both dimensions on CUSTOMER (update-heavy history) ---
         TestExpectation(
             name="T1_point_point_current",
-            query=lambda f: _customers_at(f, "2022-06-01", "2022-06-01"),
+            query=lambda f: _customers_at(f, "1995-06-01", "2022-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 6000.0, "UNITED STATES"], [2, 3000.0, "UNITED STATES"], [3, 4000.0, "FRANCE"],
@@ -330,7 +338,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="T1_point_point_past",
-            query=lambda f: _customers_at(f, "2020-06-01", "2020-06-01"),
+            query=lambda f: _customers_at(f, "1993-06-01", "2020-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 100.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
@@ -340,7 +348,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         TestExpectation(
             # Tomorrow's state in application time, as recorded yesterday: the 2021 payment was not known in 2020.
             name="T1_future_application_time_as_recorded_in_the_past",
-            query=lambda f: _customers_at(f, "2021-06-01", "2020-06-01"),
+            query=lambda f: _customers_at(f, "1994-06-01", "2020-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 100.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
@@ -349,7 +357,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="T1_same_application_time_as_recorded_later",
-            query=lambda f: _customers_at(f, "2021-06-01", "2021-06-01"),
+            query=lambda f: _customers_at(f, "1994-06-01", "2021-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 6000.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
@@ -410,13 +418,13 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             # Supplier 3's rows for part 4 ended in 2021 (recorded at S3), so part 4 is not found at 2023-06-01.
             name="B3_1_application_point_system_point_current",
-            query=lambda f: _other_parts(f, "2023-06-01", _NOW),
+            query=lambda f: _other_parts(f, "1996-06-01", _NOW),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3]),
         ),
         TestExpectation(
             name="B3_2_application_point_system_point_past",
-            query=lambda f: _other_parts(f, "2023-06-01", "2020-06-01"),
+            query=lambda f: _other_parts(f, "1996-06-01", "2020-06-01"),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3]),
         ),
@@ -436,13 +444,13 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         # --- B3.9, B3.11: system time agnostic ---
         TestExpectation(
             name="B3_9_application_point_system_agnostic",
-            query=lambda f: _other_parts(f, "2023-06-01", None),
+            query=lambda f: _other_parts(f, "1996-06-01", None),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3], [4]),
         ),
         TestExpectation(
             name="B3_9_application_point_before_the_new_supplier_system_agnostic",
-            query=lambda f: _other_parts(f, "2021-06-01", None),
+            query=lambda f: _other_parts(f, "1994-06-01", None),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3]),
         ),
@@ -463,7 +471,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="B3_4_application_point_system_correlation",
-            query=lambda f: _other_parts(f, "2023-06-01", None, correlate=("system",)),
+            query=lambda f: _other_parts(f, "1996-06-01", None, correlate=("system",)),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3], [4]),
         ),
@@ -489,7 +497,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_change_effective_in_the_future_as_recorded",
             query=lambda f: f.find_all(
-                "2021-07-01", "2021-06-01", [f.supply_cost()],
+                "1994-07-01", "2021-06-01", [f.supply_cost()],
                 f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
             ),
             expected_columns=["Supply Cost"],
@@ -498,7 +506,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_before_the_change_was_recorded",
             query=lambda f: f.find_all(
-                "2021-07-01", "2020-06-01", [f.supply_cost()],
+                "1994-07-01", "2020-06-01", [f.supply_cost()],
                 f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
             ),
             expected_columns=["Supply Cost"],
@@ -507,7 +515,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_current",
             query=lambda f: f.find_all(
-                "2023-06-01", _NOW, [f.supply_cost()],
+                "1996-06-01", _NOW, [f.supply_cost()],
                 f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
             ),
             expected_columns=["Supply Cost"],
@@ -516,7 +524,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_as_it_was_before_the_last_change_was_recorded",
             query=lambda f: f.find_all(
-                "2023-06-01", "2022-06-01", [f.supply_cost()],
+                "1996-06-01", "2022-06-01", [f.supply_cost()],
                 f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
             ),
             expected_columns=["Supply Cost"],
@@ -552,7 +560,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
 # ---------------------------------------------------------------------------------------------------------------------
 
 # One point in both dimensions for H1, H3, H5, H6, H7, H10, H12 and H19: it holds orders 1 and 2 with their four lines.
-_H_APPLICATION = "2019-12-12"
+_H_APPLICATION = "1992-12-12"
 _H_SYSTEM = "2020-06-01"
 
 # 1 - 0.05 and the like are inexact doubles, so the expected values use the same operations the SQL does.
@@ -640,7 +648,7 @@ LINEITEM_FINDER_SPECS = FinderSpec(
                 .or_(f.supplier().nation().name().eq("GERMANY").and_(f.order().customer().nation().name().eq("FRANCE"))),
             ),
             expected_columns=["Supplier Nation Name", "Order Customer Nation Name", "Year Ship Date", "revenue"],
-            expected_result=_rows(["FRANCE", "GERMANY", 2019, _O2L1 + _O2L2]),
+            expected_result=_rows(["FRANCE", "GERMANY", _D(2019, 1, 1).year, _O2L1 + _O2L2]),
         ),
         TestExpectation(
             name="H19_discounted_revenue",
@@ -668,7 +676,7 @@ LINEITEM_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="H14_promotion_effect",
             query=lambda f: f.find_all(
-                "2022-01-15", "2022-06-01",
+                "1995-01-15", "2022-06-01",
                 [when(f.part().type_().starts_with("PROMO")).then(_revenue(f)).otherwise(0).sum().alias("promo_revenue"),
                  _revenue(f).sum().alias("total_revenue")],
             ),
@@ -716,7 +724,7 @@ LINEITEM_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="H5_local_supplier_volume",
             query=lambda f: f.find_all(
-                "2022-01-15", "2022-06-01", [f.supplier().nation().name(), _revenue(f).sum().alias("revenue")],
+                "1995-01-15", "2022-06-01", [f.supplier().nation().name(), _revenue(f).sum().alias("revenue")],
                 f.supplier().nation().region().name().eq("AMERICA")
                 .and_(f.supplier().nation().nation_key() == f.order().customer().nation().nation_key())
                 .and_(f.order().order_date() >= _D(2020, 1, 1)),
@@ -792,7 +800,7 @@ CUSTOMER_JOIN_STRINGS_FINDER_SPECS = FinderSpec(
             # order 2 has two versions and order 5 was cancelled later, so an unmilestoned join repeats customers.
             name="join_strings_ordered_by_a_navigation_is_milestoned",
             query=lambda f: f.find_all(
-                "2022-06-01", "2022-06-01",
+                "1995-06-01", "2022-06-01",
                 [f.nation().name(), f.name().join(", ", order_by=[f.orders().total_price().ascending()])],
             ).order_by(f.nation().name().ascending()),
             expected_columns=["Nation Name", "Join Name"],
@@ -812,38 +820,38 @@ PART_FINDER_SPECS = FinderSpec(
         # Part 4's availability is delayed at S2: its application period is overwritten.
         TestExpectation(
             name="availability_delayed_not_available_before_the_new_date",
-            query=lambda f: f.find_all("2022-03-01", _NOW, [f.name()], f.name().eq("Part#4")),
+            query=lambda f: f.find_all("1995-03-01", _NOW, [f.name()], f.name().eq("Part#4")),
             expected_columns=["Name"],
             expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="availability_delayed_available_from_the_new_date",
-            query=lambda f: f.find_all("2022-07-01", _NOW, [f.name()], f.name().eq("Part#4")),
+            query=lambda f: f.find_all("1995-07-01", _NOW, [f.name()], f.name().eq("Part#4")),
             expected_columns=["Name"],
             expected_result=_rows(["Part#4"]),
         ),
         TestExpectation(
             name="availability_delayed_as_recorded_before_the_delay",
-            query=lambda f: f.find_all("2022-03-01", "2021-06-01", [f.name()], f.name().eq("Part#4")),
+            query=lambda f: f.find_all("1995-03-01", "2021-06-01", [f.name()], f.name().eq("Part#4")),
             expected_columns=["Name"],
             expected_result=_rows(["Part#4"]),
         ),
         # Part 2's price changes at S1, effective 2021-03-01.
         TestExpectation(
             name="price_before_the_change",
-            query=lambda f: f.find_all("2021-02-01", _NOW, [f.retail_price()], f.name().eq("Part#2")),
+            query=lambda f: f.find_all("1994-02-01", _NOW, [f.retail_price()], f.name().eq("Part#2")),
             expected_columns=["Retail Price"],
             expected_result=_rows([1000.0]),
         ),
         TestExpectation(
             name="price_after_the_change",
-            query=lambda f: f.find_all("2021-04-01", _NOW, [f.retail_price()], f.name().eq("Part#2")),
+            query=lambda f: f.find_all("1994-04-01", _NOW, [f.retail_price()], f.name().eq("Part#2")),
             expected_columns=["Retail Price"],
             expected_result=_rows([1050.0]),
         ),
         TestExpectation(
             name="price_after_the_change_as_recorded_before_it",
-            query=lambda f: f.find_all("2021-04-01", "2020-06-01", [f.retail_price()], f.name().eq("Part#2")),
+            query=lambda f: f.find_all("1994-04-01", "2020-06-01", [f.retail_price()], f.name().eq("Part#2")),
             expected_columns=["Retail Price"],
             expected_result=_rows([1000.0]),
         ),
@@ -899,7 +907,7 @@ NATION_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="not_versioned_dates_have_no_effect",
-            query=lambda f: f.find_all("2019-01-01", "2019-01-01", [f.name()], f.region().name().eq("AMERICA")),
+            query=lambda f: f.find_all("1992-01-01", "2019-01-01", [f.name()], f.region().name().eq("AMERICA")),
             expected_columns=["Name"],
             expected_result=_rows(["UNITED STATES"]),
             unexpected_sql={"duckdb": "sys_time"},
