@@ -840,6 +840,9 @@ class QueryExpression:
         # ON-clause conditions this query adds to its joins (milestoning, kwargs filters), keyed by id(node).
         # Join objects are shared between queries, so per-query conditions live here and not on the join.
         self.join_filters: dict[int, Operation] = {}
+        # Steps the query only asks the existence of, each as the query that stands for its table, keyed by id(node):
+        # the query joins to that instead of to the table, so a parent is not repeated for each row that matches.
+        self.sub_selects: dict[int, 'SelectOperation'] = {}
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""

@@ -769,6 +769,25 @@ ORDER_PRIORITY_FINDER_SPECS = FinderSpec(
             expected_result=_rows([1], [2]),
         ),
         TestExpectation(
+            # Order 5's lines were cancelled at S3: a navigation given a later processing time no longer finds them,
+            # whatever the query's own dates are.
+            name="exists_to_many_uses_the_navigations_own_processing_time",
+            query=lambda f: f.find_all(
+                "2022-06-01", "2022-06-01", [f.order_key()], f.line_items(processing_time=_NOW).exists()
+            ).order_by(f.order_key().ascending()),
+            expected_columns=["Order Key"],
+            expected_result=_rows([3], [4]),
+        ),
+        TestExpectation(
+            name="exists_to_many_over_a_business_date_range",
+            skip_backends={"graphql": "A sort across a date range cannot be pushed: each date is a separate query"},
+            query=lambda f: f.find_for_date_range(
+                "2019-12-01", "2019-12-31", _H_SYSTEM, [f.order_key()], f.line_items().exists()
+            ).order_by(f.order_key().ascending()),
+            expected_columns=["Order Key"],
+            expected_result=_rows([1], [2], [3]),
+        ),
+        TestExpectation(
             name="exists_to_many_counts_each_order_once",
             query=lambda f: f.find_all(
                 _H_APPLICATION, _H_SYSTEM, [f.order_priority(), count_all().alias("order_count")],

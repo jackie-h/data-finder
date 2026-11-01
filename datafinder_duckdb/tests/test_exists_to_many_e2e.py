@@ -106,7 +106,7 @@ def test_a_derived_table_is_used_only_for_exists(con):
     accounts, account_id, _, trades, _ = _accounts()
     sql = to_sql(None, NOW, [account_id], accounts, trades.exists())
     # the table inside the sub-select and the sub-select itself have their own aliases
-    assert "LEFT OUTER JOIN (SELECT DISTINCT t2.account_id FROM trades AS t2 WHERE " in sql
+    assert 'LEFT OUTER JOIN (SELECT DISTINCT t2.account_id AS "account_id" FROM trades AS t2 WHERE ' in sql
     assert ") AS t1 ON (t0.ID = t1.account_id)" in sql
     assert "WHERE t1.account_id IS NOT NULL" in sql
 
