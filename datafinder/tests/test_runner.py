@@ -63,7 +63,7 @@ class TestFindForDateRangeValidation:
 
     def test_none_processing_datetime_raises_for_a_table_with_processing_columns(self):
         table = MilestonedTable("trades", [], ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")))
-        with pytest.raises(ValueError, match="processing_valid_at"):
+        with pytest.raises(ValueError, match="processing_time"):
             convert_inputs_and_select_for_date_range(
                 datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
                 None, [], table, NoOperation())  # type: ignore[arg-type]

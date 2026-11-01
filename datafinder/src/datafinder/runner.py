@@ -270,7 +270,7 @@ def convert_inputs_and_select_for_date_range(
         raise ValueError("business_date_to is required for find_for_date_range")
     if processing_datetime is None and isinstance(table, MilestonedTable) \
             and isinstance(table.milestoning_columns, ProcessingTemporalColumns):
-        raise ValueError("processing_valid_at is required for find_for_date_range")
+        raise ValueError("processing_time is required for find_for_date_range")
     # a table with no processing columns, such as a single business date, has no processing time to give
     bd_from = convert_date(business_date_from)
     bd_to = convert_date(business_date_to)
