@@ -748,8 +748,9 @@ ORDER_PRIORITY_FINDER_SPECS = FinderSpec(
     mapping_file=TPCH_BIH_MAPPING,
     expectations=[
         TestExpectation(
-            # TPC-H Q4 counts orders that have a line committed before it was received. An EXISTS is a join, so an
-            # aggregate over it would count an order once per line; counting the distinct orders does not.
+            # TPC-H Q4 counts orders that have a line committed before it was received. The condition is on the line, so
+            # it is a filter through the navigation (exists() takes no condition), which repeats an order once per
+            # such line; counting the distinct orders counts it once.
             name="H4_order_priority_checking",
             query=lambda f: f.find_all(
                 _H_APPLICATION, _H_SYSTEM,

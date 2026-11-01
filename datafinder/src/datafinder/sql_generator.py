@@ -20,7 +20,10 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     SelectOperation, QueryExpression, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
 
 class TableAlias:
-    def __init__(self, table: str, alias: str):
+    """A name for a relation in a query. As in Legend, the relation is a table or a query: ``table`` is the table's name,
+    or a SelectOperation when the alias stands for ``(SELECT ...)``."""
+
+    def __init__(self, table: 'str | SelectOperation', alias: str):
         self.table = table
         self.alias = alias
 
@@ -318,6 +321,47 @@ def _apply_join_filters(query: QueryExpression,
             query.join_filters[id(node)] = combined
 
 
+def _exists_only_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
+    """The to-many steps the query reaches only to ask whether a row exists (``exists`` or ``not_exists``).
+
+    Joining such a step repeats the parent once per matching row. A step the query also reads a value through is left as a
+    join: those values are one row per child, and the existence then holds for a child with those values. Nor can a step
+    stand for a query when a step below it is reached through it, or when it has a filter of its own written against the
+    step. A to-one step cannot repeat a row, so it stays a join.
+    """
+    required: dict = {}
+    node_refs: dict = {}
+    expressions = list(query.expressions())
+    having = getattr(query, 'having', None)
+    if having is not None:
+        expressions.append(having)
+    for expression in expressions:
+        collect_required_joins(expression, required, node_refs)
+    ancestors: set = set()
+    for node in required.values():
+        parent = node.parent
+        while parent is not None:
+            ancestors.add(id(parent))
+            parent = parent.parent
+    return [node for node in required.values()
+            if node.many and id(node) not in node_refs and id(node) not in ancestors
+            and node.join.filter is None and not node.join.filter_kwargs]
+
+
+def _apply_sub_selects(query: QueryExpression, business_date: datetime.date | None,
+                       business_date_to: datetime.date | None,
+                       processing_datetime: datetime.datetime | datetime.date | None) -> None:
+    """Set ``query.sub_selects``: for each step only asked the existence of, ``SELECT DISTINCT <join column> FROM <its
+    table>`` with the table's milestoning at the dates the step uses. Distinct on the join column makes it at most one
+    row for a parent, however many rows of the table match."""
+    query.sub_selects = {}
+    for node in _exists_only_nodes(query):
+        right = node.join.right
+        bd, bd_to, pdt = _dates_for_node(node, business_date, business_date_to, processing_datetime)
+        query.sub_selects[id(node)] = build_query_operation(
+            bd, pdt, [Alias(right, right.name)], node.join.target, NoOperation(), business_date_to=bd_to, distinct=True)
+
+
 def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | None,
                     business_date_to: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None):
     """The business date, its range end and the processing time for the table a step reaches.
@@ -340,7 +384,7 @@ def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | 
 
 
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
-                         columns: Sequence[Attribute], table: Table, op: Operation,
+                         columns: Sequence[RelationalOperationElement], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
                          limit: int | None = None, business_date_to: datetime.date | None = None,
                          distinct: bool = False, offset: int | None = None,
@@ -364,6 +408,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
         return build_milestoning_filter_operation(bd, pdt, node.join.target, node)
 
     _apply_join_filters(select, milestoning_condition)
+    _apply_sub_selects(select, business_date, business_date_to, processing_datetime)
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
@@ -658,17 +703,18 @@ class SQLQueryGenerator:
     __table_alias_incr: int
     _where: str
 
-    def __init__(self):
+    def __init__(self, first_alias: int = 0):
         self._having = ''
         self._select = []
         self._from = set()
         self._join = []
         self._group_by_parts = []
         self._order_by_parts = []
-        self.__table_alias_incr = 0
+        self.__table_alias_incr = first_alias
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
         self.__elidable_ids: set = set()
+        self._sub_selects: dict = {}
         self._root_table = None
         self._join_filters: dict = {}
 
@@ -715,6 +761,7 @@ class SQLQueryGenerator:
         self._root_table = select.table
         self._join_filters = select.join_filters
         self.__elidable_ids = self.__compute_elidable_ids(select)
+        self._sub_selects = select.sub_selects
         self.select(select.display)
         self._where = self.build_filter(self.__guarded(select.filter))
         required_joins: dict = {}
@@ -936,7 +983,9 @@ class SQLQueryGenerator:
         sc = TableAliasColumn(left, src_ta)
         right = join.right
         tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
-        self._join.append(Join(sc, tc, self._join_filters.get(id(node))))
+        # a sub-select carries the step's filter itself, so it is not repeated in the ON clause
+        on_filter = None if isinstance(tc.table_alias.table, SelectOperation) else self._join_filters.get(id(node))
+        self._join.append(Join(sc, tc, on_filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
@@ -1004,17 +1053,38 @@ class SQLQueryGenerator:
         cache_key = key if key is not None else table
         if cache_key in self.__table_aliases_by_table:
             return self.__table_aliases_by_table[cache_key]
-        ta = TableAlias(table, "t" + str(self.__table_alias_incr))
-        self.__table_alias_incr += 1
+        if key is not None and id(key) in self._sub_selects:
+            ta = self.__new_alias(self._sub_selects[id(key)])
+        else:
+            ta = self.__new_alias(table)
         self.__table_aliases_by_table[cache_key] = ta
         return ta
 
+    def __new_alias(self, table: 'str | SelectOperation') -> TableAlias:
+        ta = TableAlias(table, "t" + str(self.__table_alias_incr))
+        self.__table_alias_incr += 1
+        return ta
+
+    def __relation_sql(self, alias: TableAlias) -> str:
+        """What follows FROM or JOIN: the table's name, or the query in parentheses, written by a generator of its own
+        that numbers its aliases after this one's."""
+        relation = alias.table
+        if isinstance(relation, str):
+            return relation
+        nested = SQLQueryGenerator(first_alias=self.__table_alias_incr)
+        nested.generate(relation)
+        self.__table_alias_incr = nested.__table_alias_incr
+        return '(' + nested.build_query_string() + ')'
+
     def build_query_string(self) -> str:
-        joins = map(lambda j: ' LEFT OUTER JOIN ' + j.target.table_alias.table + ' AS ' + j.target.table_alias.alias +
-                              ' ON (' + j.condition()
-                              + ( ' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')', self._join)
+        def join_sql(j: Join) -> str:
+            alias = j.target.table_alias
+            return ' LEFT OUTER JOIN ' + self.__relation_sql(alias) + ' AS ' + alias.alias + ' ON (' + j.condition() \
+                + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
+
+        joins = map(join_sql, self._join)
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
-            + ' FROM ' + ','.join(map(lambda ta: ta.table + ' AS ' + ta.alias, self._from)) \
+            + ' FROM ' + ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
             + self.__build_where() \
             + self.__build_group_by() \

@@ -20,6 +20,7 @@
 | ID        | INT       | PK  | N        | id          |
 | ACCT_NAME | VARCHAR   |     | Y        | name        |
 | BRANCH_ID | INT       | FK  | Y        | branch      |
+| DESK_ID   | INT       | FK  | Y        | desk        |
 | in_z      | TIMESTAMP |     | Y        | validFrom   |
 | out_z     | TIMESTAMP |     | Y        | validTo     |
 
@@ -29,12 +30,25 @@
 |---------------|--------------|---------------|
 | BRANCH_ID     | branch       | ID            |
 
+#### Association: AccountDesk
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| DESK_ID       | desk         | ID            |
+
 #### Table: branch → Branch
 
 | Column | Type    | Key | Nullable | Property ID |
 |--------|---------|-----|----------|-------------|
 | ID     | INT     | PK  | N        | id          |
 | CITY   | VARCHAR |     | Y        | city        |
+
+#### Table: desk → Desk
+
+| Column | Type    | Key | Nullable | Property ID |
+|--------|---------|-----|----------|-------------|
+| ID     | INT     | PK  | N        | id          |
+| NAME   | VARCHAR |     | Y        | name        |
 
 #### Table: price → Instrument (milestoning: processing_only)
 
@@ -77,5 +91,12 @@
 | DATE     | DATE      |     | Y        | businessDate  |
 | QUANTITY | DOUBLE    |     | Y        | quantity      |
 | NPV      | DOUBLE    |     | Y        | npv           |
+| ACCOUNT_ID | INT     | FK  | Y        | account       |
 | in_z     | TIMESTAMP |     | Y        | validFrom     |
 | out_z    | TIMESTAMP |     | Y        | validTo       |
+
+#### Association: PositionAccount
+
+| Source Column | Target Table   | Target Column |
+|---------------|----------------|---------------|
+| ACCOUNT_ID    | account_master | ID            |

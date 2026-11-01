@@ -30,6 +30,11 @@ from datafinder_examples_tests.finance_specs import (
     TRADE_VIEW_FINDER_SPECS,
     TRADE_NAVIGATION_DATE_FINDER_SPECS,
     BRANCH_FINDER_SPECS,
+    BRANCH_EXISTS_FINDER_SPECS,
+    DESK_EXISTS_FINDER_SPECS,
+    ACCOUNT_POSITION_EXISTS_FINDER_SPECS,
+    POSITION_DESK_EXISTS_FINDER_SPECS,
+    TRADE_TO_MANY_EXISTS_FINDER_SPECS,
     TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS,
     CONTRACTUAL_POSITION_FINDER_SPECS,
 )
@@ -48,16 +53,17 @@ def _build_repo():
     repo = Database("finance_db", "duckdb://test.db")
     ref = Schema("ref_data", repo)
     trd = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"),
+    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"), Column("DESK_ID", "INT"),
                              Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
     Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref)
+    Table("desk", [Column("ID", "INT"), Column("NAME", "VARCHAR")], ref)
     Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
     Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
                      Column("is_settled", "BOOLEAN"), Column("account_id", "INT"),
                      Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trd)
     Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"),
-                                  Column("NPV", "DOUBLE"), Column("in_z", "TIMESTAMP"),
+                                  Column("NPV", "DOUBLE"), Column("ACCOUNT_ID", "INT"), Column("in_z", "TIMESTAMP"),
                                   Column("out_z", "TIMESTAMP")], trd)
     return repo
 
@@ -70,10 +76,12 @@ def _seed_db():
     conn.execute("CREATE SCHEMA trading")
     conn.execute("CREATE SCHEMA ref_data")
     conn.execute("CREATE TABLE ref_data.account_master "
-                 "(ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT, in_z TIMESTAMP, out_z TIMESTAMP)")
+                 "(ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT, DESK_ID INT, in_z TIMESTAMP, out_z TIMESTAMP)")
     conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts.csv'))}')")
     conn.execute("CREATE TABLE ref_data.branch (ID INT, CITY VARCHAR)")
     conn.execute(f"INSERT INTO ref_data.branch SELECT * FROM read_csv_auto('{str(example_path('finance_branches.csv'))}')")
+    conn.execute("CREATE TABLE ref_data.desk (ID INT, NAME VARCHAR)")
+    conn.execute(f"INSERT INTO ref_data.desk SELECT * FROM read_csv_auto('{str(example_path('finance_desks.csv'))}')")
     conn.execute("CREATE TABLE ref_data.price (SYM VARCHAR, PRICE DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)")
     conn.execute(f"INSERT INTO ref_data.price SELECT * FROM read_csv_auto('{str(example_path('finance_prices.csv'))}')")
     conn.execute(
@@ -83,7 +91,7 @@ def _seed_db():
     conn.execute(f"INSERT INTO trading.trades SELECT * FROM read_csv_auto('{str(example_path('finance_trades.csv'))}')")
     conn.execute(
         "CREATE TABLE trading.contractualposition "
-        "(DATE DATE, QUANTITY DOUBLE, NPV DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)"
+        "(DATE DATE, QUANTITY DOUBLE, NPV DOUBLE, ACCOUNT_ID INT, in_z TIMESTAMP, out_z TIMESTAMP)"
     )
     conn.execute(f"INSERT INTO trading.contractualposition SELECT * FROM read_csv_auto('{str(example_path('finance_positions.csv'))}')")
     conn.close()
@@ -105,10 +113,11 @@ def finance_finders():
 
     from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
     from finance.reference_data.branch_finder import BranchFinder  # type: ignore[import]
+    from finance.reference_data.desk_finder import DeskFinder  # type: ignore[import]
     from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
     from finance.trade.contractualposition_finder import ContractualPositionFinder  # type: ignore[import]
 
-    yield AccountFinder(), TradeFinder(), ContractualPositionFinder(), BranchFinder()
+    yield AccountFinder(), TradeFinder(), ContractualPositionFinder(), BranchFinder(), DeskFinder()
 
     if tmp in sys.path:
         sys.path.remove(tmp)
@@ -188,6 +197,41 @@ def test_branch(expectation, finance_finders):
 
 
 @pytest.mark.parametrize(
+    "expectation", BRANCH_EXISTS_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_branch_exists(expectation, finance_finders):
+    expectation.run(finance_finders[3], backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", DESK_EXISTS_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_desk_exists(expectation, finance_finders):
+    expectation.run(finance_finders[4], backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", ACCOUNT_POSITION_EXISTS_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_account_position_exists(expectation, finance_finders):
+    expectation.run(finance_finders[0], backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", POSITION_DESK_EXISTS_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_position_desk_exists(expectation, finance_finders):
+    expectation.run(finance_finders[2], backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", TRADE_TO_MANY_EXISTS_FINDER_SPECS.expectations, ids=lambda e: e.name
+)
+def test_trade_to_many_exists(expectation, finance_finders):
+    expectation.run(finance_finders[1], backend="duckdb")
+
+
+@pytest.mark.parametrize(
     "expectation", TRADE_VIEW_FINDER_SPECS.expectations, ids=lambda e: e.name
 )
 def test_trade_view(expectation, finance_finders):
@@ -220,7 +264,7 @@ def test_trade_view_rows_do_not_change_when_reference_data_changes(finance_finde
     conn = duckdb.connect("test.db")
     try:
         conn.execute("UPDATE ref_data.account_master SET out_z = '2024-02-01' WHERE ACCT_NAME = 'Acme Corp'")
-        conn.execute("INSERT INTO ref_data.account_master VALUES (1, 'Acme Newest', 11, '2024-02-01', '9999-12-31 23:59:59')")
+        conn.execute("INSERT INTO ref_data.account_master VALUES (1, 'Acme Newest', 11, 1, '2024-02-01', '9999-12-31 23:59:59')")
         conn.execute("UPDATE trading.trades SET out_z = '2024-07-01' WHERE sym = 'MSFT'")
         conn.execute("INSERT INTO trading.trades VALUES ('MSFT', 310.0, true, 2, '2024-07-01', '9999-12-31 23:59:59')")
         conn.close()
@@ -248,6 +292,7 @@ _TRADE_EXPECTATIONS = [
     *TRADE_EXISTS_FINDER_SPECS.expectations,
     *TRADE_OR_FINDER_SPECS.expectations,
     *TRADE_IS_NONE_FINDER_SPECS.expectations,
+    *TRADE_TO_MANY_EXISTS_FINDER_SPECS.expectations,
 ]
 
 
