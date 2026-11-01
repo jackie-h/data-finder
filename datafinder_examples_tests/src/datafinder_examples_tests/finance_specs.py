@@ -906,6 +906,31 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
         ),
         TestExpectation(
+            # A step given a value, as in accounts(name="Beta Inc"), is a condition on the accounts: it is inside the
+            # sub-select, and the step is still one row for a desk however many accounts match
+            name="a_step_given_a_value_filters_inside_the_sub_select",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Beta Inc").exists()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Equities"]], dtype=object),
+            expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.ACCT_NAME = 'Beta Inc' AND t2.in_z <="},
+        ),
+        TestExpectation(
+            # 'Acme Ltd' has expired by now, so no desk has an account of that name
+            name="a_step_given_a_value_that_matches_no_current_row_is_no_row",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Acme Ltd").exists()),
+            expected_columns=["Name"],
+            expected_result=np.empty((0, 1), dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+        TestExpectation(
+            name="not_exists_with_a_step_given_a_value",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Beta Inc").not_exists()
+            ).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
+        ),
+        TestExpectation(
             name="the_step_is_milestoned_inside_the_sub_select",
             query=lambda f: f.find_all(None, _BOTH_AT, [f.name()], f.accounts().exists()),
             expected_columns=["Name"],
@@ -943,6 +968,16 @@ ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions().not_exists()),
             expected_columns=["Name"],
             expected_result=np.array([["Beta Inc"]], dtype=object),
+        ),
+        TestExpectation(
+            # Only the 200 on 2023-01-16 matches, and the step is still one row for the account
+            name="a_step_given_a_value_filters_inside_the_sub_select",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions(quantity=200.0).exists()
+            ),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"]], dtype=object),
+            expected_sql={"duckdb": "WHERE t2.QUANTITY = 200.0 AND"},
         ),
         TestExpectation(
             name="a_step_with_its_own_business_date_uses_it_inside_the_sub_select",
