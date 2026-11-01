@@ -8,6 +8,7 @@ import sqlglot.errors
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
 from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
+    SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
@@ -67,12 +68,31 @@ def _and_all(ops: Iterable[Operation | None]) -> Operation | None:
 
 def _processing_predicate(mc: MilestoningColumns, processing_datetime: datetime.datetime | datetime.date | None,
                           join_node: 'JoinTreeNodeOperation | None') -> Operation | None:
-    """The table's processing range contains the processing date."""
-    if not isinstance(mc, ProcessingTemporalColumns) or processing_datetime is None:
+    """The table's processing range contains the processing time, or its processing snapshot column equals it."""
+    if processing_datetime is None:
+        return None
+    if isinstance(mc, SingleProcessingDatetimeColumn):
+        snapshot = DateTimeAttribute('processing_datetime', mc.processing_datetime_column.name, mc.processing_datetime_column.type, mc.processing_datetime_column.qualified_name(), join_node)
+        return snapshot == processing_datetime
+    if not isinstance(mc, ProcessingTemporalColumns):
         return None
     start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.qualified_name(), join_node)
     end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.qualified_name(), join_node)
     return LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime))
+
+
+def _processing_range_predicate(mc: MilestoningColumns, processing_from: datetime.datetime | datetime.date,
+                                processing_to: datetime.datetime | datetime.date,
+                                join_node: 'JoinTreeNodeOperation | None') -> Operation | None:
+    """The table's processing range overlaps the processing range, or its processing snapshot column is within it."""
+    if isinstance(mc, SingleProcessingDatetimeColumn):
+        snapshot = DateTimeAttribute('processing_datetime', mc.processing_datetime_column.name, mc.processing_datetime_column.type, mc.processing_datetime_column.qualified_name(), join_node)
+        return LogicalOperation(snapshot >= processing_from, LogicalOperator.AND, snapshot <= processing_to)
+    if not isinstance(mc, ProcessingTemporalColumns):
+        return None
+    start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.qualified_name(), join_node)
+    end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.qualified_name(), join_node)
+    return LogicalOperation(start_at <= processing_to, LogicalOperator.AND, _open_end_clause(end_at, processing_from, mc.infinite_datetime))
 
 
 def _business_predicate(mc: MilestoningColumns, business_date: datetime.date | None,
@@ -109,18 +129,24 @@ def _business_range_predicate(mc: MilestoningColumns, business_date_from: dateti
 def build_milestoning_filter_operation_for_date_range(
         business_date_from: datetime.date | None, business_date_to: datetime.date | None,
         processing_datetime: datetime.datetime | datetime.date | None,
-        table: MilestonedTable, join_node: 'JoinTreeNodeOperation | None' = None) -> 'Operation | None':
+        table: MilestonedTable, join_node: 'JoinTreeNodeOperation | None' = None,
+        processing_datetime_to: datetime.datetime | datetime.date | None = None) -> 'Operation | None':
     """Like build_milestoning_filter_operation but applies a business-date range filter.
 
     For BusinessDateRangeColumns the range uses interval overlap:
         business_date_from_col <= business_date_to AND business_date_to_col > business_date_from
     For single-date columns:
         business_date >= business_date_from AND business_date <= business_date_to
-    Processing-date filtering is point-in-time (unchanged from the normal path).
+    Processing-date filtering is point-in-time (unchanged from the normal path), unless ``processing_datetime_to`` is
+    given: then ``processing_datetime`` to ``processing_datetime_to`` is a range, which a processing range overlaps and
+    a processing snapshot column is within.
     """
     mc = table.milestoning_columns
-    return _and_all([_processing_predicate(mc, processing_datetime, join_node),
-                     _business_range_predicate(mc, business_date_from, business_date_to, join_node)])
+    if processing_datetime is not None and processing_datetime_to is not None:
+        processing = _processing_range_predicate(mc, processing_datetime, processing_datetime_to, join_node)
+    else:
+        processing = _processing_predicate(mc, processing_datetime, join_node)
+    return _and_all([processing, _business_range_predicate(mc, business_date_from, business_date_to, join_node)])
 
 
 def build_milestoning_filter_operation(business_date: datetime.date | None,
@@ -351,7 +377,8 @@ def _exists_only_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
 
 def _apply_sub_selects(query: QueryExpression, business_date: datetime.date | None,
                        business_date_to: datetime.date | None,
-                       processing_datetime: datetime.datetime | datetime.date | None) -> None:
+                       processing_datetime: datetime.datetime | datetime.date | None,
+                       processing_datetime_to: datetime.datetime | datetime.date | None = None) -> None:
     """Set ``query.sub_selects``: for each step only asked the existence of, ``SELECT DISTINCT <join column> FROM <its
     table>`` with the table's milestoning at the dates the step uses. Distinct on the join column makes it at most one
     row for a parent, however many rows of the table match. Property values the step was given are conditions of the
@@ -359,20 +386,23 @@ def _apply_sub_selects(query: QueryExpression, business_date: datetime.date | No
     query.sub_selects = {}
     for node in _exists_only_nodes(query):
         right = node.join.right
-        bd, bd_to, pdt = _dates_for_node(node, business_date, business_date_to, processing_datetime)
+        bd, bd_to, pdt, pdt_to = _dates_for_node(node, business_date, business_date_to, processing_datetime,
+                                                 processing_datetime_to)
         values = node.join.filter_kwargs
         condition = _build_join_kwargs_filter(None, values, node.join.filter_column_map) if values else NoOperation()
         query.sub_selects[id(node)] = build_query_operation(
-            bd, pdt, [Alias(right, right.name)], node.join.target, condition, business_date_to=bd_to, distinct=True)
+            bd, pdt, [Alias(right, right.name)], node.join.target, condition, business_date_to=bd_to, distinct=True,
+            processing_datetime_to=pdt_to)
 
 
 def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | None,
-                    business_date_to: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None):
-    """The business date, its range end and the processing time for the table a step reaches.
+                    business_date_to: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
+                    processing_datetime_to: datetime.datetime | datetime.date | None = None):
+    """The business date, its range end, the processing time and its range end for the table a step reaches.
 
     A step uses the dates it was given, else those of the nearest step above it that was given any, else the query's.
-    Each axis is taken separately, and a business date given to a step is a point in time, so it ends any range the
-    query asked for.
+    Each axis is taken separately, and a date given to a step is a point in time, so it ends any range the query asked
+    for on that axis.
     """
     explicit_business = explicit_processing = None
     step: JoinTreeNodeOperation | None = node
@@ -384,7 +414,9 @@ def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | 
         step = step.parent
     if explicit_business is not None:
         business_date, business_date_to = explicit_business, None
-    return business_date, business_date_to, processing_datetime if explicit_processing is None else explicit_processing
+    if explicit_processing is not None:
+        processing_datetime, processing_datetime_to = explicit_processing, None
+    return business_date, business_date_to, processing_datetime, processing_datetime_to
 
 
 def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
@@ -392,10 +424,13 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
                          limit: int | None = None, business_date_to: datetime.date | None = None,
                          distinct: bool = False, offset: int | None = None,
-                         having: Operation | None = None) -> SelectOperation:
+                         having: Operation | None = None,
+                         processing_datetime_to: datetime.datetime | datetime.date | None = None) -> SelectOperation:
     if isinstance(table, MilestonedTable):
-        if business_date_to is not None:
-            milestoned_op = build_milestoning_filter_operation_for_date_range(business_date, business_date_to, processing_datetime, table)
+        if business_date_to is not None or processing_datetime_to is not None:
+            milestoned_op = build_milestoning_filter_operation_for_date_range(
+                business_date, business_date_to, processing_datetime, table,
+                processing_datetime_to=processing_datetime_to)
         else:
             milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
         if milestoned_op is not None:
@@ -406,13 +441,15 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
     def milestoning_condition(node):
         if not isinstance(node.join.target, MilestonedTable):
             return None
-        bd, bd_to, pdt = _dates_for_node(node, business_date, business_date_to, processing_datetime)
-        if bd_to is not None:
-            return build_milestoning_filter_operation_for_date_range(bd, bd_to, pdt, node.join.target, node)
+        bd, bd_to, pdt, pdt_to = _dates_for_node(node, business_date, business_date_to, processing_datetime,
+                                                 processing_datetime_to)
+        if bd_to is not None or pdt_to is not None:
+            return build_milestoning_filter_operation_for_date_range(bd, bd_to, pdt, node.join.target, node,
+                                                                     processing_datetime_to=pdt_to)
         return build_milestoning_filter_operation(bd, pdt, node.join.target, node)
 
     _apply_join_filters(select, milestoning_condition)
-    _apply_sub_selects(select, business_date, business_date_to, processing_datetime)
+    _apply_sub_selects(select, business_date, business_date_to, processing_datetime, processing_datetime_to)
     return select
 
 def sql_format_datetime(value:datetime.datetime) -> str:
@@ -1131,10 +1168,12 @@ def to_sql(business_date: datetime.date | None, processing_datetime: datetime.da
            order_by: list | None = None, group_by: list | None = None,
            limit: int | None = None, validate_sqlglot: bool = True,
            business_date_to: datetime.date | None = None, distinct: bool = False,
-           offset: int | None = None, having=None) -> str:
+           offset: int | None = None, having=None,
+           processing_datetime_to: datetime.datetime | datetime.date | None = None) -> str:
     select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
                                       order_by or [], group_by or [], limit,
-                                      business_date_to=business_date_to, distinct=distinct, offset=offset, having=having)
+                                      business_date_to=business_date_to, distinct=distinct, offset=offset, having=having,
+                                      processing_datetime_to=processing_datetime_to)
     return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
 
 
@@ -1185,6 +1224,15 @@ def _as_of_business_point(root: MilestoningColumns | None) -> Column | None:
     return None
 
 
+def _as_of_processing_point(root: MilestoningColumns | None) -> Column | None:
+    """The root row's point on the processing axis: its snapshot time, or the start of its interval."""
+    if isinstance(root, SingleProcessingDatetimeColumn):
+        return root.processing_datetime_column
+    if isinstance(root, ProcessingTemporalColumns):
+        return root.start_at_column
+    return None
+
+
 def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -> Operation | None:
     """Join condition pinning a joined milestoned table to the root row's own point in time.
 
@@ -1200,13 +1248,18 @@ def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -
     where = f"'{node.join.name}' ({child_table.name}) joined from {root_table.name}"
     conditions = []
 
-    if isinstance(child, ProcessingTemporalColumns):
-        if not isinstance(root, ProcessingTemporalColumns):
+    if isinstance(child, (ProcessingTemporalColumns, SingleProcessingDatetimeColumn)):
+        processing_point = _as_of_processing_point(root)
+        if processing_point is None:
             raise ViewDefinitionError(
                 f"{where} is processing-temporal, but {root_table.name} has no processing time to anchor it to")
-        conditions.append(_as_of_interval_contains(child.start_at_column, child.end_at_column,
-                                                   _as_of_root_column(root.start_at_column), child.infinite_datetime,
-                                                   node))
+        if isinstance(child, SingleProcessingDatetimeColumn):
+            conditions.append(ComparisonOperation(_as_of_column(child.processing_datetime_column, node),
+                                                  ComparisonOperator.EQUAL, _as_of_root_column(processing_point)))
+        else:
+            conditions.append(_as_of_interval_contains(child.start_at_column, child.end_at_column,
+                                                       _as_of_root_column(processing_point), child.infinite_datetime,
+                                                       node))
 
     if isinstance(child, (SingleBusinessDateColumn, BusinessDateRangeColumns)):
         point = _as_of_business_point(root)

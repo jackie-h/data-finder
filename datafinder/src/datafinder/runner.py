@@ -85,10 +85,12 @@ class FinderResult(DataFrame):
     def __init__(self, business_date: datetime.date | None,
                  processing_datetime: datetime.datetime | datetime.date | None,
                  columns: Sequence, table: Table, op: Operation,
-                 business_date_to: datetime.date | None = None):
+                 business_date_to: datetime.date | None = None,
+                 processing_datetime_to: datetime.datetime | datetime.date | None = None):
         self._business_date = business_date
         self._business_date_to = business_date_to
         self._processing_datetime = processing_datetime
+        self._processing_datetime_to = processing_datetime_to
         self._columns = columns
         self._table = table
         self._op = op
@@ -151,7 +153,7 @@ class FinderResult(DataFrame):
             self._business_date, self._processing_datetime,
             self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
             self._timeout_ms, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having,
+            having=self._having, processing_datetime_to=self._processing_datetime_to,
         )
 
     def to_view(self, name: str, schema: str) -> 'ViewDefinition':
@@ -163,7 +165,8 @@ class FinderResult(DataFrame):
         has no ORDER BY or row limit; to order the rows you read back use ``ViewDefinition.result().order_by()``.
         Each column is named after its display name in snake_case, e.g. "Account Name" becomes ``account_name``.
         """
-        if self._business_date is not None or self._business_date_to is not None or self._processing_datetime is not None:
+        if (self._business_date is not None or self._business_date_to is not None
+                or self._processing_datetime is not None or self._processing_datetime_to is not None):
             raise ViewDefinitionError(
                 "A view has no dates: pass None for the business date and processing time, and the view will "
                 "expose the milestoning columns instead")
@@ -187,7 +190,7 @@ class FinderResult(DataFrame):
             self._columns, self._table, self._op,
             self._order_by, self._group_by, self._limit,
             business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having,
+            having=self._having, processing_datetime_to=self._processing_datetime_to,
         )
 
     def to_pandas(self):
@@ -278,6 +281,20 @@ def convert_inputs_and_select_for_date_range(
     return FinderResult(bd_from, pdt, columns, table, op, business_date_to=bd_to)
 
 
+def convert_inputs_and_select_for_processing_range(
+        business_date: Union[datetime.date, str] | None,
+        processing_from: Union[datetime.datetime, datetime.date, str],
+        processing_to: Union[datetime.datetime, datetime.date, str],
+        columns: Sequence[Attribute], table: Table, op: Operation) -> FinderResult:
+    if processing_from is None:
+        raise ValueError("processing_from is required for find_for_processing_range")
+    if processing_to is None:
+        raise ValueError("processing_to is required for find_for_processing_range")
+    bd = None if business_date is None else convert_date(business_date)
+    return FinderResult(bd, convert_date_time(processing_from), columns, table, op,
+                        processing_datetime_to=convert_date_time(processing_to))
+
+
 class QueryRunnerBase(metaclass=RegistryBase):
 
     @staticmethod
@@ -286,7 +303,8 @@ class QueryRunnerBase(metaclass=RegistryBase):
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
                business_date_to: datetime.date | None = None, distinct: bool = False,
-               offset: int | None = None, having=None) -> DataFrame:
+               offset: int | None = None, having=None,
+               processing_datetime_to: datetime.datetime | datetime.date | None = None) -> DataFrame:
         raise NotImplementedError()
 
     @staticmethod

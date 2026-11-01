@@ -2452,3 +2452,91 @@ class TestGroupByAnExpression:
                      group_by=[attr.year(), attr])
         assert sql.endswith("GROUP BY EXTRACT(YEAR FROM t0.TRADE_DATE), t0.TRADE_DATE")
 
+
+
+class TestProcessingSnapshot:
+    """A table with one datetime column holding the processing time each row was taken at."""
+
+    _P = datetime.datetime(2024, 1, 1, 9, 0, 0)
+    _P_TO = datetime.datetime(2024, 1, 2, 9, 0, 0)
+
+    @staticmethod
+    def _snapshot(name="quotes"):
+        from model.milestoning import SingleProcessingDatetimeColumn, MilestonedTable
+        mc = SingleProcessingDatetimeColumn(Column("taken_at", "TIMESTAMP", name))
+        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+
+    @staticmethod
+    def _in_out(name="quotes"):
+        from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+                                       infinite_datetime="9999-12-31 23:59:59")
+        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+
+    def _id(self, table="quotes"):
+        return IntegerAttribute("Id", "id", "INT", table)
+
+    @staticmethod
+    def _joined(target):
+        root = Table("parent", [Column("id", "INT", "parent")])
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", target.name))
+        return root, StringAttribute("Child Id", "id", "VARCHAR", target.name, JoinTreeNodeOperation(join))
+
+    def test_the_processing_time_must_equal_the_snapshot_time(self):
+        sql = to_sql(None, self._P, [self._id()], self._snapshot(), NoOperation())
+        assert sql.endswith("WHERE t0.taken_at = '2024-01-01 09:00:00'")
+
+    def test_the_time_is_compared_whole_and_never_cut_to_its_date(self):
+        sql = to_sql(None, datetime.datetime(2024, 1, 1, 23, 30, 0), [self._id()], self._snapshot(), NoOperation())
+        assert sql.endswith("WHERE t0.taken_at = '2024-01-01 23:30:00'")
+
+    def test_no_processing_time_does_not_filter(self):
+        assert "WHERE" not in to_sql(None, None, [self._id()], self._snapshot(), NoOperation())
+
+    def test_a_business_date_does_not_filter_a_processing_snapshot(self):
+        with_date = to_sql(datetime.date(2024, 1, 1), self._P, [self._id()], self._snapshot(), NoOperation())
+        assert with_date == to_sql(None, self._P, [self._id()], self._snapshot(), NoOperation())
+
+    def test_a_processing_range_has_both_ends_inclusive(self):
+        sql = to_sql(None, self._P, [self._id()], self._snapshot(), NoOperation(), processing_datetime_to=self._P_TO)
+        assert sql.endswith("WHERE t0.taken_at >= '2024-01-01 09:00:00' AND t0.taken_at <= '2024-01-02 09:00:00'")
+
+    def test_a_joined_snapshot_table_uses_the_query_time(self):
+        root, attr = self._joined(self._snapshot("child"))
+        sql = to_sql(None, self._P, [attr], root, NoOperation())
+        assert "t1.taken_at = '2024-01-01 09:00:00'" in sql
+
+    def test_a_joined_snapshot_table_is_read_within_the_query_range(self):
+        root, attr = self._joined(self._snapshot("child"))
+        sql = to_sql(None, self._P, [attr], root, NoOperation(), processing_datetime_to=self._P_TO)
+        assert "t1.taken_at >= '2024-01-01 09:00:00' AND t1.taken_at <= '2024-01-02 09:00:00'" in sql
+
+    def test_a_joined_processing_interval_overlaps_the_query_range(self):
+        root, attr = self._joined(self._in_out("child"))
+        sql = to_sql(None, self._P, [attr], root, NoOperation(), processing_datetime_to=self._P_TO)
+        assert "t1.in_z <= '2024-01-02 09:00:00' AND t1.out_z > '2024-01-01 09:00:00'" in sql
+
+    def test_a_time_given_to_a_step_is_a_point_and_ends_the_range(self):
+        from model.relational import JoinTreeNodeOperation as Node
+        target = self._snapshot("child")
+        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        own = datetime.datetime(2024, 1, 5, 9, 0, 0)
+        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", Node(join, processing_datetime=own))
+        sql = to_sql(None, self._P, [attr], Table("parent", [Column("id", "INT", "parent")]), NoOperation(),
+                     processing_datetime_to=self._P_TO)
+        assert "t1.taken_at = '2024-01-05 09:00:00'" in sql and ">=" not in sql
+
+    def test_a_view_pins_a_joined_snapshot_to_the_root_rows_own_snapshot_time(self):
+        from model.view import View
+        parent = self._snapshot("parent")
+        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
+        check_view_joins(view)
+
+    def test_a_view_refuses_a_joined_snapshot_when_the_root_has_no_processing_time(self):
+        from model.view import View, ViewDefinitionError
+        parent = Table("parent", [Column("id", "INT", "parent")])
+        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
+        with pytest.raises(ViewDefinitionError, match="no processing time to anchor"):
+            check_view_joins(view)

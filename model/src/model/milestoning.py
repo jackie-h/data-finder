@@ -27,6 +27,17 @@ class SingleBusinessDateColumn(MilestoningColumns):
         return [self.business_date_column]
 
 
+class SingleProcessingDatetimeColumn(MilestoningColumns):
+    """A processing snapshot: one datetime column holding the processing time a row was taken at, which a query's
+    processing time must equal."""
+    def __init__(self, processing_datetime_column: Column):
+        MilestoningColumns.__init__(self)
+        self.processing_datetime_column = processing_datetime_column
+
+    def columns(self) -> list[Column]:
+        return [self.processing_datetime_column]
+
+
 class BusinessDateAndProcessingTemporalColumns(SingleBusinessDateColumn, ProcessingTemporalColumns):
     def __init__(self, business_date_column: Column, start_at_column: Column, end_at_column: Column,
                  infinite_datetime: str | None = None):

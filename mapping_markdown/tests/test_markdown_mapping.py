@@ -1066,3 +1066,56 @@ class TestBusinessDateRangeScheme:
         (tmp_path / "mapping.md").write_text(content)
         with pytest.raises(ValueError, match="missing required column 'thru_z'"):
             load(str(tmp_path / "mapping.md"), self._repo())
+
+
+class TestProcessingSnapshotScheme:
+    """A scheme with one processing_datetime column and nothing else."""
+
+    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src",
+                                          "datafinder_examples", "processing_snapshot_mapping.md"))
+
+    @staticmethod
+    def _repo() -> Database:
+        repo = Database("snapshots_db", "duckdb://test.db")
+        schema = Schema("mkt", repo)
+        Table("quotes", [Column("id", "INT"), Column("symbol", "VARCHAR"), Column("price", "DOUBLE"),
+                         Column("taken_at", "TIMESTAMP")], schema)
+        Table("positions", [Column("id", "INT"), Column("symbol", "VARCHAR")], schema)
+        return repo
+
+    def test_it_loads_as_a_processing_snapshot_mapping(self):
+        from model.mapping import SingleProcessingDatetimeMilestonePropertyMapping
+        mapping = load(self._FILE, self._repo())
+        quote = next(m for m in mapping.mappings if m.clazz.name == "Quote")
+        assert type(quote.milestone_mapping) is SingleProcessingDatetimeMilestonePropertyMapping
+        assert quote.milestone_mapping._datetime.target.name == "taken_at"
+
+    def test_it_is_written_back_with_its_scheme_and_column(self):
+        repo = self._repo()
+        mapping = load(self._FILE, repo)
+        text = to_markdown("Snapshots", mapping, ["processing_snapshot_model.md"])
+        assert "(milestoning: processing_snapshot)" in text
+        assert "processing_datetime" in text
+
+    def test_a_mapping_without_a_snapshot_is_written_without_the_column(self):
+        repo = _build_repository()
+        mapping = load(FIXTURE, repo)
+        assert "processing_datetime" not in to_markdown("Finance", mapping, ["finance.md"])
+
+    def test_a_missing_snapshot_column_is_refused(self, tmp_path):
+        folder = os.path.dirname(self._FILE)
+        (tmp_path / "processing_snapshot_model.md").write_text(open(os.path.join(folder, "processing_snapshot_model.md")).read())
+        content = open(self._FILE).read().replace("| taken_at | TIMESTAMP |     | Y        | takenAt     |\n", "")
+        (tmp_path / "mapping.md").write_text(content)
+        with pytest.raises(ValueError, match="missing required column 'taken_at'"):
+            load(str(tmp_path / "mapping.md"), self._repo())
+
+    def test_a_snapshot_cannot_be_combined_with_another_processing_or_business_column(self, tmp_path):
+        folder = os.path.dirname(self._FILE)
+        (tmp_path / "processing_snapshot_model.md").write_text(open(os.path.join(folder, "processing_snapshot_model.md")).read())
+        content = open(self._FILE).read().replace(
+            "| processing_snapshot |                  |                | taken_at            |               |",
+            "| processing_snapshot | in_z             | out_z          | taken_at            |               |")
+        (tmp_path / "mapping.md").write_text(content)
+        with pytest.raises(ValueError, match="cannot be combined with processing_start, processing_end"):
+            load(str(tmp_path / "mapping.md"), self._repo())
