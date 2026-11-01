@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, NOT_EQUAL_NULL_AND_ISOLATED_MILESTONED_JOIN, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -113,7 +113,9 @@ def _drop_null_alternative_to_not_equal(tree: exp.Expr) -> exp.Expr:
         kept = [o for o in operands
                 if not (isinstance(o, exp.Is) and isinstance(o.expression, exp.Null) and o.this.sql() in unequal)]
         if len(kept) != len(operands):
-            node.replace(reduce(lambda left, right: _connect(exp.Or, left, right), kept[1:], kept[0]))
+            replacement = reduce(lambda left, right: _connect(exp.Or, left, right), kept[1:], kept[0])
+            target = node.parent if isinstance(node.parent, exp.Paren) and len(kept) == 1 else node
+            target.replace(replacement)
     return tree
 
 
@@ -167,13 +169,26 @@ def _order_sub_select_conditions(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
-def _join_source_key(join: exp.Join) -> tuple[str, str]:
-    """What a join reads from, without its alias: a table's name, or a derived table's text."""
+def _join_condition_key(join: exp.Join) -> str:
+    """The join's ON without the alias of the table it reads, so two joins to one table can be told apart by their
+    conditions (their dates, say) whatever they are called."""
+    condition = join.args.get("on")
+    if condition is None:
+        return ""
+    condition = condition.copy()
+    for column in condition.find_all(exp.Column):
+        if column.table == join.this.alias_or_name:
+            column.set("table", None)
+    return condition.sql()
+
+
+def _join_source_key(join: exp.Join) -> tuple[str, str, str]:
+    """What a join reads from, without its alias: a table's name, or a derived table's text, then its condition."""
     source = join.this
     if isinstance(source, exp.Table):
-        return ("table", source.name)
+        return ("table", source.name, _join_condition_key(join))
     inner = source.this
-    return ("derived", inner.sql())
+    return ("derived", inner.sql(), _join_condition_key(join))
 
 
 def _canonical_derived_aliases(tree: exp.Expr) -> None:
@@ -232,6 +247,7 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
     NOT_EQUAL_NULL: [_drop_null_alternative_to_not_equal],
+    NOT_EQUAL_NULL_AND_ISOLATED_MILESTONED_JOIN: [_drop_null_alternative_to_not_equal, _inline_isolated_join_filter],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
 }
 
