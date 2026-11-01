@@ -82,6 +82,12 @@
 | sys_time_begin      | TIMESTAMP |     | N        | sysTimeBegin |
 | sys_time_end        | TIMESTAMP |     | N        | sysTimeEnd   |
 
+#### Association: PartSuppSamePart
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| ps_partkey | partsupp | ps_partkey |
+
 #### Association: PartSuppPart
 
 | Source Column | Target Table | Target Column |
@@ -108,6 +114,12 @@
 | sys_time_begin     | TIMESTAMP |     | N        | sysTimeBegin |
 | sys_time_end       | TIMESTAMP |     | N        | sysTimeEnd   |
 
+#### Association: CustomerOtherVersion
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| c_custkey | customer | c_custkey |
+
 #### Association: CustomerNation
 
 | Source Column | Target Table | Target Column |
@@ -132,6 +144,12 @@
 | active_time_end       | DATE      |     | N        | activeTimeEnd       |
 | sys_time_begin        | TIMESTAMP |     | N        | sysTimeBegin        |
 | sys_time_end          | TIMESTAMP |     | N        | sysTimeEnd          |
+
+#### Association: OrderOtherVersion
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| o_orderkey | orders | o_orderkey |
 
 #### Association: OrderCustomer
 

@@ -209,6 +209,8 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
         collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, DateDiffOperation):
         collect_required_joins(op.element, required_joins, node_refs)
+        if isinstance(op.other, RelationalOperationElement):
+            collect_required_joins(op.other, required_joins, node_refs)
     elif isinstance(op, WindowFunctionOperation):
         if op.element is not None:
             collect_required_joins(op.element, required_joins, node_refs)
@@ -578,7 +580,12 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         op = '+' if operation.is_add else '-'
         return sql_operation_to_string(operation.element) + ' ' + op + " INTERVAL '" + str(operation.n) + "' " + operation.unit.value
     elif isinstance(operation, DateDiffOperation):
-        other_sql = sql_format_datetime(operation.other) if isinstance(operation.other, datetime.datetime) else sql_format_date(operation.other)
+        if isinstance(operation.other, RelationalOperationElement):
+            other_sql = sql_operation_to_string(operation.other)
+        elif isinstance(operation.other, datetime.datetime):
+            other_sql = sql_format_datetime(operation.other)
+        else:
+            other_sql = sql_format_date(operation.other)
         return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
@@ -826,7 +833,8 @@ class SQLQueryGenerator:
             return DateArithmeticOperation(self.__rewrite_operation(op.element), op.n, op.unit, op.is_add,
                                            op.display_name)
         elif isinstance(op, DateDiffOperation):
-            return DateDiffOperation(self.__rewrite_operation(op.element), op.other, op.unit, op.display_name)
+            other = self.__rewrite_operation(op.other) if isinstance(op.other, RelationalOperationElement) else op.other
+            return DateDiffOperation(self.__rewrite_operation(op.element), other, op.unit, op.display_name)
         elif isinstance(op, WindowFunctionOperation):
             element = None if op.element is None else self.__rewrite_operation(op.element)
             return WindowFunctionOperation(element, op.function, op.display_name, second_arg=op.second_arg,
@@ -867,6 +875,8 @@ class SQLQueryGenerator:
             self.__collect_required_joins(op.element, required_joins)
         elif isinstance(op, DateDiffOperation):
             self.__collect_required_joins(op.element, required_joins)
+            if isinstance(op.other, RelationalOperationElement):
+                self.__collect_required_joins(op.other, required_joins)
         elif isinstance(op, WindowFunctionOperation):
             if op.element is not None:
                 self.__collect_required_joins(op.element, required_joins)
