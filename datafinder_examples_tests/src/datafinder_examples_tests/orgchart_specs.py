@@ -6,6 +6,7 @@ Test specifications for the simple org chart domain (orgchart_mapping.md).
 import numpy as np
 
 from datafinder import when
+from datafinder.expressions import count_all
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 ORGCHART_MAPPING = "orgchart_mapping.md"
@@ -177,6 +178,63 @@ ORGCHART_AGGREGATE_FINDER_SPECS = FinderSpec(
             expected_columns=["Manager Name", "Id Count"],
             expected_result=np.array([["Alice", 2], ["Bob", 1], [None, 1]], dtype=object),
             expected_sql={"duckdb": "GROUP BY t1.name"},
+        ),
+    ],
+)
+
+
+# exists() and not_exists() on a to-many association ask whether a row exists, so a manager with several reports is
+# one row, and counts once. Alice has two reports (Bob and Carol), Bob has one (Dave); Carol and Dave have none. The
+# reports are rows of the same table, so the sub-select has an alias of its own.
+ORGCHART_EXISTS_FINDER_SPECS = FinderSpec(
+    finder_name="EmployeeFinder",
+    mapping_file=ORGCHART_MAPPING,
+    skip_backends={"graphql": "The GraphQL finder has no exists on a to-many association"},
+    expectations=[
+        TestExpectation(
+            name="exists_to_many_is_one_row_however_many_rows_match",
+            query=lambda f: f.find_all(None, None, [f.name()], f.employees().exists()).order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Alice"], ["Bob"]], dtype=object),
+            expected_sql={"duckdb": 'SELECT DISTINCT t2.manager_id AS "manager_id" FROM hr.employees AS t2'},
+        ),
+        TestExpectation(
+            name="exists_to_many_counts_a_row_once",
+            query=lambda f: f.find_all(None, None, [count_all()], f.employees().exists()),
+            expected_columns=["Count"],
+            expected_result=np.array([[2]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_exists_to_many_is_a_row_with_no_match",
+            query=lambda f: f.find_all(None, None, [f.name()], f.employees().not_exists()).order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Carol"], ["Dave"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_and_not_exists_on_one_step_cover_every_row_once",
+            query=lambda f: f.find_all(
+                None, None, [f.name()], f.employees().exists().or_(f.employees().not_exists())
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Alice"], ["Bob"], ["Carol"], ["Dave"]], dtype=object),
+        ),
+        TestExpectation(
+            # Bob, Carol and Dave each have a manager with reports. Alice has two, so a join would repeat Bob and Carol.
+            name="exists_to_many_through_a_to_one_step_is_one_row",
+            query=lambda f: f.find_all(None, None, [f.name()], f.manager().employees().exists())
+            .order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Bob"], ["Carol"], ["Dave"]], dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+        TestExpectation(
+            # A value read through the step is a row for each report, and exists() then holds for a report in the result
+            name="reading_a_value_through_the_step_keeps_a_row_for_each_match",
+            query=lambda f: f.find_all(None, None, [f.name(), f.employees().name()], f.employees().exists())
+            .order_by(f.id_().ascending(), f.employees().name().ascending()),
+            expected_columns=["Name", "Employees Name"],
+            expected_result=np.array([["Alice", "Bob"], ["Alice", "Carol"], ["Bob", "Dave"]], dtype=object),
+            unexpected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
 )

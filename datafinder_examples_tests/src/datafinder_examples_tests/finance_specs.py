@@ -28,6 +28,7 @@ import datetime
 
 import numpy as np
 
+from datafinder.expressions import count_all
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 FINANCE_MAPPING = "finance_mapping.md"
@@ -806,6 +807,93 @@ BRANCH_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _BOTH_AT, [f.city(), f.accounts().name()]).order_by(f.city().ascending()),
             expected_columns=["City", "Accounts Name"],
             expected_result=np.array([["London", "Acme Ltd"], ["New York", None]], dtype=object),
+        ),
+    ],
+)
+
+# exists() and not_exists() on a to-many association ask whether a row exists, so a branch with several accounts is one
+# row, and counts once. Branch has no milestoning of its own, and the accounts it reaches are milestoned: at
+# _MSFT_WITH_LIVE_ACCOUNT_AT New York has two accounts, 'Acme Corp' and 'Beta Inc', and London has none.
+_GRAPHQL_NO_BRANCH_ACCOUNTS = "The finance GraphQL mapping does not map the accounts of a branch"
+
+BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
+    finder_name="BranchFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": _GRAPHQL_NO_BRANCH_ACCOUNTS},
+    expectations=[
+        TestExpectation(
+            name="exists_to_many_is_one_row_however_many_rows_match",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts().exists()),
+            expected_columns=["City"],
+            expected_result=np.array([["New York"]], dtype=object),
+            expected_sql={"duckdb": 'SELECT DISTINCT t2.BRANCH_ID AS "BRANCH_ID" FROM ref_data.account_master AS t2'},
+        ),
+        TestExpectation(
+            name="exists_to_many_counts_a_row_once",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [count_all()], f.accounts().exists()),
+            expected_columns=["Count"],
+            expected_result=np.array([[1]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_exists_to_many_is_a_row_with_no_match",
+            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts().not_exists()),
+            expected_columns=["City"],
+            expected_result=np.array([["London"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_and_not_exists_on_one_step_cover_every_row_once",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts().exists().or_(f.accounts().not_exists())
+            ).order_by(f.city().ascending()),
+            expected_columns=["City"],
+            expected_result=np.array([["London"], ["New York"]], dtype=object),
+        ),
+        TestExpectation(
+            # London's account at _BOTH_AT, 'Acme Ltd', has expired by now: the milestoning is inside the sub-select
+            name="the_step_is_milestoned_inside_the_sub_select",
+            query=lambda f: f.find_all(None, _BOTH_AT, [f.city()], f.accounts().exists()),
+            expected_columns=["City"],
+            expected_result=np.array([["London"]], dtype=object),
+            expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.in_z <="},
+            unexpected_sql={"duckdb": "t1.in_z"},
+        ),
+        TestExpectation(
+            name="a_step_with_its_own_processing_time_uses_it_inside_the_sub_select",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts(processing_time=_BOTH_AT).exists()
+            ),
+            expected_columns=["City"],
+            expected_result=np.array([["London"]], dtype=object),
+            expected_sql={"duckdb": "2021-06-01"},
+        ),
+        TestExpectation(
+            # A value read through the step is a row for each account, and exists() then holds for an account in the result
+            name="reading_a_value_through_the_step_keeps_a_row_for_each_match",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city(), f.accounts().name()], f.accounts().exists()
+            ).order_by(f.accounts().name().ascending()),
+            expected_columns=["City", "Accounts Name"],
+            expected_result=np.array([["New York", "Acme Corp"], ["New York", "Beta Inc"]], dtype=object),
+            unexpected_sql={"duckdb": "SELECT DISTINCT"},
+        ),
+    ],
+)
+
+TRADE_TO_MANY_EXISTS_FINDER_SPECS = FinderSpec(
+    finder_name="TradeFinder",
+    mapping_file=FINANCE_MAPPING,
+    skip_backends={"graphql": _GRAPHQL_NO_BRANCH_ACCOUNTS},
+    expectations=[
+        TestExpectation(
+            # trade -> account -> branch are to-one; the accounts of the branch are to-many. New York has two accounts,
+            # so a join would repeat each of its trades.
+            name="exists_to_many_through_to_one_steps_is_one_row_per_trade",
+            query=lambda f: f.find_all(
+                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().accounts().exists()
+            ).order_by(f.symbol().ascending()),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
 )
