@@ -16,6 +16,7 @@ columns are declared in the mapping, not here.
 |------------|-----------|---------|--------------|-----|-------------|
 | Region Key | regionKey | Integer | 1            | Y   |             |
 | Name       | name      | String  | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Class: Nation
 
@@ -27,6 +28,7 @@ columns are declared in the mapping, not here.
 |------------|-----------|---------|--------------|-----|-------------|
 | Nation Key | nationKey | Integer | 1            | Y   |             |
 | Name       | name      | String  | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Class: Supplier
 
@@ -39,6 +41,9 @@ columns are declared in the mapping, not here.
 | Supplier Key | supplierKey | Integer | 1            | Y   |             |
 | Name         | name        | String  | 1            |     |             |
 | Acct Bal     | acctBal     | Double  | 1            |     |             |
+| Address        | address   | String  | 1            |     |             |
+| Phone          | phone     | String  | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Class: Part
 
@@ -56,6 +61,7 @@ columns are declared in the mapping, not here.
 | Size         | size        | Integer | 1            |     |             |
 | Container    | container   | String  | 1            |     |             |
 | Retail Price | retailPrice | Double  | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Class: PartSupp
 
@@ -67,6 +73,7 @@ columns are declared in the mapping, not here.
 |-------------|------------|---------|--------------|-----|-------------|
 | Avail Qty   | availQty   | Integer | 1            |     |             |
 | Supply Cost | supplyCost | Double  | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Class: Customer
 
@@ -80,6 +87,9 @@ columns are declared in the mapping, not here.
 | Name         | name        | String  | 1            |     |             |
 | Acct Bal     | acctBal     | Double  | 1            |     |             |
 | Mkt Segment  | mktSegment  | String  | 1            |     |             |
+| Address        | address   | String  | 1            |     |             |
+| Phone          | phone     | String  | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Class: Order
 
@@ -98,6 +108,7 @@ columns are declared in the mapping, not here.
 | Ship Priority         | shipPriority        | Integer | 1            |     |             |
 | Receivable Time Begin | receivableTimeBegin | Date    | 1            |     |             |
 | Receivable Time End   | receivableTimeEnd   | Date    | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Class: LineItem
 
@@ -118,6 +129,8 @@ columns are declared in the mapping, not here.
 | Commit Date    | commitDate    | Date    | 1            |     |             |
 | Receipt Date   | receiptDate   | Date    | 1            |     |             |
 | Ship Mode      | shipMode      | String  | 1            |     |             |
+| Ship Instruct  | shipInstruct | String  | 1            |     |             |
+| Comment        | comment   | String  | 1            |     |             |
 
 ### Association: NationRegion
 
@@ -190,9 +203,3 @@ columns are declared in the mapping, not here.
 | Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
 | PartSuppSamePart | PartSupp | Same Part | samePart | 0..1 | PartSupp | | | * | The rows of the same part, for any supplier (a part and a supplier make a composite key, which an association cannot join on) |
-
-### Association: LineItemPartSupp
-
-| Name | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
-|------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
-| LineItemPartSupp | LineItem | Part Supps | partSupps | * | PartSupp | | | * | The rows of the line's part, for any supplier (a part and a supplier make a composite key, which an association cannot join on, so a query also compares the supplier) |

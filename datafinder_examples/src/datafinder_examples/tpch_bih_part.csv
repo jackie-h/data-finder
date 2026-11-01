@@ -1,8 +1,8 @@
-p_partkey,p_name,p_mfgr,p_brand,p_type,p_size,p_container,p_retailprice,availability_time_begin,availability_time_end,sys_time_begin,sys_time_end
-1,Part#1,Manufacturer#1,Brand#13,PROMO BRUSHED STEEL,15,SM BOX,900.0,2019-01-01,9999-12-31,2020-01-01 00:00:00,9999-12-31 23:59:59
-2,Part#2,Manufacturer#2,Brand#24,STANDARD POLISHED BRASS,20,LG CASE,1000.0,2019-01-01,9999-12-31,2020-01-01 00:00:00,2021-01-01 00:00:00
-2,Part#2,Manufacturer#2,Brand#24,STANDARD POLISHED BRASS,20,LG CASE,1000.0,2019-01-01,2021-03-01,2021-01-01 00:00:00,9999-12-31 23:59:59
-2,Part#2,Manufacturer#2,Brand#24,STANDARD POLISHED BRASS,20,LG CASE,1050.0,2021-03-01,9999-12-31,2021-01-01 00:00:00,9999-12-31 23:59:59
-3,Part#3,Manufacturer#1,Brand#13,PROMO PLATED TIN,7,SM BOX,1100.0,2019-01-01,9999-12-31,2020-01-01 00:00:00,9999-12-31 23:59:59
-4,Part#4,Manufacturer#3,Brand#35,ECONOMY ANODIZED STEEL,30,MED BAG,1200.0,2019-01-01,9999-12-31,2020-01-01 00:00:00,2022-01-01 00:00:00
-4,Part#4,Manufacturer#3,Brand#35,ECONOMY ANODIZED STEEL,30,MED BAG,1200.0,2022-06-01,9999-12-31,2022-01-01 00:00:00,9999-12-31 23:59:59
+p_partkey,p_name,p_mfgr,p_brand,p_type,p_size,p_container,p_retailprice,p_comment,availability_time_begin,availability_time_end,sys_time_begin,sys_time_end
+1,green dim brush,Manufacturer#1,Brand#13,PROMO BRUSHED STEEL,3,SM BOX,900.0,part one,1993-01-01,9999-12-31,2020-01-01 00:00:00,9999-12-31 23:59:59
+2,blue olive tan,Manufacturer#2,Brand#24,STANDARD POLISHED BRASS,8,MED BOX,1000.0,part two,1993-01-01,9999-12-31,2020-01-01 00:00:00,2021-01-01 00:00:00
+2,blue olive tan,Manufacturer#2,Brand#24,STANDARD POLISHED BRASS,8,MED BOX,1000.0,part two,1993-01-01,1995-03-01,2021-01-01 00:00:00,9999-12-31 23:59:59
+2,blue olive tan,Manufacturer#2,Brand#24,STANDARD POLISHED BRASS,8,MED BOX,1050.0,part two,1995-03-01,9999-12-31,2021-01-01 00:00:00,9999-12-31 23:59:59
+3,green tan lace,Manufacturer#1,Brand#13,PROMO PLATED TIN,7,SM BOX,1100.0,part three,1993-01-01,9999-12-31,2020-01-01 00:00:00,9999-12-31 23:59:59
+4,plum rose khaki,Manufacturer#3,Brand#35,ECONOMY ANODIZED STEEL,12,LG BOX,1200.0,part four,1993-01-01,9999-12-31,2020-01-01 00:00:00,2022-01-01 00:00:00
+4,plum rose khaki,Manufacturer#3,Brand#35,ECONOMY ANODIZED STEEL,12,LG BOX,1200.0,part four,1996-06-01,9999-12-31,2022-01-01 00:00:00,9999-12-31 23:59:59

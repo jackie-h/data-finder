@@ -1,11 +1,11 @@
-c_custkey,c_name,c_nationkey,c_acctbal,c_mktsegment,visible_time_begin,visible_time_end,sys_time_begin,sys_time_end
-1,Customer#1,0,100.0,BUILDING,2019-01-01,9999-12-31,2020-01-01 00:00:00,2021-01-01 00:00:00
-1,Customer#1,0,100.0,BUILDING,2019-01-01,2021-01-01,2021-01-01 00:00:00,9999-12-31 23:59:59
-1,Customer#1,0,6000.0,BUILDING,2021-01-01,9999-12-31,2021-01-01 00:00:00,9999-12-31 23:59:59
-2,Customer#2,1,3000.0,AUTOMOBILE,2019-01-01,9999-12-31,2020-01-01 00:00:00,2022-01-01 00:00:00
-2,Customer#2,1,3000.0,AUTOMOBILE,2019-01-01,2022-01-01,2022-01-01 00:00:00,9999-12-31 23:59:59
-2,Customer#2,0,3000.0,AUTOMOBILE,2022-01-01,9999-12-31,2022-01-01 00:00:00,9999-12-31 23:59:59
-3,Customer#3,2,4000.0,BUILDING,2019-01-01,9999-12-31,2020-01-01 00:00:00,2023-01-01 00:00:00
-3,Customer#3,2,4000.0,BUILDING,2019-01-01,2023-01-01,2023-01-01 00:00:00,9999-12-31 23:59:59
-3,Customer#3,2,2000.0,BUILDING,2023-01-01,9999-12-31,2023-01-01 00:00:00,9999-12-31 23:59:59
-4,Customer#4,0,9000.0,MACHINERY,2019-01-01,9999-12-31,2020-01-01 00:00:00,9999-12-31 23:59:59
+c_custkey,c_name,c_address,c_nationkey,c_phone,c_acctbal,c_mktsegment,c_comment,visible_time_begin,visible_time_end,sys_time_begin,sys_time_end
+1,Customer#1,1 Customer Avenue,0,10-101-201-3001,100.0,BUILDING,customer 1 is a regular customer,1993-01-01,9999-12-31,2020-01-01 00:00:00,2021-01-01 00:00:00
+1,Customer#1,1 Customer Avenue,0,10-101-201-3001,100.0,BUILDING,customer 1 is a regular customer,1993-01-01,1995-01-01,2021-01-01 00:00:00,9999-12-31 23:59:59
+1,Customer#1,1 Customer Avenue,0,10-101-201-3001,6000.0,BUILDING,customer 1 is a regular customer,1995-01-01,9999-12-31,2021-01-01 00:00:00,9999-12-31 23:59:59
+2,Customer#2,2 Customer Avenue,1,11-102-202-3002,3000.0,AUTOMOBILE,customer 2 is a regular customer,1993-01-01,9999-12-31,2020-01-01 00:00:00,2022-01-01 00:00:00
+2,Customer#2,2 Customer Avenue,1,11-102-202-3002,3000.0,AUTOMOBILE,customer 2 is a regular customer,1993-01-01,1996-01-01,2022-01-01 00:00:00,9999-12-31 23:59:59
+2,Customer#2,2 Customer Avenue,0,11-102-202-3002,3000.0,AUTOMOBILE,customer 2 is a regular customer,1996-01-01,9999-12-31,2022-01-01 00:00:00,9999-12-31 23:59:59
+3,Customer#3,3 Customer Avenue,2,12-103-203-3003,4000.0,BUILDING,customer 3 is a regular customer,1993-01-01,9999-12-31,2020-01-01 00:00:00,2023-01-01 00:00:00
+3,Customer#3,3 Customer Avenue,2,12-103-203-3003,4000.0,BUILDING,customer 3 is a regular customer,1993-01-01,1997-01-01,2023-01-01 00:00:00,9999-12-31 23:59:59
+3,Customer#3,3 Customer Avenue,2,12-103-203-3003,2000.0,BUILDING,customer 3 is a regular customer,1997-01-01,9999-12-31,2023-01-01 00:00:00,9999-12-31 23:59:59
+4,Customer#4,4 Customer Avenue,0,10-104-204-3004,9000.0,MACHINERY,customer 4 is a regular customer,1993-01-01,9999-12-31,2020-01-01 00:00:00,9999-12-31 23:59:59

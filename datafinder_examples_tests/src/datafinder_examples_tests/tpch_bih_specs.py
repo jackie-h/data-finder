@@ -2,7 +2,11 @@
 Test specifications for the TPC-BiH benchmark (Kaufmann et al., "TPC-BiH: A Benchmark for Bitemporal Databases",
 TPCTC 2013), using tpch_bih_mapping.md on a small data set.
 
-Every query class in the paper has an entry. Those the finders cannot express are skipped, each with the reason.
+Every query class in the paper has an entry, and each is the benchmark's query, with the benchmark's output. A query the
+finders cannot express as defined is skipped with the reason (see ``_unsupported``); it is not replaced by a query that is
+similar but different. The TPC-H queries (clause 2.4 of the TPC-H specification, 3.0.1) are written as it defines them,
+with values for its substitution parameters that find data here; the expected output was worked out independently of the
+finders, from the CSVs.
 
 Schema (the TPC-H tables; comment columns and a few descriptive ones are left out):
 
@@ -15,7 +19,9 @@ Schema (the TPC-H tables; comment columns and a few descriptive ones are left ou
     lineitem         bitemporal, application time active_time
 
 The CSVs are written by datafinder_examples/tools/generate_tpch_bih_data.py, which applies the history below. System
-times are S0 = 2020-01-01 (the initial load), S1 = 2021-01-01, S2 = 2022-01-01 and S3 = 2023-01-01.
+times are S0 = 2020-01-01 (the initial load), S1 = 2021-01-01, S2 = 2022-01-01 and S3 = 2023-01-01. The dates below are
+application dates as the history was designed, 2019 to 2024; the data has them moved back 26 years, into TPC-H's range,
+and the year of an application date in a query is moved the same way.
 
     S1  customer 1 pays (balance 100 -> 6000 from 2021-01-01); part 2 price 1000 -> 1050 from 2021-03-01;
         partsupp (1,1) cost 100 -> 110 from 2021-06-01; order 4 and its lines placed
@@ -30,6 +36,7 @@ times are S0 = 2020-01-01 (the initial load), S1 = 2021-01-01, S2 = 2022-01-01 a
 The queries are given a business date (application time) and a processing time (system time). None means all versions.
 """
 import datetime
+import decimal
 
 import numpy as np
 
@@ -39,7 +46,15 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 TPCH_BIH_MAPPING = "tpch_bih_mapping.md"
 
-_D = datetime.date
+_SHIFT = 26
+
+
+def _D(year: int, month: int, day: int) -> datetime.date:
+    """An application date. The history was designed on 2019 to 2024 and the data has it moved back 26 years, into TPC-H's
+    range (see generate_tpch_bih_data.py), so the years here are as designed. The end of time is not moved."""
+    return datetime.date(year if year > 3000 else year - _SHIFT, month, day)
+
+
 _S0 = datetime.datetime(2020, 1, 1)
 _S1 = datetime.datetime(2021, 1, 1)
 _S2 = datetime.datetime(2022, 1, 1)
@@ -62,7 +77,8 @@ def _not_supported(reason: str):
 
 
 def _unsupported(name: str, reason: str, columns: list[str] | None = None) -> TestExpectation:
-    """An expectation for a query the finders cannot express, kept so the benchmark is complete."""
+    """A query the finders cannot express as the benchmark defines it. It is kept, and skipped with the reason, so the gap
+    is listed in the test report; it is not replaced by a query that is similar but not the benchmark's."""
     columns = columns or []
     return TestExpectation(
         name=name,
@@ -102,7 +118,7 @@ def _price_changed(f):
     """Orders whose price now differs from the price recorded at S0, with both: the order at two system times."""
     at_s0 = f.other_version(processing_time=_S0)
     return f.find_all(
-        "2022-06-01", _NOW, [f.order_key(), f.total_price(), at_s0.total_price()],
+        "1996-06-01", _NOW, [f.order_key(), f.total_price(), at_s0.total_price()],
         f.total_price() != at_s0.total_price(),
     )
 
@@ -113,22 +129,22 @@ ORDER_FINDER_SPECS = FinderSpec(
         # --- T2: point in both dimensions on ORDERS (insert-heavy history) ---
         TestExpectation(
             name="T2_point_point_before_cancel",
-            query=lambda f: f.find_all("2022-06-01", "2022-06-01", [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1996-06-01", "2022-06-01", [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([3, 500.0], [4, 3000.0], [5, 800.0]),
-            expected_sql={"duckdb": "t0.active_time_begin <= '2022-06-01'"},
+            expected_sql={"duckdb": "t0.active_time_begin <= '1996-06-01'"},
         ),
         TestExpectation(
             name="T2_point_point_after_cancel_and_price_manipulation",
-            query=lambda f: f.find_all("2022-06-01", _NOW, [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1996-06-01", _NOW, [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([3, 700.0], [4, 3000.0]),
         ),
         TestExpectation(
             name="T2_point_point_early",
-            query=lambda f: f.find_all("2019-12-12", "2020-06-01", [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1993-12-12", "2020-06-01", [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([1, 1000.0], [2, 2000.0]),
@@ -163,7 +179,7 @@ ORDER_FINDER_SPECS = FinderSpec(
         # --- T6: one dimension a point, the other the whole history ---
         TestExpectation(
             name="T6_application_time_point_all_system_time",
-            query=lambda f: f.find_all("2020-06-01", None, [f.order_key(), f.order_status(), f.total_price()])
+            query=lambda f: f.find_all("1994-06-01", None, [f.order_key(), f.order_status(), f.total_price()])
             .order_by(f.order_key().ascending(), f.sys_time_begin().ascending()),
             expected_columns=["Order Key", "Order Status", "Total Price"],
             expected_result=_rows([2, "O", 2000.0], [2, "F", 2000.0], [3, "O", 500.0], [3, "O", 700.0]),
@@ -178,7 +194,7 @@ ORDER_FINDER_SPECS = FinderSpec(
         # --- T7: current system time given implicitly (here, the time now) ---
         TestExpectation(
             name="T7_current_system_time",
-            query=lambda f: f.find_all("2022-06-01", datetime.datetime.now(), [f.order_key(), f.total_price()])
+            query=lambda f: f.find_all("1996-06-01", datetime.datetime.now(), [f.order_key(), f.total_price()])
             .order_by(f.order_key().ascending()),
             expected_columns=_ORDER_COLUMNS,
             expected_result=_rows([3, 700.0], [4, 3000.0]),
@@ -241,12 +257,15 @@ ORDER_FINDER_SPECS = FinderSpec(
             expected_result=_rows([700.0], [500.0]),
         ),
         TestExpectation(
-            # The paper correlates the timestamps of a version with those of the one before it. Skipping the latest
-            # version of a key gives the same row, and needs no self-join.
+            # The version before the current one, found as the paper says: with no TOP N, by correlating timestamps. A
+            # version ended when the next one began, so the version before the one that began at S3 is the one that ended
+            # at S3. (The first version has no version before it.)
             name="K5_previous_version",
-            query=lambda f: f.find_all(None, None, [f.total_price()], f.order_key().eq(3))
-            .order_by(f.sys_time_begin().descending()).offset(1).limit(1),
-            expected_columns=["Total Price"],
+            query=lambda f: f.find_all(
+                None, None, [f.other_version().total_price()],
+                f.order_key().eq(3).and_(f.other_version().sys_time_end() == f.sys_time_begin()),
+            ),
+            expected_columns=["Other Version Total Price"],
             expected_result=_rows([500.0]),
         ),
         TestExpectation(
@@ -269,6 +288,14 @@ ORDER_FINDER_SPECS = FinderSpec(
             "boundaries). The finders aggregate over the versions a date selects, not over change points",
             ["Max Total Price"],
         ),
+        _unsupported(
+            # Described in the EDBT 2014 paper ("Benchmarking Bitemporal Database Systems"), not in the TPCTC 2013 one;
+            # its SQL is in the technical report, which is not available, so its output is not known either.
+            "R6_temporal_aggregation_with_a_join_of_two_temporal_tables",
+            "Combines a temporal aggregation (a result row for each timestamp where the data changed, from an interval "
+            "join on the period boundaries) with a join of two temporal tables, which the finders cannot do",
+            [],
+        ),
         TestExpectation(
             # How often a customer had a low balance while an order of theirs was active, in both dimensions: every
             # pair of an order version and a customer version whose application and system periods overlap.
@@ -288,7 +315,7 @@ ORDER_FINDER_SPECS = FinderSpec(
             # R5 at one point in time: not the benchmark's temporal join, but the same filter on both tables.
             name="R5_at_a_point_customers_with_low_balance_and_orders",
             query=lambda f: f.find_all(
-                "2022-06-01", "2022-06-01", [f.customer().customer_key()],
+                "1996-06-01", "2022-06-01", [f.customer().customer_key()],
                 (f.customer().acct_bal() < 5000.0).and_(f.total_price() > 10.0),
             ).distinct(),
             expected_columns=["Customer Customer Key"],
@@ -304,7 +331,7 @@ def _moved_to_us(f):
     """Customers in the US at 2022-06-01 who were not on 2021-06-01: the customer at two application dates."""
     before = f.other_version(business_date=_D(2021, 6, 1))
     return f.find_all(
-        "2022-06-01", _NOW, [f.customer_key(), f.name()],
+        "1996-06-01", _NOW, [f.customer_key(), f.name()],
         f.nation().name().eq("UNITED STATES").and_(before.nation().name() != "UNITED STATES"),
     )
 
@@ -321,7 +348,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         # --- T1: point in both dimensions on CUSTOMER (update-heavy history) ---
         TestExpectation(
             name="T1_point_point_current",
-            query=lambda f: _customers_at(f, "2022-06-01", "2022-06-01"),
+            query=lambda f: _customers_at(f, "1996-06-01", "2022-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 6000.0, "UNITED STATES"], [2, 3000.0, "UNITED STATES"], [3, 4000.0, "FRANCE"],
@@ -330,7 +357,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="T1_point_point_past",
-            query=lambda f: _customers_at(f, "2020-06-01", "2020-06-01"),
+            query=lambda f: _customers_at(f, "1994-06-01", "2020-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 100.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
@@ -340,7 +367,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         TestExpectation(
             # Tomorrow's state in application time, as recorded yesterday: the 2021 payment was not known in 2020.
             name="T1_future_application_time_as_recorded_in_the_past",
-            query=lambda f: _customers_at(f, "2021-06-01", "2020-06-01"),
+            query=lambda f: _customers_at(f, "1995-06-01", "2020-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 100.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
@@ -349,7 +376,7 @@ CUSTOMER_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="T1_same_application_time_as_recorded_later",
-            query=lambda f: _customers_at(f, "2021-06-01", "2021-06-01"),
+            query=lambda f: _customers_at(f, "1995-06-01", "2021-06-01"),
             expected_columns=_CUSTOMER_COLUMNS,
             expected_result=_rows(
                 [1, 6000.0, "UNITED STATES"], [2, 3000.0, "GERMANY"], [3, 4000.0, "FRANCE"],
@@ -391,7 +418,7 @@ def _other_parts(f, business_date, processing_time, correlate=()):
     rows is a date of the query, and one that is correlated is left open (None) and the periods of the two rows
     are compared: ``correlate`` names "application" and "system"."""
     other = f.supplier().part_supps()
-    condition = other.part().name().eq("Part#1").and_(f.part().name().ne("Part#1"))
+    condition = other.part().part_key().eq(1).and_(f.part().part_key().ne(1))
     if "application" in correlate:
         condition = condition.and_(_overlap(f.validity_time_begin(), f.validity_time_end(),
                                             other.validity_time_begin(), other.validity_time_end()))
@@ -410,13 +437,13 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             # Supplier 3's rows for part 4 ended in 2021 (recorded at S3), so part 4 is not found at 2023-06-01.
             name="B3_1_application_point_system_point_current",
-            query=lambda f: _other_parts(f, "2023-06-01", _NOW),
+            query=lambda f: _other_parts(f, "1997-06-01", _NOW),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3]),
         ),
         TestExpectation(
             name="B3_2_application_point_system_point_past",
-            query=lambda f: _other_parts(f, "2023-06-01", "2020-06-01"),
+            query=lambda f: _other_parts(f, "1997-06-01", "2020-06-01"),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3]),
         ),
@@ -436,13 +463,13 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         # --- B3.9, B3.11: system time agnostic ---
         TestExpectation(
             name="B3_9_application_point_system_agnostic",
-            query=lambda f: _other_parts(f, "2023-06-01", None),
+            query=lambda f: _other_parts(f, "1997-06-01", None),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3], [4]),
         ),
         TestExpectation(
             name="B3_9_application_point_before_the_new_supplier_system_agnostic",
-            query=lambda f: _other_parts(f, "2021-06-01", None),
+            query=lambda f: _other_parts(f, "1995-06-01", None),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3]),
         ),
@@ -463,7 +490,7 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="B3_4_application_point_system_correlation",
-            query=lambda f: _other_parts(f, "2023-06-01", None, correlate=("system",)),
+            query=lambda f: _other_parts(f, "1997-06-01", None, correlate=("system",)),
             expected_columns=_B3_COLUMNS,
             expected_result=_rows([2], [3], [4]),
         ),
@@ -489,8 +516,8 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_change_effective_in_the_future_as_recorded",
             query=lambda f: f.find_all(
-                "2021-07-01", "2021-06-01", [f.supply_cost()],
-                f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
+                "1995-07-01", "2021-06-01", [f.supply_cost()],
+                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
             ),
             expected_columns=["Supply Cost"],
             expected_result=_rows([110.0]),
@@ -498,8 +525,8 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_before_the_change_was_recorded",
             query=lambda f: f.find_all(
-                "2021-07-01", "2020-06-01", [f.supply_cost()],
-                f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
+                "1995-07-01", "2020-06-01", [f.supply_cost()],
+                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
             ),
             expected_columns=["Supply Cost"],
             expected_result=_rows([100.0]),
@@ -507,8 +534,8 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_current",
             query=lambda f: f.find_all(
-                "2023-06-01", _NOW, [f.supply_cost()],
-                f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
+                "1997-06-01", _NOW, [f.supply_cost()],
+                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
             ),
             expected_columns=["Supply Cost"],
             expected_result=_rows([125.0]),
@@ -516,8 +543,8 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="supply_cost_as_it_was_before_the_last_change_was_recorded",
             query=lambda f: f.find_all(
-                "2023-06-01", "2022-06-01", [f.supply_cost()],
-                f.part().name().eq("Part#1").and_(f.supplier().name().eq("Supplier#1")),
+                "1997-06-01", "2022-06-01", [f.supply_cost()],
+                f.part().part_key().eq(1).and_(f.supplier().supplier_key().eq(1)),
             ),
             expected_columns=["Supply Cost"],
             expected_result=_rows([110.0]),
@@ -548,219 +575,184 @@ PARTSUPP_FINDER_SPECS = FinderSpec(
 )
 
 # ---------------------------------------------------------------------------------------------------------------------
-# TPC-H queries with time travel, on LINEITEM and the tables around it
+# TPC-H queries with time travel, as the TPC-H specification (3.0.1, clause 2.4) defines them: its columns, filters, grouping,
+# ordering and row limit, and values for its substitution parameters. A query the finders cannot express as defined is
+# written as _unsupported, which is skipped with the reason.
 # ---------------------------------------------------------------------------------------------------------------------
 
-# One point in both dimensions for H1, H3, H5, H6, H7, H10, H12 and H19: it holds orders 1 and 2 with their four lines.
-_H_APPLICATION = "2019-12-12"
-_H_SYSTEM = "2020-06-01"
+# Each query is asked at a point in application time and system time that has the orders it needs:
+#   _P1  1993-12-12 as at 2020-06-01: orders 1 and 2 and their lines
+#   _PC  1996-01-15 as at 2022-06-01: orders 3, 4 and 5
+#   _PD  1997-01-15 as at 2024-01-01: orders 3, 4 and 6
+_P1 = ("1993-12-12", "2020-06-01")
+_PC = ("1996-01-15", "2022-06-01")
+_PD = ("1997-01-15", _NOW)
 
 # 1 - 0.05 and the like are inexact doubles, so the expected values use the same operations the SQL does.
-_O1L1 = _discounted(9000.0, 0.05)   # part 1, supplier 1 (GERMANY), customer 1, R F, MAIL
-_O1L2 = _discounted(5000.0, 0.10)   # part 2, supplier 1 (GERMANY), customer 1, A F, SHIP
-_O2L1 = _discounted(18000.0, 0.00)  # part 1, supplier 2 (FRANCE), customer 2 (GERMANY), N O, MAIL
-_O2L2 = _discounted(8800.0, 0.07)   # part 3, supplier 2 (FRANCE), customer 2 (GERMANY), N O, AIR
+_O1L1 = _discounted(9000.0, 0.05)    # part 1 (green, PROMO), supplier 1 (GERMANY), customer 1 (US), R F, MAIL
+_O1L2 = _discounted(5000.0, 0.10)    # part 2, supplier 1, customer 1, A F, SHIP
+_O2L1 = _discounted(18000.0, 0.00)   # part 1, supplier 2 (FRANCE), customer 2 (GERMANY), N O, MAIL
+_O2L2 = _discounted(8800.0, 0.07)    # part 3 (green, PROMO), supplier 2, customer 2, R O, AIR
+_O3L1 = _discounted(28800.0, 0.02)   # part 4, supplier 3 (US), customer 3 (FRANCE), N O, AIR
+_O4L1 = _discounted(12000.0, 0.04)   # part 2, supplier 3 (US), customer 4 (US), N O, AIR
+_O4L2 = _discounted(2700.0, 0.06)    # part 1, supplier 1 (GERMANY), customer 4 (US), N O, AIR
+_O6L1 = _discounted(9450.0, 0.03)    # part 2, supplier 1 (GERMANY), customer 2 (US), N O, SHIP
+_O6L2 = _discounted(11000.0, 0.05)   # part 2, supplier 3 (US), customer 2 (US), N O, MAIL
 
 
 def _revenue(l):
     return l.extended_price() * (constant(1) - l.discount())
 
 
-_SKIP_SUBQUERY = "The finders have no subqueries (a correlated or nested SELECT in the WHERE or HAVING clause)"
-
 LINEITEM_FINDER_SPECS = FinderSpec(
     finder_name="LineItemFinder",
     mapping_file=TPCH_BIH_MAPPING,
     expectations=[
         TestExpectation(
-            name="H1_pricing_summary",
+            # Q1, DELTA 90: l_shipdate <= date '1998-12-01' - interval '90' day
+            name="Q1_pricing_summary_report",
             query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [
-                    f.return_flag(), f.line_status(),
-                    f.quantity().sum().alias("sum_qty"),
-                    f.extended_price().sum().alias("sum_base_price"),
-                    _revenue(f).sum().alias("sum_disc_price"),
-                    (_revenue(f) * (constant(1) + f.tax())).sum().alias("sum_charge"),
-                    f.quantity().average().alias("avg_qty"),
-                    count_all().alias("count_order"),
-                ],
-                f.ship_date() <= _D(2020, 1, 1),
+                *_P1,
+                [f.return_flag().alias("l_returnflag"), f.line_status().alias("l_linestatus"),
+                 f.quantity().sum().alias("sum_qty"), f.extended_price().sum().alias("sum_base_price"),
+                 _revenue(f).sum().alias("sum_disc_price"),
+                 (_revenue(f) * (constant(1) + f.tax())).sum().alias("sum_charge"),
+                 f.quantity().average().alias("avg_qty"), f.extended_price().average().alias("avg_price"),
+                 f.discount().average().alias("avg_disc"), count_all().alias("count_order")],
+                f.ship_date() <= datetime.date(1998, 12, 1) - datetime.timedelta(days=90),
             ).order_by(f.return_flag().ascending(), f.line_status().ascending()),
-            expected_columns=[
-                "Return Flag", "Line Status", "sum_qty", "sum_base_price", "sum_disc_price", "sum_charge", "avg_qty",
-                "count_order",
-            ],
+            expected_columns=["l_returnflag", "l_linestatus", "sum_qty", "sum_base_price", "sum_disc_price",
+                              "sum_charge", "avg_qty", "avg_price", "avg_disc", "count_order"],
             expected_result=_rows(
-                ["A", "F", 5.0, 5000.0, _O1L2, _O1L2 * (1 + 0.02), 5.0, 1],
-                ["N", "O", 28.0, 26800.0, _O2L1 + _O2L2, _O2L1 * (1 + 0.05) + _O2L2 * (1 + 0.05), 14.0, 2],
-                ["R", "F", 10.0, 9000.0, _O1L1, _O1L1 * (1 + 0.02), 10.0, 1],
+                ["A", "F", 5.0, 5000.0, _O1L2, _O1L2 * (1 + 0.02), 5.0, 5000.0, 0.10, 1],
+                ["N", "O", 20.0, 18000.0, _O2L1, _O2L1 * (1 + 0.05), 20.0, 18000.0, 0.00, 1],
+                ["R", "F", 10.0, 9000.0, _O1L1, _O1L1 * (1 + 0.02), 10.0, 9000.0, 0.05, 1],
+                ["R", "O", 8.0, 8800.0, _O2L2, _O2L2 * (1 + 0.05), 8.0, 8800.0, 0.07, 1],
             ),
         ),
         TestExpectation(
-            name="H3_shipping_priority",
+            # Q3, SEGMENT MACHINERY, DATE 1995-03-15: the first 10 rows
+            name="Q3_shipping_priority",
             query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.order().order_key(), _revenue(f).sum().alias("revenue"), f.order().order_date(),
-                 f.order().ship_priority()],
-                f.order().customer().mkt_segment().eq("BUILDING")
-                .and_(f.order().order_date() < _D(2019, 12, 1)).and_(f.ship_date() > _D(2019, 11, 5)),
+                *_PC,
+                [f.order().order_key().alias("l_orderkey"), _revenue(f).sum().alias("revenue"),
+                 f.order().order_date().alias("o_orderdate"), f.order().ship_priority().alias("o_shippriority")],
+                f.order().customer().mkt_segment().eq("MACHINERY")
+                .and_(f.order().order_date() < datetime.date(1995, 3, 15))
+                .and_(f.ship_date() > datetime.date(1995, 3, 15)),
             ).group_by(f.order().order_key(), f.order().order_date(), f.order().ship_priority())
-            .order_by(_revenue(f).sum().descending()).limit(10),
-            expected_columns=["Order Order Key", "revenue", "Order Order Date", "Order Ship Priority"],
-            expected_result=_rows([1, _O1L1 + _O1L2, _D(2019, 11, 1), 0]),
+            .order_by(_revenue(f).sum().descending(), f.order().order_date().ascending()).limit(10),
+            expected_columns=["l_orderkey", "revenue", "o_orderdate", "o_shippriority"],
+            expected_result=_rows([4, _O4L1 + _O4L2, datetime.date(1994, 12, 15), 0]),
+        ),
+        _unsupported(
+            "Q5_local_supplier_volume",
+            "c_nationkey = s_nationkey compares two foreign key columns. A foreign key is a navigation (customer.nation, "
+            "supplier.nation) and not an attribute, so the comparison can only be made through a join to the nation "
+            "table for each side, which is not the query",
+            ["n_name", "revenue"],
         ),
         TestExpectation(
-            # TPC-H Q5 also requires the customer and the supplier to be in the same nation, which compares two columns.
-            name="H5_revenue_by_supplier_nation_in_a_region",
+            # Q6, DATE 1993-01-01, DISCOUNT 0.06, QUANTITY 24
+            name="Q6_forecasting_revenue_change",
             query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM, [f.supplier().nation().name(), _revenue(f).sum().alias("revenue")],
-                f.supplier().nation().region().name().eq("EUROPE"),
-            ).order_by(_revenue(f).sum().descending()),
-            expected_columns=["Supplier Nation Name", "revenue"],
-            expected_result=_rows(["FRANCE", _O2L1 + _O2L2], ["GERMANY", _O1L1 + _O1L2]),
-        ),
-        TestExpectation(
-            name="H6_forecasting_revenue_change",
-            query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM, [(f.extended_price() * f.discount()).sum().alias("revenue")],
-                (f.ship_date() >= _D(2019, 1, 1)).and_(f.ship_date() < _D(2020, 1, 1))
-                .and_(f.discount() >= 0.05).and_(f.discount() <= 0.07).and_(f.quantity() < 24.0),
+                *_P1, [(f.extended_price() * f.discount()).sum().alias("revenue")],
+                (f.ship_date() >= datetime.date(1993, 1, 1)).and_(f.ship_date() < datetime.date(1994, 1, 1))
+                .and_(f.discount() >= float(decimal.Decimal("0.06") - decimal.Decimal("0.01")))
+                .and_(f.discount() <= float(decimal.Decimal("0.06") + decimal.Decimal("0.01")))
+                .and_(f.quantity() < 24.0),
             ),
             expected_columns=["revenue"],
             expected_result=_rows([9000.0 * 0.05 + 8800.0 * 0.07]),
         ),
         TestExpectation(
-            name="H7_volume_shipping",
+            # Q7, NATION1 GERMANY, NATION2 UNITED STATES
+            name="Q7_volume_shipping",
             query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.supplier().nation().name(), f.order().customer().nation().name(), f.ship_date().year(),
-                 _revenue(f).sum().alias("revenue")],
-                f.supplier().nation().name().eq("FRANCE").and_(f.order().customer().nation().name().eq("GERMANY"))
-                .or_(f.supplier().nation().name().eq("GERMANY").and_(f.order().customer().nation().name().eq("FRANCE"))),
-            ),
-            expected_columns=["Supplier Nation Name", "Order Customer Nation Name", "Year Ship Date", "revenue"],
-            expected_result=_rows(["FRANCE", "GERMANY", 2019, _O2L1 + _O2L2]),
+                *_PD,
+                [f.supplier().nation().name().alias("supp_nation"),
+                 f.order().customer().nation().name().alias("cust_nation"),
+                 f.ship_date().year().alias("l_year"), _revenue(f).sum().alias("revenue")],
+                f.supplier().nation().name().eq("GERMANY").and_(f.order().customer().nation().name().eq("UNITED STATES"))
+                .or_(f.supplier().nation().name().eq("UNITED STATES")
+                     .and_(f.order().customer().nation().name().eq("GERMANY")))
+                .and_(f.ship_date() >= datetime.date(1995, 1, 1)).and_(f.ship_date() <= datetime.date(1996, 12, 31)),
+            ).order_by(f.supplier().nation().name().ascending(), f.order().customer().nation().name().ascending(),
+                       f.ship_date().year().ascending()),
+            expected_columns=["supp_nation", "cust_nation", "l_year", "revenue"],
+            expected_result=_rows(["GERMANY", "UNITED STATES", 1995, _O4L2], ["GERMANY", "UNITED STATES", 1996, _O6L1]),
         ),
         TestExpectation(
-            name="H19_discounted_revenue",
+            # Q8, NATION UNITED STATES, REGION AMERICA, TYPE STANDARD POLISHED BRASS
+            name="Q8_national_market_share",
             query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM, [_revenue(f).sum().alias("revenue")],
-                f.part().brand().eq("Brand#13").and_(f.part().container().is_in(["SM BOX"]))
-                .and_(f.quantity() >= 1.0).and_(f.quantity() <= 11.0).and_(f.ship_mode().is_in(["AIR", "MAIL"]))
-                .or_(f.part().brand().eq("Brand#24").and_(f.quantity() >= 5.0).and_(f.quantity() <= 20.0)),
+                *_PD,
+                [f.order().order_date().year().alias("o_year"),
+                 (when(f.supplier().nation().name().eq("UNITED STATES")).then(_revenue(f)).otherwise(0).sum()
+                  / _revenue(f).sum()).alias("mkt_share")],
+                f.order().customer().nation().region().name().eq("AMERICA")
+                .and_(f.order().order_date() >= datetime.date(1995, 1, 1))
+                .and_(f.order().order_date() <= datetime.date(1996, 12, 31))
+                .and_(f.part().type_().eq("STANDARD POLISHED BRASS")),
+            ).group_by(f.order().order_date().year()).order_by(f.order().order_date().year().ascending()),
+            expected_columns=["o_year", "mkt_share"],
+            expected_result=_rows([1996, _O6L2 / (_O6L1 + _O6L2)]),
+        ),
+        _unsupported(
+            "Q9_product_type_profit_measure",
+            "Joins PARTSUPP on a composite key: ps_partkey = l_partkey and ps_suppkey = l_suppkey. An association joins "
+            "on one column",
+            ["nation", "o_year", "sum_profit"],
+        ),
+        TestExpectation(
+            # Q12, SHIPMODE1 MAIL, SHIPMODE2 SHIP, DATE 1993-01-01
+            name="Q12_shipping_modes_and_order_priority",
+            query=lambda f: f.find_all(
+                *_P1,
+                [f.ship_mode().alias("l_shipmode"),
+                 when(f.order().order_priority().eq("1-URGENT").or_(f.order().order_priority().eq("2-HIGH")))
+                 .then(1).otherwise(0).sum().alias("high_line_count"),
+                 when(f.order().order_priority().ne("1-URGENT").and_(f.order().order_priority().ne("2-HIGH")))
+                 .then(1).otherwise(0).sum().alias("low_line_count")],
+                f.ship_mode().is_in(["MAIL", "SHIP"]).and_(f.commit_date() < f.receipt_date())
+                .and_(f.ship_date() < f.commit_date())
+                .and_(f.receipt_date() >= datetime.date(1993, 1, 1)).and_(f.receipt_date() < datetime.date(1994, 1, 1)),
+            ).order_by(f.ship_mode().ascending()),
+            expected_columns=["l_shipmode", "high_line_count", "low_line_count"],
+            expected_result=_rows(["MAIL", 1, 1], ["SHIP", 1, 0]),
+        ),
+        TestExpectation(
+            # Q14, DATE 1993-11-01: 100.00 * sum(promo) / sum(all)
+            name="Q14_promotion_effect",
+            query=lambda f: f.find_all(
+                *_P1,
+                [((constant(100.0) * when(f.part().type_().starts_with("PROMO")).then(_revenue(f)).otherwise(0).sum())
+                  / _revenue(f).sum()).alias("promo_revenue")],
+                (f.ship_date() >= datetime.date(1993, 11, 1)).and_(f.ship_date() < datetime.date(1993, 12, 1)),
+            ),
+            expected_columns=["promo_revenue"],
+            expected_result=_rows([(100.0 * _O1L1) / (_O1L1 + _O1L2)]),
+        ),
+        TestExpectation(
+            # Q19, QUANTITY1 1, QUANTITY2 10, QUANTITY3 20, BRAND1 Brand#13, BRAND2 Brand#24, BRAND3 Brand#35
+            name="Q19_discounted_revenue",
+            query=lambda f: f.find_all(
+                *_PD, [_revenue(f).sum().alias("revenue")],
+                _q19_branch(f, "Brand#13", ["SM CASE", "SM BOX", "SM PACK", "SM PKG"], 1.0, 5)
+                .or_(_q19_branch(f, "Brand#24", ["MED BAG", "MED BOX", "MED PKG", "MED PACK"], 10.0, 10))
+                .or_(_q19_branch(f, "Brand#35", ["LG CASE", "LG BOX", "LG PACK", "LG PKG"], 20.0, 15)),
             ),
             expected_columns=["revenue"],
-            expected_result=_rows([_O1L1 + _O1L2 + _O2L2]),
+            expected_result=_rows([_O3L1 + _O4L1 + _O4L2]),
         ),
-        # --- A milestoned navigation used only inside a CASE is joined at the query's dates ---
-        TestExpectation(
-            # TPC-H Q8 is the share of a nation's revenue for a region and part type by order year. Here: the share of
-            # revenue from FRANCE suppliers, by ship year.
-            name="H8_national_market_share",
-            query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.ship_date().year().alias("o_year"),
-                 (when(f.supplier().nation().name().eq("FRANCE")).then(_revenue(f)).otherwise(0).sum()
-                  / _revenue(f).sum()).alias("mkt_share")],
-            ).group_by(f.ship_date().year()),
-            expected_columns=["o_year", "mkt_share"],
-            expected_result=_rows([2019, (_O2L1 + _O2L2) / (_O1L1 + _O1L2 + _O2L1 + _O2L2)]),
-        ),
-        TestExpectation(
-            # TPC-H Q9 joins LINEITEM to PARTSUPP on the part and the supplier together. An association joins on one
-            # column, so the line is joined to the rows of its part and the supplier is compared in the filter.
-            name="H9_product_type_profit_measure",
-            query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.supplier().nation().name().alias("nation"), f.order().order_date().year().alias("o_year"),
-                 (_revenue(f) - f.part_supps().supply_cost() * f.quantity()).sum().alias("sum_profit")],
-                f.part_supps().supplier().supplier_key() == f.supplier().supplier_key(),
-            ).order_by(f.supplier().nation().name().ascending(), f.order().order_date().year().descending()),
-            expected_columns=["nation", "o_year", "sum_profit"],
-            expected_result=_rows(
-                ["FRANCE", 2019, (_O2L1 - 80.0 * 20.0) + (_O2L2 - 300.0 * 8.0)],
-                ["GERMANY", 2019, (_O1L1 - 100.0 * 10.0) + (_O1L2 - 200.0 * 5.0)],
-            ),
-        ),
-        TestExpectation(
-            # TPC-H Q15 takes the supplier whose revenue is the maximum; the same supplier is the first by revenue
-            # (they differ only if two suppliers tie, when Q15 returns both).
-            name="H15_top_supplier",
-            query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM, [f.supplier().supplier_key(), _revenue(f).sum().alias("total_revenue")],
-            ).order_by(_revenue(f).sum().descending()).limit(1),
-            expected_columns=["Supplier Supplier Key", "total_revenue"],
-            expected_result=_rows([2, _O2L1 + _O2L2]),
-        ),
-        TestExpectation(
-            name="H12_shipping_modes_and_order_priority",
-            query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.ship_mode(),
-                 when(f.order().order_priority().eq("2-HIGH")).then(1).otherwise(0).sum().alias("high_line_count")],
-                f.ship_mode().is_in(["MAIL", "SHIP"]),
-            ).order_by(f.ship_mode().ascending()),
-            expected_columns=["Ship Mode", "high_line_count"],
-            expected_result=_rows(["MAIL", 1], ["SHIP", 0]),
-        ),
-        TestExpectation(
-            name="H14_promotion_effect",
-            query=lambda f: f.find_all(
-                "2022-01-15", "2022-06-01",
-                [when(f.part().type_().starts_with("PROMO")).then(_revenue(f)).otherwise(0).sum().alias("promo_revenue"),
-                 _revenue(f).sum().alias("total_revenue")],
-            ),
-            expected_columns=["promo_revenue", "total_revenue"],
-            expected_result=_rows([
-                _discounted(3300.0, 0.06) + _discounted(3600.0, 0.00),
-                _discounted(2400.0, 0.02) + _discounted(6300.0, 0.04) + _discounted(3300.0, 0.06)
-                + _discounted(3600.0, 0.00),
-            ]),
-        ),
-        # --- The rest of the 22 ---
-        _unsupported("H2_minimum_cost_supplier", _SKIP_SUBQUERY + " (the minimum cost per part)", ["Supplier Acct Bal"]),
-        _unsupported("H11_important_stock_identification", _SKIP_SUBQUERY + " (HAVING against a total)", ["Part Key"]),
-        _unsupported(
-            "H13_customer_distribution",
-            "Groups the result of a grouped query (the number of orders per customer, then customers per count)",
-            ["c_count", "custdist"],
-        ),
-        _unsupported(
-            "H16_parts_supplier_relationship",
-            "Excludes suppliers whose comment mentions complaints with NOT IN a subquery (the model has no comments), "
-            "and the finders have no negated pattern match (NOT LIKE) for the part type",
-            ["Brand", "Type", "Size", "supplier_cnt"],
-        ),
-        _unsupported("H17_small_quantity_order_revenue", _SKIP_SUBQUERY + " (the average quantity per part)", ["avg_yearly"]),
-        _unsupported("H20_potential_part_promotion", _SKIP_SUBQUERY + " (nested IN and a correlated sum)", ["Supplier Name"]),
-        _unsupported(
-            "H21_suppliers_who_kept_orders_waiting",
-            "Needs exists(condition): EXISTS a line of the same order from another supplier, and NOT EXISTS such a line "
-            "that was late. exists() takes no condition, and a filter through the navigation joins instead of testing",
-            ["Supplier Name", "numwait"],
-        ),
-        _unsupported("H22_global_sales_opportunity", _SKIP_SUBQUERY + " (an average and NOT EXISTS), and the model has no phone", ["cntrycode", "numcust"]),
-        TestExpectation(
-            name="H5_local_supplier_volume",
-            query=lambda f: f.find_all(
-                "2022-01-15", "2022-06-01", [f.supplier().nation().name(), _revenue(f).sum().alias("revenue")],
-                f.supplier().nation().region().name().eq("AMERICA")
-                .and_(f.supplier().nation().nation_key() == f.order().customer().nation().nation_key())
-                .and_(f.order().order_date() >= _D(2020, 1, 1)),
-            ),
-            expected_columns=["Supplier Nation Name", "revenue"],
-            expected_result=_rows(["UNITED STATES", _discounted(6300.0, 0.04)]),
-        ),
-        # --- R2, R3 ---
+        # --- R2: the time a line item was pending, from shipping to receipt ---
         TestExpectation(
             name="R2_state_durations_of_line_items",
             query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.order().order_key(), f.line_number(), f.ship_date().diff_days(f.receipt_date()).alias("duration")],
+                *_P1, [f.order().order_key(), f.line_number(), f.ship_date().diff_days(f.receipt_date()).alias("duration")],
             ).order_by(f.order().order_key().ascending(), f.line_number().ascending()),
             expected_columns=["Order Order Key", "Line Number", "duration"],
-            expected_result=_rows([1, 1, 15], [1, 2, 16], [2, 1, 29], [2, 2, 28]),
+            expected_result=_rows([1, 1, 15], [1, 2, 16], [2, 1, 18], [2, 2, 28]),
         ),
         _unsupported(
             "R3a_temporal_aggregation_greatest_number_of_unshipped_items",
@@ -768,41 +760,81 @@ LINEITEM_FINDER_SPECS = FinderSpec(
             "boundaries), then takes the maximum over them",
             ["Max Count"],
         ),
+        # --- The queries the finders cannot express as TPC-H defines them ---
+        _unsupported(
+            "Q2_minimum_cost_supplier",
+            "A correlated scalar subquery: ps_supplycost = (select min(ps_supplycost) ... for the same part)",
+            ["s_acctbal", "s_name", "n_name", "p_partkey", "p_mfgr", "s_address", "s_phone", "s_comment"],
+        ),
+        _unsupported(
+            "Q11_important_stock_identification",
+            "A scalar subquery in HAVING: sum(ps_supplycost * ps_availqty) > (select sum(...) * FRACTION ...)",
+            ["ps_partkey", "value"],
+        ),
+        _unsupported(
+            "Q13_customer_distribution",
+            "A derived table with a LEFT OUTER JOIN whose ON clause has a condition (o_comment not like "
+            "'%[WORD1]%[WORD2]%'), grouped again by the count it produced",
+            ["c_count", "custdist"],
+        ),
+        _unsupported(
+            "Q15_top_supplier",
+            "A view of revenue by supplier, and total_revenue = (select max(total_revenue) from the view)",
+            ["s_suppkey", "s_name", "s_address", "s_phone", "total_revenue"],
+        ),
+        _unsupported(
+            "Q16_parts_supplier_relationship",
+            "ps_suppkey not in (select s_suppkey ... where s_comment like '%Customer%Complaints%'), and p_type not "
+            "like '[TYPE]%': a NOT IN subquery and NOT LIKE",
+            ["p_brand", "p_type", "p_size", "supplier_cnt"],
+        ),
+        _unsupported(
+            "Q17_small_quantity_order_revenue",
+            "A correlated scalar subquery: l_quantity < (select 0.2 * avg(l_quantity) ... for the same part)",
+            ["avg_yearly"],
+        ),
+        _unsupported(
+            "Q20_potential_part_promotion",
+            "Nested IN subqueries and a correlated scalar subquery: ps_availqty > (select 0.5 * sum(l_quantity) ...)",
+            ["s_name", "s_address"],
+        ),
+        _unsupported(
+            "Q21_suppliers_who_kept_orders_waiting",
+            "EXISTS and NOT EXISTS with conditions on the other lines of the order (l2.l_suppkey <> l1.l_suppkey, "
+            "l3.l_receiptdate > l3.l_commitdate): exists() takes no condition",
+            ["s_name", "numwait"],
+        ),
+        _unsupported(
+            "Q22_global_sales_opportunity",
+            "substring(c_phone from 1 for 2) in a list, a scalar subquery average, and NOT EXISTS",
+            ["cntrycode", "numcust", "totacctbal"],
+        ),
     ],
 )
+
+
+def _q19_branch(f, brand: str, containers: list[str], quantity: float, max_size: int):
+    return (f.part().brand().eq(brand).and_(f.part().container().is_in(containers))
+            .and_(f.quantity() >= quantity).and_(f.quantity() <= quantity + 10)
+            .and_(f.part().size() >= 1).and_(f.part().size() <= max_size)
+            .and_(f.ship_mode().is_in(["AIR", "AIR REG"])).and_(f.ship_instruct().eq("DELIVER IN PERSON")))
+
 
 ORDER_PRIORITY_FINDER_SPECS = FinderSpec(
     finder_name="OrderFinder",
     mapping_file=TPCH_BIH_MAPPING,
     expectations=[
-        TestExpectation(
-            # TPC-H Q18 lists the orders whose lines add up to more than a quantity, found with IN a subquery that
-            # groups the lines by order. The outer query sums the same lines for each order, so a HAVING on that sum
-            # gives the same rows. The quantity is 20 here, not 300, for the size of the data.
-            name="H18_large_volume_customer",
-            query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.customer().name(), f.customer().customer_key(), f.order_key(), f.order_date(), f.total_price(),
-                 f.line_items().quantity().sum().alias("sum_quantity")],
-            ).group_by(f.customer().name(), f.customer().customer_key(), f.order_key(), f.order_date(), f.total_price())
-            .having(f.line_items().quantity().sum() > 20.0)
-            .order_by(f.total_price().descending(), f.order_date().ascending()).limit(100),
-            expected_columns=["Customer Name", "Customer Customer Key", "Order Key", "Order Date", "Total Price",
-                              "sum_quantity"],
-            expected_result=_rows(["Customer#2", 2, 2, _D(2019, 12, 10), 2000.0, 28.0]),
+        _unsupported(
+            "Q4_order_priority_checking",
+            "exists (select * from lineitem where l_orderkey = o_orderkey and l_commitdate < l_receiptdate): exists() takes "
+            "no condition, and a filter through the line items joins, so it repeats an order for each line",
+            ["o_orderpriority", "order_count"],
         ),
-        TestExpectation(
-            # TPC-H Q4 counts orders that have a line committed before it was received. The condition is on the line, so
-            # it is a filter through the navigation (exists() takes no condition), which repeats an order once per
-            # such line; counting the distinct orders counts it once.
-            name="H4_order_priority_checking",
-            query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.order_priority(), f.order_key().count_distinct().alias("order_count")],
-                f.line_items().commit_date() < f.line_items().receipt_date(),
-            ).order_by(f.order_priority().ascending()),
-            expected_columns=["Order Priority", "order_count"],
-            expected_result=_rows(["1-URGENT", 1], ["2-HIGH", 1]),
+        _unsupported(
+            "Q18_large_volume_customer",
+            "o_orderkey in (select l_orderkey from lineitem group by l_orderkey having sum(l_quantity) > [QUANTITY]): "
+            "an IN subquery with GROUP BY and HAVING",
+            ["c_name", "c_custkey", "o_orderkey", "o_orderdate", "o_totalprice", "sum(l_quantity)"],
         ),
     ],
 )
@@ -812,17 +844,28 @@ CUSTOMER_REVENUE_FINDER_SPECS = FinderSpec(
     mapping_file=TPCH_BIH_MAPPING,
     expectations=[
         TestExpectation(
-            name="H10_returned_item_reporting",
+            # Q10, DATE 1993-10-01: the first 20 rows
+            name="Q10_returned_item_reporting",
             query=lambda f: f.find_all(
-                _H_APPLICATION, _H_SYSTEM,
-                [f.customer_key(), f.name(),
+                *_P1,
+                [f.customer_key().alias("c_custkey"), f.name().alias("c_name"),
                  (f.orders().line_items().extended_price() * (constant(1) - f.orders().line_items().discount()))
                  .sum().alias("revenue"),
-                 f.acct_bal(), f.nation().name()],
-                f.orders().line_items().return_flag().eq("R").and_(f.orders().order_date() >= _D(2019, 10, 1)),
-            ).group_by(f.customer_key(), f.name(), f.acct_bal(), f.nation().name()),
-            expected_columns=["Customer Key", "Name", "revenue", "Acct Bal", "Nation Name"],
-            expected_result=_rows([1, "Customer#1", _O1L1, 100.0, "UNITED STATES"]),
+                 f.acct_bal().alias("c_acctbal"), f.nation().name().alias("n_name"), f.address().alias("c_address"),
+                 f.phone().alias("c_phone"), f.comment().alias("c_comment")],
+                (f.orders().order_date() >= datetime.date(1993, 10, 1))
+                .and_(f.orders().order_date() < datetime.date(1994, 1, 1))
+                .and_(f.orders().line_items().return_flag().eq("R")),
+            ).group_by(f.customer_key(), f.name(), f.acct_bal(), f.phone(), f.nation().name(), f.address(), f.comment())
+            .order_by((f.orders().line_items().extended_price() * (constant(1) - f.orders().line_items().discount()))
+                      .sum().descending()).limit(20),
+            expected_columns=["c_custkey", "c_name", "revenue", "c_acctbal", "n_name", "c_address", "c_phone", "c_comment"],
+            expected_result=_rows(
+                [1, "Customer#1", _O1L1, 100.0, "UNITED STATES", "1 Customer Avenue", "10-101-201-3001",
+                 "customer 1 is a regular customer"],
+                [2, "Customer#2", _O2L2, 3000.0, "GERMANY", "2 Customer Avenue", "11-102-202-3002",
+                 "customer 2 is a regular customer"],
+            ),
         ),
     ],
 )
@@ -836,7 +879,7 @@ CUSTOMER_JOIN_STRINGS_FINDER_SPECS = FinderSpec(
             # order 2 has two versions and order 5 was cancelled later, so an unmilestoned join repeats customers.
             name="join_strings_ordered_by_a_navigation_is_milestoned",
             query=lambda f: f.find_all(
-                "2022-06-01", "2022-06-01",
+                "1996-06-01", "2022-06-01",
                 [f.nation().name(), f.name().join(", ", order_by=[f.orders().total_price().ascending()])],
             ).order_by(f.nation().name().ascending()),
             expected_columns=["Nation Name", "Join Name"],
@@ -856,38 +899,38 @@ PART_FINDER_SPECS = FinderSpec(
         # Part 4's availability is delayed at S2: its application period is overwritten.
         TestExpectation(
             name="availability_delayed_not_available_before_the_new_date",
-            query=lambda f: f.find_all("2022-03-01", _NOW, [f.name()], f.name().eq("Part#4")),
-            expected_columns=["Name"],
+            query=lambda f: f.find_all("1996-03-01", _NOW, [f.part_key()], f.part_key().eq(4)),
+            expected_columns=["Part Key"],
             expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="availability_delayed_available_from_the_new_date",
-            query=lambda f: f.find_all("2022-07-01", _NOW, [f.name()], f.name().eq("Part#4")),
-            expected_columns=["Name"],
-            expected_result=_rows(["Part#4"]),
+            query=lambda f: f.find_all("1996-07-01", _NOW, [f.part_key()], f.part_key().eq(4)),
+            expected_columns=["Part Key"],
+            expected_result=_rows([4]),
         ),
         TestExpectation(
             name="availability_delayed_as_recorded_before_the_delay",
-            query=lambda f: f.find_all("2022-03-01", "2021-06-01", [f.name()], f.name().eq("Part#4")),
-            expected_columns=["Name"],
-            expected_result=_rows(["Part#4"]),
+            query=lambda f: f.find_all("1996-03-01", "2021-06-01", [f.part_key()], f.part_key().eq(4)),
+            expected_columns=["Part Key"],
+            expected_result=_rows([4]),
         ),
         # Part 2's price changes at S1, effective 2021-03-01.
         TestExpectation(
             name="price_before_the_change",
-            query=lambda f: f.find_all("2021-02-01", _NOW, [f.retail_price()], f.name().eq("Part#2")),
+            query=lambda f: f.find_all("1995-02-01", _NOW, [f.retail_price()], f.part_key().eq(2)),
             expected_columns=["Retail Price"],
             expected_result=_rows([1000.0]),
         ),
         TestExpectation(
             name="price_after_the_change",
-            query=lambda f: f.find_all("2021-04-01", _NOW, [f.retail_price()], f.name().eq("Part#2")),
+            query=lambda f: f.find_all("1995-04-01", _NOW, [f.retail_price()], f.part_key().eq(2)),
             expected_columns=["Retail Price"],
             expected_result=_rows([1050.0]),
         ),
         TestExpectation(
             name="price_after_the_change_as_recorded_before_it",
-            query=lambda f: f.find_all("2021-04-01", "2020-06-01", [f.retail_price()], f.name().eq("Part#2")),
+            query=lambda f: f.find_all("1995-04-01", "2020-06-01", [f.retail_price()], f.part_key().eq(2)),
             expected_columns=["Retail Price"],
             expected_result=_rows([1000.0]),
         ),
@@ -943,7 +986,7 @@ NATION_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="not_versioned_dates_have_no_effect",
-            query=lambda f: f.find_all("2019-01-01", "2019-01-01", [f.name()], f.region().name().eq("AMERICA")),
+            query=lambda f: f.find_all("1993-01-01", "2019-01-01", [f.name()], f.region().name().eq("AMERICA")),
             expected_columns=["Name"],
             expected_result=_rows(["UNITED STATES"]),
             unexpected_sql={"duckdb": "sys_time"},
