@@ -1,0 +1,24 @@
+-- Test data from legend-engine core_relational businessDateMilestoningSetUp.pure::initDatabase
+-- Tables: OrderTable, ProductTable, ProductClassificationTable, ProductExchangeTable
+drop table if exists OrderTable;
+create table OrderTable (orderDate TIMESTAMP, id Integer, prodFk Integer);
+insert into OrderTable values('2015-8-26 00:00:00', 1, 1);
+insert into OrderTable values('2015-8-26 00:00:00', 2, 2);
+drop table if exists ProductTable;
+create table ProductTable (id Integer, name VARCHAR(200), type VARCHAR(200), exchange VARCHAR(200), from_z DATE, thru_z DATE);
+insert into ProductTable values(1, 'ProductName', 'STOCK', 'ISE', '2015-8-15', '2015-8-26');
+insert into ProductTable values(2, 'ProductName1', 'STOCK', 'LNSE', '2015-8-26', '2015-10-16');
+insert into ProductTable values(2, 'ProductName2', 'STOCK', 'LNSE', '2015-10-16', '9999-12-31');
+insert into ProductTable values(3, 'ProductName3', 'OPTION', 'ISE', '2015-8-26', '9999-12-31');
+drop table if exists ProductClassificationTable;
+create table ProductClassificationTable (type VARCHAR(200), type_description VARCHAR(400), system VARCHAR(200), exchange VARCHAR(200), from_z DATE, thru_z DATE);
+insert into ProductClassificationTable values('STOCK', 'STOCK DESC-V1', 'SYS1', 'LNSE', '2015-8-15', '2015-8-17');
+insert into ProductClassificationTable values('STOCK', 'STOCK DESC-V2', 'SYS1', 'LNSE', '2015-8-17', '2015-9-15');
+insert into ProductClassificationTable values('STOCK', 'STOCK DESC-V3', 'SYS1', 'LNSE', '2015-9-15', '2015-10-17');
+insert into ProductClassificationTable values('STOCK', 'STOCK DESC-V4', 'SYS1', 'LNSE', '2015-10-17', '9999-12-31');
+insert into ProductClassificationTable values('OPTION', 'OPTION DESC-V1', 'SYS1', 'ISE', '2015-1-15', '2015-1-16');
+drop table if exists ProductExchangeTable;
+create table ProductExchangeTable (name VARCHAR(200), city VARCHAR(200), from_z DATE, thru_z DATE);
+insert into ProductExchangeTable values('ISE', 'Dublin', '2015-1-15', '2015-8-15');
+insert into ProductExchangeTable values('LNSE', 'London', '2015-8-15', '9999-12-31');
+insert into ProductExchangeTable values('LNSE', 'London', '2014-1-15', '2014-1-16');
