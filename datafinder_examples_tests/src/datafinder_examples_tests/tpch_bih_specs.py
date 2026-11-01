@@ -287,6 +287,14 @@ ORDER_FINDER_SPECS = FinderSpec(
             "boundaries). The finders aggregate over the versions a date selects, not over change points",
             ["Max Total Price"],
         ),
+        _unsupported(
+            # Described in the EDBT 2014 paper ("Benchmarking Bitemporal Database Systems"), not in the TPCTC 2013 one;
+            # its SQL is in the technical report, which is not available, so its output is not known either.
+            "R6_temporal_aggregation_with_a_join_of_two_temporal_tables",
+            "Combines a temporal aggregation (a result row for each timestamp where the data changed, from an interval "
+            "join on the period boundaries) with a join of two temporal tables, which the finders cannot do",
+            [],
+        ),
         TestExpectation(
             # How often a customer had a low balance while an order of theirs was active, in both dimensions: every
             # pair of an order version and a customer version whose application and system periods overlap.
