@@ -7,6 +7,7 @@ import re
 import shutil
 import sys
 import tempfile
+from types import SimpleNamespace
 
 import duckdb
 import pytest
@@ -17,7 +18,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
-from datafinder_examples_tests.tpch_bih_specs import ALL_TPCH_BIH_SPECS, TPCH_BIH_MAPPING
+from datafinder_examples_tests.tpch_bih_specs import ALL_TPCH_BIH_CASES, TPCH_BIH_MAPPING
 
 _FINDERS = {
     "RegionFinder": "tpch.bih.region_finder",
@@ -87,7 +88,15 @@ def finders():
     for finder_name, module_name in _FINDERS.items():
         module = importlib.import_module(module_name)
         instances[finder_name] = getattr(module, finder_name)()
-    yield instances
+    yield SimpleNamespace(
+        order=instances["OrderFinder"],
+        customer=instances["CustomerFinder"],
+        partsupp=instances["PartSuppFinder"],
+        lineitem=instances["LineItemFinder"],
+        part=instances["PartFinder"],
+        supplier=instances["SupplierFinder"],
+        nation=instances["NationFinder"],
+    )
 
     if tmp in sys.path:
         sys.path.remove(tmp)
@@ -127,12 +136,11 @@ def _spec_order(expectation):
 
 
 _CASES = sorted([
-    pytest.param(spec, expectation, id=f"{spec.finder_name}-{expectation.name}")
-    for spec in ALL_TPCH_BIH_SPECS
-    for expectation in spec.expectations
-], key=lambda case: _spec_order(case.values[1]))
+    pytest.param(expectation, id=expectation.name)
+    for expectation in ALL_TPCH_BIH_CASES
+], key=lambda case: _spec_order(case.values[0]))
 
 
-@pytest.mark.parametrize("spec, expectation", _CASES)
-def test_tpch_bih(spec, expectation, finders):
-    expectation.run(finders[spec.finder_name], backend="duckdb")
+@pytest.mark.parametrize("expectation", _CASES)
+def test_tpch_bih(expectation, finders):
+    expectation.run(finders, backend="duckdb")
