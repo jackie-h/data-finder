@@ -141,9 +141,10 @@ def _order_left_joins(tree: exp.Expr) -> exp.Expr:
     """Write the left joins of each SELECT in one order: by table, with a join always after the joins it depends on."""
     for select in tree.find_all(exp.Select):
         joins = select.args.get("joins") or []
-        if len(joins) < 2 or any((j.side or "").upper() != "LEFT" for j in joins):
+        source = select.args.get("from_") or select.args.get("from")
+        if source is None or len(joins) < 2 or any((j.side or "").upper() != "LEFT" for j in joins):
             continue
-        provided = {t.alias_or_name for t in [(select.args.get("from_") or select.args.get("from")).this]}
+        provided = {source.this.alias_or_name}
         remaining, ordered = list(joins), []
         while remaining:
             ready = [j for j in remaining
