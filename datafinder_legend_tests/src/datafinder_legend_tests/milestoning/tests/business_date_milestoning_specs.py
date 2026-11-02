@@ -61,9 +61,6 @@ BUSINESS_DATE_MILESTONING_SPECS = FinderSpec(
         unsupported("testIsolationOfIntermediateJoinsInMultiLevelPropertyJoin", f"{_SRC}::testIsolationOfIntermediateJoinsInMultiLevelPropertyJoin",
                     'select "systemtable_0".name as "name" from ProductTable as "root" left outer join ProductClassificationSystemTable as "productclassificationsystemtable_0" on ("root".classificationSystemId = "productclassificationsystemtable_0".id and "productclassificationsystemtable_0".from_z <= \'2015-10-17\' and "productclassificationsystemtable_0".thru_z > \'2015-10-17\') left outer join SystemTable as "systemtable_0" on ("productclassificationsystemtable_0".name = "systemtable_0".name) where "root".type = \'STOCK\' and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                     'business date milestoning mapping not loaded in the port'),
-        unsupported("testIsolationWhereLeftSideOfFilterIsEmbedded", f"{_SRC}::testIsolationWhereLeftSideOfFilterIsEmbedded",
-                    'select "root".name as "name" from ProductTable as "root" left outer join ProductClassificationSystemTable as "productclassificationsystemtable_0" on ("root".classificationSystemId = "productclassificationsystemtable_0".id and "productclassificationsystemtable_0".from_z <= \'2015-10-16\' and "productclassificationsystemtable_0".thru_z > \'2015-10-16\') left outer join SystemTable as "systemtable_0" on ("productclassificationsystemtable_0".name = "systemtable_0".name) where "systemtable_0".name = \'SYS1\' and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
-                    'business date milestoning mapping not loaded in the port'),
         unsupported("testMilestoningCriteriaAppliedToJoinFromViewRoot", f"{_SRC}::testMilestoningCriteriaAppliedToJoinFromViewRoot",
                     'select "root".pnl as "pnl", "root".supportContact as "supportContact" from (select distinct "root".TRADE_ID as TRADE_ID, "root".pnl as pnl, "salespersontable_0".NAME as supportContact, \'2016-07-22\' as "k_businessDate" from tradePnlTable as "root" left outer join tradeTable as "tradetable_0" on ("root".TRADE_ID = "tradetable_0".ID) left outer join salesPersonTable as "salespersontable_0" on ("tradetable_0".accountID = "salespersontable_0".ACCOUNT_ID and "salespersontable_0".from_z <= \'2016-07-22\' and "salespersontable_0".thru_z > \'2016-07-22\') where "root".from_z <= \'2016-07-22\' and "root".thru_z > \'2016-07-22\') as "root"',
                     'business date milestoning mapping not loaded in the port'),
@@ -182,5 +179,16 @@ BUSINESS_DATE_EXISTS_SPECS = FinderSpec(
                'select "root".name as "name", not "producttable_1".prodFk is null as "check" from ProductTable as "root" left outer join (select distinct "ordertable_0".prodFk from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) where "ordertable_0".id = 1) as "producttable_1" on ("producttable_1".prodFk = "root".id) where "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
                lambda f: f.find_all("2015-08-15", None, [f.name(), f.orders(id=1).exists()]),
                known_gaps={BACKEND: EXISTS_COLUMN_SUB_SELECT}),
+    ],
+)
+
+
+BUSINESS_DATE_EMBEDDED_SPECS = FinderSpec(
+    finder_name="ProductFinder",
+    mapping_file="milestoning/tests/embedded_system_mapping.md",
+    expectations=[
+        ported("testIsolationWhereLeftSideOfFilterIsEmbedded", f"{_SRC}::testIsolationWhereLeftSideOfFilterIsEmbedded",
+               'select "root".name as "name" from ProductTable as "root" left outer join ProductClassificationSystemTable as "productclassificationsystemtable_0" on ("root".classificationSystemId = "productclassificationsystemtable_0".id and "productclassificationsystemtable_0".from_z <= \'2015-10-16\' and "productclassificationsystemtable_0".thru_z > \'2015-10-16\') left outer join SystemTable as "systemtable_0" on ("productclassificationsystemtable_0".name = "systemtable_0".name) where "systemtable_0".name = \'SYS1\' and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
+               lambda f: f.find_all("2015-10-16", None, [f.name()], f.classification().system().name().eq("SYS1"))),
     ],
 )
