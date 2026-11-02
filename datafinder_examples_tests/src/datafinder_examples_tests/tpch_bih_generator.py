@@ -19,9 +19,14 @@ Where the report is not specific, this does the following (they are choices, not
 
 * The probabilities of the scenarios add up to 0.91, not 1, so they are used as weights.
 * ``CURRENT_TIME`` is the simulated clock. It is a timestamp for the system time and its date for application times.
-* An update is a new version: the current version of the row is ended at the system time and a new one begins. A row has
-  one current version, and an update that sets an application time period replaces the period (the report's "overwrite
-  application time"), it does not split the row.
+* An update is a new version: the current version of the row is ended at the system time and a new one begins.
+* An update that changes values from a date on, "Set VISIBILITY TIME := [begin, infinity]" when a customer moves (A.2.1) and
+  "Set VALIDITY TIME := [begin, infinity]" when a price changes (A.2.7), is bitemporal milestoning: the latest version has its
+  application time end set to ``begin`` and a new version with the changed values runs from ``begin`` to infinity, so a key has
+  more than one version at a time, each for another period of application time. This is what lets the key-history, range and bitemporal queries return different results in
+  the two dimensions. An update that only moves the start of availability (A.2.6) or ends a period (``ACTIVE TIME END``,
+  ``RECEIVABLE TIME END``) sets the period of the row, and does not split it. An update with no period, a balance or a
+  stock level, changes every current version of the key.
 * The operators in the report's PDF did not survive (``ACCTBAL  TOTALPRICE`` and so on). The logic fixes most of them:
   Deliver Order subtracts the price from the balance, Receive Payment adds it back, and Deliver Order subtracts the
   quantity from the stock. Manipulate Order Data multiplies the extended price by ``uniform(1, 10)``; the report does not
@@ -74,6 +79,9 @@ COLUMNS: dict[str, list[str]] = {
                  "l_tax", "l_returnflag", "l_linestatus", "l_shipdate", "l_commitdate", "l_receiptdate", "l_shipinstruct",
                  "l_shipmode", "l_comment", "active_time_begin", "active_time_end", *_SYSTEM],
 }
+#: the application time of each table that has one, as the prefix of its _begin and _end columns
+APPLICATION_TIME = {"part": "availability_time", "partsupp": "validity_time", "customer": "visible_time",
+                    "orders": "active_time", "lineitem": "active_time"}
 KEYS: dict[str, tuple[str, ...]] = {
     "supplier": ("s_suppkey",), "part": ("p_partkey",), "partsupp": ("ps_partkey", "ps_suppkey"),
     "customer": ("c_custkey",), "orders": ("o_orderkey",), "lineitem": ("l_orderkey", "l_linenumber"),
@@ -95,14 +103,23 @@ def add_months(day: datetime.date, months: int) -> datetime.date:
 
 
 class Store:
-    """The versions of every table. A key has at most one current version, which ends when the key is updated or deleted."""
+    """The versions of every table.
+
+    A key has one current version for each period of application time it has. ``current`` holds the latest of them (the one that
+    runs to the end of time, if there is one), which is what the scenarios read, and ``earlier`` the others.
+    """
 
     def __init__(self) -> None:
         self.versions: dict[str, list[dict]] = {t: [] for t in COLUMNS}
         self.current: dict[str, dict[tuple, dict]] = {t: {} for t in KEYS}
+        self.earlier: dict[str, dict[tuple, list[dict]]] = {t: {} for t in KEYS}
 
     def key(self, table: str, row: dict) -> tuple:
         return tuple(row[c] for c in KEYS[table])
+
+    def rows(self, table: str, key: tuple) -> list[dict]:
+        """Every current version of a key, in order of application time."""
+        return [*self.earlier[table].get(key, []), self.current[table][key]]
 
     def static(self, table: str, row: dict) -> None:
         self.versions[table].append(row)
@@ -111,22 +128,65 @@ class Store:
         row = {**row, "sys_time_begin": at, "sys_time_end": INF_T}
         self.versions[table].append(row)
         self.current[table][self.key(table, row)] = row
+        self.earlier[table].pop(self.key(table, row), None)
         return row
 
-    def update(self, table: str, key: tuple, at: datetime.datetime, **changes: Any) -> dict:
-        old = self.current[table][key]
-        if old["sys_time_begin"] == at:  # the same transaction: the version it made is changed, not versioned again
-            old.update(changes)
-            return old
-        old["sys_time_end"] = at
+    def _supersede(self, table: str, old: dict, at: datetime.datetime) -> None:
+        """End a version at ``at``. One made in the same transaction never existed outside it, so it is dropped."""
+        if old["sys_time_begin"] == at:
+            self.versions[table].remove(old)
+        else:
+            old["sys_time_end"] = at
+
+    def _version(self, table: str, old: dict, at: datetime.datetime, changes: dict) -> dict:
+        self._supersede(table, old, at)
         new = {**old, **changes, "sys_time_begin": at, "sys_time_end": INF_T}
         self.versions[table].append(new)
-        self.current[table][key] = new
         return new
 
+    def _set(self, table: str, key: tuple, rows: list[dict]) -> dict:
+        """Make ``rows`` the current versions of a key; the latest is the one that runs longest."""
+        latest = max(rows, key=lambda r: self._period(table, r))
+        self.current[table][key] = latest
+        self.earlier[table][key] = [r for r in rows if r is not latest]
+        return latest
+
+    @staticmethod
+    def _period(table: str, row: dict) -> tuple:
+        if table not in APPLICATION_TIME:
+            return ()
+        return row[f"{APPLICATION_TIME[table]}_end"], row[f"{APPLICATION_TIME[table]}_begin"]
+
+    def update(self, table: str, key: tuple, at: datetime.datetime, **changes: Any) -> dict:
+        """Change every current version of a key (an update with no application time)."""
+        rows = [self._version(table, old, at, changes) for old in self.rows(table, key)]
+        return self._set(table, key, rows)
+
+    def milestone(self, table: str, key: tuple, at: datetime.datetime, begin: datetime.date, **changes: Any) -> dict:
+        """Bitemporal milestoning of a change that is valid from ``begin``: the latest version has its application time end set
+        to ``begin``, and a new version with the changed values runs from ``begin`` to the end of application time. A change
+        valid from before the latest version began has no day of it to keep, so it changes the values of that version."""
+        prefix = APPLICATION_TIME[table]
+        b, e = f"{prefix}_begin", f"{prefix}_end"
+        rows = self.rows(table, key)
+        old = self.current[table][key]
+        if old[b] >= begin or old[b] >= old[e]:
+            rows = [self._version(table, r, at, changes) if r is old else r for r in rows]
+        else:
+            rows = [r for r in rows if r is not old]
+            rows.append(self._version(table, old, at, {e: begin}))
+            rows.append(self._add(table, {**old, **changes, b: begin, "sys_time_begin": at, "sys_time_end": INF_T}))
+        return self._set(table, key, rows)
+
+    def _add(self, table: str, row: dict) -> dict:
+        self.versions[table].append(row)
+        return row
+
     def delete(self, table: str, key: tuple, at: datetime.datetime) -> None:
-        old = self.current[table].pop(key)
-        old["sys_time_end"] = at
+        for old in self.rows(table, key):
+            self._supersede(table, old, at)
+        del self.current[table][key]
+        self.earlier[table].pop(key, None)
 
 
 class Generator:
@@ -260,15 +320,15 @@ class Generator:
         }
 
     def new_order(self, at: datetime.datetime, today: datetime.date) -> bool:  # A.2.1
-        customers = [c for c in self.cur("customer").values()
-                     if self.visible(c, "visible_time_begin", "visible_time_end", today)]
+        customers = [c for key, c in self.cur("customer").items()
+                     if any(self.visible(r, "visible_time_begin", "visible_time_end", today)
+                            for r in self.store.rows("customer", key))]
         if customers and self.rng.random() < 0.5:  # 1. an existing customer
             customer = self.rng.choice(customers)
             if self.rng.random() < 0.5:  # a. the customer's data changes
                 nation = self.rng.randint(0, 24)
-                self.store.update(
-                    "customer", (customer["c_custkey"],), at,
-                    visible_time_begin=today + self.uniform_days(1, 30), visible_time_end=INF_D, c_nationkey=nation,
+                self.store.milestone(
+                    "customer", (customer["c_custkey"],), at, today + self.uniform_days(1, 30), c_nationkey=nation,
                     c_address=self.text(3), c_phone=self.phone(nation, self.rng))
             custkey = customer["c_custkey"]
         else:  # 2. a new customer
@@ -393,9 +453,8 @@ class Generator:
             return False
         begin = today + datetime.timedelta(days=round(self.rng.gauss(-15, 30)))
         change = self.rng.uniform(-100, 100)
-        self.store.update("partsupp", (ps["ps_partkey"], ps["ps_suppkey"]), at,
-                          ps_supplycost=round(abs(ps["ps_supplycost"] + change), 2), validity_time_begin=begin,
-                          validity_time_end=INF_D)
+        self.store.milestone("partsupp", (ps["ps_partkey"], ps["ps_suppkey"]), at, begin,
+                                  ps_supplycost=round(abs(ps["ps_supplycost"] + change), 2))
         return True
 
     def update_supplier(self, at: datetime.datetime, today: datetime.date) -> bool:  # A.2.8

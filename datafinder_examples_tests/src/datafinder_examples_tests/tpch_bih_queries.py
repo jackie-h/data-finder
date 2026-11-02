@@ -159,7 +159,7 @@ B3 = {
 # ---------------------------------------------------------------------------------------------------------------------
 
 def _other_parts(f, p, app, sys, application=False, system=None, anchor_app=None):
-    """The parts of ps2, DISTINCT. ``application``: ps1.VALIDITY_TIME_START <= ps2.VALIDITY_TIME_END AND ps1.VALIDITY_TIME_END >=
+    """The part and the periods of ps2, DISTINCT. ``application``: ps1.VALIDITY_TIME_START <= ps2.VALIDITY_TIME_END AND ps1.VALIDITY_TIME_END >=
     ps2.VALIDITY_TIME_START. ``system``: "overlap" is ps1.sys_time_start < ps2.sys_time_END AND ps2.sys_time_start <
     ps1.sys_time_END; "starts_within" is ps1.sys_time_start <= ps2.sys_time_start AND ps2.sys_time_start < ps1.sys_time_END."""
     ps1 = f.supplier().part_supps() if anchor_app is None else f.supplier().part_supps(
@@ -172,10 +172,11 @@ def _other_parts(f, p, app, sys, application=False, system=None, anchor_app=None
         condition = condition.and_(ps1.sys_time_begin() < f.sys_time_end()).and_(f.sys_time_begin() < ps1.sys_time_end())
     elif system == "starts_within":
         condition = condition.and_(ps1.sys_time_begin() <= f.sys_time_begin()).and_(f.sys_time_begin() < ps1.sys_time_end())
-    return f.find_all(app, sys, [f.part().part_key()], condition).distinct().order_by(f.part().part_key().ascending())
+    columns = [f.part().part_key(), f.validity_time_begin(), f.validity_time_end(), f.sys_time_begin(), f.sys_time_end()]
+    return f.find_all(app, sys, columns, condition).distinct().order_by(*[c.ascending() for c in columns])
 
 
-_PART_COLUMN = ["Part Part Key"]
+_PART_COLUMN = ["Part Part Key", "Validity Time Begin", "Validity Time End", "Sys Time Begin", "Sys Time End"]
 
 B5 = {
     "B5_1": Unsupported(_PART_NAVIGATION),
