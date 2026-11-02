@@ -178,13 +178,16 @@ def _table_of(column: Column) -> Table:
     return column.table
 
 
-def parent_expr(join: Join, parent: str) -> str:
+def parent_expr(join: Join, parent: str, with_dates: bool = False) -> str:
     """The parent step of the join to a property's class: ``parent`` itself, or, when the property is mapped through
-    other tables first, ``parent`` followed by a step through each of them."""
+    other tables first, ``parent`` followed by a step through each of them. ``with_dates`` gives each of those steps the
+    ``business_date`` and ``processing_time`` the property was asked for with."""
     if not join.via:
         return parent
     hops = ", ".join(f"({column_code(lhs)}, {table_code(_table_of(rhs))}, {column_code(rhs)})" for lhs, rhs in join.via)
-    return f"via_joins({parent}, [{hops}])"
+    dates = (", business_date=None if business_date is None else convert_date(business_date), "
+             "processing_datetime=None if processing_time is None else convert_date_time(processing_time)") if with_dates else ""
+    return f"via_joins({parent}, [{hops}]{dates})"
 
 
 def display_name(prop: Property) -> str:
