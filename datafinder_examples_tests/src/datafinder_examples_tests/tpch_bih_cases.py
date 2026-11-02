@@ -238,6 +238,144 @@ WHERE '[APP_TIME]' BETWEEN receivable_time_start AND receivable_time_end""",
         )),
 
     BenchmarkCase(
+        id='T3_sys', title='Aggregation at two defined points in time: system time',
+        sql="""SELECT agg_t1.revenue old_revenue, agg_t2.revenue new_revenue
+FROM
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME1]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'O'
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME2]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'O'
+) agg_t2""",
+        parameters={'SYS_TIME1': datetime.datetime(2003, 1, 1, 0, 0), 'SYS_TIME2': datetime.datetime(2007, 1, 1, 0, 0), 'APP_TIME': datetime.date(1996, 6, 1)},
+        select=('old_revenue', 'new_revenue'), approximate=True,
+        rows=(
+            (7285726.08, 7279323.67),
+        )),
+
+    BenchmarkCase(
+        id='T3_app', title='Aggregation at two defined points in time: application time',
+        sql="""SELECT agg_t1.revenue old_revenue, agg_t2.revenue new_revenue
+FROM
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME1]'
+WHERE o_orderstatus = 'O'
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME2]'
+WHERE o_orderstatus = 'O'
+) agg_t2""",
+        parameters={'APP_TIME1': datetime.date(1995, 6, 1), 'APP_TIME2': datetime.date(1997, 6, 1)},
+        select=('old_revenue', 'new_revenue'), approximate=True,
+        rows=(
+            (208761.18000000002, 7406209.319999998),
+        )),
+
+    BenchmarkCase(
+        id='T4_sys', title='Aggregation of a limited number of items at two points in time: system time',
+        sql="""SELECT revenue2 - revenue1 AS inc_revenue, agg_t1.o_custkey
+FROM
+(
+SELECT SUM(o_totalprice) as revenue1, o_custkey
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME1]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'O'
+GROUP BY o_custkey
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue2, o_custkey
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME2]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'F'
+GROUP BY o_custkey
+) agg_t2
+WHERE agg_t1.o_custkey = agg_t2.o_custkey
+ORDER BY inc_revenue DESC
+FETCH FIRST 10 ROWS ONLY""",
+        parameters={'SYS_TIME1': datetime.datetime(2006, 1, 1, 0, 0), 'SYS_TIME2': datetime.datetime(2009, 1, 1, 0, 0), 'APP_TIME': datetime.date(2007, 10, 1)},
+        select=('inc_revenue', 'o_custkey'), ordered=True, approximate=True,
+        rows=(
+            (0.0, 234), (-22558.060000000012, 155), (-50951.48999999999, 23), (-83112.68, 49), (-150404.75, 148),
+        )),
+
+    BenchmarkCase(
+        id='T4_app', title='Aggregation of a limited number of items at two points in time: application time',
+        sql="""SELECT revenue2 - revenue1 AS inc_revenue, agg_t1.o_custkey
+FROM
+(
+SELECT SUM(o_totalprice) as revenue1, o_custkey
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME1]'
+WHERE o_orderstatus = 'O'
+GROUP BY o_custkey
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue2, o_custkey
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME2]'
+WHERE o_orderstatus = 'O'
+GROUP BY o_custkey
+) agg_t2
+WHERE agg_t1.o_custkey = agg_t2.o_custkey
+ORDER BY inc_revenue DESC
+FETCH FIRST 10 ROWS ONLY""",
+        parameters={'APP_TIME1': datetime.date(1995, 6, 1), 'APP_TIME2': datetime.date(1997, 6, 1)},
+        select=('inc_revenue', 'o_custkey'), ordered=True, approximate=True,
+        rows=(
+            (130295.45999999999, 22), (103931.43999999999, 61), (102098.28, 118), (53751.130000000005, 91),
+            (6832.5, 31),
+        )),
+
+    BenchmarkCase(
+        id='H1', title='Pricing summary report',
+        sql="""SELECT
+l_returnflag,
+l_linestatus,
+SUM(l_quantity) AS sum_qty,
+SUM(l_extendedprice) AS sum_base_price,
+SUM(l_extendedprice*(1-l_discount)) AS sum_disc_price,
+SUM(l_extendedprice*(1-l_discount)*(1+l_tax)) AS sum_charge,
+AVG(l_quantity) AS avg_qty,
+AVG(l_extendedprice) AS avg_price,
+AVG(l_discount) AS avg_disc,
+COUNT(*) AS count_order
+FROM
+lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE
+l_shipdate <= DATE '1998-11-01'
+GROUP BY
+l_returnflag,
+l_linestatus
+ORDER BY
+l_returnflag,
+l_linestatus""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1998, 1, 1)},
+        select=('l_returnflag', 'l_linestatus', 'sum_qty', 'sum_base_price', 'sum_disc_price', 'sum_charge', 'avg_qty', 'avg_price', 'avg_disc', 'count_order'), ordered=True, approximate=True,
+        rows=(
+            ('N', 'F', 3917.0, 3912316.77, 3713806.9444999998, 3857449.4945970005, 22.511494252873565, 22484.579137931036, 0.0503448275862068, 174),
+            ('N', 'O', 2088.0, 2072553.5200000003, 1967799.8015000003, 2041716.359725001, 21.978947368421053, 21816.352842105265, 0.050947368421052595, 95),
+        )),
+
+    BenchmarkCase(
         id='K1_sys', title='All time versions of a tuple: system time',
         sql="""SELECT
 o_orderkey, o_custkey, o_orderstatus, o_totalprice,
@@ -812,6 +950,352 @@ c_custkey, c_acctbal, visible_time_start""",
             (294, 34144.15, datetime.date(2008, 10, 29)), (297, 67291.31, datetime.date(2009, 2, 23)),
             (300, 83871.52, datetime.date(2009, 4, 30)), (301, 166210.71, datetime.date(2009, 6, 5)),
             (302, 202165.85, datetime.date(2009, 6, 27)),
+        )),
+
+    BenchmarkCase(
+        id='R1_sys', title='Restrict interval for state transition: system time',
+        sql="""SELECT now.C_NAME
+FROM (
+SELECT MAX(sys_time_end) time_until, c_custkey, c_name, c_nationkey
+FROM customer
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey != (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+group by c_custkey, c_name, c_nationkey
+) prv, (
+SELECT MIN(sys_time_start) time_from, c_custkey, c_name, c_nationkey
+FROM customer
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey = (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+GROUP BY c_custkey, c_name, c_nationkey
+) now
+WHERE
+prv.c_custkey = now.c_custkey AND
+prv.time_until < '[SYS_TIME_BEGIN]' AND
+now.time_from BETWEEN '[SYS_TIME_BEGIN]' AND '[SYS_TIME_END]'""",
+        parameters={'NATION': 'UNITED STATES', 'SYS_TIME_BEGIN': datetime.datetime(2003, 1, 1, 0, 0), 'SYS_TIME_END': datetime.datetime(2006, 1, 1, 0, 0)},
+        select=('c_name',),
+        rows=(
+
+        )),
+
+    BenchmarkCase(
+        id='R1_app', title='Restrict interval for state transition: application time',
+        sql="""SELECT now.C_NAME
+FROM (
+SELECT MAX(visible_time_end) time_until, c_custkey, c_name, c_nationkey
+FROM customer
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey != (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+group by c_custkey, c_name, c_nationkey
+) prv, (
+SELECT MIN(visible_time_start) time_from, c_custkey, c_name, c_nationkey
+FROM customer
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey = (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+GROUP BY c_custkey, c_name, c_nationkey
+) now
+WHERE
+prv.c_custkey = now.c_custkey AND
+prv.time_until < '[SYS_TIME_BEGIN]' AND
+now.time_from BETWEEN '[SYS_TIME_BEGIN]' AND '[SYS_TIME_END]'""",
+        parameters={'NATION': 'UNITED STATES', 'SYS_TIME_BEGIN': datetime.datetime(2003, 1, 1, 0, 0), 'SYS_TIME_END': datetime.datetime(2006, 1, 1, 0, 0)},
+        select=('c_name',),
+        rows=(
+            ('Customer#000000068',),
+        )),
+
+    BenchmarkCase(
+        id='R2_sys', title='Average duration of a certain state: system time',
+        sql="""SELECT AVG(EPOCH(shp.ship_time - ord.order_time))
+FROM
+(
+SELECT MIN(sys_time_start) AS order_time, o_orderkey
+FROM orders
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'O'
+GROUP BY o_orderkey
+) ord
+,
+(
+SELECT MIN(sys_time_start) AS ship_time, o_orderkey
+FROM orders
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'F'
+GROUP BY o_orderkey
+) shp
+WHERE ord.o_orderkey = shp.o_orderkey""",
+        parameters={},
+        select=(0,), approximate=True,
+        rows=(
+            (69675379.36363636,),
+        )),
+
+    BenchmarkCase(
+        id='R2_app', title='Average duration of a certain state: application time',
+        sql="""SELECT AVG(shp.ship_time - ord.order_time)
+FROM
+(
+SELECT MIN(active_time_start) AS order_time, o_orderkey
+FROM orders
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'O'
+GROUP BY o_orderkey
+) ord
+,
+(
+SELECT MIN(active_time_start) AS ship_time, o_orderkey
+FROM orders
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'F'
+GROUP BY o_orderkey
+) shp
+WHERE ord.o_orderkey = shp.o_orderkey""",
+        parameters={},
+        select=(0,), approximate=True,
+        rows=(
+            (None,),
+        )),
+
+    BenchmarkCase(
+        id='R3a', title='Time-slider: time of the maximum number of unshipped items',
+        sql="""SELECT MAX(total)
+FROM
+(
+SELECT COUNT(*) AS total, times.event_time as timestmp
+FROM
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+) ord,
+(
+SELECT sys_time_start AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+UNION
+SELECT sys_time_end AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+) times
+WHERE ord.sys_time_start <= times.event_time AND
+times.event_time < ord.sys_time_end
+GROUP BY times.event_time
+) agg""",
+        parameters={'SYS_TIME_BEGIN': datetime.datetime(2003, 1, 1, 0, 0), 'SYS_TIME_END': datetime.datetime(2006, 1, 1, 0, 0)},
+        select=(0,),
+        rows=(
+            (1691,),
+        )),
+
+    BenchmarkCase(
+        id='R3b', title='Time-slider: value of the maximum number of unshipped items',
+        sql="""SELECT MAX(total)
+FROM
+(
+SELECT SUM(ord.o_totalprice) AS total, times.event_time as timestmp
+FROM
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE o_orderstatus = 'O'
+) ord,
+(
+SELECT sys_time_start AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+UNION
+SELECT sys_time_end AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+) times
+WHERE ord.sys_time_start <= times.event_time AND
+times.event_time < ord.sys_time_end
+GROUP BY times.event_time
+) agg""",
+        parameters={'SYS_TIME_BEGIN': datetime.datetime(2003, 1, 1, 0, 0), 'SYS_TIME_END': datetime.datetime(2006, 1, 1, 0, 0)},
+        select=(0,), approximate=True,
+        rows=(
+            (87848240.22000006,),
+        )),
+
+    BenchmarkCase(
+        id='R4', title='Comparison of two extreme points of aggregation',
+        sql="""SELECT MIN(diff), ps_partkey, ps_suppkey
+FROM
+(
+-- Select positive value
+SELECT (CASE WHEN (diff1 > diff2) THEN diff1 ELSE diff2 END) AS diff,
+ps_partkey, ps_suppkey
+FROM
+(
+SELECT (max_time_from - min_time_to) AS diff1,
+(min_time_from - max_time_to) AS diff2, ps_partkey, ps_suppkey
+FROM
+(
+-- Do not know if minimum occurs before maximum or vice versa
+SELECT min_time_from, min_time_to, max_time_from, max_time_to,
+smin.ps_availqty, smax.ps_availqty, "glob".ps_partkey, "glob".ps_suppkey
+FROM
+(
+-- All cases where stock is minimal
+SELECT sys_time_start AS min_time_from,
+sys_time_end AS min_time_to,
+ps_availqty, ps_partkey, ps_suppkey
+FROM partsupp
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+) smin, (
+-- All cases where stock is maximal
+SELECT sys_time_start as max_time_from,
+sys_time_end AS max_time_to,
+ps_availqty, ps_partkey, ps_suppkey
+FROM partsupp
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+) smax, (
+-- Get global minimum and maximum of this product in history
+SELECT MIN(ps_availqty) AS gmin, MAX(ps_availqty) AS gmax,
+ps_partkey, ps_suppkey
+FROM partsupp
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+GROUP BY ps_partkey, ps_suppkey
+) "glob"
+WHERE
+"glob".ps_partkey = smin.ps_partkey AND
+"glob".ps_partkey = smax.ps_partkey AND
+"glob".ps_suppkey = smin.ps_suppkey AND
+"glob".ps_suppkey = smax.ps_suppkey AND
+smin.ps_availqty = "glob".gmin AND
+smax.ps_availqty = "glob".gmax AND
+"glob".gmax != "glob".gmin
+) minmax
+) aggr
+)
+GROUP BY ps_partkey, ps_suppkey
+ORDER BY MIN(diff), ps_partkey, ps_suppkey
+FETCH FIRST [HSIZE] ROWS ONLY""",
+        parameters={'HSIZE': 10},
+        select=(0, 'ps_partkey', 'ps_suppkey'), ordered=True,
+        rows=(
+            (datetime.timedelta(0), 1, 8), (datetime.timedelta(0), 2, 7), (datetime.timedelta(0), 3, 10),
+            (datetime.timedelta(0), 4, 5), (datetime.timedelta(0), 5, 8), (datetime.timedelta(0), 6, 3),
+            (datetime.timedelta(0), 6, 7), (datetime.timedelta(0), 6, 9), (datetime.timedelta(0), 8, 1),
+            (datetime.timedelta(0), 8, 3),
+        )),
+
+    BenchmarkCase(
+        id='R5', title='Temporal join query',
+        sql="""SELECT COUNT(DISTINCT(o_orderkey))
+FROM
+(
+SELECT * FROM customer
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE c_acctbal < 5000
+) cust,
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE o_orderstatus = 'O' AND o_totalprice > 10
+) ord
+WHERE
+c_custkey = o_custkey
+AND NOT (cust.sys_time_end <= ord.sys_time_start
+OR ord.sys_time_end <= cust.sys_time_start)""",
+        parameters={'SYS_TIME_BEGIN': datetime.datetime(2003, 1, 1, 0, 0), 'SYS_TIME_END': datetime.datetime(2006, 1, 1, 0, 0)},
+        select=(0,),
+        rows=(
+            (474,),
+        )),
+
+    BenchmarkCase(
+        id='R6', title='Aggregation over a temporal join query',
+        sql="""-- compute temporal join of customers and orders
+CREATE VIEW high_risk_orders AS
+SELECT
+o_totalprice AS orderprice,
+CASE WHEN cust.sys_time_start > ord.sys_time_start
+THEN cust.sys_time_start ELSE ord.sys_time_start END
+AS time_start,
+CASE WHEN cust.sys_time_end < ord.sys_time_end
+THEN cust.sys_time_end ELSE ord.sys_time_end END
+AS time_end
+FROM
+(
+SELECT * FROM customer
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE c_acctbal < 100
+) cust,
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE o_orderstatus = 'O'
+) ord
+WHERE
+c_custkey = o_custkey
+AND NOT (cust.sys_time_end <= ord.sys_time_start
+OR ord.sys_time_end <= cust.sys_time_start);
+-- compute temporal aggregation
+SELECT MAX(total) AS aggr_result
+FROM
+(
+SELECT SUM(ord.orderprice) AS total, times.event_time as timestmp
+FROM
+(
+SELECT * FROM high_risk_orders
+) ord,
+(
+SELECT time_start AS event_time
+FROM high_risk_orders
+UNION
+SELECT time_end AS event_time
+FROM high_risk_orders
+) times
+WHERE ord.time_start <= times.event_time AND
+times.event_time < ord.time_end
+GROUP BY times.event_time
+) agg""",
+        parameters={'SYS_TIME_BEGIN': datetime.datetime(2003, 1, 1, 0, 0), 'SYS_TIME_END': datetime.datetime(2006, 1, 1, 0, 0)},
+        select=('aggr_result',), approximate=True,
+        rows=(
+            (11078655.030000005,),
+        )),
+
+    BenchmarkCase(
+        id='R7', title='Changes between versions',
+        sql="""SELECT ps1.ps_partkey, ps1.ps_suppkey, ps1.ps_supplycost,
+ps1.validity_time_start, ps1.validity_time_end,
+ps2.validity_time_start, ps2.validity_time_end,
+ps2.ps_supplycost
+FROM
+partsupp
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30' AS PS1,
+partsupp
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30' AS PS2
+WHERE
+ps1.ps_suppkey = ps2.ps_suppkey AND
+ps1.ps_partkey=ps2.ps_partkey AND
+ps1.validity_time_end > ps2.validity_time_end AND
+ps2.validity_time_end = (SELECT max(validity_time_end)
+FROM partsupp
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30' as ps3
+WHERE
+ps3.ps_suppkey = ps1.ps_suppkey AND
+ps3.ps_partkey=ps1.ps_partkey AND
+ps1.validity_time_end > ps3.validity_time_end) AND
+ps1.ps_supplycost > ps2.ps_supplycost*1.075
+ORDER BY
+ps1.validity_time_end, ps2.validity_time_end DESC""",
+        parameters={},
+        select=(0, 1, 2, 3, 4, 5, 6, 7), ordered=True, approximate=True,
+        rows=(
+            (118, 2, 383.79, datetime.date(2001, 11, 30), datetime.date(2006, 12, 12), datetime.date(1992, 5, 19), datetime.date(2001, 11, 30), 325.61),
+            (31, 7, 206.39, datetime.date(2008, 9, 24), datetime.date(9999, 12, 31), datetime.date(1992, 5, 23), datetime.date(2008, 9, 24), 120.99),
+            (161, 10, 449.29, datetime.date(2008, 9, 16), datetime.date(9999, 12, 31), datetime.date(1992, 3, 29), datetime.date(2008, 9, 16), 394.05),
+            (113, 3, 238.86, datetime.date(2007, 6, 9), datetime.date(9999, 12, 31), datetime.date(1992, 6, 8), datetime.date(2007, 6, 9), 141.48),
+            (179, 8, 299.82, datetime.date(2007, 1, 29), datetime.date(9999, 12, 31), datetime.date(1992, 4, 18), datetime.date(2007, 1, 29), 277.15),
+            (106, 3, 343.39, datetime.date(2006, 12, 13), datetime.date(9999, 12, 31), datetime.date(1992, 5, 18), datetime.date(2006, 12, 13), 281.98),
+            (58, 10, 31.3, datetime.date(2005, 9, 17), datetime.date(9999, 12, 31), datetime.date(1992, 2, 23), datetime.date(2005, 9, 17), 25.09),
+            (21, 10, 731.16, datetime.date(2004, 10, 23), datetime.date(9999, 12, 31), datetime.date(1992, 7, 31), datetime.date(2004, 10, 23), 664.5),
+            (174, 3, 199.79, datetime.date(2004, 9, 15), datetime.date(9999, 12, 31), datetime.date(1992, 6, 25), datetime.date(2004, 9, 15), 135.46),
+            (76, 6, 204.83, datetime.date(2004, 8, 14), datetime.date(9999, 12, 31), datetime.date(1992, 8, 25), datetime.date(2004, 8, 14), 108.97),
+            (114, 8, 621.18, datetime.date(2004, 2, 2), datetime.date(9999, 12, 31), datetime.date(1992, 10, 25), datetime.date(2004, 2, 2), 555.12),
+            (29, 4, 1055.04, datetime.date(2001, 12, 16), datetime.date(9999, 12, 31), datetime.date(1992, 5, 19), datetime.date(2001, 12, 16), 981.33),
+            (150, 3, 60.14, datetime.date(2001, 8, 28), datetime.date(9999, 12, 31), datetime.date(1992, 5, 1), datetime.date(2001, 8, 28), 33.71),
+            (107, 10, 101.16, datetime.date(2000, 4, 27), datetime.date(9999, 12, 31), datetime.date(1992, 5, 22), datetime.date(2000, 4, 27), 91.31),
+            (96, 8, 668.69, datetime.date(2000, 4, 22), datetime.date(9999, 12, 31), datetime.date(1992, 5, 16), datetime.date(2000, 4, 22), 571.3),
         )),
 
     BenchmarkCase(
@@ -2003,5 +2487,750 @@ ps2.sys_time_start < ps1.sys_time_END""",
             (195, datetime.date(1992, 2, 12), datetime.date(9999, 12, 31), datetime.datetime(2000, 1, 1, 0, 0), datetime.datetime(2000, 2, 10, 4, 7, 40)),
             (195, datetime.date(1992, 2, 12), datetime.date(9999, 12, 31), datetime.datetime(2000, 2, 10, 4, 7, 40), datetime.datetime(2003, 5, 30, 7, 58, 4)),
             (195, datetime.date(1992, 2, 12), datetime.date(9999, 12, 31), datetime.datetime(2003, 5, 30, 7, 58, 4), datetime.datetime(9999, 12, 31, 23, 59, 59)),
+        )),
+
+    BenchmarkCase(
+        id='Q2', title='Minimum cost supplier',
+        sql="""SELECT
+    s_acctbal,
+    s_name,
+    n_name,
+    p_partkey,
+    p_mfgr,
+    s_address,
+    s_phone,
+    s_comment
+FROM part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]', partsupp FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]',
+    nation,
+    region
+WHERE
+    p_partkey = ps_partkey
+    AND s_suppkey = ps_suppkey
+    AND p_size = 15
+    AND p_type LIKE '%BRASS'
+    AND s_nationkey = n_nationkey
+    AND n_regionkey = r_regionkey
+    AND r_name = 'EUROPE'
+    AND ps_supplycost = (
+        SELECT
+            min(ps_supplycost)
+        FROM partsupp FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]',
+            nation,
+            region
+        WHERE
+            p_partkey = ps_partkey
+            AND s_suppkey = ps_suppkey
+            AND s_nationkey = n_nationkey
+            AND n_regionkey = r_regionkey
+            AND r_name = 'EUROPE')
+ORDER BY
+    s_acctbal DESC,
+    n_name,
+    s_name,
+    p_partkey
+LIMIT 100""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1996, 1, 1)},
+        select=('s_acctbal', 's_name', 'n_name', 'p_partkey', 'p_mfgr', 's_address', 's_phone', 's_comment'), ordered=True,
+        rows=(
+
+        )),
+
+    BenchmarkCase(
+        id='Q3', title='Shipping priority',
+        sql="""SELECT
+    l_orderkey,
+    sum(l_extendedprice * (1 - l_discount)) AS revenue,
+    o_orderdate,
+    o_shippriority
+FROM customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    c_mktsegment = '[SEGMENT]'
+    AND c_custkey = o_custkey
+    AND l_orderkey = o_orderkey
+    AND o_orderdate < CAST('[DATE]' AS date)
+    AND l_shipdate > CAST('[DATE]' AS date)
+GROUP BY
+    l_orderkey,
+    o_orderdate,
+    o_shippriority
+ORDER BY
+    revenue DESC,
+    o_orderdate
+LIMIT 10""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1995, 4, 1), 'SEGMENT': 'BUILDING', 'DATE': datetime.date(1995, 3, 15)},
+        select=('l_orderkey', 'revenue', 'o_orderdate', 'o_shippriority'), ordered=True, approximate=True,
+        rows=(
+            (1637, 98279.8272, datetime.date(1995, 2, 8), 0), (742, 43728.048, datetime.date(1994, 12, 23), 0),
+            (5191, 41871.872, datetime.date(1994, 12, 11), 0), (2883, 36666.9612, datetime.date(1995, 1, 23), 0),
+            (998, 11785.548600000002, datetime.date(1994, 11, 26), 0),
+            (3430, 4726.6775, datetime.date(1994, 12, 12), 0), (4423, 3055.9365, datetime.date(1995, 2, 17), 0),
+        )),
+
+    BenchmarkCase(
+        id='Q4', title='Order priority checking',
+        sql="""SELECT
+    o_orderpriority,
+    count(*) AS order_count
+FROM orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    o_orderdate >= CAST('1993-07-01' AS date)
+    AND o_orderdate < CAST('1993-10-01' AS date)
+    AND EXISTS (
+        SELECT
+            *
+        FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+        WHERE
+            l_orderkey = o_orderkey
+            AND l_commitdate < l_receiptdate)
+GROUP BY
+    o_orderpriority
+ORDER BY
+    o_orderpriority""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1993, 10, 1)},
+        select=('o_orderpriority', 'order_count'), ordered=True,
+        rows=(
+            ('1-URGENT', 8), ('2-HIGH', 2), ('3-MEDIUM', 1), ('4-NOT SPECIFIED', 2), ('5-LOW', 6),
+        )),
+
+    BenchmarkCase(
+        id='Q5', title='Local supplier volume',
+        sql="""SELECT
+    n_name,
+    sum(l_extendedprice * (1 - l_discount)) AS revenue
+FROM customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]',
+    nation,
+    region
+WHERE
+    c_custkey = o_custkey
+    AND l_orderkey = o_orderkey
+    AND l_suppkey = s_suppkey
+    AND c_nationkey = s_nationkey
+    AND s_nationkey = n_nationkey
+    AND n_regionkey = r_regionkey
+    AND r_name = '[REGION]'
+    AND o_orderdate >= CAST('[DATE_FROM]' AS date)
+    AND o_orderdate < CAST('[DATE_TO]' AS date)
+GROUP BY
+    n_name
+ORDER BY
+    revenue DESC""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1994, 7, 1), 'REGION': 'AMERICA', 'DATE_FROM': datetime.date(1994, 1, 1), 'DATE_TO': datetime.date(1995, 1, 1)},
+        select=('n_name', 'revenue'), ordered=True, approximate=True,
+        rows=(
+            ('PERU', 40258.1328),
+        )),
+
+    BenchmarkCase(
+        id='Q6', title='Forecasting revenue change',
+        sql="""SELECT
+    sum(l_extendedprice * l_discount) AS revenue
+FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    l_shipdate >= CAST('[DATE_FROM]' AS date)
+    AND l_shipdate < CAST('[DATE_TO]' AS date)
+    AND l_discount BETWEEN [DISCOUNT_LOW]
+    AND [DISCOUNT_HIGH]
+    AND l_quantity < [QUANTITY]""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1994, 1, 1), 'DATE_FROM': datetime.date(1994, 1, 1), 'DATE_TO': datetime.date(1995, 1, 1), 'DISCOUNT_LOW': 0.05, 'DISCOUNT_HIGH': 0.07, 'QUANTITY': 24},
+        select=('revenue',), approximate=True,
+        rows=(
+            (2219.2583,),
+        )),
+
+    BenchmarkCase(
+        id='Q7', title='Volume shipping',
+        sql="""SELECT
+    supp_nation,
+    cust_nation,
+    l_year,
+    sum(volume) AS revenue
+FROM (
+    SELECT
+        n1.n_name AS supp_nation,
+        n2.n_name AS cust_nation,
+        extract(year FROM l_shipdate) AS l_year,
+        l_extendedprice * (1 - l_discount) AS volume
+    FROM supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]',
+        nation n1,
+        nation n2
+    WHERE
+        s_suppkey = l_suppkey
+        AND o_orderkey = l_orderkey
+        AND c_custkey = o_custkey
+        AND s_nationkey = n1.n_nationkey
+        AND c_nationkey = n2.n_nationkey
+        AND ((n1.n_name = '[NATION1]'
+                AND n2.n_name = '[NATION2]')
+            OR (n1.n_name = '[NATION2]'
+                AND n2.n_name = '[NATION1]'))
+        AND l_shipdate BETWEEN CAST('[DATE_FROM]' AS date)
+        AND CAST('[DATE_TO]' AS date)) AS shipping
+GROUP BY
+    supp_nation,
+    cust_nation,
+    l_year
+ORDER BY
+    supp_nation,
+    cust_nation,
+    l_year""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1995, 10, 1), 'NATION1': 'ARGENTINA', 'NATION2': 'PERU', 'DATE_FROM': datetime.date(1995, 1, 1), 'DATE_TO': datetime.date(1996, 12, 31)},
+        select=('supp_nation', 'cust_nation', 'l_year', 'revenue'), ordered=True, approximate=True,
+        rows=(
+            ('ARGENTINA', 'PERU', 1995, 33733.0636), ('PERU', 'ARGENTINA', 1995, 27506.16),
+        )),
+
+    BenchmarkCase(
+        id='Q8', title='National market share',
+        sql="""SELECT
+    o_year,
+    sum(
+        CASE WHEN nation = '[NATION]' THEN
+            volume
+        ELSE
+            0
+        END) / sum(volume) AS mkt_share
+FROM (
+    SELECT
+        extract(year FROM o_orderdate) AS o_year,
+        l_extendedprice * (1 - l_discount) AS volume,
+        n2.n_name AS nation
+    FROM part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]',
+        nation n1,
+        nation n2,
+        region
+    WHERE
+        p_partkey = l_partkey
+        AND s_suppkey = l_suppkey
+        AND l_orderkey = o_orderkey
+        AND o_custkey = c_custkey
+        AND c_nationkey = n1.n_nationkey
+        AND n1.n_regionkey = r_regionkey
+        AND r_name = '[REGION]'
+        AND s_nationkey = n2.n_nationkey
+        AND o_orderdate BETWEEN CAST('[DATE_FROM]' AS date)
+        AND CAST('[DATE_TO]' AS date)
+        AND p_type = '[TYPE]') AS all_nations
+GROUP BY
+    o_year
+ORDER BY
+    o_year""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1997, 4, 1), 'NATION': 'BRAZIL', 'REGION': 'AMERICA', 'DATE_FROM': datetime.date(1995, 1, 1), 'DATE_TO': datetime.date(1996, 12, 31), 'TYPE': 'ECONOMY ANODIZED STEEL'},
+        select=('o_year', 'mkt_share'), ordered=True, approximate=True,
+        rows=(
+            (1996, 0.0),
+        )),
+
+    BenchmarkCase(
+        id='Q9', title='Product type profit measure',
+        sql="""SELECT
+    nation,
+    o_year,
+    sum(amount) AS sum_profit
+FROM (
+    SELECT
+        n_name AS nation,
+        extract(year FROM o_orderdate) AS o_year,
+        l_extendedprice * (1 - l_discount) - ps_supplycost * l_quantity AS amount
+    FROM part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', partsupp FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]',
+        nation
+    WHERE
+        s_suppkey = l_suppkey
+        AND ps_suppkey = l_suppkey
+        AND ps_partkey = l_partkey
+        AND p_partkey = l_partkey
+        AND o_orderkey = l_orderkey
+        AND s_nationkey = n_nationkey
+        AND p_name LIKE '%green%') AS profit
+GROUP BY
+    nation,
+    o_year
+ORDER BY
+    nation,
+    o_year DESC""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(2009, 7, 1)},
+        select=('nation', 'o_year', 'sum_profit'), ordered=True, approximate=True,
+        rows=(
+            ('ARGENTINA', 2008, 4763.194400000004), ('ARGENTINA', 2006, 6543.950700000001),
+            ('ARGENTINA', 2002, 1577.2386000000006), ('ARGENTINA', 2001, 1094.0332999999991),
+            ('ETHIOPIA', 2008, 31715.2), ('IRAN', 2005, 5434.7736), ('IRAN', 2004, 24391.36),
+            ('IRAN', 2003, 4945.6008), ('IRAN', 2001, 34707.15), ('IRAQ', 2008, 25324.219999999998),
+            ('IRAQ', 2007, 3814.5499999999997), ('IRAQ', 2004, 5286.778199999997),
+            ('IRAQ', 2002, 23834.559999999998), ('KENYA', 2008, 14411.050500000001), ('KENYA', 2007, 21078.1136),
+            ('KENYA', 2003, 12678.958400000001), ('MOROCCO', 2008, 3537.3192), ('MOROCCO', 2007, 7698.871199999998),
+            ('MOROCCO', 2006, 5087.232), ('MOROCCO', 2004, 2857.3632), ('MOROCCO', 2003, 8393.504399999998),
+            ('MOROCCO', 2000, 8531.1816), ('PERU', 2009, 1268.2800000000007), ('PERU', 2008, 2715.7178999999996),
+            ('PERU', 2007, 7785.18), ('PERU', 2006, 4447.0199999999995), ('PERU', 2004, 3491.6372999999994),
+            ('PERU', 2000, 10380.239999999998), ('UNITED KINGDOM', 2009, 26715.528),
+            ('UNITED KINGDOM', 2008, 1721.8704), ('UNITED STATES', 2004, 2523.5280000000002),
+        )),
+
+    BenchmarkCase(
+        id='Q10', title='Returned item reporting',
+        sql="""SELECT
+    c_custkey,
+    c_name,
+    sum(l_extendedprice * (1 - l_discount)) AS revenue,
+    c_acctbal,
+    n_name,
+    c_address,
+    c_phone,
+    c_comment
+FROM customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]',
+    nation
+WHERE
+    c_custkey = o_custkey
+    AND l_orderkey = o_orderkey
+    AND o_orderdate >= CAST('[DATE_FROM]' AS date)
+    AND o_orderdate < CAST('[DATE_TO]' AS date)
+    AND l_returnflag = 'R'
+    AND c_nationkey = n_nationkey
+GROUP BY
+    c_custkey,
+    c_name,
+    c_acctbal,
+    c_phone,
+    n_name,
+    c_address,
+    c_comment
+ORDER BY
+    revenue DESC
+LIMIT 20""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1994, 1, 1), 'DATE_FROM': datetime.date(1993, 10, 1), 'DATE_TO': datetime.date(1994, 1, 1)},
+        select=('c_custkey', 'c_name', 'revenue', 'c_acctbal', 'n_name', 'c_address', 'c_phone', 'c_comment'), ordered=True, approximate=True,
+        rows=(
+            (121, 'Customer#000000121', 133328.009, 6428.32, 'PERU', 'zwrDoaY2gxCkdTXFaxNc', '27-411-990-2959', 'he unusual, unusual deposits nag quickly instructions. slyly '),
+            (124, 'Customer#000000124', 113866.12079999999, 1842.49, 'CHINA', 'R7Pt5r4VyoO0w,Rd', '28-183-750-7809', 'ing requests haggle. quickly regular dep'),
+            (82, 'Customer#000000082', 86998.9644, 9468.34, 'CHINA', 'tJkXm2PQBWPRRYkIXPg0YdM03E', '28-159-442-5305', 'old requests. slyly bold courts sleep carefully packag'),
+            (44, 'Customer#000000044', 67750.8156, 7315.94, 'MOZAMBIQUE', 'dI0Nc9bvnxXHCWu10bSVn,NEJ2kwdyqvI', '26-190-260-5375', 'fily regular asymptotes. ironic, pend'),
+            (59, 'Customer#000000059', 58878.631100000006, 40436.39, 'ARGENTINA', 'tfcob0wJRYdypIJLzBckGW', '11-355-584-3112', 's asymptotes wake. slyly ironic deposits haggle furiously; slyly regula'),
+            (71, 'Customer#000000071', 58359.3076, 40183.0, 'GERMANY', '8FkQFLN34pFe50URKft43ntisSegsO3SKF0wUyZp', '17-710-812-5403', 'e slyly about the slyly bold theodolites. furiously regular deposits a'),
+            (145, 'Customer#000000145', 49838.39, 9748.93, 'JORDAN', 'HaHjEzYGOMPrOtXKLeJRVRx', '23-562-444-8454', 'kly alongside of the slyly final packages. carefully e'),
+            (53, 'Customer#000000053', 48476.51239999999, 4113.64, 'MOROCCO', 'kDQujt7Ll72zSexpBht7Q1WToFWvlcdKIP', '25-168-852-5363', 'ts. carefully regular ideas across the blithely final packages cajole car'),
+            (97, 'Customer#000000097', 45063.648, 2164.48, 'PERU', 'dqBtMIPJhk1,ivXIr NZf', '27-588-919-5638', 'cial instructions. dependencies boost furiously; quickly final requests w'),
+            (19, 'Customer#000000019', 45043.22550000001, 2797.66, 'CHINA', 'yO0XPkiuSWk0vN FfcH5 IA3oBYy ', '28-396-526-5053', 'ly final pinto beans boost carefully. furiously unusual requests boost furiously'),
+            (146, 'Customer#000000146', 44345.0, 3328.68, 'CANADA', 'lNuGN4kRxTJtiZ01tVyAX1t Ont', '13-835-723-3223', 'ptotes sleep carefully across the accounts. pending pinto be'),
+            (62, 'Customer#000000062', 41558.1597, 595.61, 'GERMANY', 'yBhgYoDvZX1', '17-361-978-7059', 'e carefully final requests. fluffily regular deposits haggle among the ironic warhors'),
+            (125, 'Customer#000000125', 39379.335, 201919.75, 'ROMANIA', '1v813O59ruviiLESzSi7ufFXGLH7U6p,Tk203', '29-261-996-3120', 'lose ideas snooze. packages cajole final foxes. furi'),
+            (67, 'Customer#000000067', 34848.65930000001, 115530.46, 'INDONESIA', 'ALk,OdKy V5SruigGvBRMBo8S', '19-403-114-4356', ' special sentiments. pending depen'),
+            (29, 'Customer#000000029', 28665.315, 46088.47, 'ALGERIA', ' hVQNzLtqGpgUXNMY0wlZVstaf52mXXxJ', '10-773-203-7342', ' nod furiously after the final accounts. courts nag qu'),
+            (4, 'Customer#000000004', 27989.7944, 2866.83, 'EGYPT', '4u58h fqkyE', '14-128-190-5944', ' sublate. fluffily even instructions are about th'),
+            (136, 'Customer#000000136', 27007.2924, 93707.43, 'GERMANY', 'bCfzh0xVoZjaPJ0o8Z', '17-501-210-4726', 'ng to the regular, regular theodolites. final theodolites alongside of the carefully'),
+            (37, 'Customer#000000037', 24251.6, -917.75, 'INDIA', 'Um5WbwJ0X8QCOy75y', '18-385-235-7162', 'above the slyly regular accounts sleep along the carefull'),
+            (43, 'Customer#000000043', 22977.7627, 9904.28, 'ROMANIA', 'Dx8PHkGSFJWLg3XtkzCX28iHRrQXbCRlN', '29-316-665-2897', 'ronic pinto beans. packages sleep. furiously ruthless packages print blithely fluffily even platelets.'),
+            (52, 'Customer#000000052', 20542.725000000002, 75404.43, 'IRAQ', 'UracAlAA8tSHL5V,poTZIOjh8o,', '21-186-284-5998', 'ts boost. carefully express waters across the blithely regular foxes inte'),
+        )),
+
+    BenchmarkCase(
+        id='Q11', title='Important stock identification',
+        sql="""SELECT
+    ps_partkey,
+    sum(ps_supplycost * ps_availqty) AS value
+FROM partsupp FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]',
+    nation
+WHERE
+    ps_suppkey = s_suppkey
+    AND s_nationkey = n_nationkey
+    AND n_name = '[NATION]'
+GROUP BY
+    ps_partkey
+HAVING
+    sum(ps_supplycost * ps_availqty) > (
+        SELECT
+            sum(ps_supplycost * ps_availqty) * [FRACTION]
+        FROM partsupp FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]',
+            nation
+        WHERE
+            ps_suppkey = s_suppkey
+            AND s_nationkey = n_nationkey
+            AND n_name = '[NATION]')
+ORDER BY
+    value DESC""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1992, 4, 1), 'NATION': 'IRAN', 'FRACTION': 0.1},
+        select=('ps_partkey', 'value'), ordered=True, approximate=True,
+        rows=(
+            (26, 7960004.649999999), (78, 7217646.720000001), (95, 7185227.46), (154, 7023789.850000001),
+        )),
+
+    BenchmarkCase(
+        id='Q12', title='Shipping modes and order priority',
+        sql="""SELECT
+    l_shipmode,
+    sum(
+        CASE WHEN o_orderpriority = '1-URGENT'
+            OR o_orderpriority = '2-HIGH' THEN
+            1
+        ELSE
+            0
+        END) AS high_line_count,
+    sum(
+        CASE WHEN o_orderpriority <> '1-URGENT'
+            AND o_orderpriority <> '2-HIGH' THEN
+            1
+        ELSE
+            0
+        END) AS low_line_count
+FROM orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    o_orderkey = l_orderkey
+    AND l_shipmode IN ('MAIL', 'SHIP')
+    AND l_commitdate < l_receiptdate
+    AND l_shipdate < l_commitdate
+    AND l_receiptdate >= CAST('[DATE_FROM]' AS date)
+    AND l_receiptdate < CAST('[DATE_TO]' AS date)
+GROUP BY
+    l_shipmode
+ORDER BY
+    l_shipmode""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1994, 4, 1), 'DATE_FROM': datetime.date(1994, 1, 1), 'DATE_TO': datetime.date(1995, 1, 1)},
+        select=('l_shipmode', 'high_line_count', 'low_line_count'), ordered=True,
+        rows=(
+            ('MAIL', 2, 0), ('SHIP', 1, 0),
+        )),
+
+    BenchmarkCase(
+        id='Q13', title='Customer distribution',
+        sql="""SELECT
+    c_count,
+    count(*) AS custdist
+FROM (
+    SELECT
+        c_custkey,
+        count(o_orderkey)
+    FROM customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+    LEFT OUTER JOIN orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]' ON c_custkey = o_custkey
+    AND o_comment NOT LIKE '%special%requests%'
+GROUP BY
+    c_custkey) AS c_orders (c_custkey,
+        c_count)
+GROUP BY
+    c_count
+ORDER BY
+    custdist DESC,
+    c_count DESC""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1995, 7, 1)},
+        select=('c_count', 'custdist'), ordered=True,
+        rows=(
+            (0, 55), (1, 33), (2, 9), (5, 1), (4, 1), (3, 1),
+        )),
+
+    BenchmarkCase(
+        id='Q14', title='Promotion effect',
+        sql="""SELECT
+    100.00 * sum(
+        CASE WHEN p_type LIKE 'PROMO%' THEN
+            l_extendedprice * (1 - l_discount)
+        ELSE
+            0
+        END) / sum(l_extendedprice * (1 - l_discount)) AS promo_revenue
+FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    l_partkey = p_partkey
+    AND l_shipdate >= date '[DATE_FROM]'
+    AND l_shipdate < CAST('[DATE_TO]' AS date)""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1995, 7, 1), 'DATE_FROM': datetime.date(1995, 9, 1), 'DATE_TO': datetime.date(1995, 10, 1)},
+        select=('promo_revenue',), approximate=True,
+        rows=(
+            (24.083309568130353,),
+        )),
+
+    BenchmarkCase(
+        id='Q15', title='Top supplier',
+        sql="""SELECT
+    s_suppkey,
+    s_name,
+    s_address,
+    s_phone,
+    total_revenue
+FROM supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]',
+    (
+        SELECT
+            l_suppkey AS supplier_no,
+            sum(l_extendedprice * (1 - l_discount)) AS total_revenue
+        FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+        WHERE
+            l_shipdate >= CAST('1996-01-01' AS date)
+            AND l_shipdate < CAST('1996-04-01' AS date)
+        GROUP BY
+            supplier_no) revenue0
+WHERE
+    s_suppkey = supplier_no
+    AND total_revenue = (
+        SELECT
+            max(total_revenue)
+        FROM (
+            SELECT
+                l_suppkey AS supplier_no,
+                sum(l_extendedprice * (1 - l_discount)) AS total_revenue
+            FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+            WHERE
+                l_shipdate >= CAST('1996-01-01' AS date)
+                AND l_shipdate < CAST('1996-04-01' AS date)
+            GROUP BY
+                supplier_no) revenue1)
+ORDER BY
+    s_suppkey""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1996, 1, 1)},
+        select=('s_suppkey', 's_name', 's_address', 's_phone', 'total_revenue'), ordered=True, approximate=True,
+        rows=(
+            (1, 'Supplier#000000001', 'sdrGnXCDRcfriBvY0KL,ipCanOTyK t NN1', '27-918-335-1736', 247709.23429999998),
+        )),
+
+    BenchmarkCase(
+        id='Q16', title='Parts/supplier relationship',
+        sql="""SELECT
+    p_brand,
+    p_type,
+    p_size,
+    count(DISTINCT ps_suppkey) AS supplier_cnt
+FROM partsupp FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    p_partkey = ps_partkey
+    AND p_brand <> 'Brand#45'
+    AND p_type NOT LIKE 'MEDIUM POLISHED%'
+    AND p_size IN (49, 14, 23, 45, 19, 3, 36, 9)
+    AND ps_suppkey NOT IN (
+        SELECT
+            s_suppkey
+        FROM supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]'
+        WHERE
+            s_comment LIKE '%Customer%Complaints%')
+GROUP BY
+    p_brand,
+    p_type,
+    p_size
+ORDER BY
+    supplier_cnt DESC,
+    p_brand,
+    p_type,
+    p_size""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(2007, 7, 1)},
+        select=('p_brand', 'p_type', 'p_size', 'supplier_cnt'), ordered=True,
+        rows=(
+            ('Brand#11', 'PROMO ANODIZED TIN', 45, 4), ('Brand#11', 'SMALL PLATED COPPER', 45, 4),
+            ('Brand#11', 'STANDARD POLISHED TIN', 45, 4), ('Brand#13', 'MEDIUM ANODIZED STEEL', 36, 4),
+            ('Brand#14', 'SMALL ANODIZED NICKEL', 45, 4), ('Brand#15', 'LARGE ANODIZED BRASS', 45, 4),
+            ('Brand#21', 'LARGE BURNISHED COPPER', 19, 4), ('Brand#23', 'ECONOMY BRUSHED COPPER', 9, 4),
+            ('Brand#25', 'MEDIUM PLATED BRASS', 45, 4), ('Brand#31', 'ECONOMY PLATED STEEL', 23, 4),
+            ('Brand#31', 'PROMO POLISHED TIN', 23, 4), ('Brand#32', 'MEDIUM BURNISHED BRASS', 49, 4),
+            ('Brand#33', 'LARGE BRUSHED TIN', 36, 4), ('Brand#33', 'SMALL BURNISHED NICKEL', 3, 4),
+            ('Brand#34', 'LARGE PLATED BRASS', 45, 4), ('Brand#34', 'MEDIUM BRUSHED COPPER', 9, 4),
+            ('Brand#34', 'SMALL PLATED BRASS', 14, 4), ('Brand#35', 'STANDARD ANODIZED STEEL', 23, 4),
+            ('Brand#43', 'PROMO POLISHED BRASS', 19, 4), ('Brand#43', 'SMALL BRUSHED NICKEL', 9, 4),
+            ('Brand#44', 'SMALL PLATED COPPER', 19, 4), ('Brand#52', 'MEDIUM BURNISHED TIN', 45, 4),
+            ('Brand#52', 'SMALL BURNISHED NICKEL', 14, 4), ('Brand#53', 'MEDIUM BRUSHED COPPER', 3, 4),
+            ('Brand#55', 'STANDARD ANODIZED BRASS', 36, 4), ('Brand#55', 'STANDARD BRUSHED COPPER', 3, 4),
+            ('Brand#13', 'SMALL BRUSHED NICKEL', 19, 2), ('Brand#25', 'SMALL BURNISHED COPPER', 3, 2),
+            ('Brand#43', 'MEDIUM ANODIZED BRASS', 14, 2), ('Brand#53', 'STANDARD PLATED STEEL', 45, 2),
+            ('Brand#24', 'MEDIUM PLATED STEEL', 19, 1), ('Brand#51', 'ECONOMY POLISHED STEEL', 49, 1),
+            ('Brand#53', 'LARGE BURNISHED NICKEL', 23, 1), ('Brand#54', 'ECONOMY ANODIZED BRASS', 9, 1),
+        )),
+
+    BenchmarkCase(
+        id='Q17', title='Small-quantity-order revenue',
+        sql="""SELECT
+    sum(l_extendedprice) / 7.0 AS avg_yearly
+FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    p_partkey = l_partkey
+    AND p_brand = 'Brand#23'
+    AND p_container = 'MED BOX'
+    AND l_quantity < (
+        SELECT
+            0.2 * avg(l_quantity)
+        FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+        WHERE
+            l_partkey = p_partkey)""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1996, 1, 1)},
+        select=('avg_yearly',),
+        rows=(
+            (None,),
+        )),
+
+    BenchmarkCase(
+        id='Q18', title='Large volume customer',
+        sql="""SELECT
+    c_name,
+    c_custkey,
+    o_orderkey,
+    o_orderdate,
+    o_totalprice,
+    sum(l_quantity)
+FROM customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE
+    o_orderkey IN (
+        SELECT
+            l_orderkey
+        FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+        GROUP BY
+            l_orderkey
+        HAVING
+            sum(l_quantity) > [QUANTITY])
+    AND c_custkey = o_custkey
+    AND o_orderkey = l_orderkey
+GROUP BY
+    c_name,
+    c_custkey,
+    o_orderkey,
+    o_orderdate,
+    o_totalprice
+ORDER BY
+    o_totalprice DESC,
+    o_orderdate
+LIMIT 100""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(2009, 1, 1), 'QUANTITY': 250},
+        select=('c_name', 'c_custkey', 'o_orderkey', 'o_orderdate', 'o_totalprice', 'sum(l_quantity)'), ordered=True, approximate=True,
+        rows=(
+            ('Customer#000000242', 242, 6160, datetime.date(2005, 4, 19), 273519.29, 268.0),
+            ('Customer#000000034', 34, 6273, datetime.date(2008, 10, 15), 247339.12, 258.0),
+        )),
+
+    BenchmarkCase(
+        id='Q19', title='Discounted revenue',
+        sql="""SELECT
+    sum(l_extendedprice * (1 - l_discount)) AS revenue
+FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+WHERE (p_partkey = l_partkey
+    AND p_brand = 'Brand#12'
+    AND p_container IN ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG')
+    AND l_quantity >= 1
+    AND l_quantity <= 1 + 10
+    AND p_size BETWEEN 1 AND 5
+    AND l_shipmode IN ('AIR', 'AIR REG')
+    AND l_shipinstruct = 'DELIVER IN PERSON')
+    OR (p_partkey = l_partkey
+        AND p_brand = 'Brand#23'
+        AND p_container IN ('MED BAG', 'MED BOX', 'MED PKG', 'MED PACK')
+        AND l_quantity >= 10
+        AND l_quantity <= 10 + 10
+        AND p_size BETWEEN 1 AND 10
+        AND l_shipmode IN ('AIR', 'AIR REG')
+        AND l_shipinstruct = 'DELIVER IN PERSON')
+    OR (p_partkey = l_partkey
+        AND p_brand = 'Brand#34'
+        AND p_container IN ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG')
+        AND l_quantity >= 20
+        AND l_quantity <= 20 + 10
+        AND p_size BETWEEN 1 AND 15
+        AND l_shipmode IN ('AIR', 'AIR REG')
+        AND l_shipinstruct = 'DELIVER IN PERSON')""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1995, 9, 1)},
+        select=('revenue',),
+        rows=(
+            (None,),
+        )),
+
+    BenchmarkCase(
+        id='Q20', title='Potential part promotion',
+        sql="""SELECT
+    s_name,
+    s_address
+FROM supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]',
+    nation
+WHERE
+    s_suppkey IN (
+        SELECT
+            ps_suppkey
+        FROM partsupp FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+        WHERE
+            ps_partkey IN (
+                SELECT
+                    p_partkey
+                FROM part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+                WHERE
+                    p_name LIKE 'forest%')
+                AND ps_availqty > (
+                    SELECT
+                        0.5 * sum(l_quantity)
+                    FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+                    WHERE
+                        l_partkey = ps_partkey
+                        AND l_suppkey = ps_suppkey
+                        AND l_shipdate >= CAST('1994-01-01' AS date)
+                        AND l_shipdate < CAST('1995-01-01' AS date)))
+            AND s_nationkey = n_nationkey
+            AND n_name = '[NATION]'
+        ORDER BY
+            s_name""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1994, 7, 1), 'NATION': 'ETHIOPIA'},
+        select=('s_name', 's_address'), ordered=True,
+        rows=(
+            ('Supplier#000000002', 'TRMhVHz3XiFuhapxucPo1'),
+        )),
+
+    BenchmarkCase(
+        id='Q21', title='Suppliers who kept orders waiting',
+        sql="""SELECT
+    s_name,
+    count(*) AS numwait
+FROM supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]' l1, orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]',
+    nation
+WHERE
+    s_suppkey = l1.l_suppkey
+    AND o_orderkey = l1.l_orderkey
+    AND o_orderstatus = 'F'
+    AND l1.l_receiptdate > l1.l_commitdate
+    AND EXISTS (
+        SELECT
+            *
+        FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]' l2
+        WHERE
+            l2.l_orderkey = l1.l_orderkey
+            AND l2.l_suppkey <> l1.l_suppkey)
+    AND NOT EXISTS (
+        SELECT
+            *
+        FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]' l3
+        WHERE
+            l3.l_orderkey = l1.l_orderkey
+            AND l3.l_suppkey <> l1.l_suppkey
+            AND l3.l_receiptdate > l3.l_commitdate)
+    AND s_nationkey = n_nationkey
+    AND n_name = '[NATION]'
+GROUP BY
+    s_name
+ORDER BY
+    numwait DESC,
+    s_name
+LIMIT 100""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1992, 7, 1), 'NATION': 'PERU'},
+        select=('s_name', 'numwait'), ordered=True,
+        rows=(
+            ('Supplier#000000001', 1), ('Supplier#000000008', 1),
+        )),
+
+    BenchmarkCase(
+        id='Q22', title='Global sales opportunity',
+        sql="""SELECT
+    cntrycode,
+    count(*) AS numcust,
+    sum(c_acctbal) AS totacctbal
+FROM (
+    SELECT
+        substring(c_phone FROM 1 FOR 2) AS cntrycode,
+        c_acctbal
+    FROM customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+    WHERE
+        substring(c_phone FROM 1 FOR 2) IN ('13', '31', '23', '29', '30', '18', '17')
+        AND c_acctbal > (
+            SELECT
+                avg(c_acctbal)
+            FROM customer FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+            WHERE
+                c_acctbal > 0.00
+                AND substring(c_phone FROM 1 FOR 2) IN ('13', '31', '23', '29', '30', '18', '17'))
+            AND NOT EXISTS (
+                SELECT
+                    *
+                FROM orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
+                WHERE
+                    o_custkey = c_custkey)) AS custsale
+GROUP BY
+    cntrycode
+ORDER BY
+    cntrycode""",
+        parameters={'SYS_TIME': datetime.datetime(2010, 1, 1, 0, 0), 'APP_TIME': datetime.date(1994, 7, 1)},
+        select=('cntrycode', 'numcust', 'totacctbal'), ordered=True, approximate=True,
+        rows=(
+            ('13', 1, 90818.26), ('17', 1, 53416.95), ('18', 1, 115055.1), ('29', 1, 201919.75),
         )),
 ]}

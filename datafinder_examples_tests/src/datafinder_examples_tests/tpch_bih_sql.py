@@ -38,9 +38,9 @@ _ONE_CLAUSE = re.compile(
     rf"(?:AS\s+OF\s+(?:TIMESTAMP\s+)?(?P<at>'[^']*')"
     rf"|FROM\s+(?:TIMESTAMP\s+)?(?P<from>'[^']*')\s+TO\s+(?:TIMESTAMP\s+)?(?P<to>'[^']*')"
     rf"|BETWEEN\s+(?:TIMESTAMP\s+)?(?P<low>'[^']*')\s+AND\s+(?:TIMESTAMP\s+)?(?P<high>'[^']*'))", re.I)
-_KEYWORDS = r"WHERE|ORDER|GROUP|FOR|LIMIT|HAVING|AND|ON|FETCH|UNION"
+_KEYWORDS = r"WHERE|ORDER|GROUP|FOR|LIMIT|HAVING|AND|ON|FETCH|UNION|LEFT|RIGHT|INNER|FULL|OUTER|CROSS|NATURAL|JOIN|USING"
 _TABLE_REFERENCE = re.compile(
-    rf"\b(?P<lead>FROM|,)\s+(?P<table>{_TABLES})\b(?P<clauses>(?:\s+{_CLAUSE})*)"
+    rf"(?P<lead>\bFROM|\bJOIN|,)\s+(?P<table>{_TABLES})\b(?P<clauses>(?:\s+{_CLAUSE})*)"
     rf"(?:\s+(?:AS\s+)?(?!(?:{_KEYWORDS})\b)(?P<alias>\w+))?", re.I)
 
 
@@ -83,12 +83,40 @@ def temporal_clauses_to_subselects(sql: str, schema: str | None = None) -> str:
 
 
 def _rename_start_columns(node):
-    if isinstance(node, exp.Column) and node.name.lower().endswith("_start"):
-        return exp.column(node.name.lower()[:-len("_start")] + "_begin", table=node.table or None)
+    """The report's ``*_start`` is ``*_begin`` here: in a column and in a name the query gives (R.6 defines ``time_start``)."""
+    if isinstance(node, exp.Identifier) and node.name.lower().endswith("_start"):
+        return exp.to_identifier(node.name.lower()[:-len("_start")] + "_begin", quoted=node.quoted)
     return node
+
+
+def to_duckdb_statements(sql: str, schema: str | None = None) -> list[str]:
+    """The report's SQL, which may be several statements (R.6 creates a view), as statements DuckDB runs on tables in ``schema``."""
+    statements = []
+    for statement in sqlglot.parse(temporal_clauses_to_subselects(sql, schema), read="duckdb"):
+        if statement is None:  # only a comment
+            continue
+        if isinstance(statement, exp.Create):
+            statement.set("replace", True)  # a view is made again for each run
+        statements.append(statement.transform(_rename_start_columns).sql(dialect="duckdb"))
+    return statements
 
 
 def to_duckdb(sql: str, schema: str | None = None) -> str:
     """The report's SQL as a statement DuckDB runs, on tables in ``schema``."""
-    statement = sqlglot.parse_one(temporal_clauses_to_subselects(sql, schema), read="duckdb")
-    return statement.transform(_rename_start_columns).sql(dialect="duckdb")
+    return ";\n".join(to_duckdb_statements(sql, schema))
+
+
+_TIME_TRAVEL_REFERENCE = re.compile(
+    rf"(?P<lead>\bFROM|\bJOIN|,)\s+(?P<table>{_TABLES})\b(?!\s+FOR\s)", re.I)
+
+
+def time_travel(sql: str) -> str:
+    """The report's B.2 for a TPC-H query: every temporal table in it is read as of ``[SYS_TIME]`` and ``[APP_TIME]``, in each
+    dimension it has (a supplier has only a system time)."""
+    def add(reference: re.Match) -> str:
+        table = reference["table"].lower()
+        clauses = " FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]'"
+        if table in APPLICATION_TIME:
+            clauses += f" FOR BUSINESS_TIME AS OF '[APP_TIME]'"
+        return f"{reference['lead']} {reference['table']}{clauses}" if table in SYSTEM_TIME else reference[0]
+    return _TIME_TRAVEL_REFERENCE.sub(add, sql)

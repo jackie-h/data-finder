@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 
 from datafinder_examples_tests.spec import _assert_rows_close
-from datafinder_examples_tests.tpch_bih_sql import to_duckdb
+from datafinder_examples_tests.tpch_bih_sql import to_duckdb_statements
 
 
 def _text(value: Any) -> str:
@@ -64,7 +64,10 @@ class BenchmarkCase:
 
     def run_sql(self, connection, schema: str | None = None) -> list[tuple]:
         """The report's SQL, translated for DuckDB and run on its tables."""
-        cursor = connection.execute(to_duckdb(self.statement(), schema))
+        *setup, query = to_duckdb_statements(self.statement(), schema)
+        for statement in setup:
+            connection.execute(statement)
+        cursor = connection.execute(query)
         names = [d[0] for d in cursor.description or []]
         return self.project(names, cursor.fetchall())
 
