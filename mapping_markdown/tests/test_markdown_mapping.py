@@ -1119,3 +1119,115 @@ class TestProcessingSnapshotScheme:
         (tmp_path / "mapping.md").write_text(content)
         with pytest.raises(ValueError, match="cannot be combined with processing_start, processing_end"):
             load(str(tmp_path / "mapping.md"), self._repo())
+
+
+JOINS_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "joins_through_tables_mapping.md"))
+
+
+def _table_name(column) -> str:
+    assert column.table is not None
+    return column.table.name
+
+
+class TestJoinsThroughTables:
+    """A property of an embedded object that reaches another table, and a property mapped through other tables: the
+    joins_through_tables example."""
+
+    def setup_method(self):
+        self.mapping = load(JOINS_FIXTURE)
+        self.employee = next(rcm for rcm in self.mapping.mappings if rcm.clazz.name == "Employee")
+
+    def _pm(self, property_id):
+        return next(pm for pm in self.employee.property_mappings if pm.property.id == property_id)
+
+    def test_a_property_of_an_embedded_object_is_a_join_inside_it(self):
+        home = self._pm("home").target
+        assert isinstance(home, EmbeddedSetMapping)
+        country = next(pm for pm in home.property_mappings if pm.property.id == "country")
+        assert isinstance(country.target, Join) and country.target.resolved
+        assert _table_name(country.target.rhs) == "countries" and country.target.rhs.name == "code"
+
+    def test_the_embedded_join_starts_from_the_foreign_key_column_of_the_owning_row(self):
+        country = next(pm for pm in self._pm("home").target.property_mappings if pm.property.id == "country")
+        (first_from, first_to), = country.target.via
+        assert (_table_name(first_from), first_from.name) == ("employees", "home_country")
+        assert (_table_name(first_to), first_to.name) == ("country_refs", "ref")
+        assert (_table_name(country.target.lhs), country.target.lhs.name) == ("country_refs", "code")
+
+    def test_the_other_properties_of_the_embedded_object_stay_columns(self):
+        street = next(pm for pm in self._pm("home").target.property_mappings if pm.property.id == "street")
+        assert isinstance(street.target, Column) and street.target.name == "street"
+
+    def test_an_association_with_several_rows_is_a_path_through_tables(self):
+        join = self._pm("citizenship").target
+        assert isinstance(join, Join)
+        (first_from, first_to), = join.via
+        assert (first_from.name, _table_name(first_to)) == ("citizen_ref", "country_refs")
+        assert (_table_name(join.lhs), join.lhs.name, _table_name(join.rhs), join.rhs.name) == \
+            ("country_refs", "code", "countries", "code")
+
+    def test_an_association_with_one_row_has_no_hops_before_it(self):
+        mapping = load(FIXTURE)
+        trade = next(rcm for rcm in mapping.mappings if rcm.clazz.name == "Trade")
+        join = next(pm.target for pm in trade.property_mappings if isinstance(pm.target, Join))
+        assert join.via == []
+
+    def test_a_table_no_class_is_mapped_to_can_be_joined_through(self):
+        assert not any(rcm.clazz.name == "country_refs" for rcm in self.mapping.mappings)
+
+    def test_the_mapping_is_written_back_the_way_it_was_read(self, tmp_path):
+        written = to_markdown("Joins Through Tables Mapping", self.mapping, ["joins_through_tables_model.md"])
+        (tmp_path / "joins_through_tables_model.md").write_text(
+            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "joins_through_tables_model.md")).read())
+        (tmp_path / "again.md").write_text(written)
+        assert to_markdown("Joins Through Tables Mapping", load(str(tmp_path / "again.md")),
+                           ["joins_through_tables_model.md"]) == written
+        assert "(embedded in Employee.home)" in written
+
+    def _with(self, tmp_path, old, new):
+        content = open(JOINS_FIXTURE).read()
+        assert old in content
+        (tmp_path / "joins_through_tables_model.md").write_text(
+            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "joins_through_tables_model.md")).read())
+        (tmp_path / "mapping.md").write_text(content.replace(old, new))
+        return str(tmp_path / "mapping.md")
+
+    def test_a_property_of_an_embedded_object_with_no_association_is_refused(self, tmp_path):
+        path = self._with(tmp_path, "#### Association: AddressCountry (embedded in Employee.home)",
+                          "#### Association: ThereIsNoSuchAssociation")
+        with pytest.raises(ValueError, match="reaches another table"):
+            load(path)
+
+    def test_an_association_for_an_embedded_object_that_names_no_such_property_is_refused(self, tmp_path):
+        path = self._with(tmp_path, "(embedded in Employee.home)", "(embedded in Employee.work)")
+        with pytest.raises(ValueError, match="no property 'work.country' is mapped"):
+            load(path)
+
+    def test_a_row_must_start_from_a_column_of_the_table_the_row_before_reached(self, tmp_path):
+        path = self._with(tmp_path, "| code          | countries    | code          |\n\n#### Association: EmployeeCitizenship",
+                          "| name          | countries    | code          |\n\n#### Association: EmployeeCitizenship")
+        # the unresolved association is skipped with a warning, so the property is left unmapped and loading says so
+        with pytest.raises(ValueError):
+            load(path)
+
+    def test_a_link_table_with_a_milestoning_scheme_keeps_it(self, tmp_path):
+        content = open(JOINS_FIXTURE).read()
+        content = content.replace("#### Table: country_refs\n", "#### Table: country_refs (milestoning: snapshots)\n")
+        content = content.replace("## DataStore: hr_db (Database)\n", """## DataStore: hr_db (Database)
+
+| Scheme    | processing_start | processing_end | business_date | business_date_from | business_date_to | infinite_datetime |
+|-----------|------------------|----------------|---------------|--------------------|------------------|-------------------|
+| snapshots |                  |                |               | from_z             | thru_z           | 9999-12-31        |
+""")
+        (tmp_path / "joins_through_tables_model.md").write_text(
+            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "joins_through_tables_model.md")).read())
+        (tmp_path / "mapping.md").write_text(content)
+        mapping = load(str(tmp_path / "mapping.md"))
+        employee = next(rcm for rcm in mapping.mappings if rcm.clazz.name == "Employee")
+        join = next(pm.target for pm in employee.property_mappings if pm.property.id == "citizenship")
+        assert join.via[0][1].table.milestoning_scheme.name == "snapshots"
+
+    def test_an_undefined_milestoning_scheme_on_a_link_table_is_refused(self, tmp_path):
+        path = self._with(tmp_path, "#### Table: country_refs\n", "#### Table: country_refs (milestoning: nosuch)\n")
+        with pytest.raises(ValueError, match="'nosuch' is not defined"):
+            load(path)

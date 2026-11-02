@@ -705,6 +705,8 @@ class Table(Relation):
         self.name = name
         self.schema = schema
         self.foreign_keys: list[ForeignKey] = []
+        # for a table no class is mapped to but a join passes through: how its rows are milestoned
+        self.milestoning_scheme: 'MilestoningScheme | None' = None
         for col in self._columns_by_name.values():
             col.table = self
         if schema is not None:

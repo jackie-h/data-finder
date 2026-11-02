@@ -180,6 +180,19 @@ For foreign-key columns that represent association navigations, set `Key` to `FK
 | Target Table | The table the FK references |
 | Target Column | The primary key column in the target table |
 
+#### Joining through other tables
+
+An Association table with more than one row is a path through several tables. Each row after the first starts from a column of the table the row before it reached, and the last row ends at the table of the target class. The tables on the way need no class: declare them with `#### Table: <name>` and no arrow. Give such a table `(milestoning: <scheme>)` if its rows are milestoned, and the dates of the query apply to it like any other table on the path.
+
+```
+#### Association: EmployeeCitizenship
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| citizen_ref   | country_refs | ref           |
+| code          | countries    | code          |
+```
+
 ### Embedded properties
 
 A table can hold the columns of a related object. Give those columns a dotted `Property ID` that follows the associations, such as `firm.legalName` or `firm.address.name`. If the table has no `#### Association:` block for that navigation, nothing is joined: the properties are read straight from the row.
@@ -196,6 +209,23 @@ person.find_all(None, None, [person.first_name(), person.firm().address().name()
 ```
 
 With an `#### Association:` block the dotted columns are a shortcut instead, and the join is used only when the query needs a property that is not embedded.
+
+A property of an embedded object can itself reach another table. Give the column the join starts from the dotted `Property ID` of that property, with `FK` as its `Key`, such as `home.country`. Then say which tables it joins to in an Association block headed with where the object is embedded, `(embedded in <Class>.<path>)`. The block can have several rows, as above.
+
+```
+| home_country | INT | FK | Y | home.country |
+
+#### Association: AddressCountry (embedded in Employee.home)
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| home_country  | country_refs | ref           |
+| code          | countries    | code          |
+```
+
+```python
+employee.find_all(None, None, [employee.name(), employee.home().street(), employee.home().country().name()])
+```
 
 ### Milestoning
 

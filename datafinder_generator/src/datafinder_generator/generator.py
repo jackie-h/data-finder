@@ -10,7 +10,7 @@ from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMiles
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping, BusinessDateRangeMilestonePropertyMapping, \
     SingleProcessingDatetimeMilestonePropertyMapping
-from model.relational import Column
+from model.relational import Column, Table
 from model.relational_mapping import Join, EmbeddedSetMapping
 
 
@@ -74,11 +74,14 @@ class EmbeddedClass:
     """A class embedded in its owner's row: its properties are columns of the owner's table, so it needs no join."""
 
     def __init__(self, name: str, label: str, columns: list[tuple[Property, Column]],
-                 children: list[tuple[Property, str]], optional: bool = False):
+                 children: list[tuple[Property, str]], optional: bool = False,
+                 joins: list[tuple[Property, Join]] | None = None):
         self.name = name
         self.label = label
         self.columns = columns
         self.children = children
+        # the properties of this class that reach another table, each with the join that does
+        self.joins = joins or []
         # whether the embedded property that holds this class, or one above it, is optional
         self.optional = optional
 
@@ -88,15 +91,17 @@ def embedded_classes(rcm: _ClassView) -> list[EmbeddedClass]:
     found: list[EmbeddedClass] = []
 
     def _walk(esm: EmbeddedSetMapping, stem: str, label: str, optional: bool) -> str:
-        columns, children = [], []
+        columns, children, joins = [], [], []
         for pm in esm.property_mappings:
             if isinstance(pm.target, Column):
                 columns.append((pm.property, pm.target))
+            elif isinstance(pm.target, Join):
+                joins.append((pm.property, pm.target))
             elif isinstance(pm.target, EmbeddedSetMapping):
                 child = _walk(pm.target, stem + pm.property.id[:1].upper() + pm.property.id[1:], f"{label} {pm.property.name}",
                               optional or pm.property.multiplicity.lower == 0)
                 children.append((pm.property, child))
-        found.append(EmbeddedClass(stem + "Embedded", label, columns, children, optional))
+        found.append(EmbeddedClass(stem + "Embedded", label, columns, children, optional, joins))
         return stem + "Embedded"
 
     for pm in rcm.embedded_mappings:
@@ -122,6 +127,65 @@ def has_business_date_range(mapping: MilestonePropertyMapping) -> bool:
 
 def has_processing_snapshot(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, SingleProcessingDatetimeMilestonePropertyMapping)
+
+def column_code(column: Column) -> str:
+    """Python source that builds ``column`` in a generated finder."""
+    key = ", primary_key=True" if column.primary_key else ""
+    return f"Column('{column.name}', '{column.type}', '{table_qualified_name(column.table)}'{key})"
+
+
+def _scheme_columns_code(table: Table) -> str:
+    """Python source for the milestoning columns of a table a join passes through, from its milestoning scheme."""
+    scheme = table.milestoning_scheme
+    assert scheme is not None
+    qualified = table_qualified_name(table)
+    by_name = {c.name: c for c in table.columns}
+
+    def col(name: str | None) -> str:
+        column = by_name.get(name or "")
+        if column is None:
+            raise ValueError(f"Table '{table.name}': milestoning column '{name}' of scheme '{scheme.name}' is not a column")
+        return f"Column('{column.name}', '{column.type}', '{qualified}')"
+
+    infinite = f", infinite_datetime='{scheme.infinite_datetime}'" if scheme.infinite_datetime else ""
+    if scheme.processing_datetime:
+        return f"SingleProcessingDatetimeColumn({col(scheme.processing_datetime)})"
+    if scheme.processing_start and (scheme.business_date_from or scheme.business_date_to):
+        return (f"BiTemporalColumns({col(scheme.business_date_from)}, {col(scheme.business_date_to)}, "
+                f"{col(scheme.processing_start)}, {col(scheme.processing_end)}{infinite})")
+    if scheme.processing_start and scheme.business_date:
+        return (f"BusinessDateAndProcessingTemporalColumns({col(scheme.business_date)}, {col(scheme.processing_start)}, "
+                f"{col(scheme.processing_end)}{infinite})")
+    if scheme.processing_start:
+        return f"ProcessingTemporalColumns({col(scheme.processing_start)}, {col(scheme.processing_end)}{infinite})"
+    if scheme.business_date_from or scheme.business_date_to:
+        return f"BusinessDateRangeColumns({col(scheme.business_date_from)}, {col(scheme.business_date_to)}{infinite})"
+    if scheme.business_date:
+        return f"SingleBusinessDateColumn({col(scheme.business_date)})"
+    raise ValueError(f"Milestoning scheme '{scheme.name}' has no columns")
+
+
+def table_code(table: Table) -> str:
+    """Python source that builds ``table`` in a generated finder."""
+    columns = ", ".join(f"Column('{c.name}', '{c.type}', '{table_qualified_name(table)}')" for c in table.columns)
+    if table.milestoning_scheme is not None:
+        return f"MilestonedTable('{table_qualified_name(table)}', [{columns}], {_scheme_columns_code(table)})"
+    return f"Table('{table_qualified_name(table)}', [{columns}])"
+
+
+def _table_of(column: Column) -> Table:
+    assert column.table is not None, f"column '{column.name}' belongs to no table"
+    return column.table
+
+
+def parent_expr(join: Join, parent: str) -> str:
+    """The parent step of the join to a property's class: ``parent`` itself, or, when the property is mapped through
+    other tables first, ``parent`` followed by a step through each of them."""
+    if not join.via:
+        return parent
+    hops = ", ".join(f"({column_code(lhs)}, {table_code(_table_of(rhs))}, {column_code(rhs)})" for lhs, rhs in join.via)
+    return f"via_joins({parent}, [{hops}])"
+
 
 def display_name(prop: Property) -> str:
     return prop.name
@@ -157,7 +221,7 @@ def _build_reverse_assoc_map(mapping: Mapping, assoc_lookup: dict) -> dict:
     reverse_map: dict = {}
     for rcm in mapping.mappings:
         for rpm in rcm.property_mappings:
-            if is_primitive(rpm.property) or not isinstance(rpm.target, Join):
+            if is_primitive(rpm.property) or not isinstance(rpm.target, Join) or rpm.target.via:
                 continue
             target_cls = rpm.property.type
             if not isinstance(target_cls, Class):
@@ -229,6 +293,8 @@ def generate(mapping: Mapping, output_directory):
         flatten_embedded=flatten_embedded,
         embedded_optional=embedded_optional,
         embedded_classes=embedded_classes,
+        parent_expr=parent_expr,
+        column_code=column_code,
     )
 
     for rcm in mapping.mappings:
