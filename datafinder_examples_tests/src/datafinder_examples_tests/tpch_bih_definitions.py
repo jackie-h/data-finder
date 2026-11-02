@@ -1,4 +1,4 @@
-"""The TPC-BiH queries of Appendix B (B.1 time travel, B.3 key history, B.5 bitemporal) as the report writes them, with the
+"""The TPC-BiH queries of Appendix B (B.1 time travel, B.2 H.1, B.3 key history, B.4 range, B.5 bitemporal) as the report writes them, with the
 values of their parameters. tools/build_tpch_bih_cases.py runs each on the generated data and writes the result to
 tpch_bih_cases.py, so the SQL here is the source of the expected rows.
 
@@ -10,6 +10,8 @@ the balance in K.6.
 import datetime
 
 from datafinder_examples_tests.tpch_bih_case import BenchmarkCase
+from datafinder_examples_tests.tpch_bih_data import CURRENT_SYS
+from datafinder_examples_tests.tpch_bih_tpch_definitions import TPCH_DEFINITIONS
 
 _D = datetime.date
 _T = datetime.datetime
@@ -104,6 +106,137 @@ FROM orders
 FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]'
 WHERE '[APP_TIME]' BETWEEN receivable_time_start AND receivable_time_end""",
         parameters={"SYS_TIME": _SYS, "APP_TIME": _APP}, select=(0,)),
+
+    BenchmarkCase(
+        id="T3_sys", title="Aggregation at two defined points in time: system time",
+        sql="""SELECT agg_t1.revenue old_revenue, agg_t2.revenue new_revenue
+FROM
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME1]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'O'
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME2]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'O'
+) agg_t2""",
+        parameters={"SYS_TIME1": _T(2003, 1, 1), "SYS_TIME2": _T(2007, 1, 1), "APP_TIME": _APP},
+        select=("old_revenue", "new_revenue"), approximate=True),
+
+    BenchmarkCase(
+        id="T3_app", title="Aggregation at two defined points in time: application time",
+        sql="""SELECT agg_t1.revenue old_revenue, agg_t2.revenue new_revenue
+FROM
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME1]'
+WHERE o_orderstatus = 'O'
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME2]'
+WHERE o_orderstatus = 'O'
+) agg_t2""",
+        parameters={"APP_TIME1": _D(1995, 6, 1), "APP_TIME2": _D(1997, 6, 1)},
+        select=("old_revenue", "new_revenue"), approximate=True),
+
+    BenchmarkCase(
+        id="T4_sys", title="Aggregation of a limited number of items at two points in time: system time",
+        sql="""SELECT revenue2 - revenue1 AS inc_revenue, agg_t1.o_custkey
+FROM
+(
+SELECT SUM(o_totalprice) as revenue1, o_custkey
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME1]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'O'
+GROUP BY o_custkey
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue2, o_custkey
+FROM orders
+FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME2]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE o_orderstatus = 'F'
+GROUP BY o_custkey
+) agg_t2
+WHERE agg_t1.o_custkey = agg_t2.o_custkey
+ORDER BY inc_revenue DESC
+FETCH FIRST 10 ROWS ONLY""",
+        # a point at which an order is open as of the first system time and has been filled as of the second
+        parameters={"SYS_TIME1": _T(2006, 1, 1), "SYS_TIME2": _T(2009, 1, 1), "APP_TIME": _D(2007, 10, 1)},
+        select=("inc_revenue", "o_custkey"), ordered=True, approximate=True),
+
+    BenchmarkCase(
+        id="T4_app", title="Aggregation of a limited number of items at two points in time: application time",
+        sql="""SELECT revenue2 - revenue1 AS inc_revenue, agg_t1.o_custkey
+FROM
+(
+SELECT SUM(o_totalprice) as revenue1, o_custkey
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME1]'
+WHERE o_orderstatus = 'O'
+GROUP BY o_custkey
+) agg_t1
+,
+(
+SELECT SUM(o_totalprice) as revenue2, o_custkey
+FROM orders
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME2]'
+WHERE o_orderstatus = 'O'
+GROUP BY o_custkey
+) agg_t2
+WHERE agg_t1.o_custkey = agg_t2.o_custkey
+ORDER BY inc_revenue DESC
+FETCH FIRST 10 ROWS ONLY""",
+        parameters={"APP_TIME1": _D(1995, 6, 1), "APP_TIME2": _D(1997, 6, 1)},
+        select=("inc_revenue", "o_custkey"), ordered=True, approximate=True),
+]
+
+# ---------------------------------------------------------------------------------------------------------------------
+# B.2 Time travel for application queries: the TPC-H queries asked as of a point in each dimension
+# ---------------------------------------------------------------------------------------------------------------------
+
+B2_DEFINITIONS = [
+    # the report writes lineitem twice, once with each clause; it is one table reference with both
+    BenchmarkCase(
+        id="H1", title="Pricing summary report",
+        sql="""SELECT
+l_returnflag,
+l_linestatus,
+SUM(l_quantity) AS sum_qty,
+SUM(l_extendedprice) AS sum_base_price,
+SUM(l_extendedprice*(1-l_discount)) AS sum_disc_price,
+SUM(l_extendedprice*(1-l_discount)*(1+l_tax)) AS sum_charge,
+AVG(l_quantity) AS avg_qty,
+AVG(l_extendedprice) AS avg_price,
+AVG(l_discount) AS avg_disc,
+COUNT(*) AS count_order
+FROM
+lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]'
+FOR BUSINESS_TIME AS OF TIMESTAMP '[APP_TIME]'
+WHERE
+l_shipdate <= DATE '1998-11-01'
+GROUP BY
+l_returnflag,
+l_linestatus
+ORDER BY
+l_returnflag,
+l_linestatus""",
+        # the report takes the current version of each dimension; no line is active after 1999 here, so a day inside the data
+        parameters={"SYS_TIME": CURRENT_SYS, "APP_TIME": _D(1998, 1, 1)},
+        select=("l_returnflag", "l_linestatus", "sum_qty", "sum_base_price", "sum_disc_price", "sum_charge", "avg_qty",
+                "avg_price", "avg_disc", "count_order"), ordered=True, approximate=True),
 ]
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -329,6 +462,308 @@ c_custkey, c_acctbal, visible_time_start""",
 ]
 
 # ---------------------------------------------------------------------------------------------------------------------
+# B.4 Range-timeslice queries
+# ---------------------------------------------------------------------------------------------------------------------
+
+_SYS_RANGE = {"SYS_TIME_BEGIN": _T(2003, 1, 1), "SYS_TIME_END": _T(2006, 1, 1)}
+
+B4_DEFINITIONS = [
+    # the report's nation is "US", which is TPC-H's UNITED STATES, and its ${NATION} is the nation table
+    BenchmarkCase(
+        id="R1_sys", title="Restrict interval for state transition: system time",
+        sql="""SELECT now.C_NAME
+FROM (
+SELECT MAX(sys_time_end) time_until, c_custkey, c_name, c_nationkey
+FROM customer
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey != (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+group by c_custkey, c_name, c_nationkey
+) prv, (
+SELECT MIN(sys_time_start) time_from, c_custkey, c_name, c_nationkey
+FROM customer
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey = (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+GROUP BY c_custkey, c_name, c_nationkey
+) now
+WHERE
+prv.c_custkey = now.c_custkey AND
+prv.time_until < '[SYS_TIME_BEGIN]' AND
+now.time_from BETWEEN '[SYS_TIME_BEGIN]' AND '[SYS_TIME_END]'""",
+        parameters={"NATION": "UNITED STATES", **_SYS_RANGE}, select=("c_name",)),
+
+    BenchmarkCase(
+        id="R1_app", title="Restrict interval for state transition: application time",
+        sql="""SELECT now.C_NAME
+FROM (
+SELECT MAX(visible_time_end) time_until, c_custkey, c_name, c_nationkey
+FROM customer
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey != (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+group by c_custkey, c_name, c_nationkey
+) prv, (
+SELECT MIN(visible_time_start) time_from, c_custkey, c_name, c_nationkey
+FROM customer
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE c_nationkey = (SELECT n_nationkey FROM nation WHERE n_name = '[NATION]')
+GROUP BY c_custkey, c_name, c_nationkey
+) now
+WHERE
+prv.c_custkey = now.c_custkey AND
+prv.time_until < '[SYS_TIME_BEGIN]' AND
+now.time_from BETWEEN '[SYS_TIME_BEGIN]' AND '[SYS_TIME_END]'""",
+        parameters={"NATION": "UNITED STATES", **_SYS_RANGE}, select=("c_name",)),
+
+    # DuckDB has no AVG of an interval, so the difference of the two timestamps is taken in seconds
+    BenchmarkCase(
+        id="R2_sys", title="Average duration of a certain state: system time",
+        sql="""SELECT AVG(EPOCH(shp.ship_time - ord.order_time))
+FROM
+(
+SELECT MIN(sys_time_start) AS order_time, o_orderkey
+FROM orders
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'O'
+GROUP BY o_orderkey
+) ord
+,
+(
+SELECT MIN(sys_time_start) AS ship_time, o_orderkey
+FROM orders
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'F'
+GROUP BY o_orderkey
+) shp
+WHERE ord.o_orderkey = shp.o_orderkey""",
+        parameters={}, select=(0,), approximate=True),
+
+    BenchmarkCase(
+        id="R2_app", title="Average duration of a certain state: application time",
+        sql="""SELECT AVG(shp.ship_time - ord.order_time)
+FROM
+(
+SELECT MIN(active_time_start) AS order_time, o_orderkey
+FROM orders
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'O'
+GROUP BY o_orderkey
+) ord
+,
+(
+SELECT MIN(active_time_start) AS ship_time, o_orderkey
+FROM orders
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30'
+WHERE o_orderstatus = 'F'
+GROUP BY o_orderkey
+) shp
+WHERE ord.o_orderkey = shp.o_orderkey""",
+        parameters={}, select=(0,), approximate=True),
+
+    BenchmarkCase(
+        id="R3a", title="Time-slider: time of the maximum number of unshipped items",
+        sql="""SELECT MAX(total)
+FROM
+(
+SELECT COUNT(*) AS total, times.event_time as timestmp
+FROM
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+) ord,
+(
+SELECT sys_time_start AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+UNION
+SELECT sys_time_end AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+) times
+WHERE ord.sys_time_start <= times.event_time AND
+times.event_time < ord.sys_time_end
+GROUP BY times.event_time
+) agg""",
+        parameters=_SYS_RANGE, select=(0,)),
+
+    BenchmarkCase(
+        id="R3b", title="Time-slider: value of the maximum number of unshipped items",
+        sql="""SELECT MAX(total)
+FROM
+(
+SELECT SUM(ord.o_totalprice) AS total, times.event_time as timestmp
+FROM
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE o_orderstatus = 'O'
+) ord,
+(
+SELECT sys_time_start AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+UNION
+SELECT sys_time_end AS event_time FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+) times
+WHERE ord.sys_time_start <= times.event_time AND
+times.event_time < ord.sys_time_end
+GROUP BY times.event_time
+) agg""",
+        parameters=_SYS_RANGE, select=(0,), approximate=True),
+
+    # the report selects only glob.ps_partkey in the innermost query but groups by ps_suppkey, and it has no ORDER BY with FETCH
+    # FIRST, so which 10 are first is not defined: glob.ps_suppkey is selected and the result ordered. glob is quoted, as sqlglot
+    # reads an unquoted one as the GLOB operator
+    BenchmarkCase(
+        id="R4", title="Comparison of two extreme points of aggregation",
+        sql="""SELECT MIN(diff), ps_partkey, ps_suppkey
+FROM
+(
+-- Select positive value
+SELECT (CASE WHEN (diff1 > diff2) THEN diff1 ELSE diff2 END) AS diff,
+ps_partkey, ps_suppkey
+FROM
+(
+SELECT (max_time_from - min_time_to) AS diff1,
+(min_time_from - max_time_to) AS diff2, ps_partkey, ps_suppkey
+FROM
+(
+-- Do not know if minimum occurs before maximum or vice versa
+SELECT min_time_from, min_time_to, max_time_from, max_time_to,
+smin.ps_availqty, smax.ps_availqty, "glob".ps_partkey, "glob".ps_suppkey
+FROM
+(
+-- All cases where stock is minimal
+SELECT sys_time_start AS min_time_from,
+sys_time_end AS min_time_to,
+ps_availqty, ps_partkey, ps_suppkey
+FROM partsupp
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+) smin, (
+-- All cases where stock is maximal
+SELECT sys_time_start as max_time_from,
+sys_time_end AS max_time_to,
+ps_availqty, ps_partkey, ps_suppkey
+FROM partsupp
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+) smax, (
+-- Get global minimum and maximum of this product in history
+SELECT MIN(ps_availqty) AS gmin, MAX(ps_availqty) AS gmax,
+ps_partkey, ps_suppkey
+FROM partsupp
+FOR SYSTEM_TIME FROM '0001-01-01' TO '9999-12-30'
+GROUP BY ps_partkey, ps_suppkey
+) "glob"
+WHERE
+"glob".ps_partkey = smin.ps_partkey AND
+"glob".ps_partkey = smax.ps_partkey AND
+"glob".ps_suppkey = smin.ps_suppkey AND
+"glob".ps_suppkey = smax.ps_suppkey AND
+smin.ps_availqty = "glob".gmin AND
+smax.ps_availqty = "glob".gmax AND
+"glob".gmax != "glob".gmin
+) minmax
+) aggr
+)
+GROUP BY ps_partkey, ps_suppkey
+ORDER BY MIN(diff), ps_partkey, ps_suppkey
+FETCH FIRST [HSIZE] ROWS ONLY""",
+        parameters={"HSIZE": 10}, select=(0, "ps_partkey", "ps_suppkey"), ordered=True),
+
+    BenchmarkCase(
+        id="R5", title="Temporal join query",
+        sql="""SELECT COUNT(DISTINCT(o_orderkey))
+FROM
+(
+SELECT * FROM customer
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE c_acctbal < 5000
+) cust,
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE o_orderstatus = 'O' AND o_totalprice > 10
+) ord
+WHERE
+c_custkey = o_custkey
+AND NOT (cust.sys_time_end <= ord.sys_time_start
+OR ord.sys_time_end <= cust.sys_time_start)""",
+        parameters=_SYS_RANGE, select=(0,)),
+
+    BenchmarkCase(
+        id="R6", title="Aggregation over a temporal join query",
+        sql="""-- compute temporal join of customers and orders
+CREATE VIEW high_risk_orders AS
+SELECT
+o_totalprice AS orderprice,
+CASE WHEN cust.sys_time_start > ord.sys_time_start
+THEN cust.sys_time_start ELSE ord.sys_time_start END
+AS time_start,
+CASE WHEN cust.sys_time_end < ord.sys_time_end
+THEN cust.sys_time_end ELSE ord.sys_time_end END
+AS time_end
+FROM
+(
+SELECT * FROM customer
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE c_acctbal < 100
+) cust,
+(
+SELECT * FROM orders
+FOR SYSTEM_TIME FROM '[SYS_TIME_BEGIN]' TO '[SYS_TIME_END]'
+WHERE o_orderstatus = 'O'
+) ord
+WHERE
+c_custkey = o_custkey
+AND NOT (cust.sys_time_end <= ord.sys_time_start
+OR ord.sys_time_end <= cust.sys_time_start);
+-- compute temporal aggregation
+SELECT MAX(total) AS aggr_result
+FROM
+(
+SELECT SUM(ord.orderprice) AS total, times.event_time as timestmp
+FROM
+(
+SELECT * FROM high_risk_orders
+) ord,
+(
+SELECT time_start AS event_time
+FROM high_risk_orders
+UNION
+SELECT time_end AS event_time
+FROM high_risk_orders
+) times
+WHERE ord.time_start <= times.event_time AND
+times.event_time < ord.time_end
+GROUP BY times.event_time
+) agg""",
+        parameters=_SYS_RANGE, select=("aggr_result",), approximate=True),
+
+    BenchmarkCase(
+        id="R7", title="Changes between versions",
+        sql="""SELECT ps1.ps_partkey, ps1.ps_suppkey, ps1.ps_supplycost,
+ps1.validity_time_start, ps1.validity_time_end,
+ps2.validity_time_start, ps2.validity_time_end,
+ps2.ps_supplycost
+FROM
+partsupp
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30' AS PS1,
+partsupp
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30' AS PS2
+WHERE
+ps1.ps_suppkey = ps2.ps_suppkey AND
+ps1.ps_partkey=ps2.ps_partkey AND
+ps1.validity_time_end > ps2.validity_time_end AND
+ps2.validity_time_end = (SELECT max(validity_time_end)
+FROM partsupp
+FOR BUSINESS_TIME FROM '0001-01-01' TO '9999-12-30' as ps3
+WHERE
+ps3.ps_suppkey = ps1.ps_suppkey AND
+ps3.ps_partkey=ps1.ps_partkey AND
+ps1.validity_time_end > ps3.validity_time_end) AND
+ps1.ps_supplycost > ps2.ps_supplycost*1.075
+ORDER BY
+ps1.validity_time_end, ps2.validity_time_end DESC""",
+        parameters={}, select=(0, 1, 2, 3, 4, 5, 6, 7), ordered=True, approximate=True),
+]
+
+# ---------------------------------------------------------------------------------------------------------------------
 # B.5 Bitemporal queries: the other parts the suppliers of a part supply, with the application and system time of the two
 # rows each point, correlated, past, current or agnostic. Each returns ps2.*; what is compared is the part it supplies and the
 # application and system time of that row, which is what the correlation between the two rows changes.
@@ -481,4 +916,4 @@ ps2.sys_time_start < ps1.sys_time_END""",
         {}),
 ]
 
-DEFINITIONS = [*B1_DEFINITIONS, *B3_DEFINITIONS, *B5_DEFINITIONS]
+DEFINITIONS = [*B1_DEFINITIONS, *B2_DEFINITIONS, *B3_DEFINITIONS, *B4_DEFINITIONS, *B5_DEFINITIONS, *TPCH_DEFINITIONS]
