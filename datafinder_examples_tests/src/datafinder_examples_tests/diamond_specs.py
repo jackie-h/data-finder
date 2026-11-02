@@ -19,32 +19,32 @@ DIAMOND_FINDER_SPECS = FinderSpec(
     expectations=[
         TestExpectation(
             name="all_records",
-            query=lambda f: f.find_all(None, None, [f.id_(), f.record_name()]).order_by(f.id_().ascending()),
+            query=lambda f: f.find_all([f.id_(), f.record_name()]).order_by(f.id_().ascending()),
             expected_columns=["Id", "Record Name"],
             expected_result=np.array([[1, "Alpha"], [2, "Beta"], [3, "Gamma"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_auditable_id",
-            query=lambda f: f.find_all(None, None, [f.record_name()], f.id_().eq(2)),
+            query=lambda f: f.find_all([f.record_name()], f.id_().eq(2)),
             expected_columns=["Record Name"],
             expected_result=np.array([["Beta"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_created_at",
-            query=lambda f: f.find_all(None, None, [f.record_name()], f.created_at().eq("2024-03-01")),
+            query=lambda f: f.find_all([f.record_name()], f.created_at().eq("2024-03-01")),
             expected_columns=["Record Name"],
             expected_result=np.array([["Gamma"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_updated_at",
-            query=lambda f: f.find_all(None, None, [f.record_name()], f.updated_at().eq("2024-06-01")),
+            query=lambda f: f.find_all([f.record_name()], f.updated_at().eq("2024-06-01")),
             expected_columns=["Record Name"],
             expected_result=np.array([["Alpha"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_version",
             query=lambda f: f.find_all(
-                None, None, [f.record_name(), f.version()], f.version().eq(1)
+                [f.record_name(), f.version()], f.version().eq(1)
             ),
             expected_columns=["Record Name", "Version"],
             expected_result=np.array([["Beta", 1]], dtype=object),
@@ -52,7 +52,6 @@ DIAMOND_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="full_hierarchy_projection",
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.created_at(), f.updated_at(), f.version(), f.record_name()],
                 f.record_name().eq("Alpha"),
             ),

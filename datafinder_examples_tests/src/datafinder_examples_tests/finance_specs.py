@@ -55,6 +55,7 @@ ACCOUNT_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _AT, [f.id_(), f.name()], f.id_().eq(1)),
             expected_columns=["Id", "Name"],
             expected_result=np.array([[1, "Acme Corp"]], dtype=object),
+            skip_backends={"graphql": "The finance GraphQL account query has no milestoning, so it takes no processing time"},
         ),
     ],
 )
@@ -791,24 +792,26 @@ def _call_with_a_time_then_plain(f):
     return f.find_all(None, _BOTH_AT, [f.symbol(), f.account().name()]).order_by(f.symbol().ascending())
 
 
-# Branch has no milestoning of its own, but the accounts it reaches do. A date given for the query reaches them, so the
-# accounts come back as of that date, as when the query starts from a milestoned class.
+# Branch has no milestoning of its own, but the accounts it reaches do, so a query of branches has no time: the time is
+# given to the accounts, as in Legend's branch.accounts(%time).
 BRANCH_FINDER_SPECS = FinderSpec(
     finder_name="BranchFinder",
     mapping_file=FINANCE_MAPPING,
     skip_backends={"graphql": "The finance GraphQL mapping does not map the accounts of a branch"},
     expectations=[
         TestExpectation(
-            name="non_milestoned_root_reads_a_milestoned_navigation_as_of_the_query_time",
+            name="non_milestoned_root_reads_a_milestoned_navigation_at_the_time_it_is_given",
             # At _AT, 'Acme Corp' is New York's only account: London's 'Acme Ltd' expired on 2022-01-01
-            query=lambda f: f.find_all(None, _AT, [f.city(), f.accounts().name()]).order_by(f.city().ascending()),
+            query=lambda f: f.find_all([f.city(), f.accounts(processing_time=_AT).name()])
+                             .order_by(f.city().ascending()),
             expected_columns=["City", "Accounts Name"],
             expected_result=np.array([["London", None], ["New York", "Acme Corp"]], dtype=object),
             expected_sql={"duckdb": "in_z <="},
         ),
         TestExpectation(
             name="non_milestoned_root_reads_the_earlier_version_at_an_earlier_time",
-            query=lambda f: f.find_all(None, _BOTH_AT, [f.city(), f.accounts().name()]).order_by(f.city().ascending()),
+            query=lambda f: f.find_all([f.city(), f.accounts(processing_time=_BOTH_AT).name()])
+                             .order_by(f.city().ascending()),
             expected_columns=["City", "Accounts Name"],
             expected_result=np.array([["London", "Acme Ltd"], ["New York", None]], dtype=object),
         ),
@@ -820,6 +823,17 @@ BRANCH_FINDER_SPECS = FinderSpec(
 # _MSFT_WITH_LIVE_ACCOUNT_AT New York has two accounts, 'Acme Corp' and 'Beta Inc', and London has none.
 _GRAPHQL_NO_BRANCH_ACCOUNTS = "The finance GraphQL mapping does not map the accounts of a branch"
 
+
+def _branch_accounts_exist_or_not(f):
+    accounts = f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT)
+    return f.find_all([f.city()], accounts.exists().or_(accounts.not_exists())).order_by(f.city().ascending())
+
+
+def _branch_value_read_through_the_accounts_that_exist(f):
+    accounts = f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT)
+    return f.find_all([f.city(), accounts.name()], accounts.exists()).order_by(accounts.name().ascending())
+
+
 BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="BranchFinder",
     mapping_file=FINANCE_MAPPING,
@@ -827,55 +841,43 @@ BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
-            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts().exists()),
+            query=lambda f: f.find_all([f.city()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
             expected_columns=["City"],
             expected_result=np.array([["New York"]], dtype=object),
             expected_sql={"duckdb": 'SELECT DISTINCT t2.BRANCH_ID AS "BRANCH_ID" FROM ref_data.account_master AS t2'},
         ),
         TestExpectation(
             name="exists_to_many_counts_a_row_once",
-            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [count_all()], f.accounts().exists()),
+            query=lambda f: f.find_all([count_all()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
             expected_columns=["Count"],
             expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
             name="not_exists_to_many_is_a_row_with_no_match",
-            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts().not_exists()),
+            query=lambda f: f.find_all([f.city()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).not_exists()),
             expected_columns=["City"],
             expected_result=np.array([["London"]], dtype=object),
         ),
         TestExpectation(
             name="exists_and_not_exists_on_one_step_cover_every_row_once",
-            query=lambda f: f.find_all(
-                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts().exists().or_(f.accounts().not_exists())
-            ).order_by(f.city().ascending()),
+            query=_branch_accounts_exist_or_not,
             expected_columns=["City"],
             expected_result=np.array([["London"], ["New York"]], dtype=object),
         ),
         TestExpectation(
-            # London's account at _BOTH_AT, 'Acme Ltd', has expired by now: the milestoning is inside the sub-select
-            name="the_step_is_milestoned_inside_the_sub_select",
-            query=lambda f: f.find_all(None, _BOTH_AT, [f.city()], f.accounts().exists()),
+            # London's account at _BOTH_AT, 'Acme Ltd', has expired by now: the milestoning is inside the sub-select, with
+            # the time the step was given
+            name="the_step_is_milestoned_inside_the_sub_select_with_the_time_it_is_given",
+            query=lambda f: f.find_all([f.city()], f.accounts(processing_time=_BOTH_AT).exists()),
             expected_columns=["City"],
             expected_result=np.array([["London"]], dtype=object),
             expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.in_z <="},
             unexpected_sql={"duckdb": "t1.in_z"},
         ),
         TestExpectation(
-            name="a_step_with_its_own_processing_time_uses_it_inside_the_sub_select",
-            query=lambda f: f.find_all(
-                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city()], f.accounts(processing_time=_BOTH_AT).exists()
-            ),
-            expected_columns=["City"],
-            expected_result=np.array([["London"]], dtype=object),
-            expected_sql={"duckdb": "2021-06-01"},
-        ),
-        TestExpectation(
             # A value read through the step is a row for each account, and exists() then holds for an account in the result
             name="reading_a_value_through_the_step_keeps_a_row_for_each_match",
-            query=lambda f: f.find_all(
-                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.city(), f.accounts().name()], f.accounts().exists()
-            ).order_by(f.accounts().name().ascending()),
+            query=_branch_value_read_through_the_accounts_that_exist,
             expected_columns=["City", "Accounts Name"],
             expected_result=np.array([["New York", "Acme Corp"], ["New York", "Beta Inc"]], dtype=object),
             unexpected_sql={"duckdb": "SELECT DISTINCT"},
@@ -886,7 +888,8 @@ BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
 _GRAPHQL_NO_DESKS = "The finance GraphQL mapping does not map desks or the positions of an account"
 
 # A desk has accounts, milestoned in processing time: at _MSFT_WITH_LIVE_ACCOUNT_AT Equities has two ('Acme Corp' and
-# 'Beta Inc'), and Rates and Credit have none; at _BOTH_AT Rates has 'Acme Ltd'.
+# 'Beta Inc'), and Rates and Credit have none; at _BOTH_AT Rates has 'Acme Ltd'. Desk has no milestoning of its own, so
+# the time is given to the accounts.
 DESK_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="DeskFinder",
     mapping_file=FINANCE_MAPPING,
@@ -894,14 +897,14 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
-            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts().exists()),
+            query=lambda f: f.find_all([f.name()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
             expected_columns=["Name"],
             expected_result=np.array([["Equities"]], dtype=object),
             expected_sql={"duckdb": 'SELECT DISTINCT t2.DESK_ID AS "DESK_ID" FROM ref_data.account_master AS t2'},
         ),
         TestExpectation(
             name="not_exists_to_many_is_a_row_with_no_match",
-            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts().not_exists())
+            query=lambda f: f.find_all([f.name()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).not_exists())
             .order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
@@ -910,7 +913,8 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
             # A step given a value, as in accounts(name="Beta Inc"), is a condition on the accounts: it is inside the
             # sub-select, and the step is still one row for a desk however many accounts match
             name="a_step_given_a_value_filters_inside_the_sub_select",
-            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Beta Inc").exists()),
+            query=lambda f: f.find_all(
+                [f.name()], f.accounts(name="Beta Inc", processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
             expected_columns=["Name"],
             expected_result=np.array([["Equities"]], dtype=object),
             expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.ACCT_NAME = 'Beta Inc' AND t2.in_z <="},
@@ -918,7 +922,8 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
         TestExpectation(
             # 'Acme Ltd' has expired by now, so no desk has an account of that name
             name="a_step_given_a_value_that_matches_no_current_row_is_no_row",
-            query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Acme Ltd").exists()),
+            query=lambda f: f.find_all(
+                [f.name()], f.accounts(name="Acme Ltd", processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
             expected_columns=["Name"],
             expected_result=np.empty((0, 1), dtype=object),
             expected_sql={"duckdb": "SELECT DISTINCT"},
@@ -926,14 +931,14 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="not_exists_with_a_step_given_a_value",
             query=lambda f: f.find_all(
-                None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.accounts(name="Beta Inc").not_exists()
+                [f.name()], f.accounts(name="Beta Inc", processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).not_exists()
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
         ),
         TestExpectation(
             name="the_step_is_milestoned_inside_the_sub_select",
-            query=lambda f: f.find_all(None, _BOTH_AT, [f.name()], f.accounts().exists()),
+            query=lambda f: f.find_all([f.name()], f.accounts(processing_time=_BOTH_AT).exists()),
             expected_columns=["Name"],
             expected_result=np.array([["Rates"]], dtype=object),
             expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.in_z <="},

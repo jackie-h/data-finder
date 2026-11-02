@@ -211,7 +211,7 @@ class TestGraphQLFinanceE2E:
 
     def test_query_accounts(self, finders):
         af = finders["account"]
-        data = af.find_all(None, None, [af.id_(), af.name()]).to_numpy()
+        data = af.find_all([af.id_(), af.name()]).to_numpy()
         assert_array_equal(data, np.array([[211978, "Trading Account 1"]], dtype="object"))
 
     def test_query_instruments(self, finders):
@@ -244,7 +244,7 @@ class TestGraphQLFinanceE2E:
 
     def test_query_accounts_single_column(self, finders):
         af = finders["account"]
-        data = af.find_all(None, None, [af.name()]).to_numpy()
+        data = af.find_all([af.name()]).to_numpy()
         assert_array_equal(data, np.array([["Trading Account 1"]], dtype="object"))
 
     def test_query_positions_all_columns(self, finders):

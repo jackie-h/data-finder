@@ -10,7 +10,7 @@ from model.relational import (
 
 
 def constant(value: bool | int | float | decimal.Decimal | str | datetime.date | datetime.datetime) -> ConstantOperation:
-    """A fixed value as a column: ``f.find_all(None, None, [f.name(), constant("EU").alias("Region")])``.
+    """A fixed value as a column: ``f.find_all([f.name(), constant("EU").alias("Region")])``.
 
     It is named "Constant" unless ``alias`` gives it a name."""
     if isinstance(value, bool):  # before int: bool is a subclass of int
@@ -31,6 +31,6 @@ def constant(value: bool | int | float | decimal.Decimal | str | datetime.date |
 
 
 def count_all() -> CountAllOperation:
-    """The number of rows in the group, ``COUNT(*)``: ``f.find_all(None, None, [f.category(), count_all()]).group_by(f.category())``.
+    """The number of rows in the group, ``COUNT(*)``: ``f.find_all([f.category(), count_all()]).group_by(f.category())``.
     Unlike ``count()`` of a column it also counts rows where that column is missing."""
     return CountAllOperation("")

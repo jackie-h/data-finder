@@ -121,7 +121,7 @@ def test_has_manager(orgchart_finders):
 def test_invalid_join_kwarg_raises(orgchart_finders):
     ef, _ = orgchart_finders
     with pytest.raises(ValueError, match="Unknown property 'bogus'"):
-        ef.find_all(None, None, [ef.first_name(), ef.projects(bogus="x").name()]).to_pandas()
+        ef.find_all([ef.first_name(), ef.projects(bogus="x").name()]).to_pandas()
 
 
 def test_unfiltered_join_result_is_cached(orgchart_finders):

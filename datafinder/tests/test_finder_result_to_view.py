@@ -28,7 +28,7 @@ def _account_name(child=None):
 
 
 def _query(columns, op=None, table=None) -> FinderResult:
-    """What find_all(None, None, columns, op) returns."""
+    """What find_all(columns, op) returns."""
     return FinderResult(None, None, columns, table or _processing("vt.trades"), op or NoOperation())
 
 

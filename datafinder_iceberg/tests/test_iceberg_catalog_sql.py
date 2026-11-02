@@ -212,7 +212,7 @@ class TestCatalogMappingFileSQL:
     def test_account_sql_contains_catalog_prefix(self, catalog_mapping_finders):
         account = catalog_mapping_finders["Account"]
         sql = account.find_all(
-            None, None, [account.id_(), account.name()],
+            [account.id_(), account.name()],
         ).to_sql()
         assert "my_catalog.ref_data.account_master" in sql
 

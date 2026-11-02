@@ -205,7 +205,7 @@ A table can hold the columns of a related object. Give those columns a dotted `P
 ```
 
 ```python
-person.find_all(None, None, [person.first_name(), person.firm().address().name()])
+person.find_all([person.first_name(), person.firm().address().name()])
 ```
 
 With an `#### Association:` block the dotted columns are a shortcut instead, and the join is used only when the query needs a property that is not embedded.
@@ -224,12 +224,16 @@ A property of an embedded object can itself reach another table. Give the column
 ```
 
 ```python
-employee.find_all(None, None, [employee.name(), employee.home().street(), employee.home().country().name()])
+employee.find_all([employee.name(), employee.home().street(), employee.home().country().name()])
 ```
+
+That property takes a date like any other: `employee.home().country(business_date=as_of).name()`.
 
 ### Milestoning
 
 Milestoning lets you query data as it was at a specific point in time. Declare named milestoning schemes on the `DataStore` and reference them per table.
+
+A class with a scheme has a `find_all` that takes the dates of its scheme. A class with no milestoning has a `find_all` that takes none, `find_all(columns, filter)`: a query of it has no dates of its own. To read a milestoned class it reaches as of a date, give the date to the property that reaches it, as in `branch.find_all([branch.city(), branch.accounts(processing_time=at).name()])`. A date given to a property applies to that class and to the classes below it, unless one of them is given its own.
 
 | Scheme | Required columns | find_all signature |
 |--------|------------------|--------------------|
@@ -350,7 +354,7 @@ bind first and combine it on the other side, e.g. `a.or_(b.and_(c))`.
 A comparison is with a value, or with another column or expression. `ne` and `!=` are the inequality:
 
 ```python
-OrderFinder.find_all(None, None, [OrderFinder.id_()], OrderFinder.commit_date() < OrderFinder.receipt_date())
+OrderFinder.find_all([OrderFinder.id_()], OrderFinder.commit_date() < OrderFinder.receipt_date())
 TradeFinder.price() > TradeFinder.cost() * 1.075
 TradeFinder.symbol().ne("AAPL")      # or TradeFinder.symbol() != "AAPL"
 ```
@@ -371,7 +375,7 @@ An aggregate over a to-many association is computed for each row of the root, as
 employee the number of their reports, including 0 for those with none:
 
 ```python
-EmployeeFinder.find_all(None, None, [EmployeeFinder.name(), EmployeeFinder.employees().id_().count()])
+EmployeeFinder.find_all([EmployeeFinder.name(), EmployeeFinder.employees().id_().count()])
 ```
 
 A query that selects only aggregates over the root's own columns covers every row and is not grouped. Pass `group_by`
@@ -383,7 +387,7 @@ A column is named in the result after its property. Give it another name with `a
 function of a column:
 
 ```python
-CompanyFinder.find_all(None, None, [CompanyFinder.name().alias("Company"), CompanyFinder.id_().count().alias("N")])
+CompanyFinder.find_all([CompanyFinder.name().alias("Company"), CompanyFinder.id_().count().alias("N")])
 ```
 
 A fixed value can be a column too. `constant` takes a bool, number, string, date or datetime:
@@ -391,7 +395,7 @@ A fixed value can be a column too. `constant` takes a bool, number, string, date
 ```python
 from datafinder import constant
 
-CompanyFinder.find_all(None, None, [CompanyFinder.name(), constant("EU").alias("Region")])
+CompanyFinder.find_all([CompanyFinder.name(), constant("EU").alias("Region")])
 ```
 
 
@@ -401,12 +405,12 @@ and the earlier ones break its ties, so the two lines below sort by category and
 replaces its earlier direction.
 
 ```python
-result = CompanyFinder.find_all(None, None, [CompanyFinder.name(), CompanyFinder.category()])
+result = CompanyFinder.find_all([CompanyFinder.name(), CompanyFinder.category()])
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
 `count_all()` counts the rows of a group, `COUNT(*)`, where `count()` of a column skips rows where that column is missing:
-`CompanyFinder.find_all(None, None, [CompanyFinder.category(), count_all()]).group_by(CompanyFinder.category())`.
+`CompanyFinder.find_all([CompanyFinder.category(), count_all()]).group_by(CompanyFinder.category())`.
 `std()` and `var()` give the sample standard deviation and variance, and `std(ddof=0)` / `var(ddof=0)` the population
 ones, as in pandas. `min()` and `max()` also work on text and dates.
 
@@ -415,7 +419,7 @@ An expression has the aggregates a column has: `(TradeFinder.price() * TradeFind
 `(TradeFinder.price() > 10).all()` is true for a group where every row holds.
 
 `having` keeps the groups that satisfy a condition on an aggregate or a grouping column, `HAVING`:
-`CompanyFinder.find_all(None, None, [CompanyFinder.category(), count_all()]).group_by(CompanyFinder.category()).having(count_all() > 1)`.
+`CompanyFinder.find_all([CompanyFinder.category(), count_all()]).group_by(CompanyFinder.category()).having(count_all() > 1)`.
 An aggregate compares as a column does (`< <= > >= == !=`), and `contains`, `starts_with` and `ends_with` also work on
 an expression that holds text, such as `CompanyFinder.name().upper().starts_with("AC")` or a joined text.
 
@@ -451,14 +455,14 @@ A date can be cut back to the first day of its week (a Monday), month, quarter o
 
 Sort by an aggregate the same way as by a column: `.order_by(CompanyFinder.id_().count().descending())`.
 
-A condition can be a column too, true or false for each row: `CompanyFinder.find_all(None, None, [CompanyFinder.name(),
+A condition can be a column too, true or false for each row: `CompanyFinder.find_all([CompanyFinder.name(),
 CompanyFinder.category().eq("Technology")])`. As in SQL, a comparison with a missing (NULL) value is missing, not false.
 Two unnamed conditions have the same column name, so select them in separate queries (or give them names).
 
 `coalesce` replaces a missing (NULL) value: `EmployeeFinder.manager().name().coalesce("nobody")`. Several defaults are tried
 in order.
 
-`distinct()` returns each row once: `CompanyFinder.find_all(None, None, [CompanyFinder.category()]).distinct()`. A sort on a
+`distinct()` returns each row once: `CompanyFinder.find_all([CompanyFinder.category()]).distinct()`. A sort on a
 distinct query has to use a selected column.
 
 `offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort

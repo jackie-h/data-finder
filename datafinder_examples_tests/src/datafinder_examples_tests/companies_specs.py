@@ -20,7 +20,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         # --- count_distinct: the different values ---
         TestExpectation(
             name="count_distinct_of_the_whole_result",
-            query=lambda f: f.find_all(None, None, [f.category().count_distinct()]),
+            query=lambda f: f.find_all([f.category().count_distinct()]),
             expected_columns=["Category Count Distinct"],
             expected_result=np.array([[3]], dtype=object),
             expected_sql={"duckdb": "COUNT(DISTINCT t0.category)"},
@@ -28,21 +28,21 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="count_distinct_is_less_than_count_where_values_repeat",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.category().count(), f.category().count_distinct()]),
+            query=lambda f: f.find_all([f.category().count(), f.category().count_distinct()]),
             expected_columns=["Category Count", "Category Count Distinct"],
             expected_result=np.array([[5, 3]], dtype=object),
         ),
         TestExpectation(
             name="count_distinct_per_group",
             query=lambda f: f.find_all(
-                None, None, [f.category(), f.name().count_distinct()]
+                [f.category(), f.name().count_distinct()]
             ).group_by(f.category()).order_by(f.category().ascending()),
             expected_columns=["Category", "Name Count Distinct"],
             expected_result=np.array([["Finance", 2], ["Manufacturing", 1], ["Technology", 2]], dtype=object),
         ),
         TestExpectation(
             name="count_distinct_with_a_filter",
-            query=lambda f: f.find_all(None, None, [f.category().count_distinct()], f.name().starts_with("Acme")),
+            query=lambda f: f.find_all([f.category().count_distinct()], f.name().starts_with("Acme")),
             expected_columns=["Category Count Distinct"],
             expected_result=np.array([[2]], dtype=object),
         ),
@@ -51,7 +51,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="join_per_group_in_an_order",
             skip_backends={"graphql": "The GraphQL engine cannot order the values it joins"},
             query=lambda f: f.find_all(
-                None, None, [f.category(), f.name().join(", ", order_by=[f.name().ascending()])]
+                [f.category(), f.name().join(", ", order_by=[f.name().ascending()])]
             ).group_by(f.category()).order_by(f.category().ascending()),
             expected_columns=["Category", "Join Name"],
             expected_result=np.array(
@@ -68,7 +68,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="join_descending",
             skip_backends={"graphql": "The GraphQL engine cannot order the values it joins"},
             query=lambda f: f.find_all(
-                None, None, [f.category(), f.name().join("|", order_by=[f.name().descending()])]
+                [f.category(), f.name().join("|", order_by=[f.name().descending()])]
             ).group_by(f.category()).order_by(f.category().ascending()),
             expected_columns=["Category", "Join Name"],
             expected_result=np.array(
@@ -84,7 +84,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="join_of_the_whole_result",
             skip_backends={"graphql": "The GraphQL engine cannot order the values it joins"},
             query=lambda f: f.find_all(
-                None, None, [f.category().join("/", order_by=[f.id_().ascending()])]
+                [f.category().join("/", order_by=[f.id_().ascending()])]
             ),
             expected_columns=["Join Category"],
             expected_result=np.array([["Technology/Manufacturing/Technology/Finance/Finance"]], dtype=object),
@@ -92,7 +92,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="join_without_an_order_joins_every_value",
             query=lambda f: f.find_all(
-                None, None, [f.category(), f.name().join(",")], f.category().eq("Manufacturing")
+                [f.category(), f.name().join(",")], f.category().eq("Manufacturing")
             ).group_by(f.category()),
             expected_columns=["Category", "Join Name"],
             expected_result=np.array([["Manufacturing", "Acme Industries"]], dtype=object),
@@ -102,7 +102,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="count_all_counts_rows_per_group",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.category(), count_all()]).group_by(f.category())
+            query=lambda f: f.find_all([f.category(), count_all()]).group_by(f.category())
             .order_by(f.category().ascending()),
             expected_columns=["Category", "Count"],
             expected_result=np.array([["Finance", 2], ["Manufacturing", 1], ["Technology", 2]], dtype=object),
@@ -111,7 +111,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="population_standard_deviation",
             skip_backends={"graphql": "The GraphQL finder has no standard deviation yet"},
-            query=lambda f: f.find_all(None, None, [f.id_().std(ddof=0)], f.id_().is_in([1, 3])),
+            query=lambda f: f.find_all([f.id_().std(ddof=0)], f.id_().is_in([1, 3])),
             expected_columns=["Std Id"],
             expected_result=np.array([[1.0]], dtype=object),
             expected_sql={"duckdb": "STDDEV_POP"},
@@ -119,7 +119,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sample_variance",
             skip_backends={"graphql": "The GraphQL finder has no variance yet"},
-            query=lambda f: f.find_all(None, None, [f.id_().var()], f.id_().is_in([1, 3])),
+            query=lambda f: f.find_all([f.id_().var()], f.id_().is_in([1, 3])),
             expected_columns=["Var Id"],
             expected_result=np.array([[2.0]], dtype=object),
             expected_sql={"duckdb": "VAR_SAMP"},
@@ -127,7 +127,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="population_variance",
             skip_backends={"graphql": "The GraphQL finder has no variance yet"},
-            query=lambda f: f.find_all(None, None, [f.id_().var(ddof=0)], f.id_().is_in([1, 3])),
+            query=lambda f: f.find_all([f.id_().var(ddof=0)], f.id_().is_in([1, 3])),
             expected_columns=["Var Id"],
             expected_result=np.array([[1.0]], dtype=object),
             expected_sql={"duckdb": "VAR_POP"},
@@ -135,7 +135,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="smallest_and_largest_text",
             skip_backends={"graphql": "The GraphQL finder cannot take the smallest or largest text yet"},
-            query=lambda f: f.find_all(None, None, [f.name().min(), f.name().max()]),
+            query=lambda f: f.find_all([f.name().min(), f.name().max()]),
             expected_columns=["Min Name", "Max Name"],
             expected_result=np.array([["Acme Corp", "Gamma LLC"]], dtype=object),
         ),
@@ -143,7 +143,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="having_a_count",
             skip_backends={"graphql": "The GraphQL finder cannot filter the groups of an aggregation"},
-            query=lambda f: f.find_all(None, None, [f.category(), count_all()]).group_by(f.category())
+            query=lambda f: f.find_all([f.category(), count_all()]).group_by(f.category())
             .having(count_all() > 1).order_by(f.category().ascending()),
             expected_columns=["Category", "Count"],
             expected_result=np.array([["Finance", 2], ["Technology", 2]], dtype=object),
@@ -152,7 +152,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="having_a_sum_and_a_grouping_column",
             skip_backends={"graphql": "The GraphQL finder cannot filter the groups of an aggregation"},
-            query=lambda f: f.find_all(None, None, [f.category(), f.id_().sum()]).group_by(f.category())
+            query=lambda f: f.find_all([f.category(), f.id_().sum()]).group_by(f.category())
             .having(f.id_().sum() > 3, f.category().ne("Finance")).order_by(f.category().ascending()),
             expected_columns=["Category", "Sum Id"],
             expected_result=np.array([["Technology", 4]], dtype=object),
@@ -160,7 +160,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="having_on_joined_text",
             skip_backends={"graphql": "The GraphQL finder cannot filter the groups of an aggregation"},
-            query=lambda f: f.find_all(None, None, [f.category(), f.name().join(",")]).group_by(f.category())
+            query=lambda f: f.find_all([f.category(), f.name().join(",")]).group_by(f.category())
             .having(f.name().join(",").contains("Gamma")),
             expected_columns=["Category", "Join Name"],
             expected_result=np.array([["Finance", "Gamma LLC,Delta Ltd"]], dtype=object),
@@ -169,7 +169,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="starts_with_on_a_function_of_a_column",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
-            query=lambda f: f.find_all(None, None, [f.name()], f.name().upper().starts_with("ACME"))
+            query=lambda f: f.find_all([f.name()], f.name().upper().starts_with("ACME"))
             .order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Acme Industries"]], dtype=object),
@@ -178,7 +178,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sum_of_arithmetic",
             skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
-            query=lambda f: f.find_all(None, None, [(f.id_() * 2).sum()]),
+            query=lambda f: f.find_all([(f.id_() * 2).sum()]),
             expected_columns=["Sum Expression"],
             expected_result=np.array([[30]], dtype=object),
             expected_sql={"duckdb": "SUM(t0.id * 2)"},
@@ -186,7 +186,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sum_of_a_constant_counts_the_rows",
             skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
-            query=lambda f: f.find_all(None, None, [constant(1).sum()]),
+            query=lambda f: f.find_all([constant(1).sum()]),
             expected_columns=["Sum Expression"],
             expected_result=np.array([[5]], dtype=object),
             expected_sql={"duckdb": "SUM(1)"},
@@ -195,7 +195,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="sum_of_a_conditional_per_group",
             skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.category(), when(f.category().eq("Technology")).then(5.0).otherwise(1.0).sum().alias("Profit")]
             ).group_by(f.category()).order_by(f.category().ascending()),
             expected_columns=["Category", "Profit"],
@@ -205,7 +204,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="all_and_any_of_a_condition_per_group",
             skip_backends={"graphql": "The GraphQL finder cannot aggregate an expression"},
             query=lambda f: f.find_all(
-                None, None, [f.category(), (f.id_() > 0).all().alias("All"), (f.id_() > 3).any().alias("Any")]
+                [f.category(), (f.id_() > 0).all().alias("All"), (f.id_() > 3).any().alias("Any")]
             ).group_by(f.category()).order_by(f.category().ascending()),
             expected_columns=["Category", "All", "Any"],
             expected_result=np.array(
@@ -217,7 +216,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="concat_columns_and_text",
             skip_backends={"graphql": "The GraphQL finder cannot join text"},
             query=lambda f: f.find_all(
-                None, None, [f.name() + " (" + f.category() + ")"]
+                [f.name() + " (" + f.category() + ")"]
             ).order_by(f.name().ascending()).limit(2),
             expected_columns=["Expression"],
             expected_result=np.array([["Acme Corp (Technology)"], ["Acme Industries (Manufacturing)"]], dtype=object),
@@ -227,7 +226,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="concat_text_before_a_column",
             skip_backends={"graphql": "The GraphQL finder cannot join text"},
             query=lambda f: f.find_all(
-                None, None, ["Company: " + f.name()]
+                ["Company: " + f.name()]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Expression"],
             expected_result=np.array([["Company: Acme Corp"]], dtype=object),
@@ -236,7 +235,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="concat_a_function_of_a_column",
             skip_backends={"graphql": "The GraphQL finder cannot join text"},
             query=lambda f: f.find_all(
-                None, None, [f.name().upper() + "/" + f.category().lower()]
+                [f.name().upper() + "/" + f.category().lower()]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Expression"],
             expected_result=np.array([["ACME CORP/technology"]], dtype=object),
@@ -246,7 +245,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="text_functions_chain",
             skip_backends={"graphql": "The GraphQL finder cannot chain functions"},
             query=lambda f: f.find_all(
-                None, None, [f.name().upper().length()]
+                [f.name().upper().length()]
             ).order_by(f.name().ascending()).limit(2),
             expected_columns=["Length Upper Name"],
             expected_result=np.array([[9], [15]], dtype=object),
@@ -256,7 +255,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="a_text_function_of_a_text_function",
             skip_backends={"graphql": "The GraphQL finder cannot chain functions"},
             query=lambda f: f.find_all(
-                None, None, [f.name().upper().replace("ACME", "X")]
+                [f.name().upper().replace("ACME", "X")]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Replace Upper Name"],
             expected_result=np.array([["X CORP"]], dtype=object),
@@ -265,7 +264,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="slice_the_result_of_a_function",
             skip_backends={"graphql": "The GraphQL finder cannot chain functions"},
             query=lambda f: f.find_all(
-                None, None, [f.name().lower()[:4]]
+                [f.name().lower()[:4]]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Left Lower Name"],
             expected_result=np.array([["acme"]], dtype=object),
@@ -274,7 +273,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="filter_on_a_function_of_a_column",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
-            query=lambda f: f.find_all(None, None, [f.name()], f.name().upper().eq("ACME CORP")),
+            query=lambda f: f.find_all([f.name()], f.name().upper().eq("ACME CORP")),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"]], dtype=object),
             expected_sql={"duckdb": "UPPER(t0.name) = 'ACME CORP'"},
@@ -282,14 +281,14 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="filter_on_the_length_of_a_column",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
-            query=lambda f: f.find_all(None, None, [f.name()], f.name().length() > 10).order_by(f.name().ascending()),
+            query=lambda f: f.find_all([f.name()], f.name().length() > 10).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Industries"]], dtype=object),
         ),
         TestExpectation(
             name="filter_on_arithmetic",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
-            query=lambda f: f.find_all(None, None, [f.id_()], f.id_() * 2 >= 8).order_by(f.id_().ascending()),
+            query=lambda f: f.find_all([f.id_()], f.id_() * 2 >= 8).order_by(f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[4], [5]], dtype=object),
             expected_sql={"duckdb": "t0.id * 2 >= 8"},
@@ -297,14 +296,14 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="filter_on_joined_text",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
-            query=lambda f: f.find_all(None, None, [f.id_()], f.name() + "/" + f.category() == "Beta Corp/Technology"),
+            query=lambda f: f.find_all([f.id_()], f.name() + "/" + f.category() == "Beta Corp/Technology"),
             expected_columns=["Id"],
             expected_result=np.array([[3]], dtype=object),
         ),
         TestExpectation(
             name="filter_comparing_two_expressions",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
-            query=lambda f: f.find_all(None, None, [f.id_()], f.name().length() > f.category().length() + 1)
+            query=lambda f: f.find_all([f.id_()], f.name().length() > f.category().length() + 1)
             .order_by(f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[2], [4], [5]], dtype=object),
@@ -313,7 +312,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="filter_on_an_expression_with_another_filter",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
             query=lambda f: f.find_all(
-                None, None, [f.id_()],
+                [f.id_()],
                 f.name().upper().eq("DELTA LTD").or_(f.id_() * 1 == 1),
             ).order_by(f.id_().ascending()),
             expected_columns=["Id"],
@@ -322,7 +321,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="not_equal_on_an_expression",
             skip_backends={"graphql": "A filter on an expression cannot be pushed to the server"},
-            query=lambda f: f.find_all(None, None, [f.id_()], f.name().lower().ne("acme corp"))
+            query=lambda f: f.find_all([f.id_()], f.name().lower().ne("acme corp"))
             .order_by(f.id_().ascending()).limit(2),
             expected_columns=["Id"],
             expected_result=np.array([[2], [3]], dtype=object),
@@ -332,7 +331,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="sort_by_an_aggregate_descending_then_a_column",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
-                None, None, [f.category(), f.id_().count()]
+                [f.category(), f.id_().count()]
             ).group_by(f.category()).order_by(f.id_().count().descending(), f.category().ascending()),
             expected_columns=["Category", "Id Count"],
             expected_result=np.array([["Finance", 2], ["Technology", 2], ["Manufacturing", 1]], dtype=object),
@@ -342,7 +341,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="sort_by_an_aggregate_ascending",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
-                None, None, [f.category(), f.id_().count()]
+                [f.category(), f.id_().count()]
             ).group_by(f.category()).order_by(f.id_().count().ascending(), f.category().descending()),
             expected_columns=["Category", "Id Count"],
             expected_result=np.array([["Manufacturing", 1], ["Technology", 2], ["Finance", 2]], dtype=object),
@@ -352,7 +351,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="a_comparison_as_a_column",
             skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
             query=lambda f: f.find_all(
-                None, None, [f.name(), f.category().eq("Technology")]
+                [f.name(), f.category().eq("Technology")]
             ).order_by(f.id_().ascending()).limit(3),
             expected_columns=["Name", "Expression"],
             expected_result=np.array(
@@ -363,7 +362,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="a_combined_condition_as_a_column",
             skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
             query=lambda f: f.find_all(
-                None, None, [f.id_(), f.category().eq("Finance").or_(f.name().starts_with("Acme"))]
+                [f.id_(), f.category().eq("Finance").or_(f.name().starts_with("Acme"))]
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Expression"],
             expected_result=np.array([[1, True], [2, True], [3, False], [4, True], [5, True]], dtype=object),
@@ -371,14 +370,14 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="a_null_check_as_a_column",
             skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
-            query=lambda f: f.find_all(None, None, [f.name().is_none()]).order_by(f.id_().ascending()).limit(2),
+            query=lambda f: f.find_all([f.name().is_none()]).order_by(f.id_().ascending()).limit(2),
             expected_columns=["Expression"],
             expected_result=np.array([[False], [False]], dtype=object),
         ),
         TestExpectation(
             name="a_membership_test_as_a_column",
             skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
-            query=lambda f: f.find_all(None, None, [f.id_().is_in([1, 3])]).order_by(f.id_().ascending()).limit(3),
+            query=lambda f: f.find_all([f.id_().is_in([1, 3])]).order_by(f.id_().ascending()).limit(3),
             expected_columns=["Expression"],
             expected_result=np.array([[True], [False], [True]], dtype=object),
         ),
@@ -386,7 +385,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="a_condition_as_a_column_next_to_a_filter",
             skip_backends={"graphql": "The GraphQL finder cannot compute a condition as a column"},
             query=lambda f: f.find_all(
-                None, None, [f.name(), f.id_() > 3], f.category().eq("Finance")
+                [f.name(), f.id_() > 3], f.category().eq("Finance")
             ).order_by(f.id_().ascending()),
             expected_columns=["Name", "Expression"],
             expected_result=np.array([["Gamma LLC", True], ["Delta Ltd", True]], dtype=object),
@@ -395,7 +394,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="alias_names_the_columns",
             query=lambda f: f.find_all(
-                None, None, [f.name().alias("Company"), f.category().alias("Sector")]
+                [f.name().alias("Company"), f.category().alias("Sector")]
             ).order_by(f.name().ascending()).limit(2),
             expected_columns=["Company", "Sector"],
             expected_result=np.array([["Acme Corp", "Technology"], ["Acme Industries", "Manufacturing"]], dtype=object),
@@ -404,7 +403,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="alias_names_the_same_column_twice",
             query=lambda f: f.find_all(
-                None, None, [f.name().alias("A"), f.name().alias("B")]
+                [f.name().alias("A"), f.name().alias("B")]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["A", "B"],
             expected_result=np.array([["Acme Corp", "Acme Corp"]], dtype=object),
@@ -412,7 +411,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="alias_again_replaces_the_name",
             query=lambda f: f.find_all(
-                None, None, [f.name().alias("First").alias("Second")]
+                [f.name().alias("First").alias("Second")]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Second"],
             expected_result=np.array([["Acme Corp"]], dtype=object),
@@ -420,7 +419,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="alias_names_an_aggregate",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.id_().count().alias("Companies")]),
+            query=lambda f: f.find_all([f.id_().count().alias("Companies")]),
             expected_columns=["Companies"],
             expected_result=np.array([[5]], dtype=object),
         ),
@@ -428,7 +427,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="alias_names_a_function_of_a_column",
             skip_backends={"graphql": "The GraphQL finder has no scalar functions"},
             query=lambda f: f.find_all(
-                None, None, [f.name().upper().alias("Loud")]
+                [f.name().upper().alias("Loud")]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Loud"],
             expected_result=np.array([["ACME CORP"]], dtype=object),
@@ -437,7 +436,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="constant_string_column",
             query=lambda f: f.find_all(
-                None, None, [f.name(), constant("Hello").alias("Greeting")]
+                [f.name(), constant("Hello").alias("Greeting")]
             ).order_by(f.name().ascending()).limit(2),
             expected_columns=["Name", "Greeting"],
             expected_result=np.array([["Acme Corp", "Hello"], ["Acme Industries", "Hello"]], dtype=object),
@@ -446,34 +445,34 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="constant_number_and_boolean_columns",
             query=lambda f: f.find_all(
-                None, None, [f.name(), constant(7).alias("Seven"), constant(1.5).alias("Ratio"), constant(True).alias("Flag")]
+                [f.name(), constant(7).alias("Seven"), constant(1.5).alias("Ratio"), constant(True).alias("Flag")]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Name", "Seven", "Ratio", "Flag"],
             expected_result=np.array([["Acme Corp", 7, 1.5, True]], dtype=object),
         ),
         TestExpectation(
             name="constant_column_is_named_constant_by_default",
-            query=lambda f: f.find_all(None, None, [f.name(), constant(1)]).order_by(f.name().ascending()).limit(1),
+            query=lambda f: f.find_all([f.name(), constant(1)]).order_by(f.name().ascending()).limit(1),
             expected_columns=["Name", "Constant"],
             expected_result=np.array([["Acme Corp", 1]], dtype=object),
         ),
         TestExpectation(
             name="constant_column_with_a_filter_and_no_matches",
-            query=lambda f: f.find_all(None, None, [f.name(), constant("x").alias("X")], f.name().eq("Nobody")),
+            query=lambda f: f.find_all([f.name(), constant("x").alias("X")], f.name().eq("Nobody")),
             expected_columns=["Name", "X"],
             expected_result=np.empty((0, 2), dtype=object),
         ),
         # --- Distinct: each row once ---
         TestExpectation(
             name="distinct_removes_repeated_rows",
-            query=lambda f: f.find_all(None, None, [f.category()]).distinct().order_by(f.category().ascending()),
+            query=lambda f: f.find_all([f.category()]).distinct().order_by(f.category().ascending()),
             expected_columns=["Category"],
             expected_result=np.array([["Finance"], ["Manufacturing"], ["Technology"]], dtype=object),
             expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
         TestExpectation(
             name="without_distinct_rows_repeat",
-            query=lambda f: f.find_all(None, None, [f.category()]).order_by(f.category().ascending()),
+            query=lambda f: f.find_all([f.category()]).order_by(f.category().ascending()),
             expected_columns=["Category"],
             expected_result=np.array(
                 [["Finance"], ["Finance"], ["Manufacturing"], ["Technology"], ["Technology"]], dtype=object),
@@ -481,7 +480,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="distinct_keeps_rows_that_differ_in_any_column",
-            query=lambda f: f.find_all(None, None, [f.category(), f.name()]).distinct()
+            query=lambda f: f.find_all([f.category(), f.name()]).distinct()
             .order_by(f.category().ascending(), f.name().ascending()).limit(3),
             expected_columns=["Category", "Name"],
             expected_result=np.array(
@@ -489,14 +488,14 @@ COMPANY_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="distinct_with_a_filter",
-            query=lambda f: f.find_all(None, None, [f.category()], f.name().starts_with("Acme")).distinct()
+            query=lambda f: f.find_all([f.category()], f.name().starts_with("Acme")).distinct()
             .order_by(f.category().ascending()),
             expected_columns=["Category"],
             expected_result=np.array([["Manufacturing"], ["Technology"]], dtype=object),
         ),
         TestExpectation(
             name="distinct_applies_before_the_limit",
-            query=lambda f: f.find_all(None, None, [f.category()]).distinct()
+            query=lambda f: f.find_all([f.category()]).distinct()
             .order_by(f.category().ascending()).limit(2),
             expected_columns=["Category"],
             expected_result=np.array([["Finance"], ["Manufacturing"]], dtype=object),
@@ -504,39 +503,39 @@ COMPANY_FINDER_SPECS = FinderSpec(
         # --- Offset and slice: skip rows, counting from 0, in the order given ---
         TestExpectation(
             name="offset_skips_the_first_rows",
-            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(2),
+            query=lambda f: f.find_all([f.name()]).order_by(f.name().ascending()).offset(2),
             expected_columns=["Name"],
             expected_result=np.array([["Beta Corp"], ["Delta Ltd"], ["Gamma LLC"]], dtype=object),
             expected_sql={"duckdb": "OFFSET 2"},
         ),
         TestExpectation(
             name="offset_then_limit_is_a_page",
-            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(1).limit(2),
+            query=lambda f: f.find_all([f.name()]).order_by(f.name().ascending()).offset(1).limit(2),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Industries"], ["Beta Corp"]], dtype=object),
             expected_sql={"duckdb": "LIMIT 2 OFFSET 1"},
         ),
         TestExpectation(
             name="slice_is_start_up_to_stop",
-            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).slice(1, 4),
+            query=lambda f: f.find_all([f.name()]).order_by(f.name().ascending()).slice(1, 4),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Industries"], ["Beta Corp"], ["Delta Ltd"]], dtype=object),
         ),
         TestExpectation(
             name="offset_past_the_end_is_empty",
-            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().ascending()).offset(10),
+            query=lambda f: f.find_all([f.name()]).order_by(f.name().ascending()).offset(10),
             expected_columns=["Name"],
             expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="offset_zero_changes_nothing",
-            query=lambda f: f.find_all(None, None, [f.id_()]).order_by(f.id_().ascending()).offset(0).limit(2),
+            query=lambda f: f.find_all([f.id_()]).order_by(f.id_().ascending()).offset(0).limit(2),
             expected_columns=["Id"],
             expected_result=np.array([[1], [2]], dtype=object),
         ),
         TestExpectation(
             name="offset_applies_after_distinct",
-            query=lambda f: f.find_all(None, None, [f.category()]).distinct()
+            query=lambda f: f.find_all([f.category()]).distinct()
             .order_by(f.category().ascending()).offset(1).limit(1),
             expected_columns=["Category"],
             expected_result=np.array([["Manufacturing"]], dtype=object),
@@ -546,7 +545,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_chooses_between_two_values",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [f.name(), when(f.category().eq("Technology")).then("tech").otherwise("other")]
+                [f.name(), when(f.category().eq("Technology")).then("tech").otherwise("other")]
             ).order_by(f.id_().ascending()).limit(3),
             expected_columns=["Name", "Expression"],
             expected_result=np.array(
@@ -557,7 +556,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_nests_for_several_cases",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [when(f.id_() < 2).then("low").when(f.id_() < 4).then("mid").otherwise("high")]
+                [when(f.id_() < 2).then("low").when(f.id_() < 4).then("mid").otherwise("high")]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([["low"], ["mid"], ["mid"], ["high"], ["high"]], dtype=object),
@@ -566,7 +565,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_with_numbers_as_the_values",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [when(f.name().starts_with("Acme")).then(1).otherwise(0)]
+                [when(f.name().starts_with("Acme")).then(1).otherwise(0)]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([[1], [1], [0], [0], [0]], dtype=object),
@@ -575,7 +574,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_with_columns_as_the_values",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [when(f.id_() > 3).then(f.name()).otherwise(f.category())]
+                [when(f.id_() > 3).then(f.name()).otherwise(f.category())]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array(
@@ -585,7 +584,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_without_otherwise_is_missing_where_the_condition_fails",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [when(f.category().eq("Finance")).then("F")]
+                [when(f.category().eq("Finance")).then("F")]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([[None], [None], [None], ["F"], ["F"]], dtype=object),
@@ -594,7 +593,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="if_with_a_combined_condition",
             skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
             query=lambda f: f.find_all(
-                None, None, [when(f.category().eq("Technology").or_(f.id_().eq(5))).then("yes").otherwise("no")]
+                [when(f.category().eq("Technology").or_(f.id_().eq(5))).then("yes").otherwise("no")]
             ).order_by(f.id_().ascending()),
             expected_columns=["Expression"],
             expected_result=np.array([["yes"], ["no"], ["yes"], ["no"], ["yes"]], dtype=object),
@@ -603,27 +602,27 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="count_all",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.count()]),
+            query=lambda f: f.find_all([f.count()]),
             expected_columns=["Count"],
             expected_result=np.array([[5]], dtype=object),
         ),
         TestExpectation(
             name="count_technology",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.count()], f.category().eq("Technology")),
+            query=lambda f: f.find_all([f.count()], f.category().eq("Technology")),
             expected_columns=["Count"],
             expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
             name="count_no_matches",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.count()], f.category().eq("Nonexistent")),
+            query=lambda f: f.find_all([f.count()], f.category().eq("Nonexistent")),
             expected_columns=["Count"],
             expected_result=np.array([[0]], dtype=object),
         ),
         TestExpectation(
             name="count_name_attribute",
-            query=lambda f: f.find_all(None, None, [f.name().count()]),
+            query=lambda f: f.find_all([f.name().count()]),
             expected_columns=["Name Count"],
             expected_result=np.array([[5]], dtype=object),
         ),
@@ -631,7 +630,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="group_by_category_count",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
-                None, None, [f.category(), f.count()]
+                [f.category(), f.count()]
             ).group_by(f.category()).order_by(f.category().ascending()),
             expected_columns=["Category", "Count"],
             expected_result=np.array(
@@ -643,7 +642,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sort_by_name_asc",
             query=lambda f: f.find_all(
-                None, None, [f.name()]
+                [f.name()]
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array(
@@ -654,7 +653,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sort_by_id_desc",
             query=lambda f: f.find_all(
-                None, None, [f.id_()]
+                [f.id_()]
             ).order_by(f.id_().descending()),
             expected_columns=["Id"],
             expected_result=np.array([[5], [4], [3], [2], [1]], dtype=object),
@@ -663,7 +662,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="chained_order_by_makes_the_later_sort_primary",
             query=lambda f: f.find_all(
-                None, None, [f.name(), f.category()]
+                [f.name(), f.category()]
             ).order_by(f.name().ascending()).order_by(f.category().ascending()),
             expected_columns=["Name", "Category"],
             expected_result=np.array(
@@ -681,7 +680,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="chained_order_by_replaces_the_direction_of_a_column_sorted_again",
             query=lambda f: f.find_all(
-                None, None, [f.name()]
+                [f.name()]
             ).order_by(f.name().ascending()).order_by(f.name().descending()),
             expected_columns=["Name"],
             expected_result=np.array(
@@ -692,7 +691,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="chained_order_by_of_three_calls",
             query=lambda f: f.find_all(
-                None, None, [f.id_(), f.name(), f.category()]
+                [f.id_(), f.name(), f.category()]
             ).order_by(f.id_().ascending()).order_by(f.name().descending()).order_by(f.category().ascending()),
             expected_columns=["Id", "Name", "Category"],
             expected_result=np.array(
@@ -710,7 +709,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sort_by_category_asc_name_desc",
             query=lambda f: f.find_all(
-                None, None, [f.name(), f.category()]
+                [f.name(), f.category()]
             ).order_by(f.category().ascending(), f.name().descending()),
             expected_columns=["Name", "Category"],
             expected_result=np.array(
@@ -727,7 +726,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sort_filter_technology_asc",
             query=lambda f: f.find_all(
-                None, None, [f.name()],
+                [f.name()],
                 f.category().eq("Technology"),
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
@@ -737,7 +736,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="limit_two_by_name",
             query=lambda f: f.find_all(
-                None, None, [f.name()]
+                [f.name()]
             ).order_by(f.name().ascending()).limit(2),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Acme Industries"]], dtype=object),
@@ -745,13 +744,13 @@ COMPANY_FINDER_SPECS = FinderSpec(
         # --- String operations ---
         TestExpectation(
             name="string_eq_exact_match",
-            query=lambda f: f.find_all(None, None, [f.name()], f.name().eq("Acme Corp")),
+            query=lambda f: f.find_all([f.name()], f.name().eq("Acme Corp")),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"]], dtype=object),
         ),
         TestExpectation(
             name="string_eq_operator",
-            query=lambda f: f.find_all(None, None, [f.name()], f.name() == "Acme Corp"),
+            query=lambda f: f.find_all([f.name()], f.name() == "Acme Corp"),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"]], dtype=object),
         ),
@@ -759,7 +758,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="string_ne_excludes_row",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
-                None, None, [f.count()], f.name().ne("Acme Corp")
+                [f.count()], f.name().ne("Acme Corp")
             ),
             expected_columns=["Count"],
             expected_result=np.array([[4]], dtype=object),
@@ -767,7 +766,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="string_contains_corp",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.name().contains("Corp")
+                [f.name()], f.name().contains("Corp")
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Beta Corp"]], dtype=object),
@@ -775,7 +774,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="string_contains_acme",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.name().contains("Acme")
+                [f.name()], f.name().contains("Acme")
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Acme Industries"]], dtype=object),
@@ -783,7 +782,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="string_starts_with_acme",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.name().starts_with("Acme")
+                [f.name()], f.name().starts_with("Acme")
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Acme Industries"]], dtype=object),
@@ -791,21 +790,21 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="string_ends_with_corp",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.name().ends_with("Corp")
+                [f.name()], f.name().ends_with("Corp")
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Beta Corp"]], dtype=object),
         ),
         TestExpectation(
             name="string_ends_with_llc",
-            query=lambda f: f.find_all(None, None, [f.name()], f.name().ends_with("LLC")),
+            query=lambda f: f.find_all([f.name()], f.name().ends_with("LLC")),
             expected_columns=["Name"],
             expected_result=np.array([["Gamma LLC"]], dtype=object),
         ),
         TestExpectation(
             name="string_is_in",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.name().is_in(["Acme Corp", "Gamma LLC"])
+                [f.name()], f.name().is_in(["Acme Corp", "Gamma LLC"])
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Gamma LLC"]], dtype=object),
@@ -813,7 +812,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="string_is_not_in",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.name().is_not_in(["Acme Corp", "Acme Industries", "Gamma LLC"])
+                [f.name()], f.name().is_not_in(["Acme Corp", "Acme Industries", "Gamma LLC"])
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Beta Corp"], ["Delta Ltd"]], dtype=object),
@@ -821,7 +820,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="string_category_starts_with_fin",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.category().starts_with("Fin")
+                [f.name()], f.category().starts_with("Fin")
             ).order_by(f.name().ascending()),
             expected_columns=["Name"],
             expected_result=np.array([["Delta Ltd"], ["Gamma LLC"]], dtype=object),
@@ -830,7 +829,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="string_category_ne_technology",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
-                None, None, [f.count()], f.category().ne("Technology")
+                [f.count()], f.category().ne("Technology")
             ),
             expected_columns=["Count"],
             expected_result=np.array([[3]], dtype=object),
@@ -840,7 +839,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="rank_min_by_id",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.id_().rank(method="min", order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Rank"],
@@ -850,7 +848,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="rank_dense_with_partition_by_category",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(),
                  f.id_().rank(method="dense",
                               partition_by=[f.category()],
@@ -864,7 +861,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="shift_lag_second_row",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.id_().shift(1, order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Lag Id"],
@@ -878,7 +874,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="shift_lead_last_row",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.id_().shift(-1, order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Lead Id"],
@@ -891,7 +886,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="qcut_two_buckets",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.id_().qcut(2, order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Quantile"],
@@ -902,7 +896,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="first_id_per_category",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.category(),
                  f.id_().first(partition_by=[f.category()], order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
@@ -919,7 +912,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="last_id_per_category",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.category(),
                  f.id_().last(partition_by=[f.category()], order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
@@ -938,7 +930,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="rank_method_first",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.id_().rank(method="first", order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Row Number"],
@@ -948,7 +939,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="rank_pct",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.id_().rank(pct=True, order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Percent Rank"],
@@ -961,7 +951,6 @@ COMPANY_FINDER_SPECS = FinderSpec(
             name="rank_pct_method_max",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(
-                None, None,
                 [f.id_(), f.id_().rank(pct=True, method="max", order_by=[f.id_().ascending()])],
             ).order_by(f.id_().ascending()),
             expected_columns=["Id", "Cume Dist"],
@@ -974,45 +963,45 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="count_with_contains_filter",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.count()], f.name().contains("Corp")),
+            query=lambda f: f.find_all([f.count()], f.name().contains("Corp")),
             expected_columns=["Count"],
             expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
             name="count_finance_category",
             skip_backends={"graphql": "The GraphQL finder has no count() yet"},
-            query=lambda f: f.find_all(None, None, [f.count()], f.category().eq("Finance")),
+            query=lambda f: f.find_all([f.count()], f.category().eq("Finance")),
             expected_columns=["Count"],
             expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
             name="count_id_attribute",
-            query=lambda f: f.find_all(None, None, [f.id_().count()]),
+            query=lambda f: f.find_all([f.id_().count()]),
             expected_columns=["Id Count"],
             expected_result=np.array([[5]], dtype=object),
         ),
         TestExpectation(
             name="count_name_technology_filter",
-            query=lambda f: f.find_all(None, None, [f.name().count()], f.category().eq("Technology")),
+            query=lambda f: f.find_all([f.name().count()], f.category().eq("Technology")),
             expected_columns=["Name Count"],
             expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
             name="count_name_ne_technology",
-            query=lambda f: f.find_all(None, None, [f.name().count()], f.category().ne("Technology")),
+            query=lambda f: f.find_all([f.name().count()], f.category().ne("Technology")),
             expected_columns=["Name Count"],
             expected_result=np.array([[3]], dtype=object),
         ),
         # --- Additional sort variants ---
         TestExpectation(
             name="sort_by_id_asc",
-            query=lambda f: f.find_all(None, None, [f.id_()]).order_by(f.id_().ascending()),
+            query=lambda f: f.find_all([f.id_()]).order_by(f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[1], [2], [3], [4], [5]], dtype=object),
         ),
         TestExpectation(
             name="sort_by_name_desc",
-            query=lambda f: f.find_all(None, None, [f.name()]).order_by(f.name().descending()),
+            query=lambda f: f.find_all([f.name()]).order_by(f.name().descending()),
             expected_columns=["Name"],
             expected_result=np.array(
                 [["Gamma LLC"], ["Delta Ltd"], ["Beta Corp"], ["Acme Industries"], ["Acme Corp"]],
@@ -1022,7 +1011,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="sort_by_category_asc_name_asc",
             query=lambda f: f.find_all(
-                None, None, [f.name(), f.category()]
+                [f.name(), f.category()]
             ).order_by(f.category().ascending(), f.name().ascending()),
             expected_columns=["Name", "Category"],
             expected_result=np.array(
@@ -1040,7 +1029,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="limit_one",
             query=lambda f: f.find_all(
-                None, None, [f.name()]
+                [f.name()]
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"]], dtype=object),
@@ -1048,7 +1037,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="limit_three",
             query=lambda f: f.find_all(
-                None, None, [f.name()]
+                [f.name()]
             ).order_by(f.name().ascending()).limit(3),
             expected_columns=["Name"],
             expected_result=np.array(
@@ -1058,7 +1047,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="limit_with_filter",
             query=lambda f: f.find_all(
-                None, None, [f.name()], f.category().eq("Technology")
+                [f.name()], f.category().eq("Technology")
             ).order_by(f.name().ascending()).limit(1),
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"]], dtype=object),

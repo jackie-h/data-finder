@@ -88,6 +88,7 @@ class {{cm.clazz.name}}Finder:
 {% endif %}
 {% endif %}
 {% endfor %}
+{% if cm.query.milestone %}
     def find_all(self,
                  business_date: Union[datetime.date, str],
                  processing_time: Union[datetime.datetime, datetime.date, str],
@@ -95,6 +96,13 @@ class {{cm.clazz.name}}Finder:
                  filter_op: Operation = NoOperation()) -> FinderResult:
         """Returns data matching the optional filter."""
         return convert_inputs_and_select(business_date, processing_time, display_columns, self._query, filter_op)
+{% else %}
+    def find_all(self,
+                 display_columns: list[Attribute],
+                 filter_op: Operation = NoOperation()) -> FinderResult:
+        """Returns data matching the optional filter. The query has no milestoning, so it has no dates."""
+        return convert_inputs_and_select(None, None, display_columns, self._query, filter_op)
+{% endif %}
 
     def find_for_date_range(self,
                             business_date_from: Union[datetime.date, str],

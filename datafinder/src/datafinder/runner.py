@@ -133,7 +133,7 @@ class FinderResult(DataFrame):
 
     def having(self, *conditions: Operation) -> 'FinderResult':
         """Keep the groups for which every condition holds: ``HAVING``. A condition tests an aggregate or a grouping
-        column: ``f.find_all(None, None, [f.category(), count_all()]).group_by(f.category()).having(count_all() > 1)``.
+        column: ``f.find_all([f.category(), count_all()]).group_by(f.category()).having(count_all() > 1)``.
         Calls accumulate, as ``and_`` does."""
         for condition in conditions:
             self._having = condition if self._having is None else self._having.and_(condition)

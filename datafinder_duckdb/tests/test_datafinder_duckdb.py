@@ -31,8 +31,7 @@ class TestDataFinderDuckDb:
         from account_finder import AccountFinder  # type: ignore[import]
         af = AccountFinder()
         np_accts = af \
-            .find_all(datetime.date.today(), datetime.datetime.now(), [af.id_(), af.name()],
-                      af.id_().eq(211978)) \
+            .find_all([af.id_(), af.name()], af.id_().eq(211978)) \
             .to_numpy()
         print(np_accts)
         assert_array_equal(np_accts, np.array([[211978, 'Trading Account 1']],dtype=object))
