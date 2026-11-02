@@ -18,13 +18,15 @@ _T = datetime.datetime
 _APP = _D(1996, 6, 1)
 _SYS = _T(2005, 6, 1)
 
-#: the customer with the most versions, and an application time at which it has several system versions
-_CUSTOMER = 67
-_CUSTOMER_APP = _D(2004, 1, 1)
+#: a customer with three versions in application time (it moved twice) and 22 in system time, and an application time at which
+#: it has several system versions
+_CUSTOMER = 136
+_CUSTOMER_APP = _D(2003, 1, 1)
 #: the order with the most versions
 _ORDER = 6052
-#: a part, whose suppliers supply many other parts
-_PART = 1
+#: a part with one supplier, which supplies 69 other parts: with the periods of the rows compared (below) the eleven B.5 queries
+#: return six different results for it
+_PART = 85
 
 _CUSTOMER_COLUMNS = ("c_custkey", "c_name", "c_address", "c_phone", "c_acctbal")
 _ORDER_COLUMNS = ("o_orderkey", "o_orderstatus", "o_totalprice", "o_orderdate", "o_orderpriority", "o_shippriority")
@@ -160,7 +162,7 @@ c_custkey = [CUSTOMER_KEY]
 ORDER BY
 sys_time_start""",
         parameters={"CUSTOMER_KEY": _CUSTOMER, "APP_TIME": _CUSTOMER_APP,
-                    "SYS_TIME_BEGIN": _T(2003, 1, 1), "SYS_TIME_END": _T(2009, 1, 1)},
+                    "SYS_TIME_BEGIN": _T(2003, 1, 1), "SYS_TIME_END": _T(2008, 1, 1)},
         select=(*_CUSTOMER_COLUMNS, "sys_time_begin"), ordered=True, approximate=True),
 
     BenchmarkCase(
@@ -192,7 +194,7 @@ BUSINESS_TIME AS OF '[APP_TIME]'
 WHERE
 c_custkey = [CUSTOMER_KEY]""",
         parameters={"CUSTOMER_KEY": _CUSTOMER, "APP_TIME": _CUSTOMER_APP,
-                    "SYS_TIME_BEGIN": _T(2003, 1, 1), "SYS_TIME_END": _T(2009, 1, 1)},
+                    "SYS_TIME_BEGIN": _T(2003, 1, 1), "SYS_TIME_END": _T(2008, 1, 1)},
         select=(0,), approximate=True),
 
     BenchmarkCase(
@@ -287,7 +289,7 @@ FROM customer
 WHERE
 c_custkey = [CUSTOMER_KEY] and VISIBLE_TIME_END <= '[APP_TIME]'
 )""",
-        parameters={"CUSTOMER_KEY": _CUSTOMER, "APP_TIME": _D(2010, 1, 1)},
+        parameters={"CUSTOMER_KEY": _CUSTOMER, "APP_TIME": _D(2002, 7, 7)},
         select=("c_custkey", "c_acctbal", "visible_time_begin"), approximate=True),
 
     BenchmarkCase(
@@ -328,15 +330,17 @@ c_custkey, c_acctbal, visible_time_start""",
 
 # ---------------------------------------------------------------------------------------------------------------------
 # B.5 Bitemporal queries: the other parts the suppliers of a part supply, with the application and system time of the two
-# rows each point, correlated, past, current or agnostic. Each returns ps2.*; what is compared is the part it supplies.
+# rows each point, correlated, past, current or agnostic. Each returns ps2.*; what is compared is the part it supplies and the
+# application and system time of that row, which is what the correlation between the two rows changes.
 # ---------------------------------------------------------------------------------------------------------------------
 
-_OTHER_PART = ("ps_partkey",)
+# the part and the periods of the other supply: ps2 is the first of the result's columns with each name, so a name finds it
+_OTHER_SUPPLY = ("ps_partkey", "validity_time_begin", "validity_time_end", "sys_time_begin", "sys_time_end")
 
 
 def _b5(case_id: str, title: str, sql: str, parameters: dict) -> BenchmarkCase:
     return BenchmarkCase(id=case_id, title=title, sql=sql, parameters={"PART_KEY": _PART, **parameters},
-                         select=_OTHER_PART, distinct=True)
+                         select=_OTHER_SUPPLY, distinct=True)
 
 
 B5_DEFINITIONS = [

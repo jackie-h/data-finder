@@ -6,7 +6,7 @@ from collections import Counter, defaultdict
 import pytest
 
 from datafinder_examples_tests.tpch_bih_generator import (
-    COLUMNS, INF_D, INF_T, KEYS, SCENARIOS, SYS_END, SYS_START, Generator, add_months, generate,
+    APPLICATION_TIME, COLUMNS, INF_D, INF_T, KEYS, SCENARIOS, SYS_END, SYS_START, Generator, add_months, generate,
 )
 
 
@@ -95,15 +95,23 @@ class TestHistory:
                 assert SYS_START <= row["sys_time_begin"] < row["sys_time_end"] <= INF_T
                 assert row["sys_time_begin"] <= SYS_END
 
-    def test_a_key_has_one_version_at_a_time_and_they_follow_each_other(self, data):
-        for table in KEYS:
+    def test_a_key_has_one_version_for_each_day_at_a_time(self, data):
+        """At any system time the versions of a key cover disjoint periods of application time."""
+        for table, prefix in APPLICATION_TIME.items():
             by_key = defaultdict(list)
             for row in data.store.versions[table]:
                 by_key[tuple(row[c] for c in KEYS[table])].append(row)
             for versions in by_key.values():
-                versions.sort(key=lambda r: r["sys_time_begin"])
-                for earlier, later in zip(versions, versions[1:]):
-                    assert earlier["sys_time_end"] == later["sys_time_begin"]
+                for at in {v["sys_time_begin"] for v in versions}:
+                    alive = sorted((v for v in versions if v["sys_time_begin"] <= at < v["sys_time_end"]
+                                    and v[prefix + "_begin"] < v[prefix + "_end"]), key=lambda v: v[prefix + "_begin"])
+                    for earlier, later in zip(alive, alive[1:]):
+                        assert earlier[prefix + "_end"] <= later[prefix + "_begin"], (table, versions[0])
+
+    def test_a_key_has_no_gap_in_system_time_for_the_period_of_a_version(self, data):
+        for table in KEYS:
+            for row in data.store.versions[table]:
+                assert row["sys_time_begin"] < row["sys_time_end"]
 
     def test_a_deleted_order_has_no_current_lines(self, data):
         current_orders = {k[0] for k in data.store.current["orders"]}
@@ -164,19 +172,38 @@ class TestHistory:
                 assert 1 <= ahead <= 14 and after["availability_time_end"] == INF_D
         assert delays > 5
 
-    def test_a_price_change_keeps_the_cost_positive_and_overwrites_the_validity(self, data):
+    def test_a_price_change_keeps_the_cost_positive_and_splits_the_validity(self, data):
+        """A.2.7 is a portion update: the old cost stays before the date the change is valid from, the new cost starts there."""
         by_key = defaultdict(list)
         for row in data.store.versions["partsupp"]:
             by_key[(row["ps_partkey"], row["ps_suppkey"])].append(row)
-        changes = 0
+        splits = 0
         for versions in by_key.values():
-            versions.sort(key=lambda r: r["sys_time_begin"])
-            for before, after in zip(versions, versions[1:]):
-                if after["ps_supplycost"] != before["ps_supplycost"]:
-                    changes += 1
-                    assert after["ps_supplycost"] >= 0 and after["validity_time_end"] == INF_D
-                    assert abs(after["ps_supplycost"] - before["ps_supplycost"]) <= 100.01  # |change| <= 100, then abs()
-        assert changes > 5
+            for at in {v["sys_time_begin"] for v in versions if v["sys_time_begin"] > SYS_START}:
+                now = sorted((v for v in versions if v["sys_time_begin"] <= at < v["sys_time_end"]
+                              and v["validity_time_begin"] < v["validity_time_end"]), key=lambda v: v["validity_time_begin"])
+                for before, after in zip(now, now[1:]):
+                    if before["sys_time_begin"] == at and after["sys_time_begin"] == at:
+                        splits += 1
+                        assert before["validity_time_end"] == after["validity_time_begin"]
+                        assert after["ps_supplycost"] >= 0
+                        assert abs(after["ps_supplycost"] - before["ps_supplycost"]) <= 100.01  # |change| <= 100, then abs()
+        assert splits > 5
+
+    def test_a_customer_move_splits_the_visibility_and_changes_the_nation_from_then_on(self, data):
+        moved = 0
+        for key in data.store.current["customer"]:
+            rows = sorted(data.store.rows("customer", key), key=lambda r: r["visible_time_begin"])
+            if len(rows) > 1:
+                moved += 1
+                for before, after in zip(rows, rows[1:]):
+                    assert before["visible_time_end"] == after["visible_time_begin"]
+                assert rows[-1]["visible_time_end"] == INF_D
+        assert moved > 5
+
+    def test_a_balance_change_applies_to_every_version_of_the_customer(self, data):
+        for key in data.store.current["customer"]:
+            assert len({r["c_acctbal"] for r in data.store.rows("customer", key)}) == 1
 
     def test_the_history_changes_every_table_it_should(self, data):
         for table in ("supplier", "part", "partsupp", "customer", "orders", "lineitem"):
