@@ -173,7 +173,7 @@ class TestHistory:
         assert delays > 5
 
     def test_a_price_change_keeps_the_cost_positive_and_splits_the_validity(self, data):
-        """A.2.7 is a portion update: the old cost stays before the date the change is valid from, the new cost starts there."""
+        """A.2.7 is bitemporal milestoning: the old cost stays before the date the change is valid from, the new cost starts there."""
         by_key = defaultdict(list)
         for row in data.store.versions["partsupp"]:
             by_key[(row["ps_partkey"], row["ps_suppkey"])].append(row)

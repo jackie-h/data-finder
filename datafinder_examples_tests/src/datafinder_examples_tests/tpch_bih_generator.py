@@ -21,9 +21,9 @@ Where the report is not specific, this does the following (they are choices, not
 * ``CURRENT_TIME`` is the simulated clock. It is a timestamp for the system time and its date for application times.
 * An update is a new version: the current version of the row is ended at the system time and a new one begins.
 * An update that changes values from a date on, "Set VISIBILITY TIME := [begin, infinity]" when a customer moves (A.2.1) and
-  "Set VALIDITY TIME := [begin, infinity]" when a price changes (A.2.7), is an SQL:2011 portion update: the row keeps its old
-  values before ``begin`` and has the new values from ``begin``, so a key has more than one version at a time, each for another
-  period of application time. This is what lets the key-history, range and bitemporal queries return different results in
+  "Set VALIDITY TIME := [begin, infinity]" when a price changes (A.2.7), is bitemporal milestoning: the latest version has its
+  application time end set to ``begin`` and a new version with the changed values runs from ``begin`` to infinity, so a key has
+  more than one version at a time, each for another period of application time. This is what lets the key-history, range and bitemporal queries return different results in
   the two dimensions. An update that only moves the start of availability (A.2.6) or ends a period (``ACTIVE TIME END``,
   ``RECEIVABLE TIME END``) sets the period of the row, and does not split it. An update with no period, a balance or a
   stock level, changes every current version of the key.
@@ -158,28 +158,24 @@ class Store:
         return row[f"{APPLICATION_TIME[table]}_end"], row[f"{APPLICATION_TIME[table]}_begin"]
 
     def update(self, table: str, key: tuple, at: datetime.datetime, **changes: Any) -> dict:
-        """Change every current version of a key (an update that names no portion of application time)."""
+        """Change every current version of a key (an update with no application time)."""
         rows = [self._version(table, old, at, changes) for old in self.rows(table, key)]
         return self._set(table, key, rows)
 
-    def update_portion(self, table: str, key: tuple, at: datetime.datetime, begin: datetime.date, **changes: Any) -> dict:
-        """Change a key from ``begin`` to the end of application time and leave it as it was before ``begin``:
-        ``UPDATE ... FOR PORTION OF application_time FROM begin TO '9999-12-31' SET ...``. A version that begins before
-        ``begin`` and ends after it is split in two."""
+    def milestone(self, table: str, key: tuple, at: datetime.datetime, begin: datetime.date, **changes: Any) -> dict:
+        """Bitemporal milestoning of a change that is valid from ``begin``: the latest version has its application time end set
+        to ``begin``, and a new version with the changed values runs from ``begin`` to the end of application time. A change
+        valid from before the latest version began has no day of it to keep, so it changes the values of that version."""
         prefix = APPLICATION_TIME[table]
         b, e = f"{prefix}_begin", f"{prefix}_end"
-        rows: list[dict] = []
-        for old in self.rows(table, key):
-            if old[b] >= old[e]:  # a period with no days has nothing to split
-                rows.append(self._version(table, old, at, changes))
-            elif old[e] <= begin:  # ends before the portion starts
-                rows.append(old)
-            else:
-                if old[b] < begin:  # the part before the portion keeps its values
-                    rows.append(self._version(table, old, at, {e: begin}))
-                    rows.append(self._add(table, {**old, **changes, b: begin, "sys_time_begin": at, "sys_time_end": INF_T}))
-                else:
-                    rows.append(self._version(table, old, at, changes))
+        rows = self.rows(table, key)
+        old = self.current[table][key]
+        if old[b] >= begin or old[b] >= old[e]:
+            rows = [self._version(table, r, at, changes) if r is old else r for r in rows]
+        else:
+            rows = [r for r in rows if r is not old]
+            rows.append(self._version(table, old, at, {e: begin}))
+            rows.append(self._add(table, {**old, **changes, b: begin, "sys_time_begin": at, "sys_time_end": INF_T}))
         return self._set(table, key, rows)
 
     def _add(self, table: str, row: dict) -> dict:
@@ -331,7 +327,7 @@ class Generator:
             customer = self.rng.choice(customers)
             if self.rng.random() < 0.5:  # a. the customer's data changes
                 nation = self.rng.randint(0, 24)
-                self.store.update_portion(
+                self.store.milestone(
                     "customer", (customer["c_custkey"],), at, today + self.uniform_days(1, 30), c_nationkey=nation,
                     c_address=self.text(3), c_phone=self.phone(nation, self.rng))
             custkey = customer["c_custkey"]
@@ -457,7 +453,7 @@ class Generator:
             return False
         begin = today + datetime.timedelta(days=round(self.rng.gauss(-15, 30)))
         change = self.rng.uniform(-100, 100)
-        self.store.update_portion("partsupp", (ps["ps_partkey"], ps["ps_suppkey"]), at, begin,
+        self.store.milestone("partsupp", (ps["ps_partkey"], ps["ps_suppkey"]), at, begin,
                                   ps_supplycost=round(abs(ps["ps_supplycost"] + change), 2))
         return True
 
