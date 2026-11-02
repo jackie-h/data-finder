@@ -89,3 +89,26 @@ but not including `thru_z`, and the infinity date is 9999-12-31. Order has no mi
 | name | VARCHAR | PK | N | name |
 | from_z | DATE |  | Y | businessFrom |
 | thru_z | DATE |  | Y | businessThru |
+
+#### Table: OrderToSystemADescriptions (milestoning: business_date_range)
+
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| orderId | INT | PK | N |  |
+| systemADescriptionId | INT | PK | N |  |
+| from_z | DATE |  | Y |  |
+| thru_z | DATE |  | Y |  |
+
+#### Table: SystemAOrderDescriptionTable → SystemAOrderDescription
+
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| descriptionId | INT | PK | N |  |
+| description | VARCHAR |  | Y | description |
+
+#### Association: OrderSystemADescription
+
+| Source Column | Target Table                | Target Column        |
+|---------------|-----------------------------|----------------------|
+| id            | OrderToSystemADescriptions  | orderId              |
+| systemADescriptionId | SystemAOrderDescriptionTable | descriptionId |
