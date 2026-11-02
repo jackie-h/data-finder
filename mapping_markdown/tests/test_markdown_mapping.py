@@ -1213,10 +1213,10 @@ class TestJoinsThroughTables:
     def test_a_link_table_with_a_milestoning_scheme_keeps_it(self):
         join = self._pm("citizenship").target
         scheme = join.via[0][1].table.milestoning_scheme
-        assert scheme is not None and scheme.name == "link_validity"
+        assert scheme is not None and scheme.name == "business_date_range"
         assert (scheme.business_date_from, scheme.business_date_to) == ("valid_from", "valid_to")
 
     def test_an_undefined_milestoning_scheme_on_a_link_table_is_refused(self, tmp_path):
-        path = self._with(tmp_path, "(milestoning: link_validity)\n", "(milestoning: nosuch)\n")
+        path = self._with(tmp_path, "(milestoning: business_date_range)\n", "(milestoning: nosuch)\n")
         with pytest.raises(ValueError, match="'nosuch' is not defined"):
             load(path)

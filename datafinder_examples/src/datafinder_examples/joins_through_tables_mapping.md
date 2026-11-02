@@ -11,9 +11,9 @@ it reached. An Association for a property of an embedded object says where it is
 
 ## DataStore: hr_db (Database)
 
-| Scheme        | processing_start | processing_end | business_date | business_date_from | business_date_to | infinite_datetime |
-|---------------|------------------|----------------|---------------|--------------------|------------------|-------------------|
-| link_validity |                  |                |               | valid_from         | valid_to         | 9999-12-31        |
+| Scheme              | processing_start | processing_end | business_date | business_date_from | business_date_to | infinite_datetime |
+|---------------------|------------------|----------------|---------------|--------------------|------------------|-------------------|
+| business_date_range |                  |                |               | valid_from         | valid_to         | 9999-12-31        |
 
 ### Schema: hr
 
@@ -27,7 +27,7 @@ it reached. An Association for a property of an embedded object says where it is
 | home_country | INT     | FK  | Y        | home.country |
 | citizen_ref  | INT     | FK  | Y        | citizenship  |
 
-#### Table: country_refs (milestoning: link_validity)
+#### Table: country_refs (milestoning: business_date_range)
 
 | Column     | Type    | Key | Nullable | Property ID |
 |------------|---------|-----|----------|-------------|
