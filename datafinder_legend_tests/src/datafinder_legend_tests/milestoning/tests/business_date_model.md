@@ -89,3 +89,19 @@ association, apart from Order and Product, which Legend relates both ways (`orde
 | Name                     | Source                | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |--------------------------|-----------------------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|-------------|
 | ClassificationExchangeLink | ProductClassification | Exchange           | exchange           | 1                   | Exchange |                      |                    | *                   |             |
+
+### Class: SystemAOrderDescription
+
+| Name                   | Description |
+|------------------------|-------------|
+| SystemAOrderDescription |             |
+
+| Property    | Id          | Type   | Multiplicity | Key | Description |
+|-------------|-------------|--------|--------------|-----|-------------|
+| Description | description | String | 1            | Y   |             |
+
+### Association: OrderSystemADescription
+
+| Name                   | Source | Source Property Name | Source Property ID | Source Multiplicity | Target                  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|------------------------|--------|----------------------|--------------------|---------------------|-------------------------|----------------------|--------------------|---------------------|-------------|
+| OrderSystemADescription | Order  | SystemADescription   | systemADescription | 1                   | SystemAOrderDescription |                      |                    | *                   |             |
