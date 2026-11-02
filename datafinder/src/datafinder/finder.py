@@ -1,12 +1,15 @@
 from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation
 
 
-def via_joins(parent: JoinTreeNodeOperation | None, hops: list) -> JoinTreeNodeOperation | None:
+def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=None,
+              processing_datetime=None) -> JoinTreeNodeOperation | None:
     """The step a property mapped through other tables hangs from: ``parent`` followed by a step through each hop, a
-    (from column, table, to column) triple, in order. The tables carry no class, so the steps have no name."""
+    (from column, table, to column) triple, in order. The tables carry no class, so the steps have no name. The dates
+    the property was given are those of each step through a table on the way, as they are of the step that follows."""
     node = parent
     for source, table, target in hops:
-        node = JoinTreeNodeOperation(JoinOperation('', table, source, target), node, optional=True)
+        node = JoinTreeNodeOperation(JoinOperation('', table, source, target), node, optional=True,
+                                     business_date=business_date, processing_datetime=processing_datetime)
     return node
 
 

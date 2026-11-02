@@ -549,3 +549,73 @@ class TestJoinsThroughTablesFinder:
     def test_a_property_through_tables_has_no_reverse_accessor(self):
         from people.hr.country_finder import CountryFinder  # type: ignore[import]
         assert not hasattr(CountryFinder(), "citizenship")
+
+
+class TestDatesOnAPropertyMappedThroughTables:
+    """The dates a property is asked for with are those of the milestoned tables it passes through, as well as of the
+    table it ends at."""
+
+    _MODS = ("people", "people.hr", "people.hr.employee_finder", "people.hr.employee_finder_base",
+             "people.hr.country_finder", "people.hr.country_finder_base")
+
+    def setup_method(self):
+        from datafinder_examples import example_path
+        from model.relational import Database, Schema, Table, Column
+        self.tmp = tempfile.mkdtemp()
+        base = os.path.dirname(str(example_path("joins_through_tables_mapping.md")))
+        shutil.copy(os.path.join(base, "joins_through_tables_model.md"), self.tmp)
+        content = open(os.path.join(base, "joins_through_tables_mapping.md")).read()
+        content = content.replace("## DataStore: hr_db (Database)\n", """## DataStore: hr_db (Database)
+
+| Scheme     | processing_start | processing_end | business_date | business_date_from | business_date_to | infinite_datetime |
+|------------|------------------|----------------|---------------|--------------------|------------------|-------------------|
+| link_range |                  |                |               | valid_from         | valid_to         | 9999-12-31        |
+""")
+        content = content.replace("#### Table: country_refs\n", "#### Table: country_refs (milestoning: link_range)\n")
+        content = content.replace("| code   | VARCHAR |     | Y        |             |\n",
+                                  "| code   | VARCHAR |     | Y        |             |\n"
+                                  "| valid_from | DATE |   | Y        |             |\n"
+                                  "| valid_to | DATE |     | Y        |             |\n", 1)
+        path = os.path.join(self.tmp, "mapping.md")
+        open(path, "w").write(content)
+        repo = Database("hr_db", "duckdb://test.db")
+        schema = Schema("hr", repo)
+        Table("employees", [Column("id", "INT"), Column("name", "VARCHAR"), Column("street", "VARCHAR"),
+                            Column("home_country", "INT"), Column("citizen_ref", "INT")], schema)
+        Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR"), Column("valid_from", "DATE"),
+                               Column("valid_to", "DATE")], schema)
+        Table("countries", [Column("code", "VARCHAR"), Column("name", "VARCHAR")], schema)
+        self.out = tempfile.mkdtemp()
+        generate(load(path, repo), self.out)
+        for m in self._MODS:
+            sys.modules.pop(m, None)
+        sys.path.insert(0, self.out)
+        from people.hr.employee_finder import EmployeeFinder  # type: ignore[import]
+        self.finder = EmployeeFinder()
+
+    def teardown_method(self):
+        if self.out in sys.path:
+            sys.path.remove(self.out)
+        for m in self._MODS:
+            sys.modules.pop(m, None)
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        shutil.rmtree(self.out, ignore_errors=True)
+
+    def test_a_date_given_to_the_property_applies_to_the_table_on_the_way(self):
+        f = self.finder
+        sql = f.find_all(None, None, [f.citizenship(business_date="2024-06-01").name()]).to_sql()
+        assert "t2.valid_from <= '2024-06-01' AND t2.valid_to > '2024-06-01'" in sql
+
+    def test_a_date_of_the_query_applies_to_the_table_on_the_way(self):
+        f = self.finder
+        sql = f.find_all("2024-06-01", None, [f.citizenship().name()]).to_sql()
+        assert "t2.valid_from <= '2024-06-01' AND t2.valid_to > '2024-06-01'" in sql
+
+    def test_a_date_given_to_the_property_wins_over_that_of_the_query(self):
+        f = self.finder
+        sql = f.find_all("2024-06-01", None, [f.citizenship(business_date="2023-01-01").name()]).to_sql()
+        assert "t2.valid_from <= '2023-01-01'" in sql and "2024-06-01" not in sql
+
+    def test_without_a_date_the_table_on_the_way_is_not_filtered(self):
+        f = self.finder
+        assert "valid_from" not in f.find_all(None, None, [f.citizenship().name()]).to_sql()
