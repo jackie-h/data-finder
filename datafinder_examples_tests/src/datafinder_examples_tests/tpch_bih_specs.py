@@ -26,6 +26,7 @@ The queries are given a business date (application time) and a processing time (
 import datetime
 import decimal
 import re
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -33,7 +34,10 @@ from datafinder.conditional import when
 from datafinder.expressions import constant, count_all
 from datafinder_examples_tests import tpch_bih_oracle as oracle
 from datafinder_examples_tests.spec import TestExpectation
+from datafinder_examples_tests.tpch_bih_case import BenchmarkCase
+from datafinder_examples_tests.tpch_bih_cases import CASES
 from datafinder_examples_tests.tpch_bih_data import CURRENT_SYS
+from datafinder_examples_tests.tpch_bih_queries import QUERIES, Unsupported
 
 TPCH_BIH_MAPPING = "tpch_bih_mapping.md"
 
@@ -43,12 +47,6 @@ _NOW = CURRENT_SYS
 _SYS = "2005-06-01"
 
 _BACKENDS = ("duckdb",)
-
-_PART_NAVIGATION = (
-    "The part key is read through the PART navigation, which joins PART as of the date: a supply whose part is not "
-    "available at that application time, as currently recorded (a delay moves the start of availability), is lost, where "
-    "the benchmark's SQL uses ps_partkey directly")
-
 
 def _skip(reason: str) -> dict[str, str]:
     return {backend: reason for backend in _BACKENDS}
@@ -81,39 +79,6 @@ def _overlap(a_begin, a_end, b_begin, b_end):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Bitemporal self-join (Appendix B.5): the other parts supplied by suppliers who supply part 1
-# ---------------------------------------------------------------------------------------------------------------------
-
-_B5_COLUMNS = ["Part Part Key"]
-
-
-def _other_parts(f, business_date, processing_time, correlate=()):
-    """PARTSUPP rows of other parts, for suppliers that also have a PARTSUPP row for part 1: a self-join of PARTSUPP
-    through SUPPLIER. A navigation takes the dates of the root, so a dimension that is a point (or agnostic) for both
-    rows is a date of the query, and one that is correlated is left open (None) and the periods of the two rows
-    are compared: ``correlate`` names "application" and "system"."""
-    other = f.supplier().part_supps()
-    condition = other.part().part_key().eq(1).and_(f.part().part_key().ne(1))
-    if "application" in correlate:
-        condition = condition.and_(_overlap(f.validity_time_begin(), f.validity_time_end(),
-                                            other.validity_time_begin(), other.validity_time_end()))
-    if "system" in correlate:
-        condition = condition.and_(_overlap(f.sys_time_begin(), f.sys_time_end(),
-                                            other.sys_time_begin(), other.sys_time_end()))
-    return f.find_all(business_date, processing_time, [f.part().part_key()], condition) \
-        .distinct().order_by(f.part().part_key().ascending())
-
-
-def _other_parts_at_distinct_business_times(f, anchor_business_date, other_business_date, processing_time):
-    """B.5.2: use one business-time point for the anchor part and another for candidate parts."""
-    anchor = f.supplier().part_supps(business_date=anchor_business_date, processing_time=processing_time)
-    condition = anchor.part().part_key().eq(1).and_(f.part().part_key().ne(1))
-    return f.find_all(other_business_date, processing_time, [f.part().part_key()], condition) \
-        .distinct().order_by(f.part().part_key().ascending())
-
-
-
-# ---------------------------------------------------------------------------------------------------------------------
 # TPC-H queries with time travel, as the TPC-H specification (3.0.1, clause 2.4) defines them: its columns, filters, grouping,
 # ordering and row limit, and values for its substitution parameters. A query the finders cannot express as defined is
 # written as _unsupported, which is skipped with the reason.
@@ -131,122 +96,6 @@ def _q19_branch(f, brand: str, containers: list[str], quantity: float, max_size:
             .and_(f.quantity() >= quantity).and_(f.quantity() <= quantity + 10)
             .and_(f.part().size() >= 1).and_(f.part().size() <= max_size)
             .and_(f.ship_mode().is_in(["AIR", "AIR REG"])).and_(f.ship_instruct().eq("DELIVER IN PERSON")))
-
-# Appendix B.1: time-travel queries
-T_CASES = [
-    # T.1: one application-time and system-time point on the stable PARTSUPP relation.
-    TestExpectation(
-        name="T1_average_supply_cost_and_count_at_two_time_points",
-        query=lambda q: q.partsupp.find_all(
-            "1996-06-01", _SYS,
-            [q.partsupp.supply_cost().average().alias("avg_supplycost"), count_all().alias("count")],
-        ),
-        expected_columns=["avg_supplycost", "count"],
-        expected_result=oracle.t1("1996-06-01", _SYS),
-        approximate=True,
-    ),
-
-    # T.2: point in both time dimensions; benchmark query and aggregate output.
-    TestExpectation(
-        name="T2_open_order_revenue_at_two_time_points",
-        query=lambda q: q.order.find_all(
-            "1996-06-01", _SYS,
-            [q.order.total_price().sum().alias("revenue"), count_all().alias("count")],
-            q.order.order_status().eq("O"),
-        ),
-        expected_columns=["revenue", "count"],
-        expected_result=oracle.t2("1996-06-01", _SYS),
-        approximate=True,
-    ),
-
-    _unsupported(
-        "T3_sys_compare_open_order_revenue_between_system_times",
-        "Requires comparing two independently aggregated time-travel subqueries, which finder specs cannot express",
-        ["old_revenue", "new_revenue"],
-    ),
-
-    _unsupported(
-        "T3_app_compare_open_order_revenue_between_application_times",
-        "Requires comparing two independently aggregated time-travel subqueries, which finder specs cannot express",
-        ["old_revenue", "new_revenue"],
-    ),
-
-    _unsupported(
-        "T4_sys_top_ten_customers_by_open_to_filled_revenue_change",
-        "Requires joining two grouped time-travel subqueries and ordering by their aggregate difference",
-        ["inc_revenue", "o_custkey"],
-    ),
-
-    _unsupported(
-        "T4_app_top_ten_customers_by_open_order_revenue_change",
-        "Requires joining two grouped time-travel subqueries and ordering by their aggregate difference",
-        ["inc_revenue", "o_custkey"],
-    ),
-
-    _unsupported(
-        "T5_maximum_open_order_price_per_customer_over_system_history",
-        "The order finder exposes o_custkey only through a temporal CUSTOMER navigation; grouping by that joined "
-        "relation duplicates historical order rows, so it cannot reproduce the benchmark's direct o_custkey group",
-        ["o_custkey", "max(o_totalprice)", "supp_revenue"],
-    ),
-
-    TestExpectation(
-        name="T6_sys_average_open_order_price_per_customer_at_system_time",
-        query=lambda q: q.order.find_all(
-            None, _SYS, [q.order.customer().customer_key(), q.order.total_price().average().alias("supp_revenue")],
-            q.order.order_status().eq("O"),
-        ).group_by(q.order.customer().customer_key()).order_by(q.order.customer().customer_key().ascending()),
-        expected_columns=["Customer Customer Key", "supp_revenue"],
-        expected_result=oracle.t6(None, _SYS),
-        approximate=True,
-    ),
-
-    TestExpectation(
-        name="T6_app_average_open_order_price_per_customer_at_application_time",
-        query=lambda q: q.order.find_all(
-            "1996-06-01", None,
-            [q.order.customer().customer_key(), q.order.total_price().average().alias("supp_revenue")],
-            q.order.order_status().eq("O"),
-        ).group_by(q.order.customer().customer_key()).order_by(q.order.customer().customer_key().ascending()),
-        expected_columns=["Customer Customer Key", "supp_revenue"],
-        expected_result=oracle.t6("1996-06-01", None),
-        approximate=True,
-    ),
-
-    TestExpectation(
-        name="T7_current_average_availability_by_part",
-        query=lambda q: q.partsupp.find_all(
-            "1998-06-01", _NOW, [q.partsupp.part().part_key(), q.partsupp.avail_qty().average().alias("avail")],
-        ).group_by(q.partsupp.part().part_key()).order_by(q.partsupp.part().part_key().ascending()),
-        skip_backends=_skip(_PART_NAVIGATION),
-        expected_columns=["Part Part Key", "avail"],
-        expected_result=oracle.t7("1998-06-01", _NOW),
-        approximate=True,
-    ),
-
-    TestExpectation(
-        name="T8_count_orders_payable_at_application_time_as_recorded_at_system_time",
-        query=lambda q: q.order.find_all(
-            "1996-06-01", _SYS, [count_all().alias("count")],
-            (q.order.receivable_time_begin() <= datetime.date(1996, 6, 1))
-            .and_(q.order.receivable_time_end() > datetime.date(1996, 6, 1)),
-        ),
-        expected_columns=["count"],
-        expected_result=oracle.t8("1996-06-01", _SYS, "1996-06-01"),
-    ),
-
-    TestExpectation(
-        name="T9_count_orders_in_transit_at_two_independent_times",
-        query=lambda q: q.order.find_all(
-            None, _SYS, [count_all().alias("count")],
-            (q.order.receivable_time_begin() <= datetime.date(1996, 6, 1))
-            .and_(q.order.receivable_time_end() > datetime.date(1996, 6, 1)),
-        ),
-        expected_columns=["count"],
-        expected_result=oracle.t9(None, _SYS, "1996-06-01"),
-    ),
-
-]
 
 # Appendix B.2: TPC-H query
 H_CASES = [
@@ -268,164 +117,6 @@ H_CASES = [
                           "sum_charge", "avg_qty", "avg_price", "avg_disc", "count_order"],
         expected_result=oracle.h1("1998-01-01", _NOW, "1998-11-01"),
         approximate=True,
-    ),
-
-]
-
-# Appendix B.3: key-history queries, on the customer with the most versions
-_K = oracle.busiest_customer()
-_APP_POINT = "1995-06-01"
-#: the ranges K.2 and K.3 take, in each dimension
-_SYS_RANGE = (datetime.datetime(2002, 1, 1), datetime.datetime(2006, 1, 1))
-_APP_RANGE = (datetime.date(1993, 1, 1), datetime.date(2004, 1, 1))
-_SYS_OVERLAP = ("sys", "2002-01-01 00:00:00", "2006-01-01 00:00:00")
-_APP_OVERLAP = ("visible", "1993-01-01", "2004-01-01")
-#: K.6 asks for the versions with a balance above a limit; this one leaves a short list
-_LIMIT = 9900.0
-_SYS_COLUMNS = ["Customer Key", "Acct Bal", "Sys Time Begin"]
-_APP_COLUMNS = ["Customer Key", "Acct Bal", "Visible Time Begin", "Visible Time End"]
-K_CASES = [
-    # K.1: all system versions at one application-time point; all application versions as recorded now.
-    TestExpectation(
-        name="K1_sys_customer_system_history_at_application_point",
-        query=lambda q: q.customer.find_all(
-            _APP_POINT, None, [q.customer.customer_key(), q.customer.acct_bal(), q.customer.sys_time_begin()],
-            q.customer.customer_key().eq(_K),
-        ).order_by(q.customer.sys_time_begin().ascending()),
-        expected_columns=_SYS_COLUMNS,
-        expected_result=oracle.customers(_APP_POINT, None, ["c_custkey", "c_acctbal", "sys_time_begin"],
-                                         ["sys_time_begin"], key=_K),
-    ),
-
-    TestExpectation(
-        name="K1_app_customer_application_history_as_recorded",
-        query=lambda q: q.customer.find_all(
-            None, _NOW,
-            [q.customer.customer_key(), q.customer.acct_bal(), q.customer.visible_time_begin(), q.customer.visible_time_end()],
-            q.customer.customer_key().eq(_K),
-        ).order_by(q.customer.visible_time_begin().ascending()),
-        expected_columns=_APP_COLUMNS,
-        expected_result=oracle.customers(None, _NOW, ["c_custkey", "c_acctbal", "visible_time_begin", "visible_time_end"],
-                                         ["visible_time_begin"], key=_K),
-    ),
-
-    # K.2: temporal ranges are expressible by filtering version bounds or using the business-range finder.
-    TestExpectation(
-        name="K2_sys_customer_system_history_range_at_application_point",
-        query=lambda q: q.customer.find_all(
-            _APP_POINT, None, [q.customer.customer_key(), q.customer.acct_bal(), q.customer.sys_time_begin()],
-            q.customer.customer_key().eq(_K).and_(q.customer.sys_time_begin() < _SYS_RANGE[1])
-            .and_(q.customer.sys_time_end() > _SYS_RANGE[0]),
-        ).order_by(q.customer.sys_time_begin().ascending()),
-        expected_columns=_SYS_COLUMNS,
-        expected_result=oracle.customers(_APP_POINT, None, ["c_custkey", "c_acctbal", "sys_time_begin"],
-                                         ["sys_time_begin"], key=_K, overlapping=_SYS_OVERLAP),
-    ),
-
-    TestExpectation(
-        name="K2_app_customer_application_history_range_as_recorded",
-        query=lambda q: q.customer.find_for_date_range(
-            *_APP_RANGE, _NOW,
-            [q.customer.customer_key(), q.customer.acct_bal(), q.customer.visible_time_begin()], q.customer.customer_key().eq(_K),
-        ).order_by(q.customer.visible_time_begin().ascending()),
-        expected_columns=["Customer Key", "Acct Bal", "Visible Time Begin"],
-        expected_result=oracle.customers(None, _NOW, ["c_custkey", "c_acctbal", "visible_time_begin"],
-                                         ["visible_time_begin"], key=_K, overlapping=_APP_OVERLAP),
-    ),
-
-    # K.3: MIN over either kind of temporal range.
-    TestExpectation(
-        name="K3_sys_minimum_balance_over_system_history",
-        query=lambda q: q.customer.find_all(
-            _APP_POINT, None, [q.customer.acct_bal().min().alias("min_balance")],
-            q.customer.customer_key().eq(_K).and_(q.customer.sys_time_begin() < _SYS_RANGE[1])
-            .and_(q.customer.sys_time_end() > _SYS_RANGE[0]),
-        ),
-        expected_columns=["min_balance"],
-        expected_result=oracle.minimum_balance(_APP_POINT, None, _K, _SYS_OVERLAP),
-    ),
-
-    TestExpectation(
-        name="K3_app_minimum_balance_over_application_history",
-        query=lambda q: q.customer.find_for_date_range(
-            *_APP_RANGE, _NOW, [q.customer.acct_bal().min().alias("min_balance")], q.customer.customer_key().eq(_K),
-        ),
-        expected_columns=["min_balance"],
-        expected_result=oracle.minimum_balance(None, _NOW, _K, _APP_OVERLAP),
-    ),
-
-    # K.4: the first versions of a key, up to HSIZE = 10.
-    TestExpectation(
-        name="K4_sys_latest_ten_customer_system_versions",
-        query=lambda q: q.customer.find_all(
-            _APP_POINT, None,
-            [q.customer.customer_key(), q.customer.acct_bal(), q.customer.sys_time_begin(), q.customer.sys_time_end()],
-            q.customer.customer_key().eq(_K),
-        ).order_by(q.customer.sys_time_begin().ascending()).limit(10),
-        expected_columns=["Customer Key", "Acct Bal", "Sys Time Begin", "Sys Time End"],
-        expected_result=oracle.customers(_APP_POINT, None, ["c_custkey", "c_acctbal", "sys_time_begin", "sys_time_end"],
-                                         ["sys_time_begin"], key=_K)[:10],
-    ),
-
-    TestExpectation(
-        name="K4_app_latest_ten_customer_application_versions",
-        query=lambda q: q.customer.find_for_date_range(
-            "0001-01-01", "9999-12-30", _NOW,
-            [q.customer.customer_key(), q.customer.acct_bal(), q.customer.visible_time_begin(), q.customer.visible_time_end()],
-            q.customer.customer_key().eq(_K),
-        ).order_by(q.customer.visible_time_begin().ascending()).limit(10),
-        expected_columns=_APP_COLUMNS,
-        expected_result=oracle.customers(None, _NOW, ["c_custkey", "c_acctbal", "visible_time_begin", "visible_time_end"],
-                                         ["visible_time_begin"], key=_K)[:10],
-    ),
-
-    # K.5 uses adjacent versions here: the generated history is contiguous, so the version before is the one that ends
-    # when this one begins.
-    TestExpectation(
-        name="K5_sys_preceding_customer_system_version",
-        query=lambda q: q.customer.find_all(
-            _APP_POINT, None, [q.customer.other_version().acct_bal(), q.customer.other_version().sys_time_begin()],
-            q.customer.customer_key().eq(_K).and_(q.customer.sys_time_begin() <= _SYS_RANGE[1])
-            .and_(q.customer.other_version().sys_time_end() == q.customer.sys_time_begin()),
-        ),
-        expected_columns=["Other Version Acct Bal", "Other Version Sys Time Begin"],
-        expected_result=oracle.preceding_customer_version(_APP_POINT, None, _K, "sys", "2006-01-01 00:00:00"),
-    ),
-
-    TestExpectation(
-        name="K5_app_preceding_customer_application_version",
-        query=lambda q: q.customer.find_all(
-            None, _NOW, [q.customer.other_version().acct_bal(), q.customer.other_version().visible_time_begin()],
-            q.customer.customer_key().eq(_K).and_(q.customer.visible_time_begin() <= _APP_RANGE[1])
-            .and_(q.customer.other_version().visible_time_end() == q.customer.visible_time_begin()),
-        ),
-        expected_columns=["Other Version Acct Bal", "Other Version Visible Time Begin"],
-        expected_result=oracle.preceding_customer_version(None, _NOW, _K, "visible", "2004-01-01"),
-    ),
-
-    # K.6: a value predicate over the selected history is an ordinary finder filter.
-    TestExpectation(
-        name="K6_sys_customer_history_filtered_by_balance_at_application_point",
-        query=lambda q: q.customer.find_all(
-            _APP_POINT, None, [q.customer.customer_key(), q.customer.acct_bal(), q.customer.sys_time_begin()],
-            q.customer.acct_bal() > _LIMIT,
-        ).order_by(q.customer.customer_key().ascending(), q.customer.sys_time_begin().ascending()),
-        expected_columns=_SYS_COLUMNS,
-        expected_result=oracle.customers(_APP_POINT, None, ["c_custkey", "c_acctbal", "sys_time_begin"],
-                                         ["c_custkey", "sys_time_begin"], balance_above=_LIMIT),
-    ),
-
-    TestExpectation(
-        name="K6_app_customer_application_history_filtered_by_balance",
-        query=lambda q: q.customer.find_for_date_range(
-            "0001-01-01", "9999-12-31", _NOW,
-            [q.customer.customer_key(), q.customer.acct_bal(), q.customer.visible_time_begin()],
-            q.customer.acct_bal() > _LIMIT,
-        ).order_by(q.customer.customer_key().ascending(), q.customer.acct_bal().ascending(),
-                   q.customer.visible_time_begin().ascending()),
-        expected_columns=["Customer Key", "Acct Bal", "Visible Time Begin"],
-        expected_result=oracle.customers(None, _NOW, ["c_custkey", "c_acctbal", "visible_time_begin"],
-                                         ["c_custkey", "c_acctbal", "visible_time_begin"], balance_above=_LIMIT),
     ),
 
 ]
@@ -506,102 +197,6 @@ R_CASES = [
                           "Same Part Supply Cost"],
         expected_result=oracle.r7(None, _NOW),
         approximate=True,
-    ),
-
-]
-
-# Appendix B.5: bitemporal self-join queries
-B5_CASES = [
-    # --- B.5.1: current application and system times ---
-    TestExpectation(
-        name="B5_1_application_point_system_point_current",
-        query=lambda q: _other_parts(q.partsupp, "1997-06-01", _NOW),
-        skip_backends=_skip(_PART_NAVIGATION),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5("1997-06-01", _NOW),
-    ),
-
-    TestExpectation(
-        name="B5_2_app_and_system_points_with_distinct_business_times",
-        query=lambda q: _other_parts_at_distinct_business_times(
-            q.partsupp, "1995-06-01", "1997-06-01", _SYS,
-        ),
-        skip_backends=_skip(_PART_NAVIGATION),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5("1997-06-01", _SYS, other_app="1995-06-01"),
-    ),
-
-    # --- B.5.3, B.5.4, B.5.5, B.5.8, B.5.10: row periods correlate in a dimension ---
-    TestExpectation(
-        name="B5_3_application_correlation_system_point_current",
-        query=lambda q: _other_parts(q.partsupp, None, _NOW, correlate=("application",)),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5(None, _NOW, correlate=("application",)),
-    ),
-
-    TestExpectation(
-        name="B5_4_application_point_system_correlation",
-        query=lambda q: _other_parts(q.partsupp, "1997-06-01", None, correlate=("system",)),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5("1997-06-01", None, correlate=("system",)),
-    ),
-
-    TestExpectation(
-        name="B5_5_application_correlation_system_correlation",
-        query=lambda q: _other_parts(q.partsupp, None, None, correlate=("application", "system")),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5(None, None, correlate=("application", "system")),
-    ),
-
-    TestExpectation(
-        name="B5_6_current_system_as_known_all_application_time",
-        query=lambda q: _other_parts(q.partsupp, None, _NOW),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5(None, _NOW),
-    ),
-
-    # --- B.5.7: application time agnostic / past system point ---
-    TestExpectation(
-        name="B5_7_application_agnostic_system_point_past",
-        query=lambda q: _other_parts(q.partsupp, None, "2002-06-01"),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5(None, "2002-06-01"),
-    ),
-
-    TestExpectation(
-        name="B5_8_application_agnostic_system_correlation",
-        query=lambda q: _other_parts(q.partsupp, None, None, correlate=("system",)),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5(None, None, correlate=("system",)),
-    ),
-
-    # --- B.5.9, B.5.11: system time agnostic ---
-    TestExpectation(
-        name="B5_9_application_point_system_agnostic_at_earlier_application_date",
-        query=lambda q: _other_parts(q.partsupp, "1997-06-01", None),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5("1997-06-01", None),
-    ),
-
-    TestExpectation(
-        name="B5_9_application_point_system_agnostic_before_new_supplier",
-        query=lambda q: _other_parts(q.partsupp, "1995-06-01", None),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5("1995-06-01", None),
-    ),
-
-    TestExpectation(
-        name="B5_10_application_correlation_system_agnostic",
-        query=lambda q: _other_parts(q.partsupp, None, None, correlate=("application",)),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5(None, None, correlate=("application",)),
-    ),
-
-    TestExpectation(
-        name="B5_11_application_agnostic_system_agnostic",
-        query=lambda q: _other_parts(q.partsupp, None, None, correlate=("system",)),
-        expected_columns=_B5_COLUMNS,
-        expected_result=oracle.b5(None, None, correlate=("system",)),
     ),
 
 ]
@@ -847,6 +442,32 @@ Q_CASES = [
     ),
 
 ]
+
+
+
+def _finder_expectation(case: BenchmarkCase) -> TestExpectation:
+    """The finder route of a benchmark case: its query, asked with the case's parameters, returns the case's expected rows."""
+    entry = QUERIES[case.id]
+    if isinstance(entry, Unsupported):
+        return _unsupported(case.id, entry.reason, [str(column) for column in case.select])
+    parameters = SimpleNamespace(**case.parameters)
+    return TestExpectation(
+        name=case.id,
+        query=lambda q: entry.query(q, parameters),
+        expected_columns=entry.columns,
+        expected_result=case.expected(),
+        approximate=case.approximate,
+    )
+
+
+def _group(section: str) -> list[TestExpectation]:
+    return [_finder_expectation(case) for case in CASES.values() if case.id.startswith(section)]
+
+
+# Appendix B.1: time travel, B.3: key history, B.5: bitemporal. The report's SQL and the expected rows are in tpch_bih_cases.py
+T_CASES = _group("T")
+K_CASES = _group("K")
+B5_CASES = _group("B5")
 
 ALL_TPCH_BIH_CASES = [
     *T_CASES,

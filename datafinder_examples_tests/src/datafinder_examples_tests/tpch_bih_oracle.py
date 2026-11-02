@@ -43,49 +43,6 @@ def _asof(name, point):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# B.1 time travel
-# ---------------------------------------------------------------------------------------------------------------------
-
-def t1(app, sys) -> np.ndarray:
-    """SELECT AVG(ps_supplycost), COUNT(*) FROM partsupp"""
-    ps = as_of("partsupp", app, sys)
-    return rows(pd.DataFrame({"avg": [ps.ps_supplycost.mean()], "count": [len(ps)]}))
-
-
-def t2(app, sys) -> np.ndarray:
-    """SELECT SUM(o_totalprice), COUNT(*) FROM orders WHERE o_orderstatus = 'O'"""
-    o = as_of("orders", app, sys)
-    o = o[o.o_orderstatus == "O"]
-    return rows(pd.DataFrame({"revenue": [o.o_totalprice.sum()], "count": [len(o)]}))
-
-
-def t6(app, sys) -> np.ndarray:
-    """SELECT o_custkey, AVG(o_totalprice) FROM orders WHERE o_orderstatus = 'O' GROUP BY o_custkey ORDER BY o_custkey"""
-    o = as_of("orders", app, sys)
-    o = o[o.o_orderstatus == "O"]
-    return rows(o.groupby("o_custkey", as_index=False).o_totalprice.mean().sort_values("o_custkey"))
-
-
-def t7(app, sys) -> np.ndarray:
-    """SELECT ps_partkey, AVG(ps_availqty) FROM partsupp GROUP BY ps_partkey ORDER BY ps_partkey"""
-    ps = as_of("partsupp", app, sys)
-    return rows(ps.groupby("ps_partkey", as_index=False).ps_availqty.mean().sort_values("ps_partkey"))
-
-
-def _receivable(app, sys, day: str) -> pd.DataFrame:
-    o = as_of("orders", app, sys)
-    return o[(o.receivable_time_begin <= day) & (o.receivable_time_end > day)]
-
-
-def t8(app, sys, day: str) -> np.ndarray:
-    """SELECT COUNT(*) FROM orders WHERE receivable_time contains day"""
-    return rows(pd.DataFrame({"count": [len(_receivable(app, sys, day))]}))
-
-
-t9 = t8
-
-
-# ---------------------------------------------------------------------------------------------------------------------
 # B.2 H.1
 # ---------------------------------------------------------------------------------------------------------------------
 
@@ -99,45 +56,6 @@ def h1(app, sys, cutoff: str) -> np.ndarray:
         sum_charge=("charge", "sum"), avg_qty=("l_quantity", "mean"), avg_price=("l_extendedprice", "mean"),
         avg_disc=("l_discount", "mean"), count_order=("l_orderkey", "count"))
     return rows(g.sort_values(["l_returnflag", "l_linestatus"]))
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-# B.3 key history on CUSTOMER
-# ---------------------------------------------------------------------------------------------------------------------
-
-def customer_versions(key: int, app, sys) -> pd.DataFrame:
-    c = as_of("customer", app, sys)
-    return c[c.c_custkey == key]
-
-
-def busiest_customer() -> int:
-    """The customer with the most versions: the key the K queries are asked about."""
-    counts = table("customer").groupby("c_custkey").size()
-    return int(counts.sort_values(ascending=False, kind="stable").index[0])
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-# B.5 bitemporal self-join: the other parts of the suppliers that supply part 1
-# ---------------------------------------------------------------------------------------------------------------------
-
-def _overlap(a: pd.DataFrame, b: pd.DataFrame, prefix_a: str, prefix_b: str) -> pd.Series:
-    return (a[prefix_a + "_begin"] < b[prefix_b + "_end"]) & (a[prefix_a + "_end"] > b[prefix_b + "_begin"])
-
-
-def b5(app, sys, correlate=(), other_app="same", other_sys="same") -> np.ndarray:
-    """SELECT DISTINCT ps1.ps_partkey FROM partsupp ps1, partsupp ps2 WHERE ps1.ps_suppkey = ps2.ps_suppkey AND
-    ps2.ps_partkey = 1 AND ps1.ps_partkey <> 1 [AND the application and/or system periods of ps1 and ps2 overlap]"""
-    a = as_of("partsupp", app, sys)
-    b = as_of("partsupp", app if other_app == "same" else other_app, sys if other_sys == "same" else other_sys)
-    joined = a.merge(b, on="ps_suppkey", suffixes=("_1", "_2"))
-    joined = joined[(joined.ps_partkey_2 == 1) & (joined.ps_partkey_1 != 1)]
-    if "application" in correlate:
-        joined = joined[(joined.validity_time_begin_1 < joined.validity_time_end_2)
-                        & (joined.validity_time_end_1 > joined.validity_time_begin_2)]
-    if "system" in correlate:
-        joined = joined[(joined.sys_time_begin_1 < joined.sys_time_end_2)
-                        & (joined.sys_time_end_1 > joined.sys_time_begin_2)]
-    return rows(pd.DataFrame({"ps_partkey": sorted(set(joined.ps_partkey_1))}))
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -263,48 +181,6 @@ def q19(point, branches: list[tuple[str, list[str], float, int]]) -> np.ndarray:
                  & (j.l_quantity <= quantity + 10) & (j.p_size >= 1) & (j.p_size <= max_size)
                  & j.l_shipmode.isin(["AIR", "AIR REG"]) & (j.l_shipinstruct == "DELIVER IN PERSON"))
     return rows(pd.DataFrame({"revenue": [_revenue(j[keep]).sum()]}))
-
-
-# ---------------------------------------------------------------------------------------------------------------------
-# B.3 key history: the versions of one customer, and of every customer
-# ---------------------------------------------------------------------------------------------------------------------
-
-_KINDS = {"sys_time_begin": "stamp", "sys_time_end": "stamp", "visible_time_begin": "date", "visible_time_end": "date"}
-
-
-def customers(app, sys, columns: list[str], order_by: list[str], key: int | None = None, overlapping: tuple | None = None,
-             balance_above: float | None = None) -> np.ndarray:
-    """SELECT columns FROM customer [WHERE c_custkey = key] [AND the version overlaps the range] [AND c_acctbal > x] ORDER BY ...
-
-    ``overlapping`` is ("sys" | "visible", from, to): the versions whose period begins before ``to`` and ends after ``from``."""
-    c = as_of("customer", app, sys)
-    if key is not None:
-        c = c[c.c_custkey == key]
-    if overlapping:
-        dimension, low, high = overlapping
-        c = c[(c[dimension + "_time_begin"] < high) & (c[dimension + "_time_end"] > low)]
-    if balance_above is not None:
-        c = c[c.c_acctbal > balance_above]
-    return rows(c.sort_values(order_by, kind="stable")[columns], _KINDS)
-
-
-def minimum_balance(app, sys, key: int, overlapping: tuple | None = None) -> np.ndarray:
-    c = as_of("customer", app, sys)
-    c = c[c.c_custkey == key]
-    if overlapping:
-        dimension, low, high = overlapping
-        c = c[(c[dimension + "_time_begin"] < high) & (c[dimension + "_time_end"] > low)]
-    return rows(pd.DataFrame({"min_balance": [c.c_acctbal.min()]}))
-
-
-def preceding_customer_version(app, sys, key: int, dimension: str, up_to: str) -> np.ndarray:
-    """The version of a customer that ends when this one begins (versions are contiguous), as K.5 asks for the previous one."""
-    c = as_of("customer", app, sys)
-    c = c[c.c_custkey == key]
-    j = c.merge(c, on="c_custkey", suffixes=("", "_other"))
-    j = j[(j[dimension + "_time_begin"] <= up_to) & (j[dimension + "_time_end_other"] == j[dimension + "_time_begin"])]
-    out = j[["c_acctbal_other", dimension + "_time_begin_other"]]
-    return rows(out, {dimension + "_time_begin_other": "stamp" if dimension == "sys" else "date"})
 
 
 # ---------------------------------------------------------------------------------------------------------------------
