@@ -1,6 +1,6 @@
 """
 Runs JOINS_THROUGH_TABLES_EMPLOYEE_FINDER_SPECS (a property of an embedded object that reaches another table, and a
-property mapped through another table) against the ibis/DuckDB backend.
+property mapped through another table, with dates reaching the table on the way) against the ibis/DuckDB backend.
 """
 import shutil
 import sys
@@ -27,7 +27,8 @@ def _build_repo():
     schema = Schema("hr", repo)
     Table("employees", [Column("id", "INT"), Column("name", "VARCHAR"), Column("street", "VARCHAR"),
                         Column("home_country", "INT"), Column("citizen_ref", "INT")], schema)
-    Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR")], schema)
+    Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR"), Column("valid_from", "DATE"),
+                           Column("valid_to", "DATE")], schema)
     Table("countries", [Column("code", "VARCHAR"), Column("name", "VARCHAR")], schema)
     return repo
 
@@ -37,7 +38,7 @@ def _seed_db():
     conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
     conn.execute("CREATE SCHEMA hr")
     conn.execute("CREATE TABLE hr.employees (id INT, name VARCHAR, street VARCHAR, home_country INT, citizen_ref INT)")
-    conn.execute("CREATE TABLE hr.country_refs (ref INT, code VARCHAR)")
+    conn.execute("CREATE TABLE hr.country_refs (ref INT, code VARCHAR, valid_from DATE, valid_to DATE)")
     conn.execute("CREATE TABLE hr.countries (code VARCHAR, name VARCHAR)")
     for table in ("employees", "country_refs", "countries"):
         conn.execute(f"INSERT INTO hr.{table} SELECT * FROM read_csv_auto('{str(example_path(f'joins_through_tables_{table}.csv'))}')")

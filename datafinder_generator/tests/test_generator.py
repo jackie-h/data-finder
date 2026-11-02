@@ -502,7 +502,8 @@ class TestJoinsThroughTablesFinder:
         schema = Schema("hr", repo)
         Table("employees", [Column("id", "INT"), Column("name", "VARCHAR"), Column("street", "VARCHAR"),
                             Column("home_country", "INT"), Column("citizen_ref", "INT")], schema)
-        Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR")], schema)
+        Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR"), Column("valid_from", "DATE"),
+                               Column("valid_to", "DATE")], schema)
         Table("countries", [Column("code", "VARCHAR"), Column("name", "VARCHAR")], schema)
         self.tmp = tempfile.mkdtemp()
         generate(load(str(example_path("joins_through_tables_mapping.md")), repo), self.tmp)

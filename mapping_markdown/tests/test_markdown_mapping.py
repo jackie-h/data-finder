@@ -1210,24 +1210,13 @@ class TestJoinsThroughTables:
         with pytest.raises(ValueError):
             load(path)
 
-    def test_a_link_table_with_a_milestoning_scheme_keeps_it(self, tmp_path):
-        content = open(JOINS_FIXTURE).read()
-        content = content.replace("#### Table: country_refs\n", "#### Table: country_refs (milestoning: snapshots)\n")
-        content = content.replace("## DataStore: hr_db (Database)\n", """## DataStore: hr_db (Database)
-
-| Scheme    | processing_start | processing_end | business_date | business_date_from | business_date_to | infinite_datetime |
-|-----------|------------------|----------------|---------------|--------------------|------------------|-------------------|
-| snapshots |                  |                |               | from_z             | thru_z           | 9999-12-31        |
-""")
-        (tmp_path / "joins_through_tables_model.md").write_text(
-            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "joins_through_tables_model.md")).read())
-        (tmp_path / "mapping.md").write_text(content)
-        mapping = load(str(tmp_path / "mapping.md"))
-        employee = next(rcm for rcm in mapping.mappings if rcm.clazz.name == "Employee")
-        join = next(pm.target for pm in employee.property_mappings if pm.property.id == "citizenship")
-        assert join.via[0][1].table.milestoning_scheme.name == "snapshots"
+    def test_a_link_table_with_a_milestoning_scheme_keeps_it(self):
+        join = self._pm("citizenship").target
+        scheme = join.via[0][1].table.milestoning_scheme
+        assert scheme is not None and scheme.name == "business_date_range"
+        assert (scheme.business_date_from, scheme.business_date_to) == ("valid_from", "valid_to")
 
     def test_an_undefined_milestoning_scheme_on_a_link_table_is_refused(self, tmp_path):
-        path = self._with(tmp_path, "#### Table: country_refs\n", "#### Table: country_refs (milestoning: nosuch)\n")
+        path = self._with(tmp_path, "(milestoning: business_date_range)\n", "(milestoning: nosuch)\n")
         with pytest.raises(ValueError, match="'nosuch' is not defined"):
             load(path)
