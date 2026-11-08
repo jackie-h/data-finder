@@ -11,7 +11,7 @@ from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, Sin
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
-from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
+from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
@@ -417,7 +417,7 @@ def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | 
 
 
 def build_query_specification(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
-                         columns: Sequence[RelationalOperationElement], table: Table, op: Operation,
+                         columns: Sequence[RelationalOperationElement], table: Relation, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
                          limit: int | None = None, business_date_to: datetime.date | None = None,
                          distinct: bool = False, offset: int | None = None,
@@ -854,7 +854,8 @@ class SQLQueryGenerator:
         if not aggregates:
             return []
         per_root = query.table is not None and any(_reaches_to_many(c) for c in aggregates)
-        keys = [self.__attr_to_col_string(c) for c in query.table.columns if c.primary_key] if per_root and query.table else []
+        keys = [self.__attr_to_col_string(c) for c in query.table.primary_key] \
+            if per_root and isinstance(query.table, Table) else []
         grouped = [sql_operation_to_string(shown.element) for column, shown in zip(query.columns, self._select)
                    if not contains_aggregate_or_window(column)]
         return list(dict.fromkeys([*keys, *grouped]))
@@ -1112,6 +1113,8 @@ class SQLQueryGenerator:
             return self.__table_aliases_by_table[cache_key]
         if key is not None and id(key) in self._sub_selects:
             ta = self.__new_alias(self._sub_selects[id(key)])
+        elif isinstance(table, TableAlias):
+            ta = self.__new_alias(table.relation)  # a relation read under a name: the relation itself is what is written
         else:
             ta = self.__new_alias(table)
         self.__table_aliases_by_table[cache_key] = ta
@@ -1128,11 +1131,28 @@ class SQLQueryGenerator:
         relation = alias.relation
         if isinstance(relation, Table):
             return relation.qualified_name
-        assert isinstance(relation, QuerySpecification), f"Not a relation to read from: {relation!r}"
+        assert isinstance(relation, QueryExpression), f"Not a relation to read from: {relation!r}"
+        return '(' + self.__query_sql(relation) + ')'
+
+    def __query_sql(self, relation: 'QueryExpression') -> str:
+        """A query written by a generator of its own that numbers its aliases after this one's; a union is its two queries."""
+        if isinstance(relation, UnionOperation):
+            return self.__union_side_sql(relation.left) + (' UNION ALL ' if relation.all else ' UNION ') \
+                + self.__union_side_sql(relation.right)
+        assert isinstance(relation, QuerySpecification)
         nested = SQLQueryGenerator(first_alias=self.__table_alias_incr)
         nested.generate(relation)
+        sql = nested.build_query_string()  # it names its own relations as it is written, so read its count after
         self.__table_alias_incr = nested.__table_alias_incr
-        return '(' + nested.build_query_string() + ')'
+        return sql
+
+    def __union_side_sql(self, side: 'QueryExpression') -> str:
+        """One side of a union: in brackets if it has an ORDER BY, a row limit or an offset, as SQL needs for them to belong
+        to that side and not to the whole union."""
+        sql = self.__query_sql(side)
+        if isinstance(side, OrderedQuerySpecification) and (side.order_by or side.limit is not None or side.offset):
+            return '(' + sql + ')'
+        return sql
 
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:

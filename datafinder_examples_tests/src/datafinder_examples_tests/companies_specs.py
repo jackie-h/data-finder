@@ -13,6 +13,15 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 COMPANIES_MAPPING = "companies_mapping.md"
 
+def _ascending(result, *columns):
+    """The result ordered by the named columns, as a concatenated result names them."""
+    return result.order_by(*(result[column].ascending() for column in columns))
+
+
+def _descending(result, *columns):
+    return result.order_by(*(result[column].descending() for column in columns))
+
+
 COMPANY_FINDER_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
@@ -911,6 +920,57 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_result=np.array([[1, 1], [2, 4], [3, 9], [4, 16], [5, 25]], dtype=object),
             expected_sql={"duckdb": "CAST(POWER(t0.id, 2) AS BIGINT)"},
             skip_backends={"graphql": "The GraphQL finder has no scalar functions"},
+        ),
+        # --- concatenate: UNION and UNION ALL of two results with the same columns, a result like any other ---
+        TestExpectation(
+            name="concatenate_removes_the_duplicate_rows",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _ascending(
+                f.find_all([f.category()], f.id_() < 3).concatenate(f.find_all([f.category()], f.id_() > 2)), "category"),
+            expected_columns=["category"],
+            # ids 1, 2 are Technology and Manufacturing; ids 3, 4, 5 are Technology, Finance, Finance
+            expected_result=np.array([["Finance"], ["Manufacturing"], ["Technology"]], dtype=object),
+            expected_sql={"duckdb": " UNION SELECT"},
+        ),
+        TestExpectation(
+            name="concatenate_all_keeps_the_duplicate_rows",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _ascending(
+                f.find_all([f.category()], f.id_() < 3).concatenate(f.find_all([f.category()], f.id_() > 2), all=True),
+                "category"),
+            expected_columns=["category"],
+            expected_result=np.array([["Finance"], ["Finance"], ["Manufacturing"], ["Technology"], ["Technology"]],
+                                     dtype=object),
+            expected_sql={"duckdb": " UNION ALL SELECT"},
+        ),
+        TestExpectation(
+            name="concatenate_more_than_two_results",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _descending(
+                f.find_all([f.id_()], f.id_().eq(1)).concatenate(f.find_all([f.id_()], f.id_().eq(2)), all=True)
+                .concatenate(f.find_all([f.id_()], f.id_().eq(3)), all=True), "id"),
+            expected_columns=["id"],
+            expected_result=np.array([[3], [2], [1]], dtype=object),
+        ),
+        TestExpectation(
+            name="concatenate_then_offset_and_limit",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _ascending(
+                f.find_all([f.id_()], f.id_() < 3).concatenate(f.find_all([f.id_()], f.id_() >= 3)), "id").offset(1).limit(3),
+            expected_columns=["id"],
+            expected_result=np.array([[2], [3], [4]], dtype=object),
+            expected_sql={"duckdb": "LIMIT 3 OFFSET 1"},
+        ),
+        TestExpectation(
+            name="concatenate_a_result_with_its_own_order_and_limit",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _ascending(
+                f.find_all([f.id_()]).order_by(f.id_().descending()).limit(2)
+                .concatenate(f.find_all([f.id_()], f.id_().eq(1)), all=True), "id"),
+            expected_columns=["id"],
+            # the two highest ids, 5 and 4, then 1
+            expected_result=np.array([[1], [4], [5]], dtype=object),
+            expected_sql={"duckdb": "(SELECT"},
         ),
         TestExpectation(
             name="aggregate_over_a_window_keeps_every_row",

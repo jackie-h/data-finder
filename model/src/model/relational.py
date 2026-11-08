@@ -1816,10 +1816,11 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
 
 class QueryExpression(Relation):
     """What ANSI SQL calls a ``<query expression>``: a query that returns rows and can be used where a table is, as a
-    view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT.
+    view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT, or a
+    UnionOperation of two.
 
-    It is a relation, as Legend's select is: its columns are what it shows. It has no name of its own: a TableAlias
-    gives it one where it is used.
+    It is a relation, as Legend's select and union are: its columns are what it shows. It has no name of its own: a
+    TableAlias gives it one where it is used.
 
     It has no ORDER BY or row limit: a table is a set of rows with no order. An OrderedQuerySpecification adds those."""
 
@@ -1832,7 +1833,7 @@ class QuerySpecification(QueryExpression):
     """
 
     def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
-                 group_by: list | None = None, table: 'Table | None' = None, distinct: bool = False,
+                 group_by: list | None = None, table: 'Relation | None' = None, distinct: bool = False,
                  having: Operation | None = None):
         Relation.__init__(self, columns)  # not super(): a View is also a NamedRelation
         self.filter = filter
@@ -1861,7 +1862,7 @@ class OrderedQuerySpecification(QuerySpecification):
 
     def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
                  order_by: list[SortOperation] | None = None, group_by: list | None = None,
-                 limit: int | None = None, table: 'Table | None' = None, distinct: bool = False,
+                 limit: int | None = None, table: 'Relation | None' = None, distinct: bool = False,
                  offset: int | None = None, having: Operation | None = None):
         super().__init__(columns, filter, group_by, table, distinct, having)
         self.order_by = order_by or []
@@ -1870,6 +1871,23 @@ class OrderedQuerySpecification(QuerySpecification):
 
     def expressions(self) -> list[RelationalOperationElement]:
         return [*self.columns, *self.group_by, *self.order_by, self.filter]
+
+
+class UnionOperation(QueryExpression):
+    """Two query expressions whose rows are put together: ``left UNION right`` (the distinct rows), or ``UNION ALL``
+    with ``all``. ANSI SQL's ``<query expression body>`` with a set operator, and Legend's ``concatenate``. The two have
+    the same number of columns, and the result's columns are the left one's. Either side can be a union itself.
+
+    As a query expression it has no ORDER BY or row limit; a query that reads from it, through a TableAlias, has."""
+
+    def __init__(self, left: QueryExpression, right: QueryExpression, all: bool = False):
+        if len(left.columns) != len(right.columns):
+            raise ValueError(f"A union is of queries with the same columns: {len(left.columns)} and "
+                             f"{len(right.columns)} columns")
+        super().__init__(left.columns)  # the columns of the left side name the result's columns
+        self.left = left
+        self.right = right
+        self.all = all
 
 
 class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['UntypedAggregateOperation']):

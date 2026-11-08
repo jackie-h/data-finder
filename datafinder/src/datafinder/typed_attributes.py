@@ -293,3 +293,25 @@ class DateTimeAttribute(_MinMax[DateTimeAggregateOperation], DateTimeFunctions, 
 
     def _to_constant(self, value):
         return _temporal_constant(value)
+
+
+def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
+    """The attribute for a column of the database type ``db_type``, of the class that compares, does arithmetic and
+    aggregates as that type does: an ``INT`` is an IntegerAttribute, a ``VARCHAR`` a StringAttribute. Its display name
+    is the column's."""
+    kind = db_type.upper().split("(")[0].strip()
+    if kind in ("INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "HUGEINT"):
+        factory = IntegerAttribute
+    elif kind in ("DOUBLE", "FLOAT", "REAL"):
+        factory = DoubleAttribute
+    elif kind in ("DECIMAL", "NUMERIC"):
+        factory = DecimalAttribute
+    elif kind == "DATE":
+        factory = DateAttribute
+    elif kind.startswith("TIMESTAMP") or kind == "DATETIME":
+        factory = DateTimeAttribute
+    elif kind in ("BOOLEAN", "BOOL"):
+        factory = BooleanAttribute
+    else:
+        factory = StringAttribute
+    return factory(name, name, db_type, owner)

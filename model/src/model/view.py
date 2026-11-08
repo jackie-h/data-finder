@@ -58,6 +58,7 @@ class View(QuerySpecification, NamedRelation):
     root row's point in time depends on how the joins are resolved, so that is checked by the SQL generator
     (see datafinder.sql_generator.check_view_joins).
     """
+    table: Table  # a view is over a table, not over another query
 
     def __init__(self, name: str, schema: str, table: Table, projection: Sequence[Alias],
                  filter: Operation | None = None, group_by: list | None = None):

@@ -6,7 +6,7 @@ import sqlglot
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
-from model.relational import Table
+from model.relational import Relation
 
 import numpy as np
 import pandas as pd
@@ -14,7 +14,7 @@ import pyarrow as pa
 
 
 def _to_databricks_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
-                       columns: Sequence, table: Table, op: Operation,
+                       columns: Sequence, table: Relation, op: Operation,
                        order_by: list | None = None, group_by: list | None = None,
                        limit: int | None = None, business_date_to: datetime.date | None = None,
                        distinct: bool = False, offset: int | None = None, having=None,
@@ -49,7 +49,7 @@ class DatabricksConnect(QueryRunnerBase):
 
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,
-               columns: Sequence[Attribute], table: Table, op: Operation,
+               columns: Sequence[Attribute], table: Relation, op: Operation,
                order_by: list | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = 60_000,
                business_date_to: datetime.date | None = None, distinct: bool = False,
