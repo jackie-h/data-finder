@@ -103,16 +103,15 @@ def _build_repository_from_content(nodes: list) -> DataStore | None:
                 if m:
                     table_name = m.group(1)
                     i += 1
-                    columns = []
+                    table = Table(table_name, [], current_schema)
                     if i < len(nodes) and nodes[i].type == "table":
                         for row in _parse_ast_table(nodes[i], _COLUMN_MAPPING_HEADERS):
                             col_name = row.get("Column", "").strip()
                             col_type = row.get("Type", "").strip()
                             key = row.get("Key", "").strip().upper()
                             if col_name:
-                                columns.append(Column(col_name, col_type, primary_key=(key == "PK"),
-                                                      nullable=_parse_nullable(row, col_name)))
-                    Table(table_name, columns, current_schema)
+                                table.add_column(col_name, col_type, primary_key=(key == "PK"),
+                                                 nullable=_parse_nullable(row, col_name))
                     continue
         i += 1
     return repo

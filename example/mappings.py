@@ -3,7 +3,7 @@ import os
 from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime, ONE_TO_ONE, ZERO_TO_ONE
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
-from model.relational import Column, Table, Schema, Database
+from model.relational import Table, Schema, Database
 from model.relational_mapping import RelationalPropertyMapping, RelationalClassMapping, Join, EmbeddedSetMapping
 
 
@@ -56,36 +56,24 @@ def create_mappings_normalized() -> Mapping:
 
     account_c = create_account_class()
 
-    ac1 = Column('ID', 'INT')
-    ac2 = Column('ACCT_NAME', 'VARCHAR')
-    account_t = Table('account_master', [ac1, ac2], ref_data)
+    account_t = Table('account_master', [('ID', 'INT'), ('ACCT_NAME', 'VARCHAR')], ref_data)
+    ac1, ac2 = account_t.columns
 
     instrument_c = create_instrument_class()
-    ic1 = Column('SYM', 'VARCHAR')
-    ic2 = Column('PRICE', 'DOUBLE')
-    ic3 = Column('START_AT', 'DATE_TIME')
-    ic4 = Column('END_AT', 'DATE_TIME')
-    instrument_t = Table('price', [ic1,ic2,ic3,ic4], ref_data)
+    instrument_t = Table('price', [('SYM', 'VARCHAR'), ('PRICE', 'DOUBLE'), ('START_AT', 'DATE_TIME'),
+                                   ('END_AT', 'DATE_TIME')], ref_data)
+    ic1, ic2, ic3, ic4 = instrument_t.columns
 
     c_position_c = create_contractual_position_class(instrument_c)
-    p1 = Column('DATE', 'DATE')
-    p2 = Column('INSTRUMENT', 'VARCHAR')
-    p3 = Column('CPTY_ID', 'INT')
-    p4 = Column('QUANTITY', 'DOUBLE')
-    p5 = Column('NPV', 'DOUBLE')
-    pos_t = Table('contractualposition', [p1, p2, p3, p4, p5], trading)
+    pos_t = Table('contractualposition', [('DATE', 'DATE'), ('INSTRUMENT', 'VARCHAR'), ('CPTY_ID', 'INT'),
+                                          ('QUANTITY', 'DOUBLE'), ('NPV', 'DOUBLE')], trading)
+    p1, p2, p3, p4, p5 = pos_t.columns
 
     trade_c = create_trade_class(account_c, instrument_c)
 
-    c1 = Column('id', 'INT')
-    c2 = Column('account_id', 'INT')
-    c3 = Column('sym', 'VARCHAR')
-    c4 = Column('price', 'DOUBLE')
-    c5 = Column('start_at', 'TIMESTAMP')
-    c6 = Column('end_at', 'TIMESTAMP')
-    c7 = Column('acct_name', 'VARCHAR')
-
-    trade_t = Table('trades', [c1, c2, c3, c4, c5, c6, c7], trading)
+    trade_t = Table('trades', [('id', 'INT'), ('account_id', 'INT'), ('sym', 'VARCHAR'), ('price', 'DOUBLE'),
+                               ('start_at', 'TIMESTAMP'), ('end_at', 'TIMESTAMP'), ('acct_name', 'VARCHAR')], trading)
+    c1, c2, c3, c4, c5, c6, c7 = trade_t.columns
 
     account_name_embedded = EmbeddedSetMapping(
         account_c, [RelationalPropertyMapping(account_c.property('name'), c7)]

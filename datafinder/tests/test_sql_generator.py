@@ -1459,13 +1459,13 @@ class TestMilestoningFilterShape:
         mc = BiTemporalColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
                                Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                infinite_datetime=infinite_datetime)
-        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
+        return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _processing_only(self, name="trades"):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
         mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                        infinite_datetime="9999-12-31 23:59:59")
-        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
+        return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _joined(self, target):
         root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
@@ -1833,7 +1833,7 @@ class TestIsNoneIsNotNone:
     def test_is_none_combined_with_other_filter(self):
         table, attr = self._make_table_and_string_attr()
         qty_col = Column("QUANTITY", "INT")
-        table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
+        table2 = Table("orders", [qty_col, ("NOTES", "VARCHAR")])
         qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", _OWNER_ORDERS)
         combined = attr.is_none().and_(qty_attr > 0)
         sql = to_sql(None, None, [attr], table2, combined)
@@ -1845,7 +1845,7 @@ class TestIsNoneIsNotNone:
         qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", _OWNER_ORDERS)
         combined = attr.is_not_none().and_(qty_attr > 0)
         qty_col = Column("QUANTITY", "INT")
-        table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
+        table2 = Table("orders", [qty_col, ("NOTES", "VARCHAR")])
         sql = to_sql(None, None, [attr], table2, combined)
         assert "IS NOT NULL" in sql
         assert ">" in sql
@@ -2320,7 +2320,7 @@ class TestPerNavigationDates:
     @staticmethod
     def _processing_table(name):
         from model.milestoning import MilestonedTable, ProcessingTemporalColumns
-        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")],
+        return MilestonedTable(name, [("id", "INT"), ("fk", "INT")],
                                ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                                          infinite_datetime="9999-12-31 23:59:59"))
 
@@ -2330,7 +2330,7 @@ class TestPerNavigationDates:
         mc = BiTemporalColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
                                Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                infinite_datetime="9999-12-31 23:59:59")
-        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
+        return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _step(self, target, parent=None, **dates):
         parent_table = Table("parent", []) if parent is None else parent.join.target
@@ -2421,7 +2421,7 @@ class TestBusinessDateRangeOnly:
         from model.milestoning import BusinessDateRangeColumns, MilestonedTable
         mc = BusinessDateRangeColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
                                       infinite_datetime=infinite_datetime)
-        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
+        return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _id(self):
         return IntegerAttribute("Id", "id", "INT", _OWNER_RATES)
@@ -2501,14 +2501,14 @@ class TestProcessingSnapshot:
     def _snapshot(name="quotes"):
         from model.milestoning import SingleProcessingDatetimeColumn, MilestonedTable
         mc = SingleProcessingDatetimeColumn(Column("taken_at", "TIMESTAMP"))
-        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
+        return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     @staticmethod
     def _in_out(name="quotes"):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
         mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                        infinite_datetime="9999-12-31 23:59:59")
-        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
+        return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _id(self, table="quotes"):
         return IntegerAttribute("Id", "id", "INT", Table(table, []))

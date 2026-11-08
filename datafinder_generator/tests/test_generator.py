@@ -85,18 +85,18 @@ class TestGeneratePackageStructure:
         repo = Database("finance_db", "duckdb://test.db")
         ref_data = Schema("ref_data", repo)
         trading = Schema("trading", repo)
-        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"), Column("DESK_ID", "INT"),
-                                 Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
-        Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref_data)
-        Table("desk", [Column("ID", "INT"), Column("NAME", "VARCHAR")], ref_data)
-        Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
-                        Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
-        Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"), Column("NPV", "DOUBLE"),
-                                          Column("ACCOUNT_ID", "INT"), Column("in_z", "TIMESTAMP"),
-                                          Column("out_z", "TIMESTAMP")], trading)
-        Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
-                         Column("is_settled", "BOOLEAN"), Column("account_id", "INT"),
-                         Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
+        Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR"), ("BRANCH_ID", "INT"), ("DESK_ID", "INT"),
+                                 ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], ref_data)
+        Table("branch", [("ID", "INT"), ("CITY", "VARCHAR")], ref_data)
+        Table("desk", [("ID", "INT"), ("NAME", "VARCHAR")], ref_data)
+        Table("price", [("SYM", "VARCHAR"), ("PRICE", "DOUBLE"),
+                        ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], ref_data)
+        Table("contractualposition", [("DATE", "DATE"), ("QUANTITY", "DOUBLE"), ("NPV", "DOUBLE"),
+                                          ("ACCOUNT_ID", "INT"), ("in_z", "TIMESTAMP"),
+                                          ("out_z", "TIMESTAMP")], trading)
+        Table("trades", [("sym", "VARCHAR"), ("price", "DOUBLE"),
+                         ("is_settled", "BOOLEAN"), ("account_id", "INT"),
+                         ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], trading)
         self.mapping = load(_FINANCE_MAPPING, repo)
 
     def teardown_method(self):
@@ -465,9 +465,9 @@ class TestProcessingSnapshotFinder:
         from model.relational import Database, Schema, Table, Column
         repo = Database("snapshots_db", "duckdb://test.db")
         schema = Schema("mkt", repo)
-        Table("quotes", [Column("id", "INT"), Column("symbol", "VARCHAR"), Column("price", "DOUBLE"),
-                         Column("taken_at", "TIMESTAMP")], schema)
-        Table("positions", [Column("id", "INT"), Column("symbol", "VARCHAR")], schema)
+        Table("quotes", [("id", "INT"), ("symbol", "VARCHAR"), ("price", "DOUBLE"),
+                         ("taken_at", "TIMESTAMP")], schema)
+        Table("positions", [("id", "INT"), ("symbol", "VARCHAR")], schema)
         self.mapping = load(str(example_path("processing_snapshot_mapping.md")), repo)
         self.tmp = tempfile.mkdtemp()
         generate(self.mapping, self.tmp)
@@ -500,11 +500,11 @@ class TestJoinsThroughTablesFinder:
         from model.relational import Database, Schema, Table, Column
         repo = Database("hr_db", "duckdb://test.db")
         schema = Schema("hr", repo)
-        Table("employees", [Column("id", "INT"), Column("name", "VARCHAR"), Column("street", "VARCHAR"),
-                            Column("home_country", "INT"), Column("citizen_ref", "INT")], schema)
-        Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR"), Column("valid_from", "DATE"),
-                               Column("valid_to", "DATE")], schema)
-        Table("countries", [Column("code", "VARCHAR"), Column("name", "VARCHAR")], schema)
+        Table("employees", [("id", "INT"), ("name", "VARCHAR"), ("street", "VARCHAR"),
+                            ("home_country", "INT"), ("citizen_ref", "INT")], schema)
+        Table("country_refs", [("ref", "INT"), ("code", "VARCHAR"), ("valid_from", "DATE"),
+                               ("valid_to", "DATE")], schema)
+        Table("countries", [("code", "VARCHAR"), ("name", "VARCHAR")], schema)
         self.tmp = tempfile.mkdtemp()
         generate(load(str(example_path("joins_through_tables_mapping.md")), repo), self.tmp)
         for m in ("people", "people.hr", "people.hr.employee_finder", "people.hr.employee_finder_base",

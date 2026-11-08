@@ -13,7 +13,7 @@ from datafinder import QueryRunnerBase
 from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
-from model.relational import Database, Schema, Table, Column
+from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
 
 from datafinder_examples_tests.joins_through_tables_specs import JOINS_THROUGH_TABLES_EMPLOYEE_FINDER_SPECS
@@ -25,11 +25,11 @@ _MODS = ["people", "people.hr", "people.hr.employee_finder", "people.hr.employee
 def _build_repo():
     repo = Database("hr_db", "duckdb://test.db")
     schema = Schema("hr", repo)
-    Table("employees", [Column("id", "INT"), Column("name", "VARCHAR"), Column("street", "VARCHAR"),
-                        Column("home_country", "INT"), Column("citizen_ref", "INT")], schema)
-    Table("country_refs", [Column("ref", "INT"), Column("code", "VARCHAR"), Column("valid_from", "DATE"),
-                           Column("valid_to", "DATE")], schema)
-    Table("countries", [Column("code", "VARCHAR"), Column("name", "VARCHAR")], schema)
+    Table("employees", [("id", "INT"), ("name", "VARCHAR"), ("street", "VARCHAR"),
+                        ("home_country", "INT"), ("citizen_ref", "INT")], schema)
+    Table("country_refs", [("ref", "INT"), ("code", "VARCHAR"), ("valid_from", "DATE"),
+                           ("valid_to", "DATE")], schema)
+    Table("countries", [("code", "VARCHAR"), ("name", "VARCHAR")], schema)
     return repo
 
 

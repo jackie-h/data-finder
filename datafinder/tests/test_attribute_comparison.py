@@ -7,13 +7,13 @@ import pytest
 
 from datafinder import DateAttribute, DateTimeAttribute, IntegerAttribute, StringAttribute, to_sql
 from datafinder.typed_attributes import BooleanAttribute, DecimalAttribute, DoubleAttribute
-from model.relational import Column, NoOperation, Table
+from model.relational import NoOperation, Table
 from model.relational import Table as _OwnerTable
 _OWNER_T = _OwnerTable('t', [])
 
 
 def _table():
-    table = Table("t", [Column("I", "INT"), Column("J", "INT"), Column("D", "DOUBLE"), Column("E", "DOUBLE")])
+    table = Table("t", [("I", "INT"), ("J", "INT"), ("D", "DOUBLE"), ("E", "DOUBLE")])
     return table
 
 
@@ -149,7 +149,7 @@ def test_only_a_type_with_an_order_can_be_compared_with_less_than():
 
 
 def test_in_takes_the_type_of_the_column():
-    table = Table("t", [Column("I", "INT"), Column("B", "BOOLEAN"), Column("S", "VARCHAR")])
+    table = Table("t", [("I", "INT"), ("B", "BOOLEAN"), ("S", "VARCHAR")])
     integer = IntegerAttribute("I", "I", "INT", _OWNER_T)
     assert "IN (1, 2)" in to_sql(None, None, [integer], table, integer.is_in([1, 2]))
     assert "IN ('a')" in to_sql(None, None, [integer], table, StringAttribute("S", "S", "VARCHAR", _OWNER_T).is_in(["a"]))
@@ -198,7 +198,7 @@ def test_a_text_function_is_not_ordered_and_a_number_function_is():
 
 def test_a_date_operation_is_compared_as_what_it_gives():
     from model.relational import DateArithmeticOperation, DateDiffOperation, DateExtractOperation, DateTruncOperation
-    table = Table("t", [Column("D", "DATE"), Column("T", "TIMESTAMP")])
+    table = Table("t", [("D", "DATE"), ("T", "TIMESTAMP")])
     day = DateAttribute("D", "D", "DATE", _OWNER_T)
     moment = DateTimeAttribute("T", "T", "TIMESTAMP", _OWNER_T)
     # a part of a date and a difference are integers
@@ -216,7 +216,7 @@ def test_a_date_operation_is_compared_as_what_it_gives():
 def test_joined_text_is_compared_for_equality_only():
     first = StringAttribute("F", "F", "VARCHAR", _OWNER_T)
     last = StringAttribute("L", "L", "VARCHAR", _OWNER_T)
-    table = Table("t", [Column("F", "VARCHAR"), Column("L", "VARCHAR")])
+    table = Table("t", [("F", "VARCHAR"), ("L", "VARCHAR")])
     name = first + " " + last
     for compare in (lambda n: n < "b", lambda n: n >= "b"):
         with pytest.raises(TypeError):

@@ -1,6 +1,6 @@
 import duckdb
 
-from model.relational import Database, Schema, Table, Column
+from model.relational import Database, Schema, Table
 
 _SYSTEM_SCHEMAS = {"information_schema", "pg_catalog"}
 
@@ -33,7 +33,6 @@ def read_repository_from_duckdb(db_path: str, repo_name: str | None = None) -> D
         table_cols[key].append((col_name, data_type))
 
     for (schema_name, table_name), cols in table_cols.items():
-        columns = [Column(col_name, dtype) for col_name, dtype in cols]
-        Table(table_name, columns, schemas[schema_name])
+        Table(table_name, cols, schemas[schema_name])
 
     return repo

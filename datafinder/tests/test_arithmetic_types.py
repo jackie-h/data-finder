@@ -6,7 +6,7 @@ import pytest
 
 from datafinder import DecimalAttribute, DoubleAttribute, IntegerAttribute, StringAttribute, to_sql
 from model.relational import (
-    Column, DecimalArithmeticOperation, DoubleArithmeticOperation, IntegerArithmeticOperation, Table,
+    DecimalArithmeticOperation, DoubleArithmeticOperation, IntegerArithmeticOperation, Table,
     UntypedArithmeticOperation)
 from model.relational import Table as _OwnerTable
 _OWNER_T = _OwnerTable('t', [])
@@ -52,7 +52,7 @@ def test_division_is_always_a_double():
 
 
 def test_a_result_is_ordered_as_its_type_and_chains():
-    table = Table("t", [Column("I", "INT"), Column("J", "INT")])
+    table = Table("t", [("I", "INT"), ("J", "INT")])
     assert "t0.I * 2 > 4" in to_sql(None, None, [integer], table, integer * 2 > 4)
     assert "t0.I + t0.J IN (1, 2)" in to_sql(None, None, [integer], table, (integer + other_integer).is_in([1, 2]))
     # a result is not changed by chaining from it
@@ -142,7 +142,7 @@ def test_a_constant_has_aggregates_of_its_kind():
 def test_a_constant_has_arithmetic_and_comparisons_of_its_kind():
     import datetime
     from datafinder import constant
-    table = Table("t", [Column("I", "INT"), Column("D", "DOUBLE")])
+    table = Table("t", [("I", "INT"), ("D", "DOUBLE")])
     # arithmetic: the kind of the result follows the same rules as for a column
     assert isinstance(assert_type(constant(2) * 3, IntegerArithmeticOperation), IntegerArithmeticOperation)
     assert isinstance(assert_type(constant(2) + constant(3), IntegerArithmeticOperation), IntegerArithmeticOperation)

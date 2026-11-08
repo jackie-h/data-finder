@@ -13,7 +13,7 @@ from datafinder import QueryRunnerBase
 from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
-from model.relational import Database, Schema, Table, Column
+from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
 
 from datafinder_examples_tests.business_range_specs import (
@@ -28,8 +28,8 @@ def _build_repo():
     repo = Database("rates_db", "duckdb://test.db")
     schema = Schema("mkt", repo)
     Table("rates", [
-        Column("code", "VARCHAR"), Column("amount", "DOUBLE"),
-        Column("from_z", "DATE"), Column("thru_z", "DATE"),
+        ("code", "VARCHAR"), ("amount", "DOUBLE"),
+        ("from_z", "DATE"), ("thru_z", "DATE"),
     ], schema)
     return repo
 

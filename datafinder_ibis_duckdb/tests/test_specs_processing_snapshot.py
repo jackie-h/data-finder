@@ -13,7 +13,7 @@ from datafinder import QueryRunnerBase
 from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
-from model.relational import Database, Schema, Table, Column
+from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
 
 from datafinder_examples_tests.processing_snapshot_specs import (
@@ -28,9 +28,9 @@ def _build_repo():
     repo = Database("snapshots_db", "duckdb://test.db")
     schema = Schema("mkt", repo)
     Table("quotes", [
-        Column("id", "INT"), Column("symbol", "VARCHAR"), Column("price", "DOUBLE"), Column("taken_at", "TIMESTAMP"),
+        ("id", "INT"), ("symbol", "VARCHAR"), ("price", "DOUBLE"), ("taken_at", "TIMESTAMP"),
     ], schema)
-    Table("positions", [Column("id", "INT"), Column("symbol", "VARCHAR")], schema)
+    Table("positions", [("id", "INT"), ("symbol", "VARCHAR")], schema)
     return repo
 
 

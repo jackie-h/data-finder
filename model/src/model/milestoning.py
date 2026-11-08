@@ -1,3 +1,4 @@
+from typing import Sequence
 from model.relational import Column, Table
 
 
@@ -71,7 +72,7 @@ class BiTemporalColumns(BusinessDateRangeColumns, ProcessingTemporalColumns):
         return BusinessDateRangeColumns.columns(self) + ProcessingTemporalColumns.columns(self)
 
 class MilestonedTable(Table):
-    def __init__(self, name: str, columns: list[Column], milestoning_columns: MilestoningColumns):
+    def __init__(self, name: str, columns: 'Sequence[Column | tuple[str, str]]', milestoning_columns: MilestoningColumns):
         super().__init__(name, columns)
         self.milestoning_columns = milestoning_columns
         for col in milestoning_columns.columns():

@@ -20,16 +20,16 @@ def _build_repository() -> Database:
     repo = Database("finance_db", "duckdb://test.db")
     ref_data = Schema("ref_data", repo)
     trading = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"), Column("DESK_ID", "INT"),
-                             Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
-    Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref_data)
-    Table("desk", [Column("ID", "INT"), Column("NAME", "VARCHAR")], ref_data)
-    Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
-                    Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
-    Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("is_settled", "BOOLEAN"),
-                     Column("account_id", "INT"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
-    Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"),
-                                  Column("NPV", "DOUBLE"), Column("ACCOUNT_ID", "INT"), Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trading)
+    Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR"), ("BRANCH_ID", "INT"), ("DESK_ID", "INT"),
+                             ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], ref_data)
+    Table("branch", [("ID", "INT"), ("CITY", "VARCHAR")], ref_data)
+    Table("desk", [("ID", "INT"), ("NAME", "VARCHAR")], ref_data)
+    Table("price", [("SYM", "VARCHAR"), ("PRICE", "DOUBLE"),
+                    ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], ref_data)
+    Table("trades", [("sym", "VARCHAR"), ("price", "DOUBLE"), ("is_settled", "BOOLEAN"),
+                     ("account_id", "INT"), ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], trading)
+    Table("contractualposition", [("DATE", "DATE"), ("QUANTITY", "DOUBLE"),
+                                  ("NPV", "DOUBLE"), ("ACCOUNT_ID", "INT"), ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], trading)
     return repo
 
 
@@ -377,14 +377,14 @@ class TestAssociationWithoutFkInTableSection:
         repo = Database("finance_db", "duckdb://test.db")
         ref_data = Schema("ref_data", repo)
         trading = Schema("trading", repo)
-        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+        Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR")], ref_data)
         Table(
             "trades",
             [
-                Column("sym", "VARCHAR"),
-                Column("price", "DOUBLE"),
-                Column("is_settled", "BOOLEAN"),
-                Column("account_id", "INT"),
+                ("sym", "VARCHAR"),
+                ("price", "DOUBLE"),
+                ("is_settled", "BOOLEAN"),
+                ("account_id", "INT"),
             ],
             trading,
         )
@@ -515,8 +515,8 @@ class TestDuplicateClassMappingValidation:
 
         db = Database("test_db", "duckdb://test.db")
         schema = Schema("hr", db)
-        Table("accounts", [Column("id", "INT"), Column("name", "VARCHAR")], schema)
-        Table("accounts_copy", [Column("id", "INT"), Column("name", "VARCHAR")], schema)
+        Table("accounts", [("id", "INT"), ("name", "VARCHAR")], schema)
+        Table("accounts_copy", [("id", "INT"), ("name", "VARCHAR")], schema)
 
         with pytest.raises(ValueError, match="Class 'Account' is mapped more than once"):
             loads(self._DUPLICATE_MAPPING, packages=[pkg], datastore=db)
@@ -548,7 +548,7 @@ class TestUnknownPropertyValidation:
 
         db = Database("test_db", "duckdb://test.db")
         schema = Schema("hr", db)
-        Table("accounts", [Column("id", "INT"), Column("bogus", "VARCHAR")], schema)
+        Table("accounts", [("id", "INT"), ("bogus", "VARCHAR")], schema)
 
         with pytest.raises(ValueError, match="Property 'bogus' not found in class 'Account'"):
             loads(self._MAPPING, packages=[pkg], datastore=db)
@@ -599,13 +599,13 @@ class TestDuplicateAssociationMapping:
         self._repo = Database("finance_db", "duckdb://test.db")
         ref_data = Schema("ref_data", self._repo)
         trading = Schema("trading", self._repo)
-        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+        Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR")], ref_data)
         Table(
             "trades",
             [
-                Column("sym", "VARCHAR"),
-                Column("price", "DOUBLE"),
-                Column("account_id", "INT"),
+                ("sym", "VARCHAR"),
+                ("price", "DOUBLE"),
+                ("account_id", "INT"),
             ],
             trading,
         )
@@ -659,10 +659,10 @@ class TestAssociationBeforeTableRaises:
         self._repo = Database("finance_db", "duckdb://test.db")
         ref_data = Schema("ref_data", self._repo)
         trading = Schema("trading", self._repo)
-        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+        Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR")], ref_data)
         Table(
             "trades",
-            [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("account_id", "INT")],
+            [("sym", "VARCHAR"), ("price", "DOUBLE"), ("account_id", "INT")],
             trading,
         )
         known = {}
@@ -699,7 +699,7 @@ class TestColumnMappingHeaderValidation:
         pkg = Package("test")
         Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE)], pkg)
         db = Database("test_db", "duckdb://test.db")
-        Table("accounts", [Column("id", "INT")], Schema("hr", db))
+        Table("accounts", [("id", "INT")], Schema("hr", db))
         return pkg, db
 
     def test_property_column_raises(self):
@@ -797,9 +797,9 @@ class TestMilestonedWithMissingColumns:
         ], pkg)
         db = Database("test_db", "duckdb://test.db")
         Table("trades", [
-            Column("sym", "VARCHAR"),
-            Column("in_z", "TIMESTAMP"),
-            Column("out_z", "TIMESTAMP"),
+            ("sym", "VARCHAR"),
+            ("in_z", "TIMESTAMP"),
+            ("out_z", "TIMESTAMP"),
         ], Schema("hr", db))
         return pkg, db
 
@@ -987,11 +987,11 @@ class TestEmbeddedMappingErrors:
         repo = Database("finance_db", "duckdb://test.db")
         ref_data = Schema("ref_data", repo)
         trading = Schema("trading", repo)
-        Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
+        Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR")], ref_data)
         Table(
             "trades",
-            [Column("sym", "VARCHAR"), Column("price", "DOUBLE"), Column("account_id", "INT"),
-             Column("acct_name", "VARCHAR")],
+            [("sym", "VARCHAR"), ("price", "DOUBLE"), ("account_id", "INT"),
+             ("acct_name", "VARCHAR")],
             trading,
         )
         return repo
@@ -1044,8 +1044,8 @@ class TestBusinessDateRangeScheme:
     @staticmethod
     def _repo() -> Database:
         repo = Database("rates_db", "duckdb://test.db")
-        Table("rates", [Column("code", "VARCHAR"), Column("amount", "DOUBLE"),
-                        Column("from_z", "DATE"), Column("thru_z", "DATE")], Schema("mkt", repo))
+        Table("rates", [("code", "VARCHAR"), ("amount", "DOUBLE"),
+                        ("from_z", "DATE"), ("thru_z", "DATE")], Schema("mkt", repo))
         return repo
 
     def test_it_loads_as_a_business_date_range_mapping(self):
@@ -1078,9 +1078,9 @@ class TestProcessingSnapshotScheme:
     def _repo() -> Database:
         repo = Database("snapshots_db", "duckdb://test.db")
         schema = Schema("mkt", repo)
-        Table("quotes", [Column("id", "INT"), Column("symbol", "VARCHAR"), Column("price", "DOUBLE"),
-                         Column("taken_at", "TIMESTAMP")], schema)
-        Table("positions", [Column("id", "INT"), Column("symbol", "VARCHAR")], schema)
+        Table("quotes", [("id", "INT"), ("symbol", "VARCHAR"), ("price", "DOUBLE"),
+                         ("taken_at", "TIMESTAMP")], schema)
+        Table("positions", [("id", "INT"), ("symbol", "VARCHAR")], schema)
         return repo
 
     def test_it_loads_as_a_processing_snapshot_mapping(self):
