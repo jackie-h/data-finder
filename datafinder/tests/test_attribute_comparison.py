@@ -152,3 +152,43 @@ def test_in_takes_the_type_of_the_column():
     assert "IN (1, 2)" in to_sql(None, None, [integer], table, integer.is_in([1, 2]))
     assert "IN ('a')" in to_sql(None, None, [integer], table, StringAttribute("S", "S", "VARCHAR", "t").is_in(["a"]))
     assert "NOT IN (TRUE)" in to_sql(None, None, [integer], table, BooleanAttribute("B", "B", "BOOLEAN", "t").is_not_in([True]))
+
+
+def test_a_function_result_has_the_type_the_function_gives():
+    from datafinder.scalar_functions import (
+        DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, StringFunctionOperation)
+    text = StringAttribute("S", "S", "VARCHAR", "t")
+    integer = IntegerAttribute("I", "I", "INT", "t")
+    double = DoubleAttribute("D", "D", "DOUBLE", "t")
+    decimal_ = DecimalAttribute("M", "M", "DECIMAL", "t")
+    assert isinstance(text.substring(0, 2), StringFunctionOperation)
+    assert isinstance(text.length(), IntegerFunctionOperation)
+    # abs, ceil, floor, mod and round keep the type of what they are given
+    for function in (lambda c: c.abs(), lambda c: c.ceil(), lambda c: c.floor(), lambda c: c.mod(3), lambda c: c.round()):
+        assert isinstance(function(integer), IntegerFunctionOperation)
+        assert isinstance(function(double), DoubleFunctionOperation)
+        assert isinstance(function(decimal_), DecimalFunctionOperation)
+    assert isinstance(integer.abs().abs(), IntegerFunctionOperation)
+    # the square root, powers, logarithm, exponential and trigonometry give a floating-point number
+    for function in (lambda c: c.sqrt(), lambda c: c.log(), lambda c: c.exp(), lambda c: c.sin(),
+                     lambda c: c.atan2(1)):
+        assert isinstance(function(integer), DoubleFunctionOperation)
+    assert isinstance(text.length().sqrt(), DoubleFunctionOperation)
+    # a whole, non-negative power of an integer is an integer; any other power is a floating-point number
+    assert isinstance(integer.power(2), IntegerFunctionOperation) and integer.power(2).cast == "BIGINT"
+    assert isinstance(integer ** 3, IntegerFunctionOperation)
+    assert isinstance(integer.power(-1), DoubleFunctionOperation)
+    assert isinstance(integer.power(0.5), DoubleFunctionOperation)  # type: ignore[arg-type]
+    assert isinstance(double.power(2), DoubleFunctionOperation) and isinstance(decimal_.power(2), DoubleFunctionOperation)
+    # fill_null keeps the column's type
+    assert isinstance(text.fill_null("x"), StringFunctionOperation)
+    assert isinstance(integer.fill_null(0), IntegerFunctionOperation)
+    assert isinstance(double.fill_null(0.0), DoubleFunctionOperation)
+
+
+def test_a_text_function_is_not_ordered_and_a_number_function_is():
+    text = StringAttribute("S", "S", "VARCHAR", "t")
+    with pytest.raises(TypeError):
+        text.upper() < "b"  # type: ignore[operator]
+    assert text.length() < 3
+    assert not hasattr(text.upper(), "sqrt") and not hasattr(text.length(), "upper")

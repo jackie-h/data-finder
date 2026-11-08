@@ -1,7 +1,7 @@
 from typing import Any
 
 from model.relational import Aliasable, Column, Operation, RelationalOperationElement, \
-    ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
+    ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, UntypedFunctionOperation, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
 
@@ -169,8 +169,12 @@ class Attribute(RelationalOperationElement, Aliasable):
         """Return the value, or ``default`` when it is NULL: ``name().fill_null("N/A")``. Like ``Series.fillna``."""
         if not isinstance(default, (str, int, float, bool)):
             raise TypeError(f"A fill_null default is a string, number or bool, not {type(default).__name__}")
-        return ScalarFunctionOperation(self._column_with_join(), ScalarFunction.COALESCE,
-                                       'Fill Null ' + self.__display_name, extra_args=[default])
+        return self._coalesce_type()(self._column_with_join(), ScalarFunction.COALESCE,
+                                     'Fill Null ' + self.__display_name, extra_args=[default])
+
+    def _coalesce_type(self) -> type[ScalarFunctionOperation]:
+        """The operation that holds ``fill_null``'s result: one of the column's own type where there is one."""
+        return UntypedFunctionOperation
 
     def ascending(self) -> SortOperation:
         """Return an ascending sort operation for this Attribute."""

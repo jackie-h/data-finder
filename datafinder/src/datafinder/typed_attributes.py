@@ -3,7 +3,10 @@ import datetime
 from datafinder import Attribute
 import decimal
 
-from datafinder.scalar_functions import NumericFunctions, StringFunctions
+from datafinder.scalar_functions import (
+    DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, N, NumericFunctions, StringFunctionOperation,
+    StringFunctions,
+)
 
 from model.relational import Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
@@ -72,6 +75,9 @@ class StringAttribute(_MinMax, StringFunctions, Attribute, Equatable[str]):
     def _to_constant(self, value):
         return StringConstantOperation(value)
 
+    def _coalesce_type(self) -> type[ScalarFunctionOperation]:
+        return StringFunctionOperation
+
     def matches(self, pattern: str) -> ComparisonOperation:
         """Return a regular expression match: the text has a match for ``pattern`` anywhere in it, as Python's ``re.search``.
         ``contains``, ``starts_with`` and ``ends_with`` match their text literally; negate any of them with ``~``."""
@@ -89,7 +95,7 @@ class StringAttribute(_MinMax, StringFunctions, Attribute, Equatable[str]):
         """Return a suffix match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(suffix)}"))
 
-class NumericAttribute(NumericFunctions, Attribute, Arithmetic):
+class NumericAttribute(NumericFunctions[N], Attribute, Arithmetic):
     """A numeric attribute supporting aggregate and scalar functions.
 
     Aggregate functions return an ``AggregateOperation`` for use with
@@ -112,6 +118,9 @@ class NumericAttribute(NumericFunctions, Attribute, Arithmetic):
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a numeric attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
+
+    def _coalesce_type(self) -> type[ScalarFunctionOperation]:
+        return self._number_type  # type: ignore[return-value]
 
     def sum(self):
         """Return the sum of all values in the group."""
@@ -143,8 +152,10 @@ class NumericAttribute(NumericFunctions, Attribute, Arithmetic):
 
 
 
-class DoubleAttribute(NumericAttribute, Orderable[float]):
+class DoubleAttribute(NumericAttribute[DoubleFunctionOperation], Orderable[float]):
     """A floating-point attribute."""
+
+    _number_type = DoubleFunctionOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -159,8 +170,10 @@ FloatAttribute = DoubleAttribute
 
 
 
-class DecimalAttribute(NumericAttribute, Orderable[decimal.Decimal]):
+class DecimalAttribute(NumericAttribute[DecimalFunctionOperation], Orderable[decimal.Decimal]):
     """A decimal attribute."""
+
+    _number_type = DecimalFunctionOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -191,8 +204,10 @@ class BooleanAttribute(Attribute, Equatable[bool]):
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(False))
 
 
-class IntegerAttribute(NumericAttribute, Orderable[int]):
+class IntegerAttribute(NumericAttribute[IntegerFunctionOperation], Orderable[int]):
     """An integer attribute."""
+
+    _number_type = IntegerFunctionOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):

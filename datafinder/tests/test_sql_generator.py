@@ -1145,7 +1145,7 @@ class TestExpressionFilters:
     def test_a_value_to_compare_with_must_be_simple(self):
         _, n = self._cols()
         with pytest.raises(TypeError, match="value to compare"):
-            n.upper().eq([1])
+            n.upper().eq([1])  # type: ignore[arg-type]
 
     def test_an_expression_is_still_hashable_and_distinct(self):
         _, n = self._cols()

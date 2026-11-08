@@ -667,7 +667,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
             parts.append(str(operation.second_arg))
         for arg in operation.extra_args:
             parts.append(sql_string_literal(arg) if isinstance(arg, str) else str(arg))
-        return fn + '(' + ', '.join(parts) + ')'
+        sql = fn + '(' + ', '.join(parts) + ')'
+        return f'CAST({sql} AS {operation.cast})' if operation.cast else sql
     elif isinstance(operation, DateExtractOperation):
         return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
     elif isinstance(operation, DateTruncOperation):
@@ -916,7 +917,7 @@ class SQLQueryGenerator:
                                       [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in op.order_by])
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
-                                           second_arg=op.second_arg, extra_args=list(op.extra_args))
+                                           second_arg=op.second_arg, extra_args=list(op.extra_args), cast=op.cast)
         elif isinstance(op, ArithmeticOperation):
             return ArithmeticOperation(self.__rewrite_operation(op.left), op.operator,
                                        self.__rewrite_operation(op.right), op.display_name)
