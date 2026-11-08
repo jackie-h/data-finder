@@ -135,3 +135,33 @@ def test_a_constant_has_aggregates_of_its_kind():
     assert isinstance(constant(2) * integer, IntegerArithmeticOperation)
     assert isinstance(integer * constant(2), IntegerArithmeticOperation)
     assert isinstance(integer * constant(2.5), DoubleArithmeticOperation)
+
+
+def test_a_constant_has_arithmetic_and_comparisons_of_its_kind():
+    import datetime
+    from datafinder import constant
+    table = Table("t", [Column("I", "INT"), Column("D", "DOUBLE")])
+    # arithmetic: the kind of the result follows the same rules as for a column
+    assert isinstance(assert_type(constant(2) * 3, IntegerArithmeticOperation), IntegerArithmeticOperation)
+    assert isinstance(assert_type(constant(2) + constant(3), IntegerArithmeticOperation), IntegerArithmeticOperation)
+    assert isinstance(assert_type(10 - constant(2), IntegerArithmeticOperation), IntegerArithmeticOperation)
+    assert isinstance(assert_type(constant(2) * 2.5, DoubleArithmeticOperation), DoubleArithmeticOperation)
+    assert isinstance(assert_type(constant(1.5) * integer, DoubleArithmeticOperation), DoubleArithmeticOperation)
+    assert isinstance(assert_type(constant(2) / 4, DoubleArithmeticOperation), DoubleArithmeticOperation)
+    assert isinstance(assert_type(constant(decimal.Decimal("1.5")) + 1, DecimalArithmeticOperation), DecimalArithmeticOperation)
+    assert isinstance(assert_type(integer * constant(2), IntegerArithmeticOperation), IntegerArithmeticOperation)
+    # in a query
+    assert "5 * t0.I" in to_sql(None, None, [constant(5) * integer], table, constant(1) < integer)
+    assert "WHERE 1 < t0.I" in to_sql(None, None, [integer], table, constant(1) < integer)
+    assert "WHERE 3 IN (1, 3)" in to_sql(None, None, [integer], table, constant(3).is_in([1, 3]))
+    # comparisons: a number and a date are ordered, text and a boolean are only equal or not
+    assert constant(1) < 2 and constant(1.5) >= 1.0 and constant(datetime.date(2020, 1, 1)) < datetime.date(2021, 1, 1)
+    assert constant("a").eq("a") and constant(True).ne(False)
+    for unordered in (constant("a"), constant(True)):
+        with pytest.raises(TypeError):
+            unordered < 1  # type: ignore[operator]
+    # a text constant is not a number
+    with pytest.raises(TypeError):
+        constant("a") * 2  # type: ignore[operator]
+    with pytest.raises(TypeError):
+        constant(datetime.date(2020, 1, 1)) + 1  # type: ignore[operator]

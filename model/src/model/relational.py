@@ -111,67 +111,6 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
-class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
-    """A fixed value. A number has aggregates of its own kind (``constant(1).sum()`` is an integer); a text, date or
-    boolean has untyped ones."""
-
-    def __init__(self):
-        super().__init__()
-
-class IntegerConstantOperation(ConstantOperation, Aggregates['IntegerAggregateOperation']):
-    _number_kind = int
-    value:int
-
-    def __init__(self, value:int):
-        super().__init__()
-        self.value = value
-
-class FloatConstantOperation(ConstantOperation, Aggregates['DoubleAggregateOperation']):
-    _number_kind = float
-    value:float
-
-    def __init__(self, value:float):
-        super().__init__()
-        self.value = value
-
-class StringConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
-    value:str
-
-    def __init__(self, value:str):
-        super().__init__()
-        self.value = value
-
-class DateConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
-    value:datetime.date
-
-    def __init__(self, value:datetime.date):
-        super().__init__()
-        self.value = value
-
-
-class DateTimeConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
-    value:datetime.datetime
-
-    def __init__(self, value:datetime.datetime):
-        super().__init__()
-        self.value = value
-
-class DecimalConstantOperation(ConstantOperation, Aggregates['DecimalAggregateOperation']):
-    _number_kind = decimal.Decimal
-    value: decimal.Decimal
-
-    def __init__(self, value: decimal.Decimal):
-        super().__init__()
-        self.value = value
-
-class BooleanConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
-    value:bool
-
-    def __init__(self, value:bool):
-        super().__init__()
-        self.value = value
-
-
 class UnaryOperation(Operation):
     element: RelationalOperationElement
 
@@ -207,18 +146,18 @@ class NotOperation(UnaryOperation, BooleanAggregates):
 
 class InOperation(UnaryOperation, BooleanAggregates):
     """The element is one of ``values`` (``element IN (...)``)."""
-    values: list[ConstantOperation]
+    values: 'list[ConstantOperation]'
 
-    def __init__(self, element: RelationalOperationElement, values: list[ConstantOperation]):
+    def __init__(self, element: RelationalOperationElement, values: 'list[ConstantOperation]'):
         super().__init__(element)
         self.values = values
 
 
 class NotInOperation(UnaryOperation, BooleanAggregates):
     """The element is none of ``values`` (``element NOT IN (...)``)."""
-    values: list[ConstantOperation]
+    values: 'list[ConstantOperation]'
 
-    def __init__(self, element: RelationalOperationElement, values: list[ConstantOperation]):
+    def __init__(self, element: RelationalOperationElement, values: 'list[ConstantOperation]'):
         super().__init__(element)
         self.values = values
 
@@ -656,6 +595,69 @@ _ARITHMETIC_RESULTS: 'dict[type | None, type[ArithmeticOperation]]' = {
     None: UntypedArithmeticOperation, int: IntegerArithmeticOperation, float: DoubleArithmeticOperation,
     decimal.Decimal: DecimalArithmeticOperation,
 }
+
+
+class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
+    """A fixed value. A number has aggregates of its own kind (``constant(1).sum()`` is an integer); a text, date or
+    boolean has untyped ones."""
+
+    def __init__(self):
+        super().__init__()
+
+class IntegerConstantOperation(ConstantOperation, Arithmetic[int], Orderable[int], Aggregates['IntegerAggregateOperation']):
+    _number_kind = int
+    value:int
+
+    def __init__(self, value:int):
+        super().__init__()
+        self.value = value
+
+class FloatConstantOperation(ConstantOperation, Arithmetic[float], Orderable[float], Aggregates['DoubleAggregateOperation']):
+    _number_kind = float
+    value:float
+
+    def __init__(self, value:float):
+        super().__init__()
+        self.value = value
+
+class StringConstantOperation(ConstantOperation, Equatable[str], Aggregates['UntypedAggregateOperation']):
+    value:str
+
+    def __init__(self, value:str):
+        super().__init__()
+        self.value = value
+
+class DateConstantOperation(ConstantOperation, Orderable[datetime.date], Aggregates['UntypedAggregateOperation']):
+    value:datetime.date
+
+    def __init__(self, value:datetime.date):
+        super().__init__()
+        self.value = value
+
+
+class DateTimeConstantOperation(ConstantOperation, Orderable[datetime.datetime | datetime.date],
+                                Aggregates['UntypedAggregateOperation']):
+    value:datetime.datetime
+
+    def __init__(self, value:datetime.datetime):
+        super().__init__()
+        self.value = value
+
+class DecimalConstantOperation(ConstantOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
+                               Aggregates['DecimalAggregateOperation']):
+    _number_kind = decimal.Decimal
+    value: decimal.Decimal
+
+    def __init__(self, value: decimal.Decimal):
+        super().__init__()
+        self.value = value
+
+class BooleanConstantOperation(ConstantOperation, Equatable[bool], Aggregates['UntypedAggregateOperation']):
+    value:bool
+
+    def __init__(self, value:bool):
+        super().__init__()
+        self.value = value
 
 
 class ConcatOperation(Operation, Equatable[str], Sortable, StringPredicates):
