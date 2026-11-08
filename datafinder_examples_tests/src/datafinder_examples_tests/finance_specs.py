@@ -160,6 +160,45 @@ TRADE_FINDER_SPECS = FinderSpec(
             expected_columns=["Year Valid From"],
             expected_result=np.array([[2020]], dtype=object),
         ),
+        # --- a date operation is compared as what it gives: a part is an integer, a moved date a date ---
+        TestExpectation(
+            name="filter_on_a_year",
+            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
+            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.valid_from().year().eq(2020)),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_a_month_in_a_list",
+            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
+            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.valid_from().month().is_in([1, 2])),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_a_difference",
+            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
+            query=lambda f: f.find_all(
+                None, _AT, [f.symbol()], f.valid_from().diff_days(datetime.datetime(2020, 2, 1)) >= 31),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_a_moved_datetime",
+            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
+            query=lambda f: f.find_all(
+                None, _AT, [f.symbol()], f.valid_from().add_days(1) > datetime.datetime(2020, 1, 1)),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="filter_on_the_first_day_of_the_month",
+            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
+            query=lambda f: f.find_all(
+                None, _AT, [f.symbol()], f.valid_from().first_day_of_month().eq(datetime.date(2020, 1, 1))),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
         TestExpectation(
             name="valid_from_month",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().month()]),

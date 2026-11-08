@@ -1096,6 +1096,7 @@ class SQLQueryGenerator:
             ta = self.__table_alias_for_table(op.owner)
             return ta.alias + '.' + op.name
         elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation,
+                             DateExtractOperation, DateArithmeticOperation, DateDiffOperation,
                              AggregateOperation, CountAllOperation)):
             # an expression compared in a filter: it needs its columns' joins, then it is written as in a select list
             required_joins: dict = {}
