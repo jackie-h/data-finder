@@ -209,3 +209,16 @@ def test_a_date_operation_is_compared_as_what_it_gives():
         None, None, [day], table, day.add_days(1) > datetime.date(2020, 1, 1))
     assert isinstance(day.first_day_of_month(), DateTruncOperation)
     assert isinstance(day.add_days(1), DateArithmeticOperation)
+
+
+def test_joined_text_is_compared_for_equality_only():
+    first = StringAttribute("F", "F", "VARCHAR", "t")
+    last = StringAttribute("L", "L", "VARCHAR", "t")
+    table = Table("t", [Column("F", "VARCHAR"), Column("L", "VARCHAR")])
+    name = first + " " + last
+    for compare in (lambda n: n < "b", lambda n: n >= "b"):
+        with pytest.raises(TypeError):
+            compare(name)  # type: ignore[operator]
+    assert "IN ('Ann Lee')" in to_sql(None, None, [first], table, name.is_in(["Ann Lee"]))
+    assert "NOT IN ('Ann Lee')" in to_sql(None, None, [first], table, name.is_not_in(["Ann Lee"]))
+    assert "WHERE t0.F || ' ' || t0.L = 'Ann Lee'" in to_sql(None, None, [first], table, name.eq("Ann Lee"))

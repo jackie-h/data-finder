@@ -437,8 +437,9 @@ class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Sortable, Agg
         self.display_name = display_name
 
 
-class ConcatOperation(Operation, Comparable, Sortable, StringPredicates):
-    """Text joined end to end: ``first + " " + last``. NULL in any part makes the whole NULL, as with SQL's ``||``."""
+class ConcatOperation(Operation, Equatable[str], Sortable, StringPredicates):
+    """Text joined end to end: ``first + " " + last``. NULL in any part makes the whole NULL, as with SQL's ``||``.
+    It is text, so it is compared for equality with text and has no order, as a string column has none."""
     parts: list[RelationalOperationElement]
 
     def __init__(self, parts: list[RelationalOperationElement], display_name: str | None = None):
