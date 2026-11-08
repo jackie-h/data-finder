@@ -1,7 +1,9 @@
 import datetime
 import decimal
 from enum import Enum
-from typing import Sequence
+from typing import Any, Generic, Iterable, Sequence, TypeVar
+
+T = TypeVar("T")
 
 
 # Interface
@@ -295,54 +297,72 @@ def _value_operand(value) -> 'ConstantOperation':
     raise TypeError(f"A value to compare with is a bool, number, string, date or datetime, not {type(value).__name__}")
 
 
-class Comparable:
-    """Comparisons for an expression, as for a column: ``f.name().upper().eq("ACME")``, ``f.price() * 2 > 10``,
-    ``f.first() + f.last() == "AnnLee"``. The other side is a value or another expression. Each gives a filter.
-    ``==`` and ``!=`` build a comparison too, as they do on attributes."""
+class Equatable(Generic[T]):
+    """Equality for an expression or a column whose values are ``T``: ``eq``, ``ne``, ``==``, ``!=``, ``is_in`` and
+    ``is_not_in``. The other side is a ``T``, another column or an expression, and each gives a filter.
+
+    ``==`` and ``!=`` build a comparison, as on every column. A type that has an order takes Orderable instead.
+    A boolean or a string is Equatable only."""
+
+    def _to_constant(self, value: T) -> 'ConstantOperation':
+        """A Python value as the constant this compares with. A column narrows it to its type."""
+        return _value_operand(value)
 
     def _compared(self, operator: 'ComparisonOperator', other) -> 'ComparisonOperation':
-        right = other._arithmetic_operand() if isinstance(other, RelationalOperationElement) else _value_operand(other)
+        right = other._arithmetic_operand() if isinstance(other, RelationalOperationElement) else self._to_constant(other)
         return ComparisonOperation(self._arithmetic_operand(), operator, right)  # type: ignore[attr-defined]
 
-    def eq(self, other) -> 'ComparisonOperation':
+    def eq(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
+        """The expression equals a value, or another column or expression."""
         return self._compared(ComparisonOperator.EQUAL, other)
 
-    def ne(self, other) -> 'ComparisonOperation':
+    def ne(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
+        """The expression does not equal a value, or another column or expression."""
         return self._compared(ComparisonOperator.NOT_EQUAL, other)
 
-    def __eq__(self, other) -> 'ComparisonOperation':  # type: ignore[override]
+    def __eq__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':  # type: ignore[override]
         return self.eq(other)
 
-    def __ne__(self, other) -> 'ComparisonOperation':  # type: ignore[override]
+    def __ne__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':  # type: ignore[override]
         return self.ne(other)
 
     __hash__ = object.__hash__  # defining __eq__ would otherwise make an expression unhashable
 
-    def _constants(self, values) -> 'list[ConstantOperation]':
-        constants = [_value_operand(v) for v in values]
+    def _constants(self, values: 'Iterable[T]') -> 'list[ConstantOperation]':
+        constants = [self._to_constant(v) for v in values]
         if not constants:
             raise ValueError("is_in / is_not_in need at least one value")
         return constants
 
-    def is_in(self, values) -> 'InOperation':
+    def is_in(self, values: 'Iterable[T]') -> 'InOperation':
         """The expression is one of ``values``: ``f.name().substring(0, 4).is_in(["beta", "Hell"])``."""
         return InOperation(self._arithmetic_operand(), self._constants(values))  # type: ignore[attr-defined]
 
-    def is_not_in(self, values) -> 'NotInOperation':
+    def is_not_in(self, values: 'Iterable[T]') -> 'NotInOperation':
         """The expression is none of ``values``."""
         return NotInOperation(self._arithmetic_operand(), self._constants(values))  # type: ignore[attr-defined]
 
-    def __lt__(self, other) -> 'ComparisonOperation':
+
+class Orderable(Equatable[T]):
+    """Equatable, and ordered: ``<``, ``<=``, ``>`` and ``>=`` against a ``T``, another column or an expression."""
+
+    def __lt__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
         return self._compared(ComparisonOperator.LESS_THAN, other)
 
-    def __le__(self, other) -> 'ComparisonOperation':
+    def __le__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
         return self._compared(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, other)
 
-    def __gt__(self, other) -> 'ComparisonOperation':
+    def __gt__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
         return self._compared(ComparisonOperator.GREATER_THAN, other)
 
-    def __ge__(self, other) -> 'ComparisonOperation':
+    def __ge__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
         return self._compared(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, other)
+
+
+class Comparable(Orderable[Any]):
+    """Comparisons for an expression whose type is not known: ``f.price() * 2 > 10``, ``f.first() + f.last() == "AnnLee"``.
+    The other side is any value, another column or an expression. An expression whose type is known takes Equatable or
+    Orderable with that type instead."""
 
 
 class ArithmeticOperator(Enum):

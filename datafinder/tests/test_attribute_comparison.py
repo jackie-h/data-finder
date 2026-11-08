@@ -133,3 +133,22 @@ def test_matches_searches_for_a_regular_expression_anywhere_in_the_text():
 def test_matches_a_function_of_a_column():
     name = StringAttribute("N", "N", "VARCHAR", "t")
     assert "REGEXP_MATCHES(UPPER(t0.N), 'AC.*E')" in _sql(name, name.upper().matches("AC.*E"))
+
+
+def test_only_a_type_with_an_order_can_be_compared_with_less_than():
+    boolean = BooleanAttribute("B", "B", "BOOLEAN", "t")
+    text = StringAttribute("S", "S", "VARCHAR", "t")
+    for column in (boolean, text):
+        for compare in (lambda c: c < 1, lambda c: c <= 1, lambda c: c > 1, lambda c: c >= 1):
+            with pytest.raises(TypeError):
+                compare(column)
+    assert IntegerAttribute("I", "I", "INT", "t") < 1
+    assert DateAttribute("D", "D", "DATE", "t") >= datetime.date(2020, 1, 1)
+
+
+def test_in_takes_the_type_of_the_column():
+    table = Table("t", [Column("I", "INT"), Column("B", "BOOLEAN"), Column("S", "VARCHAR")])
+    integer = IntegerAttribute("I", "I", "INT", "t")
+    assert "IN (1, 2)" in to_sql(None, None, [integer], table, integer.is_in([1, 2]))
+    assert "IN ('a')" in to_sql(None, None, [integer], table, StringAttribute("S", "S", "VARCHAR", "t").is_in(["a"]))
+    assert "NOT IN (TRUE)" in to_sql(None, None, [integer], table, BooleanAttribute("B", "B", "BOOLEAN", "t").is_not_in([True]))
