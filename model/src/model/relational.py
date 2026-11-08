@@ -1,9 +1,10 @@
 import datetime
 import decimal
 from enum import Enum
-from typing import Any, Generic, Iterable, Sequence, TypeVar
+from typing import Any, Generic, Iterable, Sequence, TypeVar, overload
 
 T = TypeVar("T")
+K = TypeVar("K")  # the kind of number an expression holds: int, float or Decimal
 
 
 # Interface
@@ -388,9 +389,34 @@ def _constant_operand(value) -> 'ConstantOperation':
     return DecimalConstantOperation(value)
 
 
-class Arithmetic:
-    """The operators ``+ - * /`` for an expression that holds a number: ``a + b``, ``a * 2``, ``1 - a``. The other
-    operand is a number or another numeric expression."""
+def _number_kind_of(value) -> 'type | None':
+    """The kind of number a value or an expression is: ``int``, ``float`` or ``decimal.Decimal``, or None if not known."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float, decimal.Decimal)):
+        return type(value)
+    return getattr(value, '_number_kind', None)
+
+
+def _arithmetic_result_kind(operator: 'ArithmeticOperator', a: 'type | None', b: 'type | None') -> 'type | None':
+    """The kind of number ``a operator b`` gives, as SQL gives it: ``/`` is always a double; otherwise a double if either
+    is, else a decimal if either is, else an integer. None if either side is not known."""
+    if a is None or b is None:
+        return None
+    if operator is ArithmeticOperator.DIVIDE or float in (a, b):
+        return float
+    if decimal.Decimal in (a, b):
+        return decimal.Decimal
+    return int
+
+
+class Arithmetic(Generic[K]):
+    """The operators ``+ - * /`` for an expression that holds a number of kind ``K`` (``int``, ``float`` or
+    ``decimal.Decimal``): ``a + b``, ``a * 2``, ``1 - a``. The other operand is a number or another numeric expression.
+
+    The result is typed as SQL types it: ``+ - *`` of two integers is an integer, of an integer and a decimal a
+    decimal, with a double a double; ``/`` is always a double. An expression whose kind is not known gives an
+    UntypedArithmeticOperation, which takes any comparison."""
 
     def _numeric(self) -> None:
         """Raise if this expression is not a number."""
@@ -405,35 +431,188 @@ class Arithmetic:
             operand = _constant_operand(other)
         me = self._arithmetic_operand()  # type: ignore[attr-defined]
         left, right = (operand, me) if reflected else (me, operand)
-        return ArithmeticOperation(left, operator, right)
+        kind = _arithmetic_result_kind(operator, getattr(self, '_number_kind', None), _number_kind_of(other))
+        return _ARITHMETIC_RESULTS[kind](left, operator, right)
 
-    def __add__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __add__(self: 'Arithmetic[int]', other: 'int | Arithmetic[int]') -> 'IntegerArithmeticOperation': ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def __add__(self: 'Arithmetic[int]', other: 'decimal.Decimal | Arithmetic[decimal.Decimal]') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __add__(self: 'Arithmetic[int]', other: 'float | Arithmetic[float]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __add__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal | Arithmetic[int] | Arithmetic[float] | Arithmetic[decimal.Decimal]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __add__(self: 'Arithmetic[decimal.Decimal]', other: 'int | decimal.Decimal | Arithmetic[int] | Arithmetic[decimal.Decimal]') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __add__(self: 'Arithmetic[decimal.Decimal]', other: 'float | Arithmetic[float]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __add__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __add__(self, other):
         return self._arithmetic(ArithmeticOperator.ADD, other, False)
 
-    def __radd__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __radd__(self: 'Arithmetic[int]', other: 'int') -> 'IntegerArithmeticOperation': ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def __radd__(self: 'Arithmetic[int]', other: 'decimal.Decimal') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __radd__(self: 'Arithmetic[int]', other: 'float') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __radd__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __radd__(self: 'Arithmetic[decimal.Decimal]', other: 'int | decimal.Decimal') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __radd__(self: 'Arithmetic[decimal.Decimal]', other: 'float') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __radd__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __radd__(self, other):
         return self._arithmetic(ArithmeticOperator.ADD, other, True)
 
-    def __sub__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __sub__(self: 'Arithmetic[int]', other: 'int | Arithmetic[int]') -> 'IntegerArithmeticOperation': ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def __sub__(self: 'Arithmetic[int]', other: 'decimal.Decimal | Arithmetic[decimal.Decimal]') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __sub__(self: 'Arithmetic[int]', other: 'float | Arithmetic[float]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __sub__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal | Arithmetic[int] | Arithmetic[float] | Arithmetic[decimal.Decimal]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __sub__(self: 'Arithmetic[decimal.Decimal]', other: 'int | decimal.Decimal | Arithmetic[int] | Arithmetic[decimal.Decimal]') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __sub__(self: 'Arithmetic[decimal.Decimal]', other: 'float | Arithmetic[float]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __sub__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __sub__(self, other):
         return self._arithmetic(ArithmeticOperator.SUBTRACT, other, False)
 
-    def __rsub__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __rsub__(self: 'Arithmetic[int]', other: 'int') -> 'IntegerArithmeticOperation': ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def __rsub__(self: 'Arithmetic[int]', other: 'decimal.Decimal') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __rsub__(self: 'Arithmetic[int]', other: 'float') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rsub__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rsub__(self: 'Arithmetic[decimal.Decimal]', other: 'int | decimal.Decimal') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __rsub__(self: 'Arithmetic[decimal.Decimal]', other: 'float') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rsub__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __rsub__(self, other):
         return self._arithmetic(ArithmeticOperator.SUBTRACT, other, True)
 
-    def __mul__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __mul__(self: 'Arithmetic[int]', other: 'int | Arithmetic[int]') -> 'IntegerArithmeticOperation': ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def __mul__(self: 'Arithmetic[int]', other: 'decimal.Decimal | Arithmetic[decimal.Decimal]') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __mul__(self: 'Arithmetic[int]', other: 'float | Arithmetic[float]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __mul__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal | Arithmetic[int] | Arithmetic[float] | Arithmetic[decimal.Decimal]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __mul__(self: 'Arithmetic[decimal.Decimal]', other: 'int | decimal.Decimal | Arithmetic[int] | Arithmetic[decimal.Decimal]') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __mul__(self: 'Arithmetic[decimal.Decimal]', other: 'float | Arithmetic[float]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __mul__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __mul__(self, other):
         return self._arithmetic(ArithmeticOperator.MULTIPLY, other, False)
 
-    def __rmul__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __rmul__(self: 'Arithmetic[int]', other: 'int') -> 'IntegerArithmeticOperation': ...  # pyright: ignore[reportOverlappingOverload]
+
+    @overload
+    def __rmul__(self: 'Arithmetic[int]', other: 'decimal.Decimal') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __rmul__(self: 'Arithmetic[int]', other: 'float') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rmul__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rmul__(self: 'Arithmetic[decimal.Decimal]', other: 'int | decimal.Decimal') -> 'DecimalArithmeticOperation': ...
+
+    @overload
+    def __rmul__(self: 'Arithmetic[decimal.Decimal]', other: 'float') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rmul__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __rmul__(self, other):
         return self._arithmetic(ArithmeticOperator.MULTIPLY, other, True)
 
-    def __truediv__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __truediv__(self: 'Arithmetic[int]', other: 'int | float | decimal.Decimal | Arithmetic[int] | Arithmetic[float] | Arithmetic[decimal.Decimal]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __truediv__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal | Arithmetic[int] | Arithmetic[float] | Arithmetic[decimal.Decimal]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __truediv__(self: 'Arithmetic[decimal.Decimal]', other: 'int | float | decimal.Decimal | Arithmetic[int] | Arithmetic[float] | Arithmetic[decimal.Decimal]') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __truediv__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __truediv__(self, other):
         return self._arithmetic(ArithmeticOperator.DIVIDE, other, False)
 
-    def __rtruediv__(self, other) -> 'ArithmeticOperation':
+    @overload
+    def __rtruediv__(self: 'Arithmetic[int]', other: 'int | float | decimal.Decimal') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rtruediv__(self: 'Arithmetic[float]', other: 'int | float | decimal.Decimal') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rtruediv__(self: 'Arithmetic[decimal.Decimal]', other: 'int | float | decimal.Decimal') -> 'DoubleArithmeticOperation': ...
+
+    @overload
+    def __rtruediv__(self, other: 'RelationalOperationElement') -> 'UntypedArithmeticOperation': ...
+
+    def __rtruediv__(self, other):
         return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
 
 
-class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Sortable, Aggregates):
-    """``left operator right`` on numbers, e.g. ``price * quantity``."""
+class ArithmeticOperation(BinaryOperation, Sortable, Aggregates):
+    """``left operator right`` on numbers, e.g. ``price * quantity``. What it can be compared with and have done to it
+    depends on the kind of number it gives, so that is a subclass: Integer, Double or Decimal ArithmeticOperation, or
+    UntypedArithmeticOperation when the kind of an operand is not known."""
     operator: ArithmeticOperator
 
     def __init__(self, left: RelationalOperationElement, operator: ArithmeticOperator,
@@ -441,6 +620,31 @@ class ArithmeticOperation(BinaryOperation, Arithmetic, Comparable, Sortable, Agg
         super().__init__(left, right)
         self.operator = operator
         self.display_name = display_name
+
+
+class UntypedArithmeticOperation(ArithmeticOperation, Arithmetic[Any], Comparable):
+    """Arithmetic with an operand of unknown kind, so it takes any comparison."""
+
+
+class IntegerArithmeticOperation(ArithmeticOperation, Arithmetic[int], Orderable[int]):
+    """``+ - *`` of integers: an integer."""
+    _number_kind = int
+
+
+class DoubleArithmeticOperation(ArithmeticOperation, Arithmetic[float], Orderable[float]):
+    """Arithmetic with a double, or a division: a double."""
+    _number_kind = float
+
+
+class DecimalArithmeticOperation(ArithmeticOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal]):
+    """``+ - *`` of decimals, or of a decimal and an integer: a decimal."""
+    _number_kind = decimal.Decimal
+
+
+_ARITHMETIC_RESULTS: 'dict[type | None, type[ArithmeticOperation]]' = {
+    None: UntypedArithmeticOperation, int: IntegerArithmeticOperation, float: DoubleArithmeticOperation,
+    decimal.Decimal: DecimalArithmeticOperation,
+}
 
 
 class ConcatOperation(Operation, Equatable[str], Sortable, StringPredicates):
@@ -529,21 +733,24 @@ class AggregateOperation(UnaryOperation, Sortable):
                           WindowSpecification(partition_by, order_by), self.separator, self.order_by)
 
 
-class UntypedAggregateOperation(AggregateOperation, Arithmetic, Comparable, StringPredicates):
+class UntypedAggregateOperation(AggregateOperation, Arithmetic[Any], Comparable, StringPredicates):
     """An aggregate of an expression whose type is not known here, so it takes any comparison."""
 
 
-class IntegerAggregateOperation(AggregateOperation, Arithmetic, Orderable[int]):
+class IntegerAggregateOperation(AggregateOperation, Arithmetic[int], Orderable[int]):
     """An aggregate that gives a whole number: a count, or the sum, minimum or maximum of an integer."""
+    _number_kind = int
 
 
-class DoubleAggregateOperation(AggregateOperation, Arithmetic, Orderable[float]):
+class DoubleAggregateOperation(AggregateOperation, Arithmetic[float], Orderable[float]):
     """An aggregate that gives a floating-point number: an average, standard deviation or variance, or the sum, minimum
     or maximum of a double."""
+    _number_kind = float
 
 
-class DecimalAggregateOperation(AggregateOperation, Arithmetic, Orderable[decimal.Decimal]):
+class DecimalAggregateOperation(AggregateOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal]):
     """The sum, minimum or maximum of a decimal."""
+    _number_kind = decimal.Decimal
 
 
 class StringAggregateOperation(AggregateOperation, Equatable[str], StringPredicates):

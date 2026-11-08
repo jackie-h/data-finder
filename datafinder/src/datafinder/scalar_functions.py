@@ -247,21 +247,24 @@ class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equata
         return concat(other, self)
 
 
-class IntegerFunctionOperation(_Result, NumericFunctions['IntegerFunctionOperation'], Arithmetic, Orderable[int],
+class IntegerFunctionOperation(_Result, NumericFunctions['IntegerFunctionOperation'], Arithmetic[int], Orderable[int],
                                ScalarFunctionOperation):
     """A function that gives a whole number (``length``, or ``abs`` of an integer): compared with integers."""
 
 
-class DoubleFunctionOperation(_Result, NumericFunctions['DoubleFunctionOperation'], Arithmetic, Orderable[float],
+class DoubleFunctionOperation(_Result, NumericFunctions['DoubleFunctionOperation'], Arithmetic[float], Orderable[float],
                               ScalarFunctionOperation):
     """A function that gives a floating-point number (``sqrt``, ``power``, or ``abs`` of a double)."""
 
 
-class DecimalFunctionOperation(_Result, NumericFunctions['DecimalFunctionOperation'], Arithmetic,
+class DecimalFunctionOperation(_Result, NumericFunctions['DecimalFunctionOperation'], Arithmetic[decimal.Decimal],
                                Orderable[decimal.Decimal], ScalarFunctionOperation):
     """A function that gives a decimal (``abs`` of a decimal column)."""
 
 
 IntegerFunctionOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
+IntegerFunctionOperation._number_kind = int  # type: ignore[attr-defined]
 DoubleFunctionOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
+DoubleFunctionOperation._number_kind = float  # type: ignore[attr-defined]
 DecimalFunctionOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
+DecimalFunctionOperation._number_kind = decimal.Decimal  # type: ignore[attr-defined]

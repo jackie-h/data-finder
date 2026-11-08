@@ -106,7 +106,7 @@ class StringAttribute(_MinMax[StringAggregateOperation], StringFunctions, Attrib
         """Return a suffix match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(suffix)}"))
 
-class NumericAttribute(NumericFunctions[N], Attribute, Arithmetic, Generic[N, A]):
+class NumericAttribute(NumericFunctions[N], Attribute, Generic[N, A]):
     """A numeric attribute supporting aggregate and scalar functions.
 
     Aggregate functions return an ``AggregateOperation`` for use with
@@ -166,11 +166,12 @@ class NumericAttribute(NumericFunctions[N], Attribute, Arithmetic, Generic[N, A]
 
 
 
-class DoubleAttribute(NumericAttribute[DoubleFunctionOperation, DoubleAggregateOperation], Orderable[float]):
+class DoubleAttribute(NumericAttribute[DoubleFunctionOperation, DoubleAggregateOperation], Arithmetic[float], Orderable[float]):
     """A floating-point attribute."""
 
     _number_type = DoubleFunctionOperation
     _aggregate_type = DoubleAggregateOperation
+    _number_kind = float
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -185,11 +186,13 @@ FloatAttribute = DoubleAttribute
 
 
 
-class DecimalAttribute(NumericAttribute[DecimalFunctionOperation, DecimalAggregateOperation], Orderable[decimal.Decimal]):
+class DecimalAttribute(NumericAttribute[DecimalFunctionOperation, DecimalAggregateOperation], Arithmetic[decimal.Decimal],
+                       Orderable[decimal.Decimal]):
     """A decimal attribute."""
 
     _number_type = DecimalFunctionOperation
     _aggregate_type = DecimalAggregateOperation
+    _number_kind = decimal.Decimal
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -220,11 +223,12 @@ class BooleanAttribute(Attribute, Equatable[bool]):
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(False))
 
 
-class IntegerAttribute(NumericAttribute[IntegerFunctionOperation, IntegerAggregateOperation], Orderable[int]):
+class IntegerAttribute(NumericAttribute[IntegerFunctionOperation, IntegerAggregateOperation], Arithmetic[int], Orderable[int]):
     """An integer attribute."""
 
     _number_type = IntegerFunctionOperation
     _aggregate_type = IntegerAggregateOperation
+    _number_kind = int
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
