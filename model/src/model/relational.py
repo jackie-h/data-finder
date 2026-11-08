@@ -4,7 +4,6 @@ from enum import Enum
 from typing import Any, Generic, Iterable, Sequence, TypeVar, overload
 
 T = TypeVar("T")
-C = TypeVar("C")  # what a relation's columns are
 K = TypeVar("K")  # the kind of number an expression holds: int, float or Decimal
 AG = TypeVar("AG", bound="AggregateOperation")  # the aggregate that gives an expression's own type
 
@@ -918,20 +917,20 @@ class DateDiffOperation(UnaryOperation, Sortable, Orderable[int]):
         self.display_name = display_name
 
 
-class Relation(Generic[C]):
+class Relation:
     """Something rows are read from, as in Legend: it has columns. A table, a view and a query are relations; a table
-    and a view also have a name (a NamedRelation). ``C`` is what a column is: a table's Columns, a query's display
-    expressions."""
-    columns: Sequence[C]
+    and a view also have a name (a NamedRelation). As in Legend a column is a RelationalOperationElement: a table's are
+    its Columns, a query's are the expressions it shows."""
+    columns: Sequence[RelationalOperationElement]
 
-    def __init__(self, columns: Sequence[C]):
+    def __init__(self, columns: Sequence[RelationalOperationElement]):
         self.columns = columns
 
 
-class NamedRelation(Relation[C]):
+class NamedRelation(Relation):
     """A relation that has a name: a table or a view."""
 
-    def __init__(self, name: str, columns: Sequence[C]):
+    def __init__(self, name: str, columns: Sequence[RelationalOperationElement]):
         Relation.__init__(self, columns)
         self.name = name
 
@@ -1017,7 +1016,7 @@ class ForeignKey:
         self.references = references
 
 
-class TableAlias(NamedRelation['RelationalOperationElement']):
+class TableAlias(NamedRelation):
     """A relation under a name where it is used, as in Legend and as ANSI SQL's ``<table reference>`` with its
     ``<correlation name>``: ``(query) AS relation1``. It has the columns of the relation it names, and what reads those
     columns says which alias they belong to by its name. A table is already named, so this is for a relation that is not:
@@ -1029,7 +1028,9 @@ class TableAlias(NamedRelation['RelationalOperationElement']):
         self.relation = relation
 
 
-class Table(NamedRelation[Column]):
+class Table(NamedRelation):
+    columns: Sequence[Column]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    # (a table's columns are Columns, as Legend's are: narrower than a relation's elements, never assigned from outside)
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
 
@@ -1169,7 +1170,7 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
         return LogicalOperation(self, LogicalOperator.OR, other)
 
 
-class QueryExpression(Relation[RelationalOperationElement]):
+class QueryExpression(Relation):
     """What ANSI SQL calls a ``<query expression>``: a query that returns rows and can be used where a table is, as a
     view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT.
 
