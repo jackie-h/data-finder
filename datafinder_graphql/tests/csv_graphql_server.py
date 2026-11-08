@@ -518,9 +518,9 @@ def finance_tables(accounts_csv: str = "finance_accounts.csv",
          "_in_z": r.get("in_z", "1900-01-01 00:00:00"), "_out_z": r.get("out_z", "9999-12-31 23:59:59")}
         for r in _read_csv(accounts_csv)
     ]
-    # the account query is not milestoned: GraphQL serves only the current (latest) version of each
-    current = {v["id"]: v for v in sorted(versions, key=lambda v: v["_in_z"])}
-    accounts = [{"id": v["id"], "name": v["name"], "branch": v["branch"]} for v in current.values()]
+    # the account query is milestoned in processing time: every version is served, as of the query's asOf
+    accounts = [{"id": v["id"], "name": v["name"], "branch": v["branch"], "_in_z": v["_in_z"], "_out_z": v["_out_z"]}
+                for v in versions]
 
     trades = [
         {
@@ -548,7 +548,7 @@ def finance_tables(accounts_csv: str = "finance_accounts.csv",
     ]
 
     return {
-        "accounts": GraphQLTable(accounts),
+        "accounts": GraphQLTable(accounts, processing_milestoned=True),
         "branches": GraphQLTable(branches),
         "trades": GraphQLTable(trades, processing_milestoned=True,
                                nested={"account": NestedVersions("_account_id", versions)}),

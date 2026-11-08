@@ -55,7 +55,6 @@ ACCOUNT_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _AT, [f.id_(), f.name()], f.id_().eq(1)),
             expected_columns=["Id", "Name"],
             expected_result=np.array([[1, "Acme Corp"]], dtype=object),
-            skip_backends={"graphql": "The finance GraphQL account query has no milestoning, so it takes no processing time"},
         ),
     ],
 )

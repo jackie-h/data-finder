@@ -43,8 +43,13 @@ class TestGraphQLMarkdownLoad:
         urls = {cm.query.endpoint.url for cm in self.mapping.mappings if isinstance(cm, GraphQLClassMapping)}
         assert urls == {"http://localhost:4000/graphql"}
 
-    def test_account_has_no_milestone(self):
-        assert self.by_class["Account"].query.milestone is None
+    def test_account_has_processing_milestone(self):
+        ms = self.by_class["Account"].query.milestone
+        assert isinstance(ms, GraphQLProcessingMilestone)
+        assert ms.argument_name == "asOf"
+
+    def test_branch_has_no_milestone(self):
+        assert self.by_class["Branch"].query.milestone is None
 
     def test_instrument_has_processing_milestone(self):
         ms = self.by_class["Instrument"].query.milestone
@@ -104,7 +109,7 @@ class TestGraphQLMarkdownRoundTrip:
     def test_to_markdown_contains_query_headings(self):
         mapping = load(FIXTURE)
         md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
-        assert "### Query: accounts → Account" in md
+        assert "### Query: accounts → Account (milestone: processing, asOf)" in md
         assert "### Query: instruments → Instrument (milestone: processing, asOf)" in md
         assert "### Query: contractualPositions → ContractualPosition (milestone: bitemporal, businessDate, asOf)" in md
         assert "### Query: trades → Trade (milestone: bitemporal, businessDate, asOf)" in md
@@ -140,7 +145,8 @@ class TestGraphQLMarkdownRoundTrip:
             assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
             assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBiTemporalMilestone)
             assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)
-            assert by_class["Account"].query.milestone is None
+            assert isinstance(by_class["Account"].query.milestone, GraphQLProcessingMilestone)
+            assert by_class["Branch"].query.milestone is None
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
