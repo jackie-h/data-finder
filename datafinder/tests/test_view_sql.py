@@ -96,7 +96,7 @@ def test_rendering_refuses_a_view_whose_joins_fail_the_check():
 
 def test_building_one_query_does_not_change_another_on_a_shared_join():
     from datafinder import StringAttribute
-    from datafinder.sql_generator import build_query_operation, select_sql_to_string
+    from datafinder.sql_generator import build_query_operation, query_sql_to_string
     from model.relational import NoOperation
     root, child = _processing("root"), _processing("child")
     node = _node(child)
@@ -107,7 +107,7 @@ def test_building_one_query_does_not_change_another_on_a_shared_join():
 
     first = build(2021)
     second = build(2023)
-    sql = select_sql_to_string(first, validate_sqlglot=False)
+    sql = query_sql_to_string(first, validate_sqlglot=False)
     assert "2021" in sql and "2023" not in sql
     assert node.join.filter is None
-    assert "2023" in select_sql_to_string(second, validate_sqlglot=False)
+    assert "2023" in query_sql_to_string(second, validate_sqlglot=False)
