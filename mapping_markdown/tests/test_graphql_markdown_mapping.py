@@ -172,8 +172,7 @@ class TestGraphQLAssociationMapping:
     def test_trade_has_account_association(self):
         cm = self.by_class["Trade"]
         assoc_mappings = [pm for pm in cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
-        assert len(assoc_mappings) == 1
-        assert assoc_mappings[0].association_name == "TradeAccount"
+        assert [pm.association_name for pm in assoc_mappings] == ["TradeAccount", "TradeInstrument"]
 
     def test_trade_account_association_graphql_field(self):
         cm = self.by_class["Trade"]
@@ -221,6 +220,12 @@ class TestGraphQLAssociationMapping:
         assert set(assocs) == {"PositionAccount:account"}
         assert self._target_name(assocs["PositionAccount:account"]) == "Account"
 
+    def test_a_trade_has_an_instrument(self):
+        assocs = self._associations("Trade")
+        assert set(assocs) == {"TradeAccount:account", "TradeInstrument:instrument"}
+        assert self._target_name(assocs["TradeInstrument:instrument"]) == "Instrument"
+        assert not assocs["TradeInstrument:instrument"].property.multiplicity.is_many()
+
     def test_a_class_with_no_association_has_no_association_mappings(self):
         assert self._associations("Instrument") == {}
 
@@ -234,8 +239,7 @@ class TestGraphQLAssociationMapping:
             reloaded = load(tmp)
             by_class = {cm.clazz.name: cm for cm in reloaded.mappings}
             assoc_mappings = [pm for pm in by_class["Trade"].property_mappings if isinstance(pm, GraphQLAssociationMapping)]
-            assert len(assoc_mappings) == 1
-            assert assoc_mappings[0].association_name == "TradeAccount"
+            assert [pm.association_name for pm in assoc_mappings] == ["TradeAccount", "TradeInstrument"]
             assert assoc_mappings[0].target.name == "account"
         finally:
             if os.path.exists(tmp):

@@ -697,7 +697,6 @@ _START_OF_2024 = datetime.datetime(2024, 1, 1)
 TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": "The finance GraphQL mapping does not map the TradeInstrument association"},
     expectations=[
         TestExpectation(
             name="one_way_association_reads_through_to_the_instrument",
@@ -766,7 +765,6 @@ TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
             ).order_by(f.symbol().ascending()),
             expected_columns=["Symbol", "Account Name", "Instrument Price"],
             expected_result=np.array([["AAPL", "Acme Corp", 150.0], ["GOOG", "Acme Corp", 2800.0]], dtype=object),
-            skip_backends={"graphql": "The finance GraphQL mapping does not map the TradeInstrument association"},
         ),
         TestExpectation(
             name="a_call_with_a_time_does_not_change_the_plain_accessor",

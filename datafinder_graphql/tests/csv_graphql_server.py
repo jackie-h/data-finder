@@ -321,8 +321,9 @@ def _apply_limit(rows: list[dict], query_str: str) -> list[dict]:
 class NestedVersions:
     """A nested object resolved from a milestoned set of rows, as of the query's asOf (null if none is live)."""
 
-    foreign_key: str  # row key holding the id of the nested object
-    versions: list[dict]  # each has an "id", plus _in_z / _out_z when the nested object is milestoned
+    foreign_key: str  # row key holding the key of the nested object
+    versions: list[dict]  # each has the key, plus _in_z / _out_z when the nested object is milestoned
+    key: str = "id"  # the versions' key
 
 
 @dataclass
@@ -430,7 +431,7 @@ def _resolve_relation(spec: NestedVersions | NestedRows, row: dict, as_of: datet
                       business_date: str | None):
     """A nested object (the latest version live at as_of, null if none) or a list of them."""
     if isinstance(spec, NestedVersions):
-        candidates = [v for v in spec.versions if v["id"] == row[spec.foreign_key]]
+        candidates = [v for v in spec.versions if v[spec.key] == row[spec.foreign_key]]
         if as_of is not None:
             candidates = [v for v in candidates if "_in_z" not in v] + \
                 _filter_processing([v for v in candidates if "_in_z" in v], as_of, "_in_z", "_out_z")
@@ -545,7 +546,8 @@ def csv_table(csv_name: str, fields: dict[str, str | tuple[str, type]],
 def finance_tables(accounts_csv: str = "finance_accounts.csv",
                    trades_csv: str = "finance_trades.csv",
                    branches_csv: str = "finance_branches.csv",
-                   desks_csv: str = "finance_desks.csv") -> dict[str, GraphQLTable]:
+                   desks_csv: str = "finance_desks.csv",
+                   prices_csv: str = "finance_prices.csv") -> dict[str, GraphQLTable]:
     branches = [{"id": int(r["ID"]), "city": r["CITY"]} for r in _read_csv(branches_csv)]
     branch_index = {b["id"]: b for b in branches}
     desks = [{"id": int(r["ID"]), "name": r["NAME"]} for r in _read_csv(desks_csv)]
@@ -567,10 +569,17 @@ def finance_tables(accounts_csv: str = "finance_accounts.csv",
             "validFrom": r["in_z"],
             "validTo": r["out_z"],
             "_account_id": int(r["account_id"]),
+            "_symbol": r["sym"],
             "_in_z": r["in_z"],
             "_out_z": r["out_z"],
         }
         for r in _read_csv(trades_csv)
+    ]
+
+    # an instrument is milestoned in processing time, and its key is its symbol
+    instruments = [
+        {"symbol": r["SYM"], "price": float(r["PRICE"]), "_in_z": r["in_z"], "_out_z": r["out_z"]}
+        for r in _read_csv(prices_csv)
     ]
 
     positions = [
@@ -590,8 +599,10 @@ def finance_tables(accounts_csv: str = "finance_accounts.csv",
                                  nested={"positions": NestedRows("id", "_account_id", positions, "businessDate")}),
         "branches": GraphQLTable(branches, nested={"accounts": NestedRows("id", "_branch_id", versions)}),
         "desks": GraphQLTable(desks, nested={"accounts": NestedRows("id", "_desk_id", versions)}),
+        "instruments": GraphQLTable(instruments, processing_milestoned=True),
         "trades": GraphQLTable(trades, processing_milestoned=True,
-                               nested={"account": NestedVersions("_account_id", versions)}),
+                               nested={"account": NestedVersions("_account_id", versions),
+                                       "instrument": NestedVersions("_symbol", instruments, "symbol")}),
         "contractualPositions": GraphQLTable(positions, processing_milestoned=True,
                                              business_date_key="businessDate",
                                              nested={"account": NestedVersions("_account_id", versions)}),

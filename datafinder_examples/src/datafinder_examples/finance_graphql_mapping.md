@@ -92,3 +92,9 @@
 | GraphQL Field |
 |---------------|
 | account       |
+
+#### Association: TradeInstrument
+
+| GraphQL Field |
+|---------------|
+| instrument    |
