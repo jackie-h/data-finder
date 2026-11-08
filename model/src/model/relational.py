@@ -583,24 +583,11 @@ class WindowFunctionOperation(Operation, Sortable):
                                        window=WindowSpecification(partition_by, order_by))
 
 
-_NUMERIC_FUNCTIONS = {ScalarFunction.ABS, ScalarFunction.CEILING, ScalarFunction.FLOOR, ScalarFunction.MOD,
-                      ScalarFunction.POWER, ScalarFunction.SQRT, ScalarFunction.ROUND, ScalarFunction.LENGTH,
-                      ScalarFunction.SIN, ScalarFunction.COS, ScalarFunction.TAN, ScalarFunction.ASIN,
-                      ScalarFunction.ACOS, ScalarFunction.ATAN, ScalarFunction.ATAN2, ScalarFunction.EXP,
-                      ScalarFunction.LOG}
-
-
-class ScalarFunctionOperation(UnaryOperation, Arithmetic, Comparable, Sortable, Aggregates, StringPredicates):
-    def _numeric(self) -> None:
-        if self.function not in _NUMERIC_FUNCTIONS:
-            raise TypeError(f"{self.function.name} does not give a number, so it cannot be used in arithmetic")
-
-    def __add__(self, other):  # type: ignore[override]
-        # a function that gives text joins text; one that gives a number adds
-        return Arithmetic.__add__(self, other) if self.function in _NUMERIC_FUNCTIONS else concat(self, other)
-
-    def __radd__(self, other):  # type: ignore[override]
-        return Arithmetic.__radd__(self, other) if self.function in _NUMERIC_FUNCTIONS else concat(other, self)
+class ScalarFunctionOperation(UnaryOperation, Sortable, Aggregates):
+    """A scalar function applied to an expression. What it can then be compared with, or have done to it, depends on
+    the type it gives, so that is a subclass in ``datafinder.scalar_functions``: StringFunctionOperation,
+    IntegerFunctionOperation, DoubleFunctionOperation, DecimalFunctionOperation. One whose type is not known
+    (``COALESCE`` of a date) is an UntypedFunctionOperation."""
 
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
                  display_name: str | None = None, second_arg: int | float | None = None, extra_args: list | None = None):
@@ -941,3 +928,7 @@ class OrderedQuerySpecification(QuerySpecification):
 
     def expressions(self) -> list[RelationalOperationElement]:
         return [*self.display, *self.group_by, *self.order_by, self.filter]
+
+
+class UntypedFunctionOperation(ScalarFunctionOperation, Comparable):
+    """A scalar function whose result type is not known here, so it is compared with any value."""
