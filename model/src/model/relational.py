@@ -1060,9 +1060,11 @@ class Table(NamedRelation):
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
 
-    def __init__(self, name: str, columns: 'Sequence[Column | tuple[str, str]]' = (), schema: 'Schema | None' = None):
-        """A table of its columns, each a Column or a ``(name, type)``: ``Table("accounts", [("ID", "INT"), ("NAME",
-        "VARCHAR")])``. A column that is a primary key or not nullable is a Column, or is added with ``add_column``."""
+    def __init__(self, name: str, columns: 'Sequence[Column | tuple[str, str]]' = (), schema: 'Schema | None' = None,
+                 primary_key: 'Sequence[str | Column]' = ()):
+        """A table of its columns, each a Column or a ``(name, type)``, and the columns that are its primary key, by name
+        or as the Column: ``Table("accounts", [("ID", "INT"), ("NAME", "VARCHAR")], primary_key=["ID"])``. A column that
+        is not nullable is a Column, or is added with ``add_column``."""
         self._columns_by_name: dict[str, Column] = {}
         self._own_columns: list[Column] = []
         super().__init__(name, self._own_columns)  # the list is the table's own: add_column adds to it
@@ -1072,8 +1074,20 @@ class Table(NamedRelation):
         self.milestoning_scheme: 'MilestoningScheme | None' = None
         for column in columns:
             self._add(column if isinstance(column, Column) else Column(column[0], column[1]))
+        for key in primary_key:
+            name_of_key = key if isinstance(key, str) else key.name
+            column = self._columns_by_name.get(name_of_key)
+            if column is None or (isinstance(key, Column) and column is not key):
+                raise ValueError(f"Primary key column '{name_of_key}' is not a column of table '{name}'")
+            column.primary_key = True
+            column.nullable = False  # as in Legend, a primary key is never null
         if schema is not None:
             schema.tables.append(self)
+
+    @property
+    def primary_key(self) -> list[Column]:
+        """The columns that are the table's primary key, as Legend's ``primaryKey``."""
+        return [column for column in self._own_columns if column.primary_key]
 
     def _add(self, column: Column) -> Column:
         if column.name in self._columns_by_name:

@@ -268,14 +268,12 @@ class TestDualAssociationSameTarget:
 
         repo = Database("org_db", "duckdb://org.db")
         schema = Schema("hr", repo)
-        emp_id_col = Column("id", "INT", primary_key=True)
-        emp_name_col = Column("name", "VARCHAR")
-        emp_table = Table("employees", [emp_id_col, emp_name_col], schema)
+        emp_table = Table("employees", [("id", "INT"), ("name", "VARCHAR")], schema, primary_key=["id"])
+        emp_id_col, emp_name_col = emp_table.columns
 
-        primary_fk_col = Column("primary_owner_id", "INT")
-        secondary_fk_col = Column("secondary_owner_id", "INT")
-        contract_id_col = Column("id", "INT", primary_key=True)
-        contract_table = Table("contracts", [contract_id_col, primary_fk_col, secondary_fk_col], schema)
+        contract_table = Table("contracts", [("id", "INT"), ("primary_owner_id", "INT"), ("secondary_owner_id", "INT")],
+                               schema, primary_key=["id"])
+        contract_id_col, primary_fk_col, secondary_fk_col = contract_table.columns
 
         emp_id_pm = RelationalPropertyMapping(employee_cls.property("id"), emp_id_col)
         emp_name_pm = RelationalPropertyMapping(employee_cls.property("name"), emp_name_col)
@@ -354,12 +352,11 @@ class TestCamelCaseReverseAssocMethodName:
 
         repo = Database("org_db", "duckdb://org.db")
         schema = Schema("data", repo)
-        entity_id_col = Column("id", "INT", primary_key=True)
-        entity_table = Table("entities", [entity_id_col], schema)
+        entity_table = Table("entities", [("id", "INT")], schema, primary_key=["id"])
+        (entity_id_col,) = entity_table.columns
 
-        tag_id_col = Column("id", "INT", primary_key=True)
-        fk_col = Column("entity_id", "INT")
-        tag_table = Table("tags", [tag_id_col, fk_col], schema)
+        tag_table = Table("tags", [("id", "INT"), ("entity_id", "INT")], schema, primary_key=["id"])
+        tag_id_col, fk_col = tag_table.columns
 
         entity_id_pm = RelationalPropertyMapping(entity_cls.property("id"), entity_id_col)
         entity_rcm = RelationalClassMapping(entity_cls, [entity_id_pm])
@@ -424,11 +421,10 @@ class TestAssociationPropertyDocstring:
 
         repo = Database("finance_db", "duckdb://finance.db")
         schema = __import__("model.relational", fromlist=["Schema"]).Schema("ref", repo)
-        acct_id_col = Column("id", "INT", primary_key=True)
-        acct_table = Table("accounts", [acct_id_col], schema)
-        trade_id_col = Column("id", "INT", primary_key=True)
-        fk_col = Column("account_id", "INT")
-        trade_table = Table("trades", [trade_id_col, fk_col], schema)
+        acct_table = Table("accounts", [("id", "INT")], schema, primary_key=["id"])
+        (acct_id_col,) = acct_table.columns
+        trade_table = Table("trades", [("id", "INT"), ("account_id", "INT")], schema, primary_key=["id"])
+        trade_id_col, fk_col = trade_table.columns
 
         acct_id_pm = RelationalPropertyMapping(account_cls.property("id"), acct_id_col)
         acct_rcm = RelationalClassMapping(account_cls, [acct_id_pm])
