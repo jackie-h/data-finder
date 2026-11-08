@@ -1,11 +1,14 @@
 import datetime
-from typing import Optional, Sequence, Union
+import itertools
+from typing import Any, Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
+from datafinder import relation
+from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
 from model.naming import to_snake_case
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
-from model.relational import Table, SortOperation, Alias, ColumnWithJoin
+from model.relational import (
+    Table, Relation, SortOperation, Alias, ColumnWithJoin, NoOperation, TableAlias, UnionOperation)
 from model.view import View, ViewDefinitionError
 
 
@@ -65,6 +68,8 @@ def convert_date(maybe_date) -> datetime.date:
 
 _DEFAULT_TIMEOUT_MS = 60_000
 
+_relation_numbers = itertools.count(1)
+
 
 def _sort_target(sort_op: SortOperation) -> tuple:
     """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
@@ -84,7 +89,7 @@ class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
                  processing_datetime: datetime.datetime | datetime.date | None,
-                 columns: Sequence, table: Table, op: Operation,
+                 columns: Sequence, table: Relation, op: Operation,
                  business_date_to: datetime.date | None = None,
                  processing_datetime_to: datetime.datetime | datetime.date | None = None):
         self._business_date = business_date
@@ -101,15 +106,68 @@ class FinderResult(DataFrame):
         self._offset: int | None = None
         self._having: Operation | None = None
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
+        self._relation_name: str | None = None
+
+    # --- a result as a relation, for what follows it ---------------------------------------------------------------
+
+    def _relation(self) -> tuple[TableAlias, dict[str, Any]]:
+        """This result as a relation: its query, with each column named for what reads it."""
+        if self._relation_name is None:
+            self._relation_name = f"relation{next(_relation_numbers)}"
+        display = [c if isinstance(c, Alias) else Alias(c, relation.column_name(c)) for c in self._columns]
+        query = build_query_specification(
+            self._business_date, self._processing_datetime, display, self._table, self._op, self._order_by, self._group_by,
+            self._limit, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
+            having=self._having, processing_datetime_to=self._processing_datetime_to)
+        alias = TableAlias(query, self._relation_name)
+        return alias, relation.attributes(alias)
+
+    def columns(self) -> list[str]:
+        """The names of this result's columns as what follows it reads them."""
+        return list(self._relation()[1])
+
+    def __getitem__(self, name: str) -> Any:
+        """A column of this result by name, to order a ``concatenate``d result by: ``rows.order_by(rows["name"].ascending())``."""
+        attributes = self._relation()[1]
+        if name not in attributes:
+            raise KeyError(f"No column '{name}' in this result: its columns are {list(attributes)}")
+        return attributes[name]
+
+    def concatenate(self, other: 'FinderResult', all: bool = False) -> 'FinderResult':
+        """The rows of this result and of ``other``, which has the same columns: ``UNION`` (each distinct row once), or
+        ``UNION ALL`` with ``all=True``, as Legend's ``concatenate``. The result is a result like any other: it can be
+        ordered, limited and concatenated again. Its columns are named as ``columns()`` gives them."""
+        left_alias, left = self._relation()
+        right_alias, right = other._relation()
+        if list(left) != list(right):
+            raise ValueError(f"Concatenated results need the same columns: {list(left)} and {list(right)} differ")
+        alias = TableAlias(UnionOperation(left_alias.relation, right_alias.relation, all), f"relation{next(_relation_numbers)}")  # type: ignore[arg-type]
+        return FinderResult(None, None, list(relation.attributes(alias).values()), alias, NoOperation())
 
     def group_by(self, *attrs) -> 'FinderResult':
-        self._group_by = list(attrs)
+        self._group_by = [self._own(a) for a in attrs]
         return self
+
+    def _own(self, element):
+        """A column of this result, as ``result["name"]`` gives it, is what this result shows under that name: so
+        ``result.order_by(result["name"].ascending())`` orders by the column, not by a column of a later query."""
+        if isinstance(element, Attribute):
+            column = element.column()
+        elif isinstance(element, ColumnWithJoin):
+            column = element.column
+        else:
+            return element
+        if self._relation_name is not None and isinstance(column.owner, TableAlias) and column.owner.name == self._relation_name:
+            shown = {relation.column_name(c): c.element if isinstance(c, Alias) else c for c in self._columns}
+            found = shown.get(column.name, element)
+            return found._column_with_join() if isinstance(found, Attribute) else found
+        return element
 
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
         direction."""
+        sort_ops = tuple(SortOperation(self._own(s.column), s.direction) for s in sort_ops)
         resorted = {_sort_target(sort_op) for sort_op in sort_ops}
         self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
         return self
@@ -179,6 +237,8 @@ class FinderResult(DataFrame):
         if self._order_by or self._limit is not None:
             raise ViewDefinitionError(
                 "A view has no ORDER BY or row limit; order the rows when you read them with result().order_by()")
+        if not isinstance(self._table, Table):
+            raise ViewDefinitionError("A view is defined over a table, not over a union")
         projection = [Alias(column, to_snake_case(display_alias(column))) for column in self._columns]
         view = ViewDefinition(name, schema, self._table, projection, self._op, self._group_by)
         check_view_joins(view)
@@ -299,7 +359,7 @@ class QueryRunnerBase(metaclass=RegistryBase):
 
     @staticmethod
     def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,
-               columns: Sequence[Attribute], table: Table, op: Operation,
+               columns: Sequence[Attribute], table: Relation, op: Operation,
                order_by: list[SortOperation] | None = None, group_by: list | None = None,
                limit: int | None = None, timeout_ms: int = _DEFAULT_TIMEOUT_MS,
                business_date_to: datetime.date | None = None, distinct: bool = False,
