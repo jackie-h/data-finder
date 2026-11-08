@@ -4,11 +4,8 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 from datafinder import Attribute
 import decimal
 
-from datafinder.date_functions import DateFunctions, DateTimeFunctions
-from datafinder.scalar_functions import (
-    DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, N, NumericFunctions, StringFunctionOperation,
-    StringFunctions,
-)
+from model.function_mixins import DateFunctions, DateTimeFunctions, N, NumericFunctions, StringFunctions
+from model.relational import DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, StringFunctionOperation
 
 from model.relational import Relation, Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \

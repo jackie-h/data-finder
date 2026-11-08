@@ -3,26 +3,27 @@ import datetime
 import decimal
 from typing import overload
 
-from datafinder.typed_constants import (
-    DateConstant, DateTimeConstant, DecimalConstant, FloatConstant, IntegerConstant, StringConstant,
+from model.relational import (
+    CountAllOperation,
+    BooleanConstantOperation, ConstantOperation, DateConstantOperation, DateTimeConstantOperation,
+    DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation, StringConstantOperation,
 )
-from model.relational import BooleanConstantOperation, ConstantOperation, CountAllOperation
 
 
 @overload
 def constant(value: bool) -> BooleanConstantOperation: ...  # pyright: ignore[reportOverlappingOverload]  # a bool is an int
 @overload
-def constant(value: int) -> IntegerConstant: ...
+def constant(value: int) -> IntegerConstantOperation: ...
 @overload
-def constant(value: float) -> FloatConstant: ...
+def constant(value: float) -> FloatConstantOperation: ...
 @overload
-def constant(value: decimal.Decimal) -> DecimalConstant: ...
+def constant(value: decimal.Decimal) -> DecimalConstantOperation: ...
 @overload
-def constant(value: str) -> StringConstant: ...
+def constant(value: str) -> StringConstantOperation: ...
 @overload
-def constant(value: datetime.datetime) -> DateTimeConstant: ...  # pyright: ignore[reportOverlappingOverload]  # a datetime is a date
+def constant(value: datetime.datetime) -> DateTimeConstantOperation: ...  # pyright: ignore[reportOverlappingOverload]  # a datetime is a date
 @overload
-def constant(value: datetime.date) -> DateConstant: ...
+def constant(value: datetime.date) -> DateConstantOperation: ...
 def constant(value: bool | int | float | decimal.Decimal | str | datetime.date | datetime.datetime) -> ConstantOperation:
     """A fixed value as a column: ``f.find_all([f.name(), constant("EU").alias("Region")])``.
 
@@ -30,17 +31,17 @@ def constant(value: bool | int | float | decimal.Decimal | str | datetime.date |
     if isinstance(value, bool):  # before int: bool is a subclass of int
         return BooleanConstantOperation(value)
     if isinstance(value, int):
-        return IntegerConstant(value)
+        return IntegerConstantOperation(value)
     if isinstance(value, float):
-        return FloatConstant(value)
+        return FloatConstantOperation(value)
     if isinstance(value, decimal.Decimal):
-        return DecimalConstant(value)
+        return DecimalConstantOperation(value)
     if isinstance(value, str):
-        return StringConstant(value)
+        return StringConstantOperation(value)
     if isinstance(value, datetime.datetime):  # before date: datetime is a subclass of date
-        return DateTimeConstant(value)
+        return DateTimeConstantOperation(value)
     if isinstance(value, datetime.date):
-        return DateConstant(value)
+        return DateConstantOperation(value)
     raise TypeError(f"A constant column holds a bool, number, string, date or datetime, not {type(value).__name__}")
 
 

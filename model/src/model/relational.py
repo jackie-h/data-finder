@@ -3,6 +3,8 @@ import decimal
 from enum import Enum
 from typing import Any, Generic, Iterable, Sequence, TypeVar, overload
 
+from model.function_mixins import DateFunctions, DateTimeFunctions, NumericFunctions, StringFunctions
+
 T = TypeVar("T")
 K = TypeVar("K")  # the kind of number an expression holds: int, float or Decimal
 AG = TypeVar("AG", bound="AggregateOperation")  # the aggregate that gives an expression's own type
@@ -416,14 +418,46 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
+class StringPredicates:
+    """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
+    ``f.name().join(",").contains("John")``."""
+
+    def _like(self, pattern: str) -> 'ComparisonOperation':
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def matches(self, pattern: str) -> 'ComparisonOperation':
+        """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
+        ``f.comment().matches("Customer.*Complaints")``."""
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def contains(self, value: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(value)}%")
+
+    def starts_with(self, prefix: str) -> 'ComparisonOperation':
+        return self._like(f"{escape_like(prefix)}%")
+
+    def ends_with(self, suffix: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(suffix)}")
+
+
 class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
     """A fixed value. A number has aggregates of its own kind (``constant(1).sum()`` is an integer); a text, date or
-    boolean has untyped ones."""
+    boolean has untyped ones. A constant has the functions a column of its type has: ``constant("Hello").length()``,
+    ``constant(16).sqrt()``. A function of a constant is applied to the constant and named for the function and the value."""
 
     def __init__(self):
         super().__init__()
 
-class IntegerConstantOperation(ConstantOperation, Arithmetic[int], Orderable[int], Aggregates['IntegerAggregateOperation']):
+    def _function_input(self) -> 'ConstantOperation':
+        return self
+
+    def _function_label(self) -> str:
+        return str(getattr(self, "value"))
+
+class IntegerConstantOperation(ConstantOperation, NumericFunctions['IntegerFunctionOperation'], Arithmetic[int],
+                               Orderable[int], Aggregates['IntegerAggregateOperation']):
     _number_kind = int
     value:int
 
@@ -431,7 +465,8 @@ class IntegerConstantOperation(ConstantOperation, Arithmetic[int], Orderable[int
         super().__init__()
         self.value = value
 
-class FloatConstantOperation(ConstantOperation, Arithmetic[float], Orderable[float], Aggregates['DoubleAggregateOperation']):
+class FloatConstantOperation(ConstantOperation, NumericFunctions['DoubleFunctionOperation'], Arithmetic[float],
+                             Orderable[float], Aggregates['DoubleAggregateOperation']):
     _number_kind = float
     value:float
 
@@ -439,14 +474,23 @@ class FloatConstantOperation(ConstantOperation, Arithmetic[float], Orderable[flo
         super().__init__()
         self.value = value
 
-class StringConstantOperation(ConstantOperation, Equatable[str], Aggregates['UntypedAggregateOperation']):
+class StringConstantOperation(ConstantOperation, StringFunctions, StringPredicates, Equatable[str],
+                              Aggregates['UntypedAggregateOperation']):
+    """A text constant, which has the string functions and pattern tests of a text column, and joins with ``+``."""
     value:str
 
     def __init__(self, value:str):
         super().__init__()
         self.value = value
 
-class DateConstantOperation(ConstantOperation, Orderable[datetime.date], Aggregates['UntypedAggregateOperation']):
+    def __add__(self, other):
+        return concat(self, other)
+
+    def __radd__(self, other):
+        return concat(other, self)
+
+class DateConstantOperation(ConstantOperation, DateFunctions, Orderable[datetime.date],
+                            Aggregates['UntypedAggregateOperation']):
     value:datetime.date
 
     def __init__(self, value:datetime.date):
@@ -454,7 +498,7 @@ class DateConstantOperation(ConstantOperation, Orderable[datetime.date], Aggrega
         self.value = value
 
 
-class DateTimeConstantOperation(ConstantOperation, Orderable[datetime.datetime | datetime.date],
+class DateTimeConstantOperation(ConstantOperation, DateTimeFunctions, Orderable[datetime.datetime | datetime.date],
                                 Aggregates['UntypedAggregateOperation']):
     value:datetime.datetime
 
@@ -462,7 +506,8 @@ class DateTimeConstantOperation(ConstantOperation, Orderable[datetime.datetime |
         super().__init__()
         self.value = value
 
-class DecimalConstantOperation(ConstantOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
+class DecimalConstantOperation(ConstantOperation, NumericFunctions['DecimalFunctionOperation'],
+                               Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
                                Aggregates['DecimalAggregateOperation']):
     _number_kind = decimal.Decimal
     value: decimal.Decimal
@@ -555,30 +600,6 @@ def escape_like(value: str) -> str:
     """``value`` as part of a LIKE pattern that matches it literally: %, _ and the escape character itself would
     otherwise be wildcards."""
     return value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2).replace('%', LIKE_ESCAPE + '%').replace('_', LIKE_ESCAPE + '_')
-
-
-class StringPredicates:
-    """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
-    ``f.name().join(",").contains("John")``."""
-
-    def _like(self, pattern: str) -> 'ComparisonOperation':
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
-                                   StringConstantOperation(pattern))
-
-    def matches(self, pattern: str) -> 'ComparisonOperation':
-        """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
-        ``f.comment().matches("Customer.*Complaints")``."""
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
-                                   StringConstantOperation(pattern))
-
-    def contains(self, value: str) -> 'ComparisonOperation':
-        return self._like(f"%{escape_like(value)}%")
-
-    def starts_with(self, prefix: str) -> 'ComparisonOperation':
-        return self._like(f"{escape_like(prefix)}%")
-
-    def ends_with(self, suffix: str) -> 'ComparisonOperation':
-        return self._like(f"%{escape_like(suffix)}")
 
 
 class ComparisonOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
@@ -848,7 +869,7 @@ class WindowFunctionOperation(Operation, Sortable):
 
 class ScalarFunctionOperation(UnaryOperation, Sortable):
     """A scalar function applied to an expression. What it can then be compared with, or have done to it, depends on
-    the type it gives, so that is a subclass in ``datafinder.scalar_functions``: StringFunctionOperation,
+    the type it gives, so that is a subclass below: StringFunctionOperation,
     IntegerFunctionOperation, DoubleFunctionOperation, DecimalFunctionOperation. One whose type is not known
     (``COALESCE`` of a date) is an UntypedFunctionOperation."""
 
@@ -915,6 +936,79 @@ class DateDiffOperation(UnaryOperation, Sortable, Orderable[int]):
         self.other = other
         self.unit = unit
         self.display_name = display_name
+
+
+def string_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
+                    extra_args: list | None = None) -> 'StringFunctionOperation':
+    """A function that gives text, applied to ``element``."""
+    return StringFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args)
+
+
+def integer_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
+                     extra_args: list | None = None) -> 'IntegerFunctionOperation':
+    """A function that gives a whole number, applied to ``element``."""
+    return IntegerFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args)
+
+
+def double_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
+                    extra_args: list | None = None, cast: str | None = None) -> 'DoubleFunctionOperation':
+    """A function that gives a floating-point number, applied to ``element``."""
+    return DoubleFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args, cast=cast)
+
+
+def _label_of(operation: ScalarFunctionOperation) -> str:
+    return operation.display_name or operation.function.name.title()
+
+
+class _Result:
+    """What a function result gives its own functions: it is their input, and their label is its own name."""
+
+    def _function_input(self):
+        return self
+
+    def _function_label(self) -> str:
+        return _label_of(self)  # type: ignore[arg-type]
+
+
+class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equatable[str], Aggregates[UntypedAggregateOperation],
+                              ScalarFunctionOperation):
+    """A function that gives text, which has the string functions too: ``f.name().upper().length()``. It is compared
+    for equality with text, as a string column is, and has no order."""
+
+    def __add__(self, other):
+        return concat(self, other)
+
+    def __radd__(self, other):
+        return concat(other, self)
+
+
+class IntegerFunctionOperation(_Result, NumericFunctions['IntegerFunctionOperation'], Arithmetic[int], Orderable[int],
+                               Aggregates[IntegerAggregateOperation], ScalarFunctionOperation):
+    """A function that gives a whole number (``length``, or ``abs`` of an integer): compared with integers."""
+
+
+class DoubleFunctionOperation(_Result, NumericFunctions['DoubleFunctionOperation'], Arithmetic[float], Orderable[float],
+                              Aggregates[DoubleAggregateOperation], ScalarFunctionOperation):
+    """A function that gives a floating-point number (``sqrt``, ``power``, or ``abs`` of a double)."""
+
+
+class DecimalFunctionOperation(_Result, NumericFunctions['DecimalFunctionOperation'], Arithmetic[decimal.Decimal],
+                               Orderable[decimal.Decimal], Aggregates[DecimalAggregateOperation], ScalarFunctionOperation):
+    """A function that gives a decimal (``abs`` of a decimal column)."""
+
+
+IntegerConstantOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
+FloatConstantOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
+DecimalConstantOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
+IntegerFunctionOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
+IntegerFunctionOperation._number_kind = int  # type: ignore[attr-defined]
+IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
+DoubleFunctionOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
+DoubleFunctionOperation._number_kind = float  # type: ignore[attr-defined]
+DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
+DecimalFunctionOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
+DecimalFunctionOperation._number_kind = decimal.Decimal  # type: ignore[attr-defined]
+DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
 
 
 class Relation:

@@ -157,7 +157,7 @@ def test_in_takes_the_type_of_the_column():
 
 
 def test_a_function_result_has_the_type_the_function_gives():
-    from datafinder.scalar_functions import (
+    from model.relational import (
         DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, StringFunctionOperation)
     text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
     integer = IntegerAttribute("I", "I", "INT", _OWNER_T)
