@@ -1015,9 +1015,21 @@ class Column(RelationalOperationElement):
         self.nullable = nullable and not primary_key  # as in Legend, a primary key is never null
 
     @property
-    def owner_name(self) -> str | None:
+    def owner_relation(self) -> 'Relation':
+        """The relation the column belongs to. A column has none until the table it is listed in claims it, and one that
+        never is cannot be read from, so asking for it then is an error."""
+        if self.owner is None:
+            raise ValueError(f"Column '{self.name}' has no owner: it is not a column of any relation, so there is "
+                             "nothing to read it from")
+        return self.owner
+
+    @property
+    def owner_name(self) -> str:
         """The name of the relation the column belongs to: how a query that reads it says which relation that is."""
-        return self.owner.qualified_name if isinstance(self.owner, NamedRelation) else None
+        owner = self.owner_relation
+        if not isinstance(owner, NamedRelation):
+            raise TypeError(f"Column '{self.name}' belongs to {type(owner).__name__}, which has no name to read it by")
+        return owner.qualified_name
 
     def qualified_name(self) -> str:
         assert self.table is not None, f"Column {self.name} has no table"
