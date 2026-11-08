@@ -4,6 +4,7 @@ Ported from legend-engine core_relational ``tds/tests/testTDSFilter.pure``.
 Filters on projected columns, which are filters on the properties here.
 Mapping: tests/simple_mapping.md.
 """
+from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION
@@ -70,9 +71,9 @@ TDS_FILTER_SPECS = FinderSpec(
         unsupported("testFilterOnEnum", f"{_SRC}::testFilterOnEnum",
                     'select "root".NAME as "name", "root".TYPE as "type" from addressTable as "root" where "root".TYPE = 1',
                     'no enumeration properties'),
-        unsupported("testFilterOnDecimal", f"{_SRC}::testFilterOnDecimal",
-                    'select 1.0 as "decimal" from personTable as "root" where 1.0 = 2.0',
-                    'no filter on a constant'),
+        ported("testFilterOnDecimal", f"{_SRC}::testFilterOnDecimal",
+               'select 1.0 as "decimal" from personTable as "root" where 1.0 = 2.0',
+               lambda f: f.find_all([constant(1.0)], constant(1.0).eq(2.0))),
         unsupported("testInOnColumnInSubselect", f"{_SRC}::testInOnColumnInSubselect",
                     'select "subselect"."name" as "name", "subselect"."age" as "age", "subselect"."rank" as "rank" from (select "root".FIRSTNAME as "name", "root".AGE as "age", rank() over (partition by "root".FIRSTNAME order by "root".AGE desc nulls first) as "rank" from personTable as "root") as "subselect" where "subselect"."name" in (\'John\', \'Peter\')',
                     'a filter on a window function column is nested in a subselect'),

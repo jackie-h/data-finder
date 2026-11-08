@@ -65,7 +65,7 @@ def _sort_key_positions(legend_sql: str) -> list[int] | None:
 def _for_duckdb(legend_sql: str) -> str:
     """Legend's SQL as DuckDB reads it: sqlglot maps functions such as char_length and ``select top N`` to DuckDB's,
     and a DateTime milestoning date, ``cast(truncate('2015-08-26 02:00:00') as date)``, becomes a cast of the text."""
-    tree = parse(legend_sql)
+    tree = parse(legend_sql, to_run=True)
     for cast in list(tree.find_all(exp.Cast)):
         call = cast.this
         if cast.to.this == exp.DataType.Type.DATE and (isinstance(call, exp.Trunc) or (

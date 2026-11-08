@@ -5,6 +5,7 @@ Sub-aggregations over a to-many association: one row per firm, with the aggregat
 computes these per root object; here the aggregate is grouped by the root explicitly.
 Mapping: tests/simple_mapping.md.
 """
+from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import ported, unsupported, BACKEND, SUB_AGGREGATION_SHAPE
@@ -41,15 +42,17 @@ SUB_AGGREGATION_SPECS = FinderSpec(
         unsupported("testSubAggregationWithJoinStringsOrderBy", f"{_SRC}::testSubAggregationWithJoinStringsOrderBy",
                     'select "root".LEGALNAME as "legalName", "firmtable_1".aggCol as "employeesFirstNamePerFirm" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, listagg("firmtable_2".FIRSTNAME, \'^\') as aggCol from (select "firmtable_3".ID, "persontable_0".FIRSTNAME from firmTable as "firmtable_3" left outer join personTable as "persontable_0" on ("firmtable_3".ID = "persontable_0".FIRMID) order by "persontable_0".LASTNAME asc) as "firmtable_2" group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID)',
                     'join over a to-many association is computed in a derived table joined back to the root'),
-        unsupported("testSubAggregationWithIf", f"{_SRC}::testSubAggregationWithIf",
-                    'select "root".LEGALNAME as "a", "firmtable_1".aggCol as "b" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, avg(1.0 * case when "persontable_0".LASTNAME = \'Hill\' then ((1.0 * "persontable_0".AGE) / 2) else 1.0 end) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID)',
-                    'no conditional inside the argument of an aggregate'),
+        ported("testSubAggregationWithIf", f"{_SRC}::testSubAggregationWithIf",
+               'select "root".LEGALNAME as "a", "firmtable_1".aggCol as "b" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, avg(1.0 * case when "persontable_0".LASTNAME = \'Hill\' then ((1.0 * "persontable_0".AGE) / 2) else 1.0 end) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID)',
+               lambda f: f.find_all([f.legal_name(), when(f.employees().last_name().eq("Hill")).then(f.employees().age() / 2).otherwise(1.0).average()]),
+               known_gaps={BACKEND: SUB_AGGREGATION_SHAPE}),
         unsupported("testSubAggregationWithTopLevelIf", f"{_SRC}::testSubAggregationWithTopLevelIf",
                     'select case when "root".LEGALNAME = \'Firm X\' then 1 else "firmtable_1".aggCol end as "a" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, avg(1.0 * "persontable_0".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID)',
                     'a conditional over an aggregate of a to-many association is computed in a derived table'),
-        unsupported("testIsDistinctSubAggregation", f"{_SRC}::testIsDistinctSubAggregation",
-                    'select "root".LEGALNAME as "LegalName", "firmtable_1".aggCol as "IsDistinctFirstName", "firmtable_3".aggCol as "IsDistinctLastName" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, count(distinct("persontable_0".FIRSTNAME)) = count("persontable_0".FIRSTNAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) left outer join (select "firmtable_2".ID as ID, count(distinct("persontable_0".LASTNAME)) = count("persontable_0".LASTNAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_3" on ("root".ID = "firmtable_3".ID) order by "LegalName" desc',
-                    'no isDistinct aggregation'),
+        ported("testIsDistinctSubAggregation", f"{_SRC}::testIsDistinctSubAggregation",
+               'select "root".LEGALNAME as "LegalName", "firmtable_1".aggCol as "IsDistinctFirstName", "firmtable_3".aggCol as "IsDistinctLastName" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, count(distinct("persontable_0".FIRSTNAME)) = count("persontable_0".FIRSTNAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) left outer join (select "firmtable_2".ID as ID, count(distinct("persontable_0".LASTNAME)) = count("persontable_0".LASTNAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_3" on ("root".ID = "firmtable_3".ID) order by "LegalName" desc',
+               lambda f: f.find_all([f.legal_name(), (f.employees().first_name().count_distinct() == f.employees().first_name().count()).alias("IsDistinctFirstName"), (f.employees().last_name().count_distinct() == f.employees().last_name().count()).alias("IsDistinctLastName")]).order_by(f.legal_name().descending()),
+               known_gaps={BACKEND: SUB_AGGREGATION_SHAPE}),
         unsupported("testProjectQualifierContainingAggregation", f"{_SRC}::testProjectQualifierContainingAggregation",
                     'select "root".LEGALNAME as "legalName", "firmtable_1".aggCol as "sum" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, sum("persontable_0".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID)',
                     'no qualified (derived) properties'),

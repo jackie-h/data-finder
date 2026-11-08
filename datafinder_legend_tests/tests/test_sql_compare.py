@@ -151,3 +151,22 @@ def test_group_concat_with_a_separator_is_the_string_aggregate():
     ours = "SELECT STRING_AGG(t0.name, '*') AS \"Names\" FROM t AS t0"
     assert sql_equivalent(ours, legend)
     assert not sql_equivalent(ours, legend.replace("'*'", "'+'"))
+
+
+def test_parentheses_around_the_argument_of_distinct_are_ignored():
+    assert sql_equivalent('SELECT COUNT(DISTINCT t0.a) FROM t AS t0', 'select count(distinct("root".a)) from t as "root"')
+
+
+def test_distinct_of_another_column_is_still_a_difference():
+    assert not sql_equivalent('SELECT COUNT(DISTINCT t0.b) FROM t AS t0', 'select count(distinct("root".a)) from t as "root"')
+
+
+def test_count_distinct_is_not_count():
+    assert not sql_equivalent('SELECT COUNT(t0.a) FROM t AS t0', 'select count(distinct("root".a)) from t as "root"')
+
+
+def test_the_unit_of_a_date_difference_may_be_a_keyword_or_a_string():
+    ours = "SELECT DATE_DIFF('day', t0.a, t0.b) FROM t AS t0"
+    assert sql_equivalent(ours, 'select datediff(day, "root".a, "root".b) from t as "root"')
+    assert not sql_equivalent(ours, 'select datediff(hour, "root".a, "root".b) from t as "root"')
+    assert not sql_equivalent(ours, 'select datediff(day, "root".b, "root".a) from t as "root"')
