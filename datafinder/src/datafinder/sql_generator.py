@@ -1163,6 +1163,7 @@ class SQLQueryGenerator:
         if isinstance(relation, UnionOperation):
             return self.__query_sql(relation.left) + (' UNION ALL ' if relation.all else ' UNION ') \
                 + self.__query_sql(relation.right)
+        assert isinstance(relation, QuerySpecification)
         nested = SQLQueryGenerator(first_alias=self.__table_alias_incr)
         nested.generate(relation)
         self.__table_alias_incr = nested.__table_alias_incr
