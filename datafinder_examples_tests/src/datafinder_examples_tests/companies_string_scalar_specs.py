@@ -95,6 +95,20 @@ COMPANIES_STRING_SCALAR_SPECS = FinderSpec(
             expected_result=np.array([["Hello"]], dtype=object),
         ),
         TestExpectation(
+            name="expression_is_in",
+            skip_backends={"graphql": "The GraphQL finder cannot filter on a string function"},
+            query=lambda f: f.find_all([f.id_()], f.name().substring(0, 4).is_in(["beta", "Hell"])).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[2], [3]], dtype=object),
+        ),
+        TestExpectation(
+            name="expression_is_not_in",
+            skip_backends={"graphql": "The GraphQL finder cannot filter on a string function"},
+            query=lambda f: f.find_all([f.id_()], f.name().substring(0, 4).is_not_in(["beta", "Hell"])).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1]], dtype=object),
+        ),
+        TestExpectation(
             name="slice_stop_only",
             query=lambda f: f.find_all([f.name()[:4]], f.id_().eq(2)),
             expected_columns=["Left Name"],
