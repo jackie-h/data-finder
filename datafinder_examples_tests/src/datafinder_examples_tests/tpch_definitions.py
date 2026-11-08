@@ -28,11 +28,11 @@ FROM part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '
 WHERE
     p_partkey = ps_partkey
     AND s_suppkey = ps_suppkey
-    AND p_size = 15
-    AND p_type LIKE '%BRASS'
+    AND p_size = [SIZE]
+    AND p_type LIKE '[TYPE]'
     AND s_nationkey = n_nationkey
     AND n_regionkey = r_regionkey
-    AND r_name = 'EUROPE'
+    AND r_name = '[REGION]'
     AND ps_supplycost = (
         SELECT
             min(ps_supplycost)
@@ -44,14 +44,14 @@ WHERE
             AND s_suppkey = ps_suppkey
             AND s_nationkey = n_nationkey
             AND n_regionkey = r_regionkey
-            AND r_name = 'EUROPE')
+            AND r_name = '[REGION]')
 ORDER BY
     s_acctbal DESC,
     n_name,
     s_name,
     p_partkey
 LIMIT 100""",
-        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1996, 1, 1)},
+        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(2005, 1, 1), 'SIZE': 31, 'TYPE': '%TIN', 'REGION': 'AFRICA'},
         select=('s_acctbal', 's_name', 'n_name', 'p_partkey', 'p_mfgr', 's_address', 's_phone', 's_comment'), ordered=True),
 
     BenchmarkCase(
@@ -398,8 +398,8 @@ FROM supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]',
             sum(l_extendedprice * (1 - l_discount)) AS total_revenue
         FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
         WHERE
-            l_shipdate >= CAST('1996-01-01' AS date)
-            AND l_shipdate < CAST('1996-04-01' AS date)
+            l_shipdate >= CAST('[DATE_FROM]' AS date)
+            AND l_shipdate < CAST('[DATE_TO]' AS date)
         GROUP BY
             supplier_no) revenue0
 WHERE
@@ -413,13 +413,13 @@ WHERE
                 sum(l_extendedprice * (1 - l_discount)) AS total_revenue
             FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
             WHERE
-                l_shipdate >= CAST('1996-01-01' AS date)
-                AND l_shipdate < CAST('1996-04-01' AS date)
+                l_shipdate >= CAST('[DATE_FROM]' AS date)
+                AND l_shipdate < CAST('[DATE_TO]' AS date)
             GROUP BY
                 supplier_no) revenue1)
 ORDER BY
     s_suppkey""",
-        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1996, 1, 1)},
+        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1996, 1, 1), 'DATE_FROM': datetime.date(1996, 1, 1), 'DATE_TO': datetime.date(1996, 4, 1)},
         select=('s_suppkey', 's_name', 's_address', 's_phone', 'total_revenue'), ordered=True, approximate=True),
 
     BenchmarkCase(
@@ -460,15 +460,15 @@ ORDER BY
 FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
 WHERE
     p_partkey = l_partkey
-    AND p_brand = 'Brand#23'
-    AND p_container = 'MED BOX'
+    AND p_brand = '[BRAND]'
+    AND p_container = '[CONTAINER]'
     AND l_quantity < (
         SELECT
             0.2 * avg(l_quantity)
         FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
         WHERE
             l_partkey = p_partkey)""",
-        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1996, 1, 1)},
+        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(2009, 1, 1), 'BRAND': 'Brand#32', 'CONTAINER': 'MED PACK'},
         select=('avg_yearly',), ),
 
     BenchmarkCase(
@@ -555,7 +555,7 @@ WHERE
                     p_partkey
                 FROM part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
                 WHERE
-                    p_name LIKE 'forest%')
+                    p_name LIKE '[COLOR]%')
                 AND ps_availqty > (
                     SELECT
                         0.5 * sum(l_quantity)
@@ -563,13 +563,13 @@ WHERE
                     WHERE
                         l_partkey = ps_partkey
                         AND l_suppkey = ps_suppkey
-                        AND l_shipdate >= CAST('1994-01-01' AS date)
-                        AND l_shipdate < CAST('1995-01-01' AS date)))
+                        AND l_shipdate >= CAST('[DATE_FROM]' AS date)
+                        AND l_shipdate < CAST('[DATE_TO]' AS date)))
             AND s_nationkey = n_nationkey
             AND n_name = '[NATION]'
         ORDER BY
             s_name""",
-        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1994, 7, 1), 'NATION': 'ETHIOPIA'},
+        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1994, 7, 1), 'NATION': 'ETHIOPIA', 'COLOR': 'forest', 'DATE_FROM': datetime.date(1994, 1, 1), 'DATE_TO': datetime.date(1995, 1, 1)},
         select=('s_name', 's_address'), ordered=True),
 
     BenchmarkCase(

@@ -66,6 +66,8 @@ def finders():
         order=instances["OrderFinder"],
         customer=instances["CustomerFinder"],
         partsupp=instances["PartSuppFinder"],
+        supplier=instances["SupplierFinder"],
+        part=instances["PartFinder"],
         lineitem=instances["LineItemFinder"],
     )
 

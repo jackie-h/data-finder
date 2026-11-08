@@ -1,11 +1,13 @@
 import datetime
-from typing import Optional, Sequence, Union
+import itertools
+from typing import Any, Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
+from datafinder import relation
+from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
 from model.naming import to_snake_case
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
-from model.relational import Table, SortOperation, Alias, ColumnWithJoin
+from model.relational import Table, SortOperation, Alias, ColumnWithJoin, DerivedTable, NoOperation, UnionOperation
 from model.view import View, ViewDefinitionError
 
 
@@ -65,6 +67,8 @@ def convert_date(maybe_date) -> datetime.date:
 
 _DEFAULT_TIMEOUT_MS = 60_000
 
+_relation_numbers = itertools.count(1)
+
 
 def _sort_target(sort_op: SortOperation) -> tuple:
     """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
@@ -101,15 +105,111 @@ class FinderResult(DataFrame):
         self._offset: int | None = None
         self._having: Operation | None = None
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
+        self._relation_name: str | None = None
+
+    # --- a result as a relation, for the steps that follow it ----------------------------------------------------------
+
+    def _relation(self) -> tuple[DerivedTable, dict[str, Any]]:
+        """This result as a relation: its query, with each column named for the step after it."""
+        if self._relation_name is None:
+            self._relation_name = f"relation{next(_relation_numbers)}"
+        display = [c if isinstance(c, Alias) else Alias(c, relation.column_name(c)) for c in self._columns]
+        query = build_query_specification(
+            self._business_date, self._processing_datetime, display, self._table, self._op, self._order_by, self._group_by,
+            self._limit, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
+            having=self._having, processing_datetime_to=self._processing_datetime_to)
+        table = relation.derived_table(self._relation_name, display, query)
+        return table, relation.attributes(table)
+
+    def columns(self) -> list[str]:
+        """The names of this result's columns as the step after it reads them."""
+        return list(self._relation()[1])
+
+    def __getitem__(self, name: str) -> Any:
+        """A column of this result, for a ``filter`` or ``extend`` of the step after it: ``rows["end"] == rows["latest"]``."""
+        attributes = self._relation()[1]
+        if name not in attributes:
+            raise KeyError(f"No column '{name}' in this result: its columns are {list(attributes)}")
+        return attributes[name]
+
+    def _next(self, display: Sequence, op: Operation | None = None) -> 'FinderResult':
+        table, _ = self._relation()
+        return FinderResult(None, None, display, table, NoOperation() if op is None else op)
+
+    def filter(self, *conditions: Operation) -> 'FinderResult':
+        """The rows of this result for which every condition holds, as Legend's ``filter``: a condition reads this result's
+        columns (``rows["name"]``), including one that a window function, an aggregate or ``extend`` made."""
+        _, attributes = self._relation()
+        op: Operation | None = None
+        for condition in conditions:
+            op = condition if op is None else op.and_(condition)
+        return self._next(list(attributes.values()), op)
+
+    def join(self, other: 'FinderResult', on: Operation | None = None, left: bool = False) -> 'FinderResult':
+        """The rows of this result with the rows of ``other`` that match ``on``, as Legend's ``join``: ``on`` reads the columns
+        of both (``left["key"] == right["key"]``); without it every row is paired with every row of ``other``, which is what
+        joining a result to one row (a total, a threshold) needs. The columns of the two must have different names, so name
+        them with ``alias()``. ``left=True`` is a left outer join: every row of this result is kept, with NULL for the
+        columns of ``other`` where none matches."""
+        left_table, left_columns = self._relation()
+        right_table, right = other._relation()
+        repeated = sorted(set(left_columns) & set(right))
+        if repeated:
+            raise ValueError(f"A join needs the columns of its two sides named differently, but {repeated} are on both: "
+                             "name them with alias()")
+        if left:
+            return FinderResult(None, None, [*left_columns.values(), *right.values()], left_table.joins(right_table, on, True),
+                                NoOperation())
+        return FinderResult(None, None, [*left_columns.values(), *right.values()], left_table.joins(right_table),
+                            NoOperation() if on is None else on)
+
+    def concatenate(self, other: 'FinderResult', all: bool = False) -> 'FinderResult':
+        """The rows of this result and of ``other``, which has the same columns: ``UNION`` (each distinct row once), or
+        ``UNION ALL`` with ``all=True``, as Legend's ``concatenate``."""
+        left_table, left = self._relation()
+        right_table, right = other._relation()
+        if list(left) != list(right):
+            raise ValueError(f"Concatenated results need the same columns: {list(left)} and {list(right)} differ")
+        table = DerivedTable(f"relation{next(_relation_numbers)}", left_table.columns_copy(),
+                             UnionOperation(left_table.query, right_table.query, all))
+        return FinderResult(None, None, list(relation.attributes(table).values()), table, NoOperation())
+
+    def extend(self, **columns) -> 'FinderResult':
+        """This result with more columns, each named by its keyword and worked out from the columns it has, as Legend's
+        ``extend``. A window function adds an aggregate over the rows to each row:
+        ``rows.extend(latest=rows["end"].max().over(partition_by=[rows["key"]]))``."""
+        _, attributes = self._relation()
+        return self._next([*attributes.values(), *(Alias(expression, name) for name, expression in columns.items())])
+
+    def select(self, *columns) -> 'FinderResult':
+        """Only some of this result's columns, by name or as the attribute or expression itself, as Legend's ``select``."""
+        _, attributes = self._relation()
+        return self._next([attributes[c] if isinstance(c, str) else c for c in columns])
 
     def group_by(self, *attrs) -> 'FinderResult':
-        self._group_by = list(attrs)
+        self._group_by = [self._own(a) for a in attrs]
         return self
+
+    def _own(self, element):
+        """A column of this result, as ``result["name"]`` gives it for the step after, is what this result shows under that
+        name: so ``result.order_by(result["name"].ascending())`` orders by the column, not by a column of a later step."""
+        if isinstance(element, Attribute):
+            column = element.column()
+        elif isinstance(element, ColumnWithJoin):
+            column = element.column
+        else:
+            return element
+        if self._relation_name is not None and column.owner == self._relation_name:
+            shown = {relation.column_name(c): c.element if isinstance(c, Alias) else c for c in self._columns}
+            found = shown.get(column.name, element)
+            return found._column_with_join() if isinstance(found, Attribute) else found
+        return element
 
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
         direction."""
+        sort_ops = tuple(SortOperation(self._own(s.column), s.direction) for s in sort_ops)
         resorted = {_sort_target(sort_op) for sort_op in sort_ops}
         self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
         return self

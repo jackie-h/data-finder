@@ -1037,6 +1037,35 @@ class Table(Relation):
         return f"{self.schema.datastore.namespace(self.schema.name)}.{self.name}"
 
 
+class DerivedTable(Table):
+    """A relation that is a query: the rows one step of a chain returns, as Legend's relation is a table or a query.
+
+    Its columns are the output columns of ``query``, so the next step reads them as it reads a table's, and the SQL
+    generator writes ``(query)`` where it would write the table's name."""
+    query: 'QueryExpression'
+
+    def __init__(self, name: str, columns: list[Column], query: 'QueryExpression',
+                 joined: 'list[DerivedTable] | None' = None,
+                 outer: 'list[tuple[DerivedTable, RelationalOperationElement | None]] | None' = None):
+        super().__init__(name, columns)
+        self.query = query
+        # the other relations of an inner join, read in the same FROM: its condition is the query's filter
+        self.joined = joined or []
+        # the relations of a left outer join, each with the condition it joins on
+        self.outer = outer or []
+
+    def joins(self, other: 'DerivedTable', left_on: 'RelationalOperationElement | None' = None,
+              left: bool = False) -> 'DerivedTable':
+        """This relation read together with ``other``: an inner join (the query's filter is its condition) or, if ``left``,
+        a left outer join on ``left_on``."""
+        if left:
+            return DerivedTable(self.name, self.columns_copy(), self.query, self.joined, [*self.outer, (other, left_on)])
+        return DerivedTable(self.name, self.columns_copy(), self.query, [*self.joined, other], self.outer)
+
+    def columns_copy(self) -> list[Column]:
+        return [Column(c.name, c.type, c.owner, nullable=c.nullable) for c in self.columns]
+
+
 class JoinOperation:
     def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement | None = None):
         self.name = name
@@ -1201,6 +1230,16 @@ class OrderedQuerySpecification(QuerySpecification):
 
     def expressions(self) -> list[RelationalOperationElement]:
         return [*self.display, *self.group_by, *self.order_by, self.filter]
+
+
+class UnionOperation(QueryExpression):
+    """Two queries whose rows are put together: ``left UNION right`` (the distinct rows), or ``UNION ALL`` with ``all``. As Legend's
+    ``concatenate``, the two have the same columns."""
+
+    def __init__(self, left: QueryExpression, right: QueryExpression, all: bool = False):
+        self.left = left
+        self.right = right
+        self.all = all
 
 
 class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['UntypedAggregateOperation']):

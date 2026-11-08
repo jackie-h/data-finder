@@ -478,6 +478,35 @@ first: without an order, which rows come first is not defined.
 a column, an expression or a Python value. With no `otherwise` the value is missing where no condition holds. A condition
 that is missing for a row (a comparison with NULL) is not true, so that row takes the next case or `otherwise`.
 
+### Chaining steps
+
+What `find_all(...)` returns is a relation: its columns have names (the alias you gave a column, else its display name in
+snake_case), and the step after it reads them as it reads a table's. As in Legend, where `filter`, `extend`, `select`,
+`join` and `concatenate` each take a relation and return one, each step is a query over the query before it. A column of
+a result is `result["name"]`.
+
+```python
+trades = TradeFinder.find_all(None, now, [TradeFinder.account().name().alias("account"),
+                                          TradeFinder.symbol().alias("sym"), TradeFinder.price().alias("price")])
+
+# the trade at the highest price of its account: a window function adds the highest price to each row,
+# and a filter keeps the rows at it (a window cannot be tested in WHERE, so the filter is a step of its own)
+with_top = trades.extend(top=trades["price"].max().over(partition_by=[trades["account"]]))
+top = with_top.filter(with_top["price"] == with_top["top"]).select("account", "sym", "price")
+top.order_by(top["account"].ascending())
+```
+
+- `filter(*conditions)` keeps the rows for which every condition holds; `select(*columns)` keeps or renames columns;
+  `extend(name=expression)` adds columns, including a window (`.over(partition_by=[...])`, or `.over()` for all the rows).
+- `join(other, on=condition)` pairs rows, `join(other)` pairs every row with every row (a one-row aggregate joined to the
+  rows it is compared with), and `join(other, on=..., left=True)` is a left outer join. The two sides' columns need
+  different names: use `alias()`. `concatenate(other)` is `UNION` (`all=True` for `UNION ALL`).
+- A step can be ordered, limited, grouped and aggregated like any result, by its own columns:
+  `step.order_by(step["price"].descending())`.
+
+This is how a scalar subquery is written: a value compared with every row is a window over the rows, or a one-row relation
+joined to them, and `IN (subquery)` and `EXISTS` are joins.
+
 ### Temporal queries
 
 For milestoned tables, supply the temporal arguments:

@@ -18,13 +18,26 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
+    OrderedQuerySpecification, QuerySpecification, QueryExpression, DerivedTable, UnionOperation, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
+
+class _OrderedSet:
+    """What is in FROM, in the order it was added, so the SQL of a query is the same each time it is written."""
+
+    def __init__(self):
+        self._items: dict = {}
+
+    def add(self, item) -> None:
+        self._items[item] = None
+
+    def __iter__(self):
+        return iter(self._items)
+
 
 class TableAlias:
     """A name for a relation in a query. As in Legend, the relation is a table or a query: ``table`` is the table's name,
-    or a OrderedQuerySpecification when the alias stands for ``(SELECT ...)``."""
+    or a QueryExpression when the alias stands for ``(SELECT ...)``."""
 
-    def __init__(self, table: 'str | OrderedQuerySpecification', alias: str):
+    def __init__(self, table: 'str | QueryExpression', alias: str):
         self.table = table
         self.alias = alias
 
@@ -750,7 +763,7 @@ def _reaches_to_many(op: RelationalOperationElement) -> bool:
 
 class SQLQueryGenerator:
     _select: list[Alias]
-    _from: set[TableAlias]
+    _from: '_OrderedSet'
     _join: list[Join]
     __table_alias_incr: int
     _where: str
@@ -758,7 +771,7 @@ class SQLQueryGenerator:
     def __init__(self, first_alias: int = 0):
         self._having = ''
         self._select = []
-        self._from = set()
+        self._from = _OrderedSet()
         self._join = []
         self._group_by_parts = []
         self._order_by_parts = []
@@ -768,6 +781,8 @@ class SQLQueryGenerator:
         self.__elidable_ids: set = set()
         self._sub_selects: dict = {}
         self._root_table = None
+        self._derived_tables: dict[str, DerivedTable] = {}
+        self._outer: list = []
         self._join_filters: dict = {}
 
     def __compute_elidable_ids(self, query: QuerySpecification) -> set:
@@ -811,6 +826,10 @@ class SQLQueryGenerator:
 
     def generate(self, query: QuerySpecification):
         self._root_table = query.table
+        if isinstance(query.table, DerivedTable):
+            self._derived_tables = {t.name: t for t in
+                                    [query.table, *query.table.joined, *(o for o, _ in query.table.outer)]}
+            self._outer = [(o, on) for o, on in query.table.outer]
         self._join_filters = query.join_filters
         self.__elidable_ids = self.__compute_elidable_ids(query)
         self._sub_selects = query.sub_selects
@@ -1005,6 +1024,10 @@ class SQLQueryGenerator:
         required_joins: dict = {}
         if self._root_table is not None:
             self._from.add(self.__table_alias_for_table(self._root_table.name))
+        outer_names = {o.name for o, _ in self._outer}
+        for other in self._derived_tables.values():
+            if other.name not in outer_names:
+                self._from.add(self.__table_alias_for_table(other.name))
 
         for col in cols:
             self.__collect_required_joins(col, required_joins)
@@ -1115,12 +1138,14 @@ class SQLQueryGenerator:
             return self.__table_aliases_by_table[cache_key]
         if key is not None and id(key) in self._sub_selects:
             ta = self.__new_alias(self._sub_selects[id(key)])
+        elif key is None and table in self._derived_tables:
+            ta = self.__new_alias(self._derived_tables[table].query)  # the step reads the query before it, as a table
         else:
             ta = self.__new_alias(table)
         self.__table_aliases_by_table[cache_key] = ta
         return ta
 
-    def __new_alias(self, table: 'str | OrderedQuerySpecification') -> TableAlias:
+    def __new_alias(self, table: 'str | QueryExpression') -> TableAlias:
         ta = TableAlias(table, "t" + str(self.__table_alias_incr))
         self.__table_alias_incr += 1
         return ta
@@ -1131,10 +1156,17 @@ class SQLQueryGenerator:
         relation = alias.table
         if isinstance(relation, str):
             return relation
+        return '(' + self.__query_sql(relation) + ')'
+
+    def __query_sql(self, relation: 'QueryExpression') -> str:
+        """A query written by a generator of its own that numbers its aliases after this one's; a union is its two queries."""
+        if isinstance(relation, UnionOperation):
+            return self.__query_sql(relation.left) + (' UNION ALL ' if relation.all else ' UNION ') \
+                + self.__query_sql(relation.right)
         nested = SQLQueryGenerator(first_alias=self.__table_alias_incr)
         nested.generate(relation)
         self.__table_alias_incr = nested.__table_alias_incr
-        return '(' + nested.build_query_string() + ')'
+        return nested.build_query_string()
 
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:
@@ -1143,9 +1175,17 @@ class SQLQueryGenerator:
                 + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
 
         joins = map(join_sql, self._join)
+
+        def outer_sql(outer) -> str:
+            table, on = outer
+            alias = self.__table_alias_for_table(table.name)
+            return ' LEFT OUTER JOIN ' + self.__relation_sql(alias) + ' AS ' + alias.alias \
+                + ' ON (' + (self.build_filter(on) if on is not None else 'TRUE') + ')'
+
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.alias, self._from)) \
             + ''.join(joins) \
+            + ''.join(map(outer_sql, self._outer)) \
             + self.__build_where() \
             + self.__build_group_by() \
             + self.__build_having() \
