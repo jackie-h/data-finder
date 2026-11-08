@@ -7,7 +7,8 @@ import decimal
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 from model.relational import (
-    Arithmetic, Equatable, Orderable, ScalarFunction, ScalarFunctionOperation, StringPredicates, concat,
+    Aggregates, Arithmetic, DecimalAggregateOperation, DoubleAggregateOperation, Equatable, IntegerAggregateOperation,
+    Orderable, ScalarFunction, ScalarFunctionOperation, StringPredicates, UntypedAggregateOperation, concat,
 )
 
 N = TypeVar("N", bound=ScalarFunctionOperation)
@@ -236,7 +237,8 @@ class _Result:
         return _label_of(self)  # type: ignore[arg-type]
 
 
-class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equatable[str], ScalarFunctionOperation):
+class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equatable[str], Aggregates[UntypedAggregateOperation],
+                              ScalarFunctionOperation):
     """A function that gives text, which has the string functions too: ``f.name().upper().length()``. It is compared
     for equality with text, as a string column is, and has no order."""
 
@@ -248,23 +250,26 @@ class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equata
 
 
 class IntegerFunctionOperation(_Result, NumericFunctions['IntegerFunctionOperation'], Arithmetic[int], Orderable[int],
-                               ScalarFunctionOperation):
+                               Aggregates[IntegerAggregateOperation], ScalarFunctionOperation):
     """A function that gives a whole number (``length``, or ``abs`` of an integer): compared with integers."""
 
 
 class DoubleFunctionOperation(_Result, NumericFunctions['DoubleFunctionOperation'], Arithmetic[float], Orderable[float],
-                              ScalarFunctionOperation):
+                              Aggregates[DoubleAggregateOperation], ScalarFunctionOperation):
     """A function that gives a floating-point number (``sqrt``, ``power``, or ``abs`` of a double)."""
 
 
 class DecimalFunctionOperation(_Result, NumericFunctions['DecimalFunctionOperation'], Arithmetic[decimal.Decimal],
-                               Orderable[decimal.Decimal], ScalarFunctionOperation):
+                               Orderable[decimal.Decimal], Aggregates[DecimalAggregateOperation], ScalarFunctionOperation):
     """A function that gives a decimal (``abs`` of a decimal column)."""
 
 
 IntegerFunctionOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
 IntegerFunctionOperation._number_kind = int  # type: ignore[attr-defined]
+IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
 DoubleFunctionOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
 DoubleFunctionOperation._number_kind = float  # type: ignore[attr-defined]
+DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
 DecimalFunctionOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
 DecimalFunctionOperation._number_kind = decimal.Decimal  # type: ignore[attr-defined]
+DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
