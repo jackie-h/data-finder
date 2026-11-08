@@ -102,3 +102,36 @@ def test_over_keeps_the_kind_of_an_aggregate_of_arithmetic():
     from model.relational import IntegerAggregateOperation
     total = (integer * 2).sum().over(partition_by=[other_integer])
     assert isinstance(total, IntegerAggregateOperation)
+
+
+def test_a_constant_has_aggregates_of_its_kind():
+    import datetime
+    from datafinder import constant
+    from model.relational import (
+        BooleanConstantOperation, DateConstantOperation, DateTimeConstantOperation, DecimalAggregateOperation,
+        DecimalConstantOperation, DoubleAggregateOperation, FloatConstantOperation, IntegerAggregateOperation,
+        IntegerConstantOperation, StringConstantOperation, UntypedAggregateOperation)
+    # constant() is typed by its argument
+    assert isinstance(assert_type(constant(1), IntegerConstantOperation), IntegerConstantOperation)
+    assert isinstance(assert_type(constant(1.5), FloatConstantOperation), FloatConstantOperation)
+    assert isinstance(assert_type(constant(decimal.Decimal("1")), DecimalConstantOperation), DecimalConstantOperation)
+    assert isinstance(assert_type(constant("x"), StringConstantOperation), StringConstantOperation)
+    assert isinstance(assert_type(constant(True), BooleanConstantOperation), BooleanConstantOperation)
+    assert isinstance(assert_type(constant(datetime.date(2020, 1, 1)), DateConstantOperation), DateConstantOperation)
+    assert isinstance(assert_type(constant(datetime.datetime(2020, 1, 1)), DateTimeConstantOperation), DateTimeConstantOperation)
+    # a number's sum, minimum and maximum are of its kind
+    assert isinstance(assert_type(constant(1).sum(), IntegerAggregateOperation), IntegerAggregateOperation)
+    assert isinstance(assert_type(constant(1).max(), IntegerAggregateOperation), IntegerAggregateOperation)
+    assert isinstance(assert_type(constant(1.5).sum(), DoubleAggregateOperation), DoubleAggregateOperation)
+    assert isinstance(assert_type(constant(decimal.Decimal("1.5")).min(), DecimalAggregateOperation), DecimalAggregateOperation)
+    # a count is an integer, an average a double
+    assert isinstance(assert_type(constant(1).count(), IntegerAggregateOperation), IntegerAggregateOperation)
+    assert isinstance(assert_type(constant(1).average(), DoubleAggregateOperation), DoubleAggregateOperation)
+    # text, dates and booleans have no typed sum
+    assert isinstance(assert_type(constant("x").min(), UntypedAggregateOperation), UntypedAggregateOperation)
+    assert isinstance(constant(datetime.date(2020, 1, 1)).max(), UntypedAggregateOperation)
+    # a constant's kind is known to arithmetic with it, so the result is typed
+    assert isinstance(constant(100.0) * integer.sum(), DoubleArithmeticOperation)
+    assert isinstance(constant(2) * integer, IntegerArithmeticOperation)
+    assert isinstance(integer * constant(2), IntegerArithmeticOperation)
+    assert isinstance(integer * constant(2.5), DoubleArithmeticOperation)

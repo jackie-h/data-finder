@@ -111,32 +111,37 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
-class ConstantOperation(RelationalOperationElement, Aliasable, Sortable, Aggregates['UntypedAggregateOperation']):
+class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
+    """A fixed value. A number has aggregates of its own kind (``constant(1).sum()`` is an integer); a text, date or
+    boolean has untyped ones."""
+
     def __init__(self):
         super().__init__()
 
-class IntegerConstantOperation(ConstantOperation):
+class IntegerConstantOperation(ConstantOperation, Aggregates['IntegerAggregateOperation']):
+    _number_kind = int
     value:int
 
     def __init__(self, value:int):
         super().__init__()
         self.value = value
 
-class FloatConstantOperation(ConstantOperation):
+class FloatConstantOperation(ConstantOperation, Aggregates['DoubleAggregateOperation']):
+    _number_kind = float
     value:float
 
     def __init__(self, value:float):
         super().__init__()
         self.value = value
 
-class StringConstantOperation(ConstantOperation):
+class StringConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
     value:str
 
     def __init__(self, value:str):
         super().__init__()
         self.value = value
 
-class DateConstantOperation(ConstantOperation):
+class DateConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
     value:datetime.date
 
     def __init__(self, value:datetime.date):
@@ -144,21 +149,22 @@ class DateConstantOperation(ConstantOperation):
         self.value = value
 
 
-class DateTimeConstantOperation(ConstantOperation):
+class DateTimeConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
     value:datetime.datetime
 
     def __init__(self, value:datetime.datetime):
         super().__init__()
         self.value = value
 
-class DecimalConstantOperation(ConstantOperation):
+class DecimalConstantOperation(ConstantOperation, Aggregates['DecimalAggregateOperation']):
+    _number_kind = decimal.Decimal
     value: decimal.Decimal
 
     def __init__(self, value: decimal.Decimal):
         super().__init__()
         self.value = value
 
-class BooleanConstantOperation(ConstantOperation):
+class BooleanConstantOperation(ConstantOperation, Aggregates['UntypedAggregateOperation']):
     value:bool
 
     def __init__(self, value:bool):
@@ -1203,3 +1209,6 @@ class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['
 IntegerArithmeticOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
 DoubleArithmeticOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
 DecimalArithmeticOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
+IntegerConstantOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
+FloatConstantOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
+DecimalConstantOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]

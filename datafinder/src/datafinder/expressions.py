@@ -1,6 +1,7 @@
 """Expressions that are not a column of a finder: values to select next to the columns."""
 import datetime
 import decimal
+from typing import overload
 
 from model.relational import (
     CountAllOperation,
@@ -9,6 +10,20 @@ from model.relational import (
 )
 
 
+@overload
+def constant(value: bool) -> BooleanConstantOperation: ...  # pyright: ignore[reportOverlappingOverload]  # a bool is an int
+@overload
+def constant(value: int) -> IntegerConstantOperation: ...
+@overload
+def constant(value: float) -> FloatConstantOperation: ...
+@overload
+def constant(value: decimal.Decimal) -> DecimalConstantOperation: ...
+@overload
+def constant(value: str) -> StringConstantOperation: ...
+@overload
+def constant(value: datetime.datetime) -> DateTimeConstantOperation: ...  # pyright: ignore[reportOverlappingOverload]  # a datetime is a date
+@overload
+def constant(value: datetime.date) -> DateConstantOperation: ...
 def constant(value: bool | int | float | decimal.Decimal | str | datetime.date | datetime.datetime) -> ConstantOperation:
     """A fixed value as a column: ``f.find_all([f.name(), constant("EU").alias("Region")])``.
 
