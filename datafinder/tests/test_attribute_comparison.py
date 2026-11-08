@@ -104,3 +104,32 @@ def test_a_date_difference_with_a_value_is_unchanged():
     start, _, _ = _attrs()["date"]
     sql = _sql(start.diff_days(datetime.date(2024, 6, 15)), NoOperation())
     assert "DATE_DIFF('day', t0.A, '2024-06-15')" in sql
+
+
+def test_a_condition_is_negated_with_a_tilde():
+    name = StringAttribute("N", "N", "VARCHAR", "t")
+    assert "NOT (t0.N LIKE 'MEDIUM POLISHED%')" in _sql(name, ~name.starts_with("MEDIUM POLISHED"))
+    assert "NOT (t0.N = 'x' AND t0.N <> 'y')" in _sql(name, ~(name.eq("x").and_(name.ne("y"))))
+
+
+def test_negating_a_negation_is_the_condition_again():
+    name = StringAttribute("N", "N", "VARCHAR", "t")
+    condition = name.eq("x")
+    assert ~~condition is condition
+
+
+def test_a_negated_ordering_comparison_is_not_guarded_against_a_missing_value():
+    price = DoubleAttribute("P", "P", "DOUBLE", "t", optional=True)
+    assert "IS NOT NULL" in _sql(price, price > 5.0)
+    assert "IS NOT NULL" not in _sql(price, ~(price > 5.0))
+
+
+def test_matches_searches_for_a_regular_expression_anywhere_in_the_text():
+    name = StringAttribute("N", "N", "VARCHAR", "t")
+    assert "REGEXP_MATCHES(t0.N, 'Customer.*Complaints')" in _sql(name, name.matches("Customer.*Complaints"))
+    assert "NOT (REGEXP_MATCHES(t0.N, 'a.b'))" in _sql(name, ~name.matches("a.b"))
+
+
+def test_matches_a_function_of_a_column():
+    name = StringAttribute("N", "N", "VARCHAR", "t")
+    assert "REGEXP_MATCHES(UPPER(t0.N), 'AC.*E')" in _sql(name, name.upper().matches("AC.*E"))

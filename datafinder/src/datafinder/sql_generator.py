@@ -16,7 +16,7 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
-    IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, \
+    IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
     SelectOperation, QueryExpression, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
 
@@ -259,7 +259,7 @@ def collect_required_joins(op: RelationalOperationElement | None, required_joins
     elif isinstance(op, ComparisonOperation):
         collect_required_joins(op.left, required_joins, node_refs)
         collect_required_joins(op.right, required_joins, node_refs)
-    elif isinstance(op, (IsNullOperation, IsNotNullOperation, InOperation, NotInOperation)):
+    elif isinstance(op, (IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation)):
         collect_required_joins(op.element, required_joins, node_refs)
     elif isinstance(op, ArithmeticOperation):
         collect_required_joins(op.left, required_joins, node_refs)
@@ -472,6 +472,7 @@ COMPARISON_OPERATOR_STR = {
     ComparisonOperator.NOT_EQUAL: ' <> ',
     ComparisonOperator.LIKE: ' LIKE ',
     ComparisonOperator.NOT_LIKE: ' NOT LIKE ',
+    ComparisonOperator.MATCHES: ' MATCHES ',
 }
 
 def needs_parentheses(parent: LogicalOperation, child: RelationalOperationElement) -> bool:
@@ -623,7 +624,7 @@ class _RenderedSql(RelationalOperationElement):
 
 def _is_condition(op: RelationalOperationElement) -> bool:
     return isinstance(op, (ComparisonOperation, LogicalOperation, IsNullOperation, IsNotNullOperation, InOperation,
-                           NotInOperation, ExistsOperation, NotExistsOperation))
+                           NotInOperation, ExistsOperation, NotExistsOperation, NotOperation))
 
 
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
@@ -994,7 +995,7 @@ class SQLQueryGenerator:
         elif isinstance(op, ComparisonOperation):
             self.__collect_required_joins(op.left, required_joins)
             self.__collect_required_joins(op.right, required_joins)
-        elif isinstance(op, (InOperation, NotInOperation)):
+        elif isinstance(op, (InOperation, NotInOperation, NotOperation)):
             self.__collect_required_joins(op.element, required_joins)
 
     def select(self, cols: Sequence[RelationalOperationElement]):
@@ -1056,6 +1057,8 @@ class SQLQueryGenerator:
             if isinstance(op.element, ColumnWithJoin) and self.__resolve(op.element)[0].nullable:
                 return '(' + sql + ' OR ' + column + ' IS NULL)'
             return sql
+        elif isinstance(op, NotOperation):
+            return 'NOT (' + self.build_filter(op.element) + ')'
         elif isinstance(op, IsNotNullOperation):
             return self.build_filter(op.element) + ' IS NOT NULL'
         elif isinstance(op, IsNullOperation):
@@ -1068,6 +1071,8 @@ class SQLQueryGenerator:
             if needs_parentheses(op, op.right):
                 right_str = '(' + right_str + ')'
             return left_str + logical_operator_string(op.operator) + right_str
+        elif isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.MATCHES:
+            return 'REGEXP_MATCHES(' + self.build_filter(op.left) + ', ' + self.build_filter(op.right) + ')'
         elif isinstance(op, ComparisonOperation):
             sql = self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)
             if op.operator in (ComparisonOperator.LIKE, ComparisonOperator.NOT_LIKE) \

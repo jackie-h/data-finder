@@ -423,6 +423,10 @@ An expression has the aggregates a column has: `(TradeFinder.price() * TradeFind
 An aggregate compares as a column does (`< <= > >= == !=`), and `contains`, `starts_with` and `ends_with` also work on
 an expression that holds text, such as `CompanyFinder.name().upper().starts_with("AC")` or a joined text.
 
+`~` negates a condition, as in pandas and polars (Python's `not` cannot be overloaded): `~CompanyFinder.name().starts_with("Acme")`.
+`matches(pattern)` is a regular expression searched anywhere in the text, as `re.search`:
+`CompanyFinder.name().matches("^(Acme|Beta) .*p$")`.
+
 `count_distinct()` counts the different values in a group, as `COUNT(DISTINCT column)`.
 
 `fill_null` replaces a missing (NULL) value: `EmployeeFinder.manager().name().fill_null("nobody")`, as `fillna` does for a

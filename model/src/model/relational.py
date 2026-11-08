@@ -70,8 +70,12 @@ def _sample(ddof: int) -> bool:
 
 
 class BooleanAggregates:
-    """Aggregates of a condition: ``(f.quantity() > 20).all()`` is true for a group where every row holds,
+    """What a condition can do: ``~`` negates it (``~f.name().starts_with("Acme")``, as in pandas, polars and SQLAlchemy, since
+    Python's ``not`` cannot be overloaded), and ``(f.quantity() > 20).all()`` is true for a group where every row holds,
     ``.any()`` where at least one does."""
+
+    def __invert__(self) -> 'NotOperation':
+        return NotOperation(self)  # type: ignore[arg-type]
 
     def all(self) -> 'AggregateOperation':
         return AggregateOperation(self, AggregateOperator.BOOL_AND, 'All Expression')  # type: ignore[arg-type]
@@ -175,6 +179,13 @@ class IsNotNullOperation(UnaryOperation, BooleanAggregates):
     pass
 
 
+class NotOperation(UnaryOperation, BooleanAggregates):
+    """The condition does not hold: ``NOT (element)``. Negating it again gives the condition."""
+
+    def __invert__(self):  # type: ignore[override]
+        return self.element
+
+
 class InOperation(UnaryOperation, BooleanAggregates):
     """The element is one of ``values`` (``element IN (...)``)."""
     values: list[ConstantOperation]
@@ -207,6 +218,7 @@ class ComparisonOperator(Enum):
     GREATER_THAN_OR_EQUAL_TO = 6
     LIKE = 7
     NOT_LIKE = 8
+    MATCHES = 9
 
 
 # The character that makes the next one literal in a LIKE pattern built from a value (contains, starts_with, ...).
@@ -225,6 +237,12 @@ class StringPredicates:
 
     def _like(self, pattern: str) -> 'ComparisonOperation':
         return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def matches(self, pattern: str) -> 'ComparisonOperation':
+        """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
+        ``f.comment().matches("Customer.*Complaints")``."""
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
                                    StringConstantOperation(pattern))
 
     def contains(self, value: str) -> 'ComparisonOperation':

@@ -84,6 +84,11 @@ class StringAttribute(_MinMax, StringFunctions, Attribute):
         """Return inequality comparison with a string value."""
         return self._compare(ComparisonOperator.NOT_EQUAL, value)
 
+    def matches(self, pattern: str) -> ComparisonOperation:
+        """Return a regular expression match: the text has a match for ``pattern`` anywhere in it, as Python's ``re.search``.
+        ``contains``, ``starts_with`` and ``ends_with`` match their text literally; negate any of them with ``~``."""
+        return ComparisonOperation(self._column_with_join(), ComparisonOperator.MATCHES, StringConstantOperation(pattern))
+
     def contains(self, value: str) -> ComparisonOperation:
         """Return a substring match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(value)}%"))
