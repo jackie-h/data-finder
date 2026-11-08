@@ -318,6 +318,20 @@ class Comparable:
 
     __hash__ = object.__hash__  # defining __eq__ would otherwise make an expression unhashable
 
+    def _constants(self, values) -> 'list[ConstantOperation]':
+        constants = [_value_operand(v) for v in values]
+        if not constants:
+            raise ValueError("is_in / is_not_in need at least one value")
+        return constants
+
+    def is_in(self, values) -> 'InOperation':
+        """The expression is one of ``values``: ``f.name().substring(0, 4).is_in(["beta", "Hell"])``."""
+        return InOperation(self._arithmetic_operand(), self._constants(values))  # type: ignore[attr-defined]
+
+    def is_not_in(self, values) -> 'NotInOperation':
+        """The expression is none of ``values``."""
+        return NotInOperation(self._arithmetic_operand(), self._constants(values))  # type: ignore[attr-defined]
+
     def __lt__(self, other) -> 'ComparisonOperation':
         return self._compared(ComparisonOperator.LESS_THAN, other)
 

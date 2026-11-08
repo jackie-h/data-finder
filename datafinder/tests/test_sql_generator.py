@@ -1192,6 +1192,13 @@ class TestConditionAsColumn:
         a = IntegerAttribute("A", "a", "INT", "t")
         assert self._sql(a.is_in([1, 2])) == 'SELECT t0.a IN (1, 2) AS "Expression" FROM t AS t0'
 
+    def test_expression_is_in_and_is_not_in(self):
+        b = StringAttribute("B", "b", "VARCHAR", "t")
+        assert "SUBSTR" in self._sql(b.substring(0, 2).is_in(["ab"])) and " IN ('ab')" in self._sql(b.substring(0, 2).is_in(["ab"]))
+        assert " NOT IN ('ab', 'cd')" in self._sql(b.substring(0, 2).is_not_in(["ab", "cd"]))
+        with pytest.raises(ValueError):
+            b.substring(0, 2).is_in([])
+
     def test_next_to_a_plain_column(self):
         a = IntegerAttribute("A", "a", "INT", "t")
         assert self._sql(a, a > 3) == 'SELECT t0.a AS "A",t0.a > 3 AS "Expression" FROM t AS t0'
