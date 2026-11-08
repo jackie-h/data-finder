@@ -1,4 +1,4 @@
-"""The finder query for each benchmark case of tpch_bih_cases.py (the case holds the report's SQL and the expected rows).
+"""The finder query for each benchmark case of tpch_bih_cases.py (a case holds the SQL of tpch_bih_definitions.py and the expected rows).
 
 An entry is a ``FinderQuery``, the finder columns it returns and the query, which is given the finders ``q`` and the values of the
 case's parameters ``p``; or ``Unsupported`` with the reason the finders cannot ask the query as the report does. The
@@ -11,7 +11,8 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable
 
-from datafinder.expressions import count_all
+from datafinder.conditional import when
+from datafinder.expressions import constant, count_all
 from datafinder_examples_tests.tpch_bih_data import CURRENT_SYS
 
 
@@ -35,6 +36,15 @@ _PART_NAVIGATION = (
 _FOREIGN_KEY = (
     "o_custkey is a foreign key, which the finders do not return as a value: the order's customer is a navigation that joins "
     "CUSTOMER, and that repeats an order for each version of its customer")
+_TWO_AGGREGATES = (
+    "Compares two independently aggregated time-travel subqueries (each at its own time), which a finder query, one select, "
+    "cannot express")
+_JOINED_AGGREGATES = (
+    "Joins two grouped time-travel subqueries on the customer and orders by the difference of their aggregates, which a finder "
+    "query cannot express")
+_TEMPORAL_AGGREGATION = (
+    "Temporal aggregation groups by the points where the data changed (an interval join on the period boundaries) and "
+    "aggregates over those groups: the finders aggregate over the versions a date selects")
 _SCALAR_SUBQUERY = "A scalar subquery, max(...) of the versions before this time, which the finders cannot express"
 
 
@@ -55,6 +65,11 @@ B1 = {
         p.APP_TIME, p.SYS_TIME, [q.order.total_price().sum().alias("revenue"), count_all().alias("count")],
         q.order.order_status().eq("O"))),
 
+    "T3_sys": Unsupported(_TWO_AGGREGATES),
+    "T3_app": Unsupported(_TWO_AGGREGATES),
+    "T4_sys": Unsupported(_JOINED_AGGREGATES),
+    "T4_app": Unsupported(_JOINED_AGGREGATES),
+
     "T5": Unsupported(_FOREIGN_KEY),
 
     "T6_sys": FinderQuery(["Customer Customer Key", "supp_revenue"], lambda q, p: q.order.find_all(
@@ -74,6 +89,162 @@ B1 = {
 
     "T9": FinderQuery(["count"], lambda q, p: q.order.find_all(
         None, p.SYS_TIME, [count_all().alias("count")], _receivable(q.order, p.APP_TIME))),
+}
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# B.2
+# ---------------------------------------------------------------------------------------------------------------------
+
+def _revenue(l):
+    return l.extended_price() * (constant(1) - l.discount())
+
+
+B2 = {
+    "H1": FinderQuery(
+        ["l_returnflag", "l_linestatus", "sum_qty", "sum_base_price", "sum_disc_price", "sum_charge", "avg_qty", "avg_price",
+         "avg_disc", "count_order"],
+        lambda q, p: q.lineitem.find_all(
+            p.APP_TIME, p.SYS_TIME,
+            [q.lineitem.return_flag().alias("l_returnflag"), q.lineitem.line_status().alias("l_linestatus"),
+             q.lineitem.quantity().sum().alias("sum_qty"), q.lineitem.extended_price().sum().alias("sum_base_price"),
+             _revenue(q.lineitem).sum().alias("sum_disc_price"),
+             (_revenue(q.lineitem) * (constant(1) + q.lineitem.tax())).sum().alias("sum_charge"),
+             q.lineitem.quantity().average().alias("avg_qty"), q.lineitem.extended_price().average().alias("avg_price"),
+             q.lineitem.discount().average().alias("avg_disc"), count_all().alias("count_order")],
+            q.lineitem.ship_date() <= datetime.date(1998, 11, 1),
+        ).group_by(q.lineitem.return_flag(), q.lineitem.line_status())
+        .order_by(q.lineitem.return_flag().ascending(), q.lineitem.line_status().ascending())),
+}
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# The TPC-H queries (B.2)
+# ---------------------------------------------------------------------------------------------------------------------
+
+def _q19_branch(f, brand: str, containers: list[str], quantity: float, max_size: int):
+    return (f.part().brand().eq(brand).and_(f.part().container().is_in(containers))
+            .and_(f.quantity() >= quantity).and_(f.quantity() <= quantity + 10)
+            .and_(f.part().size() >= 1).and_(f.part().size() <= max_size)
+            .and_(f.ship_mode().is_in(["AIR", "AIR REG"])).and_(f.ship_instruct().eq("DELIVER IN PERSON")))
+
+
+
+TPCH = {
+    "Q2": Unsupported("A correlated scalar subquery: ps_supplycost = (select min(ps_supplycost) ... for the same part)"),
+
+    "Q3": FinderQuery(["l_orderkey", "revenue", "o_orderdate", "o_shippriority"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [q.lineitem.order().order_key().alias("l_orderkey"), _revenue(q.lineitem).sum().alias("revenue"),
+         q.lineitem.order().order_date().alias("o_orderdate"), q.lineitem.order().ship_priority().alias("o_shippriority")],
+        q.lineitem.order().customer().mkt_segment().eq(p.SEGMENT)
+        .and_(q.lineitem.order().order_date() < p.DATE).and_(q.lineitem.ship_date() > p.DATE),
+    ).group_by(q.lineitem.order().order_key(), q.lineitem.order().order_date(), q.lineitem.order().ship_priority())
+        .order_by(_revenue(q.lineitem).sum().descending(), q.lineitem.order().order_date().ascending()).limit(10)),
+
+    "Q4": Unsupported(
+        "exists (select * from lineitem where l_orderkey = o_orderkey and l_commitdate < l_receiptdate): exists() takes no "
+        "condition, and a filter through the line items joins, so it repeats an order for each line"),
+
+    "Q5": FinderQuery(["n_name", "revenue"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [q.lineitem.order().customer().nation().name().alias("n_name"), _revenue(q.lineitem).sum().alias("revenue")],
+        q.lineitem.order().customer().nation().region().name().eq(p.REGION)
+        .and_(q.lineitem.order().order_date() >= p.DATE_FROM).and_(q.lineitem.order().order_date() < p.DATE_TO)
+        .and_(q.lineitem.order().customer().nation().name().eq(q.lineitem.supplier().nation().name())),
+    ).group_by(q.lineitem.order().customer().nation().name()).order_by(_revenue(q.lineitem).sum().descending())),
+
+    "Q6": FinderQuery(["revenue"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME, [(q.lineitem.extended_price() * q.lineitem.discount()).sum().alias("revenue")],
+        (q.lineitem.ship_date() >= p.DATE_FROM).and_(q.lineitem.ship_date() < p.DATE_TO)
+        .and_(q.lineitem.discount() >= p.DISCOUNT_LOW).and_(q.lineitem.discount() <= p.DISCOUNT_HIGH)
+        .and_(q.lineitem.quantity() < p.QUANTITY))),
+
+    "Q7": FinderQuery(["supp_nation", "cust_nation", "l_year", "revenue"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [q.lineitem.supplier().nation().name().alias("supp_nation"),
+         q.lineitem.order().customer().nation().name().alias("cust_nation"),
+         q.lineitem.ship_date().year().alias("l_year"), _revenue(q.lineitem).sum().alias("revenue")],
+        q.lineitem.supplier().nation().name().eq(p.NATION1).and_(q.lineitem.order().customer().nation().name().eq(p.NATION2))
+        .or_(q.lineitem.supplier().nation().name().eq(p.NATION2)
+             .and_(q.lineitem.order().customer().nation().name().eq(p.NATION1)))
+        .and_(q.lineitem.ship_date() >= p.DATE_FROM).and_(q.lineitem.ship_date() <= p.DATE_TO),
+    ).order_by(q.lineitem.supplier().nation().name().ascending(), q.lineitem.order().customer().nation().name().ascending(),
+               q.lineitem.ship_date().year().ascending())),
+
+    "Q8": FinderQuery(["o_year", "mkt_share"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [q.lineitem.order().order_date().year().alias("o_year"),
+         (when(q.lineitem.supplier().nation().name().eq(p.NATION)).then(_revenue(q.lineitem)).otherwise(0).sum()
+          / _revenue(q.lineitem).sum()).alias("mkt_share")],
+        q.lineitem.order().customer().nation().region().name().eq(p.REGION)
+        .and_(q.lineitem.order().order_date() >= p.DATE_FROM).and_(q.lineitem.order().order_date() <= p.DATE_TO)
+        .and_(q.lineitem.part().type_().eq(p.TYPE)),
+    ).group_by(q.lineitem.order().order_date().year()).order_by(q.lineitem.order().order_date().year().ascending())),
+
+    "Q9": Unsupported(
+        "Joins PARTSUPP on a composite key: ps_partkey = l_partkey and ps_suppkey = l_suppkey. An association joins on one column"),
+
+    "Q10": FinderQuery(
+        ["c_custkey", "c_name", "revenue", "c_acctbal", "n_name", "c_address", "c_phone", "c_comment"],
+        lambda q, p: q.customer.find_all(
+            p.APP_TIME, p.SYS_TIME,
+            [q.customer.customer_key().alias("c_custkey"), q.customer.name().alias("c_name"),
+             (q.customer.orders().line_items().extended_price() * (constant(1) - q.customer.orders().line_items().discount()))
+             .sum().alias("revenue"),
+             q.customer.acct_bal().alias("c_acctbal"), q.customer.nation().name().alias("n_name"),
+             q.customer.address().alias("c_address"), q.customer.phone().alias("c_phone"),
+             q.customer.comment().alias("c_comment")],
+            (q.customer.orders().order_date() >= p.DATE_FROM).and_(q.customer.orders().order_date() < p.DATE_TO)
+            .and_(q.customer.orders().line_items().return_flag().eq("R")),
+        ).group_by(q.customer.customer_key(), q.customer.name(), q.customer.acct_bal(), q.customer.phone(),
+                   q.customer.nation().name(), q.customer.address(), q.customer.comment())
+        .order_by((q.customer.orders().line_items().extended_price()
+                   * (constant(1) - q.customer.orders().line_items().discount())).sum().descending()).limit(20)),
+
+    "Q11": Unsupported("A scalar subquery in HAVING: sum(ps_supplycost * ps_availqty) > (select sum(...) * FRACTION ...)"),
+
+    "Q12": FinderQuery(["l_shipmode", "high_line_count", "low_line_count"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [q.lineitem.ship_mode().alias("l_shipmode"),
+         when(q.lineitem.order().order_priority().eq("1-URGENT").or_(q.lineitem.order().order_priority().eq("2-HIGH")))
+         .then(1).otherwise(0).sum().alias("high_line_count"),
+         when(q.lineitem.order().order_priority().ne("1-URGENT").and_(q.lineitem.order().order_priority().ne("2-HIGH")))
+         .then(1).otherwise(0).sum().alias("low_line_count")],
+        q.lineitem.ship_mode().is_in(["MAIL", "SHIP"]).and_(q.lineitem.commit_date() < q.lineitem.receipt_date())
+        .and_(q.lineitem.ship_date() < q.lineitem.commit_date())
+        .and_(q.lineitem.receipt_date() >= p.DATE_FROM).and_(q.lineitem.receipt_date() < p.DATE_TO)
+        .and_(q.lineitem.order().exists()),
+    ).order_by(q.lineitem.ship_mode().ascending())),
+
+    "Q13": Unsupported(
+        "A derived table with a LEFT OUTER JOIN whose ON clause has a condition (o_comment not like '%[WORD1]%[WORD2]%'), "
+        "grouped again by the count it produced"),
+
+    "Q14": FinderQuery(["promo_revenue"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [((constant(100.0) * when(q.lineitem.part().type_().starts_with("PROMO")).then(_revenue(q.lineitem)).otherwise(0).sum())
+          / _revenue(q.lineitem).sum()).alias("promo_revenue")],
+        (q.lineitem.ship_date() >= p.DATE_FROM).and_(q.lineitem.ship_date() < p.DATE_TO).and_(q.lineitem.part().exists()))),
+
+    "Q15": Unsupported("A derived table of revenue by supplier, and total_revenue = (select max(total_revenue) from it)"),
+    "Q16": Unsupported("ps_suppkey not in (select s_suppkey ... where s_comment like '%Customer%Complaints%'), and p_type not "
+                       "like '[TYPE]%': a NOT IN subquery and NOT LIKE"),
+    "Q17": Unsupported("A correlated scalar subquery: l_quantity < (select 0.2 * avg(l_quantity) ... for the same part)"),
+    "Q18": Unsupported("o_orderkey in (select l_orderkey from lineitem group by l_orderkey having sum(l_quantity) > [QUANTITY]): "
+                       "an IN subquery with GROUP BY and HAVING"),
+
+    "Q19": FinderQuery(["revenue"], lambda q, p: q.lineitem.find_all(
+        p.APP_TIME, p.SYS_TIME, [_revenue(q.lineitem).sum().alias("revenue")],
+        _q19_branch(q.lineitem, "Brand#12", ["SM CASE", "SM BOX", "SM PACK", "SM PKG"], 1.0, 5)
+        .or_(_q19_branch(q.lineitem, "Brand#23", ["MED BAG", "MED BOX", "MED PKG", "MED PACK"], 10.0, 10))
+        .or_(_q19_branch(q.lineitem, "Brand#34", ["LG CASE", "LG BOX", "LG PACK", "LG PKG"], 20.0, 15)))),
+
+    "Q20": Unsupported("Nested IN subqueries and a correlated scalar subquery: ps_availqty > (select 0.5 * sum(l_quantity) ...)"),
+    "Q21": Unsupported(
+        "EXISTS and NOT EXISTS with conditions on the other lines of the order (l2.l_suppkey <> l1.l_suppkey, "
+        "l3.l_receiptdate > l3.l_commitdate): exists() takes no condition"),
+    "Q22": Unsupported("substring(c_phone from 1 for 2) in a list, a scalar subquery average, and NOT EXISTS"),
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -153,6 +324,49 @@ B3 = {
                q.customer.visible_time_begin().ascending())),
 }
 
+
+# ---------------------------------------------------------------------------------------------------------------------
+# B.4
+# ---------------------------------------------------------------------------------------------------------------------
+
+B4 = {
+    "R1_sys": Unsupported(
+        "Joins two grouped system-time subqueries (the latest version before and the first after the move) and compares their "
+        "bounds, with a scalar subquery for the nation"),
+    "R1_app": Unsupported(
+        "Joins two grouped application-time subqueries (the latest version before and the first after the move) and compares "
+        "their bounds, with a scalar subquery for the nation"),
+    "R2_sys": Unsupported("Joins two grouped subqueries, the earliest system time of each order status, and averages the "
+                          "difference of two timestamps"),
+    "R2_app": Unsupported("Joins two grouped subqueries, the earliest application time of each order status, and averages the "
+                          "difference of two dates"),
+    "R3a": Unsupported(_TEMPORAL_AGGREGATION),
+    "R3b": Unsupported(_TEMPORAL_AGGREGATION),
+    "R4": Unsupported(
+        "Needs every version of a key compared with the others (the extreme stock levels and when they occurred), as nested "
+        "aggregates over versions of the same table"),
+    "R5": Unsupported(
+        "COUNT DISTINCT is supported, but the finder joins a related temporal row at the root version's time: it cannot pair "
+        "every customer version with every order version whose system periods overlap"),
+    "R6": Unsupported(
+        "A temporal aggregation (a row for each point where the data changed, from an interval join on the period boundaries) "
+        "over a join of two temporal tables, which the finders cannot do"),
+
+    "R7": FinderQuery(
+        ["Part Part Key", "Supplier Supplier Key", "Supply Cost", "Validity Time Begin", "Validity Time End",
+         "Same Part Validity Time Begin", "Same Part Validity Time End", "Same Part Supply Cost"],
+        lambda q, p: q.partsupp.find_all(
+            None, _NOW,
+            [q.partsupp.part().part_key(), q.partsupp.supplier().supplier_key(), q.partsupp.supply_cost(),
+             q.partsupp.validity_time_begin(), q.partsupp.validity_time_end(),
+             q.partsupp.same_part().validity_time_begin(), q.partsupp.same_part().validity_time_end(),
+             q.partsupp.same_part().supply_cost()],
+            q.partsupp.supplier().supplier_key().eq(q.partsupp.same_part().supplier().supplier_key())
+            .and_(q.partsupp.same_part().validity_time_end() == q.partsupp.validity_time_begin())
+            .and_(q.partsupp.supply_cost() > q.partsupp.same_part().supply_cost() * 1.075),
+        ).order_by(q.partsupp.validity_time_end().ascending(), q.partsupp.same_part().validity_time_end().descending())),
+}
+
 # ---------------------------------------------------------------------------------------------------------------------
 # B.5: ps1 is the supply of the given part, ps2 the supply of the other part that is returned. The finder's root is ps2, and
 # ps1 is reached through the supplier, which gives it the dates of the root unless it is asked for at others.
@@ -192,4 +406,4 @@ B5 = {
     "B5_11": FinderQuery(_PART_COLUMN, lambda q, p: _other_parts(q.partsupp, p, None, None, system="starts_within")),
 }
 
-QUERIES: dict[str, FinderQuery | Unsupported] = {**B1, **B3, **B5}
+QUERIES: dict[str, FinderQuery | Unsupported] = {**B1, **B2, **B3, **B4, **B5, **TPCH}

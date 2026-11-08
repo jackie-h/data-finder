@@ -2,22 +2,25 @@
 temporal clauses of the report's SQL are translated as SQL:2011 defines them."""
 import pytest
 
-from datafinder_examples_tests.tpch_bih_build import CASES_FILE, build
-from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS
+from datafinder_examples_tests.tpch_bih_build import EXPECTED_FILE, build
+from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS as BIH_DEFINITIONS
+from datafinder_examples_tests.tpch_definitions import TPCH_DEFINITIONS
 from datafinder_examples_tests.tpch_bih_queries import QUERIES
-from datafinder_examples_tests.tpch_bih_sql import temporal_clauses_to_subselects, to_duckdb
+from datafinder_examples_tests.tpch_bih_sql import (
+    temporal_clauses_to_subselects, time_travel, to_duckdb, to_duckdb_statements,
+)
 
 
 def test_the_checked_in_cases_are_what_the_definitions_give():
-    assert CASES_FILE.read_text() == build(), "run: uv run datafinder_examples/tools/build_tpch_bih_cases.py"
+    assert EXPECTED_FILE.read_text() == build(), "run: uv run datafinder_examples/tools/build_tpch_bih_cases.py"
 
 
 def test_every_case_has_a_finder_query_or_a_reason():
-    assert sorted(QUERIES) == sorted(d.id for d in DEFINITIONS)
+    assert sorted(QUERIES) == sorted(d.id for d in [*BIH_DEFINITIONS, *TPCH_DEFINITIONS])
 
 
 def test_a_case_id_is_used_once():
-    ids = [d.id for d in DEFINITIONS]
+    ids = [d.id for d in [*BIH_DEFINITIONS, *TPCH_DEFINITIONS]]
     assert len(ids) == len(set(ids))
 
 
@@ -66,3 +69,30 @@ def test_a_table_is_read_in_its_schema():
 @pytest.mark.parametrize("keyword", ["WHERE", "ORDER BY", "GROUP BY"])
 def test_a_keyword_after_a_table_is_not_taken_for_its_alias(keyword):
     assert f") {keyword}" in _where(f"SELECT * FROM orders FOR BUSINESS_TIME AS OF '1996-01-01' {keyword} o_orderkey")
+
+
+def test_a_table_after_a_comma_and_a_parenthesis_is_translated():
+    sql = _where("SELECT * FROM (SELECT 1 FROM customer) c, orders FOR BUSINESS_TIME AS OF '1996-01-01'")
+    assert sql.count("(SELECT * FROM") == 2 and "active_time_begin <= '1996-01-01'" in sql
+
+
+def test_a_join_keyword_after_a_table_is_not_taken_for_its_alias():
+    sql = _where("SELECT * FROM customer LEFT OUTER JOIN orders ON c_custkey = o_custkey")
+    assert ") LEFT OUTER JOIN (SELECT * FROM orders" in sql
+
+
+def test_a_view_and_the_query_on_it_are_two_statements_and_the_view_is_made_again_for_each_run():
+    statements = to_duckdb_statements("CREATE VIEW v AS SELECT 1 AS a;\nSELECT a FROM v")
+    assert len(statements) == 2 and statements[0].startswith("CREATE OR REPLACE VIEW v")
+
+
+def test_a_name_the_query_gives_that_ends_in_start_is_renamed_with_its_uses():
+    sql = to_duckdb("SELECT time_start FROM (SELECT sys_time_start AS time_start FROM customer) t")
+    assert sql.startswith("SELECT time_begin FROM (SELECT sys_time_begin AS time_begin FROM") and "_start" not in sql
+
+
+def test_time_travel_reads_each_temporal_table_as_of_the_two_times_and_a_supplier_as_of_system_time_only():
+    sql = time_travel("SELECT 1 FROM supplier, lineitem l, nation n WHERE 1 = 1")
+    assert "supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]', lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' " \
+           "FOR BUSINESS_TIME AS OF '[APP_TIME]' l" in sql
+    assert "nation n" in sql and "supplier FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME" not in sql

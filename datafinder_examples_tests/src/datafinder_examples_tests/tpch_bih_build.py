@@ -1,4 +1,4 @@
-"""Builds tpch_bih_cases.py: the benchmark cases of tpch_bih_definitions.py with the rows their SQL returns on the generated data.
+"""Builds tpch_bih_expected.py: the rows the SQL of each case in tpch_bih_definitions.py returns on the generated data.
 
 ``uv run datafinder_examples/tools/build_tpch_bih_cases.py`` writes the file; a test builds it again and compares, so the
 checked-in expected rows can't drift from the SQL, the generator or the seed.
@@ -13,25 +13,24 @@ import duckdb
 from datafinder_examples_tests.tpch_bih_case import BenchmarkCase
 from datafinder_examples_tests.tpch_bih_data import csv_dir
 from datafinder_examples_tests.tpch_bih_db import load
-from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS
+from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS as BIH_DEFINITIONS
+from datafinder_examples_tests.tpch_definitions import TPCH_DEFINITIONS
 
-CASES_FILE = Path(__file__).with_name("tpch_bih_cases.py")
+EXPECTED_FILE = Path(__file__).with_name("tpch_bih_expected.py")
 
-_HEADER = '''"""The TPC-BiH benchmark cases with their expected rows. Generated: do not edit.
+_HEADER = '''"""The rows each benchmark case returns on the generated data. Generated: do not edit.
 
-Built by datafinder_examples/tools/build_tpch_bih_cases.py from tpch_bih_definitions.py (the report's SQL and the values of its
-parameters): each case's rows are what its SQL returns on the data tpch_bih_generator.py makes (see tpch_bih_data.py).
+Built by datafinder_examples/tools/build_tpch_bih_cases.py: each is what the SQL of the case with that id (tpch_bih_definitions.py or tpch_definitions.py) returns
+on the data tpch_bih_generator.py makes (see tpch_bih_data.py).
 """
 import datetime
 from decimal import Decimal
 
-from datafinder_examples_tests.tpch_bih_case import BenchmarkCase
-
-CASES = {case.id: case for case in [
+ROWS = {
 '''
 
 
-def evaluate(definitions: list[BenchmarkCase] = DEFINITIONS) -> list[BenchmarkCase]:
+def evaluate(definitions: list[BenchmarkCase] = [*BIH_DEFINITIONS, *TPCH_DEFINITIONS]) -> list[BenchmarkCase]:
     """Each definition with the rows its SQL returns."""
     connection = duckdb.connect()
     load(connection, csv_dir())
@@ -52,16 +51,12 @@ def _pack(items: list[str], indent: str, width: int = 118) -> str:
 
 
 def _render(case: BenchmarkCase) -> str:
-    parameters = ", ".join(f"{name!r}: {value!r}" for name, value in case.parameters.items())
-    flags = "".join(f", {flag}=True" for flag in ("ordered", "distinct", "approximate") if getattr(case, flag))
-    rows = _pack([repr(row) for row in case.rows], " " * 12)
-    return (f"    BenchmarkCase(\n        id={case.id!r}, title={case.title!r},\n"
-            f"        sql=\"\"\"{case.sql}\"\"\",\n        parameters={{{parameters}}},\n"
-            f"        select={case.select!r}{flags},\n        rows=(\n{rows}\n        )),\n")
+    rows = _pack([repr(row) for row in case.rows], " " * 8)
+    return f"    {case.id!r}: (\n{rows}\n    ),\n"
 
 
 def render(cases: list[BenchmarkCase]) -> str:
-    return _HEADER + "\n".join(_render(case) for case in cases) + "]}\n"
+    return _HEADER + "".join(_render(case) for case in cases) + "}\n"
 
 
 def build() -> str:
