@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
+from datafinder_examples_tests.companies_constant_specs import COMPANIES_CONSTANT_SPECS
 from datafinder_examples_tests.companies_specs import COMPANY_FINDER_SPECS
 
 _MODS = ["company_finder"]
@@ -52,4 +53,11 @@ def company_finder():
     "expectation", COMPANY_FINDER_SPECS.expectations, ids=lambda e: e.name
 )
 def test_company(expectation, company_finder):
+    expectation.run(company_finder, backend="duckdb")
+
+
+@pytest.mark.parametrize(
+    "expectation", COMPANIES_CONSTANT_SPECS.expectations, ids=lambda e: e.name
+)
+def test_company_constant_functions(expectation, company_finder):
     expectation.run(company_finder, backend="duckdb")

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import datetime
 import decimal
 from enum import Enum
-from typing import Any, Generic, Iterable, Sequence, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Sequence, TypeVar, overload
+
 
 T = TypeVar("T")
 K = TypeVar("K")  # the kind of number an expression holds: int, float or Decimal
@@ -416,14 +419,543 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
+N = TypeVar("N", bound="ScalarFunctionOperation")
+
+
+def _diff_other(other):
+    """The other side of a date difference: a value stays as it is, a column or expression becomes its operand."""
+    return other._arithmetic_operand() if isinstance(other, RelationalOperationElement) else other
+
+
+class StringFunctions:
+    """Functions of text. The user of this class provides ``_function_input()`` and ``_function_label()``."""
+
+    if TYPE_CHECKING:  # provided by the class this is mixed into; declared here only, so it does not hide the real one
+        def _function_input(self) -> Any: ...
+        def _function_label(self) -> str: ...
+
+    def upper(self):
+        """Return the value converted to uppercase. Equivalent to ``str.upper()``."""
+        return string_function(self._function_input(), ScalarFunction.UPPER, 'Upper ' + self._function_label())
+
+    def lower(self):
+        """Return the value converted to lowercase. Equivalent to ``str.lower()``."""
+        return string_function(self._function_input(), ScalarFunction.LOWER, 'Lower ' + self._function_label())
+
+    def strip(self):
+        """Remove leading and trailing whitespace. Equivalent to ``str.strip()``."""
+        return string_function(self._function_input(), ScalarFunction.TRIM, 'Strip ' + self._function_label())
+
+    def lstrip(self):
+        """Remove leading whitespace. Equivalent to ``str.lstrip()``."""
+        return string_function(self._function_input(), ScalarFunction.LTRIM, 'Lstrip ' + self._function_label())
+
+    def rstrip(self):
+        """Remove trailing whitespace. Equivalent to ``str.rstrip()``."""
+        return string_function(self._function_input(), ScalarFunction.RTRIM, 'Rstrip ' + self._function_label())
+
+    def length(self):
+        """Return the number of characters. Equivalent to ``len(s)``."""
+        return integer_function(self._function_input(), ScalarFunction.LENGTH, 'Length ' + self._function_label())
+
+    def reverse(self):
+        """Return the value with characters in reverse order. Equivalent to ``s[::-1]``."""
+        return string_function(self._function_input(), ScalarFunction.REVERSE, 'Reverse ' + self._function_label())
+
+    def left(self, n: int):
+        """Return the first ``n`` characters. Equivalent to ``s[:n]``."""
+        return string_function(self._function_input(), ScalarFunction.LEFT, 'Left ' + self._function_label(), extra_args=[n])
+
+    def right(self, n: int):
+        """Return the last ``n`` characters. Equivalent to ``s[-n:]``."""
+        return string_function(self._function_input(), ScalarFunction.RIGHT, 'Right ' + self._function_label(), extra_args=[n])
+
+    def repeat(self, n: int):
+        """Return the value repeated ``n`` times. Equivalent to ``s * n``."""
+        return string_function(self._function_input(), ScalarFunction.REPEAT, 'Repeat ' + self._function_label(), extra_args=[n])
+
+    def __mul__(self, n: int):
+        """Repeat the value ``n`` times. Equivalent to ``repeat(n)``."""
+        return self.repeat(n)
+
+    def replace(self, from_str: str, to_str: str):
+        """Replace all occurrences of ``from_str`` with ``to_str``. Equivalent to ``str.replace()``."""
+        return string_function(self._function_input(), ScalarFunction.REPLACE, 'Replace ' + self._function_label(), extra_args=[from_str, to_str])
+
+    def substring(self, start: int, length: int | None = None):
+        """Return a substring using 0-based ``start`` index.
+
+        ``substring(start)`` returns from ``start`` to end of string.
+        ``substring(start, length)`` returns ``length`` characters from ``start``.
+        Equivalent to ``s[start:]`` and ``s[start:start+length]`` respectively.
+        """
+        args = [start + 1] if length is None else [start + 1, length]
+        return string_function(self._function_input(), ScalarFunction.SUBSTRING, 'Substring ' + self._function_label(), extra_args=args)
+
+    def __getitem__(self, key):
+        """Support Python slice syntax to produce string operations.
+
+        Supported forms::
+
+            s[:n]     → left(n)
+            s[-n:]    → right(n)
+            s[::-1]   → reverse()
+            s[start:] → substring(start)
+            s[a:b]    → substring(a, b - a)
+        """
+        if not isinstance(key, slice):
+            raise TypeError("StringAttribute only supports slice indexing")
+        start, stop, step = key.start, key.stop, key.step
+        if step == -1 and start is None and stop is None:
+            return self.reverse()
+        if step is not None and step != 1:
+            raise ValueError(f"Unsupported slice step: {step}")
+        if start is not None and start < 0 and stop is None:
+            return self.right(-start)
+        if start is None and stop is not None and stop >= 0:
+            return self.left(stop)
+        if start is not None and start >= 0:
+            if stop is None:
+                return self.substring(start)
+            if stop > start:
+                return self.substring(start, stop - start)
+        raise ValueError(f"Unsupported slice: [{start}:{stop}:{step}]")
+
+
+class NumericFunctions(Generic[N]):
+    """Functions of a number. The user of this class provides ``_function_input()``, ``_function_label()`` and
+    ``_number_type``, the operation that holds a result of the same type as the input: ``abs``, ``ceil``, ``floor``,
+    ``mod`` and ``round`` keep an integer an integer. ``sqrt``, ``power``, the logarithm, exponential and the
+    trigonometric functions give a floating-point number, as SQL does."""
+
+    if TYPE_CHECKING:  # provided by the class this is mixed into; declared here only, so it does not hide the real one
+        def _function_input(self) -> Any: ...
+        def _function_label(self) -> str: ...
+        _number_type: Callable[..., N]
+
+    def _same_type(self, function: ScalarFunction, label: str, second_arg: int | float | None = None) -> N:
+        return self._number_type(self._function_input(), function, label, second_arg=second_arg)
+
+    def abs(self):
+        """Return the absolute value. Equivalent to ``abs(n)``."""
+        return self._same_type(ScalarFunction.ABS, 'Abs ' + self._function_label())
+
+    def ceil(self):
+        """Return the smallest integer >= the value. Equivalent to ``math.ceil(n)``."""
+        return self._same_type(ScalarFunction.CEILING, 'Ceil ' + self._function_label())
+
+    def floor(self):
+        """Return the largest integer <= the value. Equivalent to ``math.floor(n)``."""
+        return self._same_type(ScalarFunction.FLOOR, 'Floor ' + self._function_label())
+
+    def sqrt(self):
+        """Return the square root. Equivalent to ``math.sqrt(n)``."""
+        return double_function(self._function_input(), ScalarFunction.SQRT, 'Sqrt ' + self._function_label())
+
+    def sin(self):
+        """Return the sine of the value (in radians)."""
+        return double_function(self._function_input(), ScalarFunction.SIN, 'Sin ' + self._function_label())
+
+    def cos(self):
+        """Return the cosine of the value (in radians)."""
+        return double_function(self._function_input(), ScalarFunction.COS, 'Cos ' + self._function_label())
+
+    def tan(self):
+        """Return the tangent of the value (in radians)."""
+        return double_function(self._function_input(), ScalarFunction.TAN, 'Tan ' + self._function_label())
+
+    def asin(self):
+        """Return the inverse sine, in radians."""
+        return double_function(self._function_input(), ScalarFunction.ASIN, 'Asin ' + self._function_label())
+
+    def acos(self):
+        """Return the inverse cosine, in radians."""
+        return double_function(self._function_input(), ScalarFunction.ACOS, 'Acos ' + self._function_label())
+
+    def atan(self):
+        """Return the inverse tangent, in radians."""
+        return double_function(self._function_input(), ScalarFunction.ATAN, 'Atan ' + self._function_label())
+
+    def atan2(self, x: int | float):
+        """Return atan2(value, x), in radians."""
+        return double_function(self._function_input(), ScalarFunction.ATAN2, 'Atan2 ' + self._function_label(), second_arg=x)
+
+    def exp(self):
+        """Return e raised to the value."""
+        return double_function(self._function_input(), ScalarFunction.EXP, 'Exp ' + self._function_label())
+
+    def log(self):
+        """Return the natural logarithm of the value."""
+        return double_function(self._function_input(), ScalarFunction.LOG, 'Log ' + self._function_label())
+
+    def mod(self, n: int):
+        """Return the remainder after division by ``n``. Equivalent to ``value % n``."""
+        return self._same_type(ScalarFunction.MOD, 'Mod ' + self._function_label(), second_arg=n)
+
+    def __mod__(self, n: int):
+        """Return the remainder after division by ``n``. Equivalent to ``mod(n)``."""
+        return self.mod(n)
+
+    def power(self, n: int) -> 'IntegerFunctionOperation | DoubleFunctionOperation':
+        """Return the value raised to the power of ``n``. Equivalent to ``value ** n``.
+
+        An integer raised to a whole, non-negative ``n`` is an integer, as in Python. SQL's ``POWER`` gives a double, so
+        the result is cast to ``BIGINT``. Any other power is a floating-point number."""
+        label = 'Power ' + self._function_label()
+        if self._number_type is IntegerFunctionOperation and isinstance(n, int) and not isinstance(n, bool) and n >= 0:
+            return IntegerFunctionOperation(self._function_input(), ScalarFunction.POWER, label, second_arg=n, cast='BIGINT')
+        return double_function(self._function_input(), ScalarFunction.POWER, label, second_arg=n)
+
+    def __pow__(self, n: int) -> 'IntegerFunctionOperation | DoubleFunctionOperation':
+        """Return the value raised to the power of ``n``. Equivalent to ``power(n)``."""
+        return self.power(n)
+
+    def round(self, d: int | None = None):
+        """Round to ``d`` decimal places. Equivalent to ``round(value, d)``.
+
+        When ``d`` is omitted, rounds to the nearest integer.
+        """
+        return self._same_type(ScalarFunction.ROUND, 'Round ' + self._function_label(), second_arg=d)
+
+
+class DateFunctions:
+    """Functions of a date: parts, the first day of a period, days, months and years added or taken away, and the
+    difference between two dates. Shared by a date column and a date constant; the user of this class provides
+    ``_function_input()`` and ``_function_label()``.
+
+    Extract methods mirror ``datetime.date`` attributes::
+
+        trade_date.year()   # d.year
+        trade_date.month()  # d.month
+        trade_date.day()    # d.day
+        trade_date.week()   # d.isocalendar().week
+        trade_date.quarter()  # (d.month - 1) // 3 + 1
+
+    Arithmetic methods mirror ``datetime.timedelta`` addition/subtraction::
+
+        trade_date.add_days(n)       # d + timedelta(days=n)
+        trade_date.subtract_days(n)  # d - timedelta(days=n)
+
+    Diff methods return the integer difference between the value and ``other``::
+
+        trade_date.diff_days(other)   # (other - d).days
+    """
+
+    if TYPE_CHECKING:  # provided by the class this is mixed into; declared here only, so it does not hide the real one
+        def _function_input(self) -> Any: ...
+        def _function_label(self) -> str: ...
+
+    def first_day_of_week(self) -> DateTruncOperation:
+        """The first day of the week the date falls in (a Monday)."""
+        return DateTruncOperation(self._function_input(), DatePart.WEEK, 'First Day Of Week ' + self._function_label())
+
+    def first_day_of_month(self) -> DateTruncOperation:
+        """The first day of the month the date falls in."""
+        return DateTruncOperation(self._function_input(), DatePart.MONTH, 'First Day Of Month ' + self._function_label())
+
+    def first_day_of_quarter(self) -> DateTruncOperation:
+        """The first day of the quarter the date falls in."""
+        return DateTruncOperation(self._function_input(), DatePart.QUARTER, 'First Day Of Quarter ' + self._function_label())
+
+    def first_day_of_year(self) -> DateTruncOperation:
+        """The first day of the year the date falls in."""
+        return DateTruncOperation(self._function_input(), DatePart.YEAR, 'First Day Of Year ' + self._function_label())
+
+    def year(self) -> DateExtractOperation:
+        """Extract the year. Equivalent to ``d.year``."""
+        return DateExtractOperation(self._function_input(), DatePart.YEAR, 'Year ' + self._function_label())
+
+    def month(self) -> DateExtractOperation:
+        """Extract the month (1–12). Equivalent to ``d.month``."""
+        return DateExtractOperation(self._function_input(), DatePart.MONTH, 'Month ' + self._function_label())
+
+    def day(self) -> DateExtractOperation:
+        """Extract the day of the month (1–31). Equivalent to ``d.day``."""
+        return DateExtractOperation(self._function_input(), DatePart.DAY, 'Day ' + self._function_label())
+
+    def quarter(self) -> DateExtractOperation:
+        """Extract the quarter (1–4). Equivalent to ``(d.month - 1) // 3 + 1``."""
+        return DateExtractOperation(self._function_input(), DatePart.QUARTER, 'Quarter ' + self._function_label())
+
+    def week(self) -> DateExtractOperation:
+        """Extract the ISO week number. Equivalent to ``d.isocalendar().week``."""
+        return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week ' + self._function_label())
+
+    def day_of_week(self) -> DateExtractOperation:
+        """Extract the day of the week (0=Sunday in SQL). See ``d.weekday()`` for Python's Monday-based equivalent."""
+        return DateExtractOperation(self._function_input(), DatePart.DOW, 'Day Of Week ' + self._function_label())
+
+    def add_days(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Add ``n`` days. Equivalent to ``d + timedelta(days=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.DAY, True, 'Add Days ' + self._function_label())
+
+    def add_months(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Add ``n`` calendar months."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MONTH, True, 'Add Months ' + self._function_label())
+
+    def add_years(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Add ``n`` calendar years."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.YEAR, True, 'Add Years ' + self._function_label())
+
+    def subtract_days(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Subtract ``n`` days. Equivalent to ``d - timedelta(days=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.DAY, False, 'Subtract Days ' + self._function_label())
+
+    def subtract_months(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Subtract ``n`` calendar months."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MONTH, False, 'Subtract Months ' + self._function_label())
+
+    def subtract_years(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Subtract ``n`` calendar years."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.YEAR, False, 'Subtract Years ' + self._function_label())
+
+    def __add__(self, td: datetime.timedelta):
+        """Add a ``timedelta``. Equivalent to ``d + td``. Only day-precision timedeltas are supported."""
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        if td.seconds != 0 or td.microseconds != 0:
+            raise ValueError("DateAttribute only supports day-precision timedelta; use DateTimeAttribute for sub-day offsets")
+        return self.add_days(td.days)
+
+    def __sub__(self, td: datetime.timedelta):
+        """Subtract a ``timedelta``. Equivalent to ``d - td``. Only day-precision timedeltas are supported."""
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        if td.seconds != 0 or td.microseconds != 0:
+            raise ValueError("DateAttribute only supports day-precision timedelta; use DateTimeAttribute for sub-day offsets")
+        return self.subtract_days(td.days)
+
+    def diff_days(self, other: datetime.date | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of days between the column value and ``other``. Equivalent to ``(other - d).days``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.DAY, 'Diff Days ' + self._function_label())
+
+    def diff_months(self, other: datetime.date | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of whole calendar months between the column value and ``other``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.MONTH, 'Diff Months ' + self._function_label())
+
+    def diff_years(self, other: datetime.date | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of whole calendar years between the column value and ``other``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.YEAR, 'Diff Years ' + self._function_label())
+
+
+class DateTimeFunctions:
+    """Functions of a datetime: those of a date, with hour, minute and second granularity. Shared by a datetime column and
+    a datetime constant; the user of this class provides ``_function_input()`` and ``_function_label()``.
+
+    Extract methods mirror ``datetime.datetime`` attributes::
+
+        ts.year()    # dt.year
+        ts.month()   # dt.month
+        ts.hour()    # dt.hour
+        ts.minute()  # dt.minute
+        ts.second()  # dt.second
+
+    Arithmetic and diff methods work the same as for a date but also support hours, minutes, and seconds::
+
+        ts.add_hours(n)       # dt + timedelta(hours=n)
+        ts.subtract_hours(n)  # dt - timedelta(hours=n)
+        ts.diff_seconds(other)
+    """
+
+    if TYPE_CHECKING:  # provided by the class this is mixed into; declared here only, so it does not hide the real one
+        def _function_input(self) -> Any: ...
+        def _function_label(self) -> str: ...
+
+    def first_day_of_week(self) -> DateTruncOperation:
+        """The date of the first day of the week the date falls in (a Monday)."""
+        return DateTruncOperation(self._function_input(), DatePart.WEEK, 'First Day Of Week ' + self._function_label())
+
+    def first_day_of_month(self) -> DateTruncOperation:
+        """The date of the first day of the month the date falls in."""
+        return DateTruncOperation(self._function_input(), DatePart.MONTH, 'First Day Of Month ' + self._function_label())
+
+    def first_day_of_quarter(self) -> DateTruncOperation:
+        """The date of the first day of the quarter the date falls in."""
+        return DateTruncOperation(self._function_input(), DatePart.QUARTER, 'First Day Of Quarter ' + self._function_label())
+
+    def first_day_of_year(self) -> DateTruncOperation:
+        """The date of the first day of the year the date falls in."""
+        return DateTruncOperation(self._function_input(), DatePart.YEAR, 'First Day Of Year ' + self._function_label())
+
+    def year(self) -> DateExtractOperation:
+        """Extract the year. Equivalent to ``dt.year``."""
+        return DateExtractOperation(self._function_input(), DatePart.YEAR, 'Year ' + self._function_label())
+
+    def month(self) -> DateExtractOperation:
+        """Extract the month (1–12). Equivalent to ``dt.month``."""
+        return DateExtractOperation(self._function_input(), DatePart.MONTH, 'Month ' + self._function_label())
+
+    def day(self) -> DateExtractOperation:
+        """Extract the day of the month (1–31). Equivalent to ``dt.day``."""
+        return DateExtractOperation(self._function_input(), DatePart.DAY, 'Day ' + self._function_label())
+
+    def hour(self) -> DateExtractOperation:
+        """Extract the hour (0–23). Equivalent to ``dt.hour``."""
+        return DateExtractOperation(self._function_input(), DatePart.HOUR, 'Hour ' + self._function_label())
+
+    def minute(self) -> DateExtractOperation:
+        """Extract the minute (0–59). Equivalent to ``dt.minute``."""
+        return DateExtractOperation(self._function_input(), DatePart.MINUTE, 'Minute ' + self._function_label())
+
+    def second(self) -> DateExtractOperation:
+        """Extract the second (0–59). Equivalent to ``dt.second``."""
+        return DateExtractOperation(self._function_input(), DatePart.SECOND, 'Second ' + self._function_label())
+
+    def quarter(self) -> DateExtractOperation:
+        """Extract the quarter (1–4). Equivalent to ``(dt.month - 1) // 3 + 1``."""
+        return DateExtractOperation(self._function_input(), DatePart.QUARTER, 'Quarter ' + self._function_label())
+
+    def week(self) -> DateExtractOperation:
+        """Extract the ISO week number. Equivalent to ``dt.isocalendar().week``."""
+        return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week ' + self._function_label())
+
+    def day_of_week(self) -> DateExtractOperation:
+        """Extract the day of the week (0=Sunday in SQL). See ``dt.weekday()`` for Python's Monday-based equivalent."""
+        return DateExtractOperation(self._function_input(), DatePart.DOW, 'Day Of Week ' + self._function_label())
+
+    def add_days(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` days. Equivalent to ``dt + timedelta(days=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.DAY, True, 'Add Days ' + self._function_label())
+
+    def add_months(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` calendar months."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MONTH, True, 'Add Months ' + self._function_label())
+
+    def add_years(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` calendar years."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.YEAR, True, 'Add Years ' + self._function_label())
+
+    def add_hours(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` hours. Equivalent to ``dt + timedelta(hours=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.HOUR, True, 'Add Hours ' + self._function_label())
+
+    def add_minutes(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` minutes. Equivalent to ``dt + timedelta(minutes=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MINUTE, True, 'Add Minutes ' + self._function_label())
+
+    def add_seconds(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` seconds. Equivalent to ``dt + timedelta(seconds=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.SECOND, True, 'Add Seconds ' + self._function_label())
+
+    def subtract_days(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` days. Equivalent to ``dt - timedelta(days=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.DAY, False, 'Subtract Days ' + self._function_label())
+
+    def subtract_months(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` calendar months."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MONTH, False, 'Subtract Months ' + self._function_label())
+
+    def subtract_years(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` calendar years."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.YEAR, False, 'Subtract Years ' + self._function_label())
+
+    def subtract_hours(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` hours. Equivalent to ``dt - timedelta(hours=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.HOUR, False, 'Subtract Hours ' + self._function_label())
+
+    def subtract_minutes(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` minutes. Equivalent to ``dt - timedelta(minutes=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MINUTE, False, 'Subtract Minutes ' + self._function_label())
+
+    def subtract_seconds(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` seconds. Equivalent to ``dt - timedelta(seconds=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.SECOND, False, 'Subtract Seconds ' + self._function_label())
+
+    def __add__(self, td: datetime.timedelta):
+        """Add a ``timedelta``. Equivalent to ``dt + td``.
+
+        Dispatches to the finest unit the timedelta represents:
+        days → ``add_days``, hours → ``add_hours``, minutes → ``add_minutes``,
+        seconds → ``add_seconds``.
+        """
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        return self._timedelta_op(td, is_add=True)
+
+    def __sub__(self, td: datetime.timedelta):
+        """Subtract a ``timedelta``. Equivalent to ``dt - td``."""
+        if not isinstance(td, datetime.timedelta):
+            return NotImplemented
+        return self._timedelta_op(td, is_add=False)
+
+    def _timedelta_op(self, td: datetime.timedelta, is_add: bool):
+        total_seconds = int(td.total_seconds())
+        if total_seconds % 86400 == 0:
+            n = total_seconds // 86400
+            return self.add_days(n) if is_add else self.subtract_days(n)
+        if total_seconds % 3600 == 0:
+            n = total_seconds // 3600
+            return self.add_hours(n) if is_add else self.subtract_hours(n)
+        if total_seconds % 60 == 0:
+            n = total_seconds // 60
+            return self.add_minutes(n) if is_add else self.subtract_minutes(n)
+        return self.add_seconds(total_seconds) if is_add else self.subtract_seconds(total_seconds)
+
+    def diff_days(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of days between the column value and ``other``. Equivalent to ``(other - dt).days``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.DAY, 'Diff Days ' + self._function_label())
+
+    def diff_months(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of whole calendar months between the column value and ``other``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.MONTH, 'Diff Months ' + self._function_label())
+
+    def diff_years(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of whole calendar years between the column value and ``other``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.YEAR, 'Diff Years ' + self._function_label())
+
+    def diff_hours(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of whole hours between the column value and ``other``. Equivalent to ``int((other - dt).total_seconds() // 3600)``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.HOUR, 'Diff Hours ' + self._function_label())
+
+    def diff_minutes(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of whole minutes between the column value and ``other``. Equivalent to ``int((other - dt).total_seconds() // 60)``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.MINUTE, 'Diff Minutes ' + self._function_label())
+
+    def diff_seconds(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of whole seconds between the column value and ``other``. Equivalent to ``int((other - dt).total_seconds())``."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.SECOND, 'Diff Seconds ' + self._function_label())
+
+
+class StringPredicates:
+    """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
+    ``f.name().join(",").contains("John")``."""
+
+    def _like(self, pattern: str) -> 'ComparisonOperation':
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def matches(self, pattern: str) -> 'ComparisonOperation':
+        """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
+        ``f.comment().matches("Customer.*Complaints")``."""
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def contains(self, value: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(value)}%")
+
+    def starts_with(self, prefix: str) -> 'ComparisonOperation':
+        return self._like(f"{escape_like(prefix)}%")
+
+    def ends_with(self, suffix: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(suffix)}")
+
+
 class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
     """A fixed value. A number has aggregates of its own kind (``constant(1).sum()`` is an integer); a text, date or
-    boolean has untyped ones."""
+    boolean has untyped ones. A constant has the functions a column of its type has: ``constant("Hello").length()``,
+    ``constant(16).sqrt()``. A function of a constant is applied to the constant and named for the function and the value."""
 
     def __init__(self):
         super().__init__()
 
-class IntegerConstantOperation(ConstantOperation, Arithmetic[int], Orderable[int], Aggregates['IntegerAggregateOperation']):
+    def _function_input(self) -> 'ConstantOperation':
+        return self
+
+    def _function_label(self) -> str:
+        return str(getattr(self, "value"))
+
+class IntegerConstantOperation(ConstantOperation, NumericFunctions['IntegerFunctionOperation'], Arithmetic[int],
+                               Orderable[int], Aggregates['IntegerAggregateOperation']):
     _number_kind = int
     value:int
 
@@ -431,7 +963,8 @@ class IntegerConstantOperation(ConstantOperation, Arithmetic[int], Orderable[int
         super().__init__()
         self.value = value
 
-class FloatConstantOperation(ConstantOperation, Arithmetic[float], Orderable[float], Aggregates['DoubleAggregateOperation']):
+class FloatConstantOperation(ConstantOperation, NumericFunctions['DoubleFunctionOperation'], Arithmetic[float],
+                             Orderable[float], Aggregates['DoubleAggregateOperation']):
     _number_kind = float
     value:float
 
@@ -439,14 +972,23 @@ class FloatConstantOperation(ConstantOperation, Arithmetic[float], Orderable[flo
         super().__init__()
         self.value = value
 
-class StringConstantOperation(ConstantOperation, Equatable[str], Aggregates['UntypedAggregateOperation']):
+class StringConstantOperation(ConstantOperation, StringFunctions, StringPredicates, Equatable[str],
+                              Aggregates['UntypedAggregateOperation']):
+    """A text constant, which has the string functions and pattern tests of a text column, and joins with ``+``."""
     value:str
 
     def __init__(self, value:str):
         super().__init__()
         self.value = value
 
-class DateConstantOperation(ConstantOperation, Orderable[datetime.date], Aggregates['UntypedAggregateOperation']):
+    def __add__(self, other):
+        return concat(self, other)
+
+    def __radd__(self, other):
+        return concat(other, self)
+
+class DateConstantOperation(ConstantOperation, DateFunctions, Orderable[datetime.date],
+                            Aggregates['UntypedAggregateOperation']):
     value:datetime.date
 
     def __init__(self, value:datetime.date):
@@ -454,7 +996,7 @@ class DateConstantOperation(ConstantOperation, Orderable[datetime.date], Aggrega
         self.value = value
 
 
-class DateTimeConstantOperation(ConstantOperation, Orderable[datetime.datetime | datetime.date],
+class DateTimeConstantOperation(ConstantOperation, DateTimeFunctions, Orderable[datetime.datetime | datetime.date],
                                 Aggregates['UntypedAggregateOperation']):
     value:datetime.datetime
 
@@ -462,7 +1004,8 @@ class DateTimeConstantOperation(ConstantOperation, Orderable[datetime.datetime |
         super().__init__()
         self.value = value
 
-class DecimalConstantOperation(ConstantOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
+class DecimalConstantOperation(ConstantOperation, NumericFunctions['DecimalFunctionOperation'],
+                               Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
                                Aggregates['DecimalAggregateOperation']):
     _number_kind = decimal.Decimal
     value: decimal.Decimal
@@ -555,30 +1098,6 @@ def escape_like(value: str) -> str:
     """``value`` as part of a LIKE pattern that matches it literally: %, _ and the escape character itself would
     otherwise be wildcards."""
     return value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2).replace('%', LIKE_ESCAPE + '%').replace('_', LIKE_ESCAPE + '_')
-
-
-class StringPredicates:
-    """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
-    ``f.name().join(",").contains("John")``."""
-
-    def _like(self, pattern: str) -> 'ComparisonOperation':
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
-                                   StringConstantOperation(pattern))
-
-    def matches(self, pattern: str) -> 'ComparisonOperation':
-        """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
-        ``f.comment().matches("Customer.*Complaints")``."""
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
-                                   StringConstantOperation(pattern))
-
-    def contains(self, value: str) -> 'ComparisonOperation':
-        return self._like(f"%{escape_like(value)}%")
-
-    def starts_with(self, prefix: str) -> 'ComparisonOperation':
-        return self._like(f"{escape_like(prefix)}%")
-
-    def ends_with(self, suffix: str) -> 'ComparisonOperation':
-        return self._like(f"%{escape_like(suffix)}")
 
 
 class ComparisonOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
@@ -848,7 +1367,7 @@ class WindowFunctionOperation(Operation, Sortable):
 
 class ScalarFunctionOperation(UnaryOperation, Sortable):
     """A scalar function applied to an expression. What it can then be compared with, or have done to it, depends on
-    the type it gives, so that is a subclass in ``datafinder.scalar_functions``: StringFunctionOperation,
+    the type it gives, so that is a subclass below: StringFunctionOperation,
     IntegerFunctionOperation, DoubleFunctionOperation, DecimalFunctionOperation. One whose type is not known
     (``COALESCE`` of a date) is an UntypedFunctionOperation."""
 
@@ -915,6 +1434,79 @@ class DateDiffOperation(UnaryOperation, Sortable, Orderable[int]):
         self.other = other
         self.unit = unit
         self.display_name = display_name
+
+
+def string_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
+                    extra_args: list | None = None) -> 'StringFunctionOperation':
+    """A function that gives text, applied to ``element``."""
+    return StringFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args)
+
+
+def integer_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
+                     extra_args: list | None = None) -> 'IntegerFunctionOperation':
+    """A function that gives a whole number, applied to ``element``."""
+    return IntegerFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args)
+
+
+def double_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
+                    extra_args: list | None = None, cast: str | None = None) -> 'DoubleFunctionOperation':
+    """A function that gives a floating-point number, applied to ``element``."""
+    return DoubleFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args, cast=cast)
+
+
+def _label_of(operation: ScalarFunctionOperation) -> str:
+    return operation.display_name or operation.function.name.title()
+
+
+class _Result:
+    """What a function result gives its own functions: it is their input, and their label is its own name."""
+
+    def _function_input(self):
+        return self
+
+    def _function_label(self) -> str:
+        return _label_of(self)  # type: ignore[arg-type]
+
+
+class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equatable[str], Aggregates[UntypedAggregateOperation],
+                              ScalarFunctionOperation):
+    """A function that gives text, which has the string functions too: ``f.name().upper().length()``. It is compared
+    for equality with text, as a string column is, and has no order."""
+
+    def __add__(self, other):
+        return concat(self, other)
+
+    def __radd__(self, other):
+        return concat(other, self)
+
+
+class IntegerFunctionOperation(_Result, NumericFunctions['IntegerFunctionOperation'], Arithmetic[int], Orderable[int],
+                               Aggregates[IntegerAggregateOperation], ScalarFunctionOperation):
+    """A function that gives a whole number (``length``, or ``abs`` of an integer): compared with integers."""
+
+
+class DoubleFunctionOperation(_Result, NumericFunctions['DoubleFunctionOperation'], Arithmetic[float], Orderable[float],
+                              Aggregates[DoubleAggregateOperation], ScalarFunctionOperation):
+    """A function that gives a floating-point number (``sqrt``, ``power``, or ``abs`` of a double)."""
+
+
+class DecimalFunctionOperation(_Result, NumericFunctions['DecimalFunctionOperation'], Arithmetic[decimal.Decimal],
+                               Orderable[decimal.Decimal], Aggregates[DecimalAggregateOperation], ScalarFunctionOperation):
+    """A function that gives a decimal (``abs`` of a decimal column)."""
+
+
+IntegerConstantOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
+FloatConstantOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
+DecimalConstantOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
+IntegerFunctionOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
+IntegerFunctionOperation._number_kind = int  # type: ignore[attr-defined]
+IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
+DoubleFunctionOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
+DoubleFunctionOperation._number_kind = float  # type: ignore[attr-defined]
+DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
+DecimalFunctionOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
+DecimalFunctionOperation._number_kind = decimal.Decimal  # type: ignore[attr-defined]
+DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
 
 
 class Relation:

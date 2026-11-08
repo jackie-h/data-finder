@@ -27,6 +27,7 @@ from model.graphql_mapping import GraphQLClassMapping, GraphQLEndpoint, GraphQLF
 from csv_graphql_server import (
     GraphQLTable, NestedVersions, csv_table, endpoint_url, finance_tables, start_graphql_server,
 )
+from datafinder_examples_tests.companies_constant_specs import COMPANIES_CONSTANT_SPECS
 from datafinder_examples_tests.companies_specs import COMPANY_FINDER_SPECS
 from datafinder_examples_tests.companies_string_scalar_specs import COMPANIES_STRING_SCALAR_SPECS
 from datafinder_examples_tests.diamond_specs import DIAMOND_FINDER_SPECS
@@ -151,7 +152,7 @@ _SCENARIOS = [
     Scenario("finance_embedded", _FINANCE_MAPPING, lambda: finance_tables(**_EMBEDDED),
              [("embedded", EMBEDDED_TRADE_FINDER_SPECS)]),
     Scenario("companies", "companies_graphql_mapping.md", _companies("companies.csv"),
-             [("companies", COMPANY_FINDER_SPECS)]),
+             [("companies", COMPANY_FINDER_SPECS), ("constant_functions", COMPANIES_CONSTANT_SPECS)]),
     Scenario("companies_scalar", "companies_graphql_mapping.md", _companies("companies_scalar.csv"),
              [("companies_scalar", COMPANIES_STRING_SCALAR_SPECS)]),
     Scenario("positions", "positions_graphql_mapping.md", _positions,

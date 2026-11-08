@@ -4,7 +4,6 @@ import itertools
 from typing import Any, Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder.scalar_functions import StringFunctionOperation
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
 from datafinder.typed_attributes import typed_attribute
 from model.naming import to_snake_case
@@ -14,7 +13,8 @@ from model.relational import (
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
     DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
     FloatConstantOperation, IntegerConstantOperation, NoOperation, Relation, RelationalOperationElement,
-    ScalarFunctionOperation, SortOperation, StringConstantOperation, Table, TableAlias, UnionOperation,
+    ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
+    UnionOperation,
     WindowFunctionOperation)
 from model.view import View, ViewDefinitionError
 
