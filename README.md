@@ -398,6 +398,13 @@ from datafinder import constant
 CompanyFinder.find_all([CompanyFinder.name(), constant("EU").alias("Region")])
 ```
 
+A constant has the functions of its type, as a column of that type has, so a value can be worked on in the query:
+`constant("Hello").upper().length()`, `constant(16).sqrt()`, `constant(datetime.date(2024, 1, 31)).add_months(1)`,
+`constant(datetime.datetime(2016, 8, 10, 8, 55)).hour()`. Text has the string functions and pattern tests (and joins with
+`+`), a number its numeric functions, a date or datetime its parts, the first day of a period, additions and differences.
+A bool has none. A function of a constant is a column named for the function and the value, `Length Hello`, unless you
+`alias` it.
+
 
 
 Sort with `order_by`, and limit with `limit`. Several `order_by` calls accumulate: the latest call takes priority

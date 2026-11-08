@@ -109,18 +109,20 @@ def test_over_keeps_the_kind_of_an_aggregate_of_arithmetic():
 def test_a_constant_has_aggregates_of_its_kind():
     import datetime
     from datafinder import constant
+    from datafinder.typed_constants import (
+        DateConstant, DateTimeConstant, DecimalConstant, FloatConstant, IntegerConstant, StringConstant)
     from model.relational import (
         BooleanConstantOperation, DateConstantOperation, DateTimeConstantOperation, DecimalAggregateOperation,
         DecimalConstantOperation, DoubleAggregateOperation, FloatConstantOperation, IntegerAggregateOperation,
         IntegerConstantOperation, StringConstantOperation, UntypedAggregateOperation)
     # constant() is typed by its argument
-    assert isinstance(assert_type(constant(1), IntegerConstantOperation), IntegerConstantOperation)
-    assert isinstance(assert_type(constant(1.5), FloatConstantOperation), FloatConstantOperation)
-    assert isinstance(assert_type(constant(decimal.Decimal("1")), DecimalConstantOperation), DecimalConstantOperation)
-    assert isinstance(assert_type(constant("x"), StringConstantOperation), StringConstantOperation)
+    assert isinstance(assert_type(constant(1), IntegerConstant), IntegerConstantOperation)
+    assert isinstance(assert_type(constant(1.5), FloatConstant), FloatConstantOperation)
+    assert isinstance(assert_type(constant(decimal.Decimal("1")), DecimalConstant), DecimalConstantOperation)
+    assert isinstance(assert_type(constant("x"), StringConstant), StringConstantOperation)
     assert isinstance(assert_type(constant(True), BooleanConstantOperation), BooleanConstantOperation)
-    assert isinstance(assert_type(constant(datetime.date(2020, 1, 1)), DateConstantOperation), DateConstantOperation)
-    assert isinstance(assert_type(constant(datetime.datetime(2020, 1, 1)), DateTimeConstantOperation), DateTimeConstantOperation)
+    assert isinstance(assert_type(constant(datetime.date(2020, 1, 1)), DateConstant), DateConstantOperation)
+    assert isinstance(assert_type(constant(datetime.datetime(2020, 1, 1)), DateTimeConstant), DateTimeConstantOperation)
     # a number's sum, minimum and maximum are of its kind
     assert isinstance(assert_type(constant(1).sum(), IntegerAggregateOperation), IntegerAggregateOperation)
     assert isinstance(assert_type(constant(1).max(), IntegerAggregateOperation), IntegerAggregateOperation)
@@ -162,8 +164,10 @@ def test_a_constant_has_arithmetic_and_comparisons_of_its_kind():
     for unordered in (constant("a"), constant(True)):
         with pytest.raises(TypeError):
             unordered < 1  # type: ignore[operator]
-    # a text constant is not a number
+    # a text constant is not a number: it is repeated by * (as a text column is), and takes no other arithmetic
     with pytest.raises(TypeError):
-        constant("a") * 2  # type: ignore[operator]
+        constant("a") - 2  # type: ignore[operator]
+    with pytest.raises(TypeError):
+        constant("a") / 2  # type: ignore[operator]
     with pytest.raises(TypeError):
         constant(datetime.date(2020, 1, 1)) + 1  # type: ignore[operator]
