@@ -174,6 +174,28 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Name"],
             expected_result=np.array([["Acme Corp"], ["Acme Industries"]], dtype=object),
         ),
+        TestExpectation(
+            name="negate_a_string_test_with_a_tilde",
+            skip_backends={"graphql": "The GraphQL finder cannot push a negated condition to the server"},
+            query=lambda f: f.find_all([f.name()], ~f.name().starts_with("Acme")).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Beta Corp"], ["Delta Ltd"], ["Gamma LLC"]], dtype=object),
+            expected_sql={"duckdb": "NOT (t0.name LIKE 'Acme%')"},
+        ),
+        TestExpectation(
+            name="matches_a_regular_expression_anywhere_in_the_text",
+            skip_backends={"graphql": "The GraphQL finder cannot push a regular expression to the server"},
+            query=lambda f: f.find_all([f.name()], f.name().matches("^(Acme|Beta) .*p$")).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Corp"], ["Beta Corp"]], dtype=object),
+        ),
+        TestExpectation(
+            name="negate_a_regular_expression_match",
+            skip_backends={"graphql": "The GraphQL finder cannot push a negated condition to the server"},
+            query=lambda f: f.find_all([f.name()], ~f.name().matches("Corp|Ltd")).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Acme Industries"], ["Gamma LLC"]], dtype=object),
+        ),
         # --- Aggregates of an expression ---
         TestExpectation(
             name="sum_of_arithmetic",

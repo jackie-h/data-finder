@@ -6,11 +6,11 @@ from model.relational import (
     BooleanConstantOperation, CaseOperation, ComparisonOperation, ConstantOperation, DateConstantOperation,
     DateTimeConstantOperation, DecimalConstantOperation, ExistsOperation, FloatConstantOperation, InOperation,
     IntegerConstantOperation, IsNotNullOperation, IsNullOperation, LogicalOperation, NotExistsOperation,
-    NotInOperation, RelationalOperationElement, StringConstantOperation,
+    NotInOperation, NotOperation, RelationalOperationElement, StringConstantOperation,
 )
 
 _CONDITIONS = (ComparisonOperation, LogicalOperation, IsNullOperation, IsNotNullOperation, InOperation,
-               NotInOperation, ExistsOperation, NotExistsOperation)
+               NotInOperation, ExistsOperation, NotExistsOperation, NotOperation)
 
 
 def _value(value) -> RelationalOperationElement:
