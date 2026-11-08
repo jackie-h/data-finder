@@ -905,6 +905,16 @@ COMPANY_FINDER_SPECS = FinderSpec(
             ),
         ),
         TestExpectation(
+            name="aggregate_over_a_window_keeps_every_row",
+            skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
+            query=lambda f: f.find_all(
+                [f.id_(), f.id_().max().over(partition_by=[f.category()])],
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Max Id"],
+            # the highest id of the row's category: Technology 1, 3; Manufacturing 2; Finance 4, 5. No row is grouped away.
+            expected_result=np.array([[1, 3], [2, 2], [3, 3], [4, 5], [5, 5]], dtype=object),
+        ),
+        TestExpectation(
             name="qcut_two_buckets",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(

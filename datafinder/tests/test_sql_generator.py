@@ -272,6 +272,12 @@ class TestWindowFunctions:
         assert "PARTITION BY" in sql
         assert "ORDER BY" in sql
 
+    def test_aggregate_over_a_window_does_not_group_the_rows(self):
+        table, name_attr, id_attr = _make_multi_col_table()
+        sql = to_sql(None, None, [name_attr, id_attr.max().over(partition_by=[name_attr])], table, NoOperation())
+        assert "OVER (PARTITION BY" in sql
+        assert "GROUP BY" not in sql
+
 
 class TestGroupBy:
 
