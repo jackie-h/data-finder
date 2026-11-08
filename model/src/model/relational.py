@@ -97,162 +97,6 @@ class BooleanAggregates:
         return BooleanAggregateOperation(self, AggregateOperator.BOOL_OR, 'Any Expression')  # type: ignore[arg-type]
 
 
-class Operation(RelationalOperationElement, Aliasable):
-    def __init__(self):
-        super().__init__()
-
-    def and_(self, other) -> 'LogicalOperation':
-        return LogicalOperation(self, LogicalOperator.AND, other)
-
-    def or_(self, other) -> 'LogicalOperation':
-        return LogicalOperation(self, LogicalOperator.OR, other)
-
-class NoOperation(Operation):
-    def __init__(self):
-        super().__init__()
-
-class UnaryOperation(Operation):
-    element: RelationalOperationElement
-
-    def __init__(self, element: RelationalOperationElement):
-        super().__init__()
-        self.element = element
-
-
-class BinaryOperation(Operation):
-    left: RelationalOperationElement
-    right: RelationalOperationElement
-
-    def __init__(self, left: RelationalOperationElement, right: RelationalOperationElement):
-        super().__init__()
-        self.left = left
-        self.right = right
-
-
-class IsNullOperation(UnaryOperation, BooleanAggregates):
-    pass
-
-
-class IsNotNullOperation(UnaryOperation, BooleanAggregates):
-    pass
-
-
-class NotOperation(UnaryOperation, BooleanAggregates):
-    """The condition does not hold: ``NOT (element)``. Negating it again gives the condition."""
-
-    def __invert__(self):  # type: ignore[override]
-        return self.element
-
-
-class InOperation(UnaryOperation, BooleanAggregates):
-    """The element is one of ``values`` (``element IN (...)``)."""
-    values: 'list[ConstantOperation]'
-
-    def __init__(self, element: RelationalOperationElement, values: 'list[ConstantOperation]'):
-        super().__init__(element)
-        self.values = values
-
-
-class NotInOperation(UnaryOperation, BooleanAggregates):
-    """The element is none of ``values`` (``element NOT IN (...)``)."""
-    values: 'list[ConstantOperation]'
-
-    def __init__(self, element: RelationalOperationElement, values: 'list[ConstantOperation]'):
-        super().__init__(element)
-        self.values = values
-
-
-class BooleanOperation:
-    def __init__(self):
-        pass
-
-
-class ComparisonOperator(Enum):
-    EQUAL = 1
-    NOT_EQUAL = 2
-    LESS_THAN = 3
-    GREATER_THAN = 4
-    LESS_THAN_OR_EQUAL_TO = 5
-    GREATER_THAN_OR_EQUAL_TO = 6
-    LIKE = 7
-    NOT_LIKE = 8
-    MATCHES = 9
-
-
-# The character that makes the next one literal in a LIKE pattern built from a value (contains, starts_with, ...).
-LIKE_ESCAPE = '!'
-
-
-def escape_like(value: str) -> str:
-    """``value`` as part of a LIKE pattern that matches it literally: %, _ and the escape character itself would
-    otherwise be wildcards."""
-    return value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2).replace('%', LIKE_ESCAPE + '%').replace('_', LIKE_ESCAPE + '_')
-
-
-class StringPredicates:
-    """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
-    ``f.name().join(",").contains("John")``."""
-
-    def _like(self, pattern: str) -> 'ComparisonOperation':
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
-                                   StringConstantOperation(pattern))
-
-    def matches(self, pattern: str) -> 'ComparisonOperation':
-        """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
-        ``f.comment().matches("Customer.*Complaints")``."""
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
-                                   StringConstantOperation(pattern))
-
-    def contains(self, value: str) -> 'ComparisonOperation':
-        return self._like(f"%{escape_like(value)}%")
-
-    def starts_with(self, prefix: str) -> 'ComparisonOperation':
-        return self._like(f"{escape_like(prefix)}%")
-
-    def ends_with(self, suffix: str) -> 'ComparisonOperation':
-        return self._like(f"%{escape_like(suffix)}")
-
-
-class ComparisonOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
-    operator: ComparisonOperator
-
-    def __init__(self, left: RelationalOperationElement, op: ComparisonOperator, right: RelationalOperationElement):
-        super().__init__(left, right)
-        self.operator = op
-
-
-class LogicalOperator(Enum):
-    AND = 1
-    OR = 2
-
-
-class LogicalOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
-    operator: LogicalOperator
-
-    def __init__(self, left: RelationalOperationElement, op: LogicalOperator, right: RelationalOperationElement):
-        super().__init__(left, right)
-        self.operator = op
-
-
-def _value_operand(value) -> 'ConstantOperation':
-    """A Python value as the constant it compares with."""
-    if isinstance(value, bool):  # before int: bool is a subclass of int
-        return BooleanConstantOperation(value)
-    if isinstance(value, int):
-        return IntegerConstantOperation(value)
-    if isinstance(value, float):
-        return FloatConstantOperation(value)
-    if isinstance(value, decimal.Decimal):
-        return DecimalConstantOperation(value)
-    if isinstance(value, str):
-        return StringConstantOperation(value)
-    if isinstance(value, datetime.datetime):  # before date: datetime is a subclass of date
-        return DateTimeConstantOperation(value)
-    if isinstance(value, datetime.date):
-        return DateConstantOperation(value)
-    raise TypeError(f"A value to compare with is a bool, number, string, date or datetime, not {type(value).__name__}")
-
-
 class Equatable(Generic[T]):
     """Equality for an expression or a column whose values are ``T``: ``eq``, ``ne``, ``==``, ``!=``, ``is_in`` and
     ``is_not_in``. The other side is a ``T``, another column or an expression, and each gives a filter.
@@ -558,44 +402,19 @@ class Arithmetic(Generic[K]):
         return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
 
 
-class ArithmeticOperation(BinaryOperation, Sortable):
-    """``left operator right`` on numbers, e.g. ``price * quantity``. What it can be compared with and have done to it
-    depends on the kind of number it gives, so that is a subclass: Integer, Double or Decimal ArithmeticOperation, or
-    UntypedArithmeticOperation when the kind of an operand is not known."""
-    operator: ArithmeticOperator
+class Operation(RelationalOperationElement, Aliasable):
+    def __init__(self):
+        super().__init__()
 
-    def __init__(self, left: RelationalOperationElement, operator: ArithmeticOperator,
-                 right: RelationalOperationElement, display_name: str | None = None):
-        super().__init__(left, right)
-        self.operator = operator
-        self.display_name = display_name
+    def and_(self, other) -> 'LogicalOperation':
+        return LogicalOperation(self, LogicalOperator.AND, other)
 
+    def or_(self, other) -> 'LogicalOperation':
+        return LogicalOperation(self, LogicalOperator.OR, other)
 
-class UntypedArithmeticOperation(ArithmeticOperation, Arithmetic[Any], Comparable, Aggregates['UntypedAggregateOperation']):
-    """Arithmetic with an operand of unknown kind, so it takes any comparison."""
-
-
-class IntegerArithmeticOperation(ArithmeticOperation, Arithmetic[int], Orderable[int], Aggregates['IntegerAggregateOperation']):
-    """``+ - *`` of integers: an integer. Its sum, minimum and maximum are integers."""
-    _number_kind = int
-
-
-class DoubleArithmeticOperation(ArithmeticOperation, Arithmetic[float], Orderable[float], Aggregates['DoubleAggregateOperation']):
-    """Arithmetic with a double, or a division: a double."""
-    _number_kind = float
-
-
-class DecimalArithmeticOperation(ArithmeticOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
-                                 Aggregates['DecimalAggregateOperation']):
-    """``+ - *`` of decimals, or of a decimal and an integer: a decimal."""
-    _number_kind = decimal.Decimal
-
-
-_ARITHMETIC_RESULTS: 'dict[type | None, type[ArithmeticOperation]]' = {
-    None: UntypedArithmeticOperation, int: IntegerArithmeticOperation, float: DoubleArithmeticOperation,
-    decimal.Decimal: DecimalArithmeticOperation,
-}
-
+class NoOperation(Operation):
+    def __init__(self):
+        super().__init__()
 
 class ConstantOperation(RelationalOperationElement, Aliasable, Sortable):
     """A fixed value. A number has aggregates of its own kind (``constant(1).sum()`` is an integer); a text, date or
@@ -658,6 +477,187 @@ class BooleanConstantOperation(ConstantOperation, Equatable[bool], Aggregates['U
     def __init__(self, value:bool):
         super().__init__()
         self.value = value
+
+
+class UnaryOperation(Operation):
+    element: RelationalOperationElement
+
+    def __init__(self, element: RelationalOperationElement):
+        super().__init__()
+        self.element = element
+
+
+class BinaryOperation(Operation):
+    left: RelationalOperationElement
+    right: RelationalOperationElement
+
+    def __init__(self, left: RelationalOperationElement, right: RelationalOperationElement):
+        super().__init__()
+        self.left = left
+        self.right = right
+
+
+class IsNullOperation(UnaryOperation, BooleanAggregates):
+    pass
+
+
+class IsNotNullOperation(UnaryOperation, BooleanAggregates):
+    pass
+
+
+class NotOperation(UnaryOperation, BooleanAggregates):
+    """The condition does not hold: ``NOT (element)``. Negating it again gives the condition."""
+
+    def __invert__(self):  # type: ignore[override]
+        return self.element
+
+
+class InOperation(UnaryOperation, BooleanAggregates):
+    """The element is one of ``values`` (``element IN (...)``)."""
+    values: list[ConstantOperation]
+
+    def __init__(self, element: RelationalOperationElement, values: list[ConstantOperation]):
+        super().__init__(element)
+        self.values = values
+
+
+class NotInOperation(UnaryOperation, BooleanAggregates):
+    """The element is none of ``values`` (``element NOT IN (...)``)."""
+    values: list[ConstantOperation]
+
+    def __init__(self, element: RelationalOperationElement, values: list[ConstantOperation]):
+        super().__init__(element)
+        self.values = values
+
+
+class BooleanOperation:
+    def __init__(self):
+        pass
+
+
+class ComparisonOperator(Enum):
+    EQUAL = 1
+    NOT_EQUAL = 2
+    LESS_THAN = 3
+    GREATER_THAN = 4
+    LESS_THAN_OR_EQUAL_TO = 5
+    GREATER_THAN_OR_EQUAL_TO = 6
+    LIKE = 7
+    NOT_LIKE = 8
+    MATCHES = 9
+
+
+# The character that makes the next one literal in a LIKE pattern built from a value (contains, starts_with, ...).
+LIKE_ESCAPE = '!'
+
+
+def escape_like(value: str) -> str:
+    """``value`` as part of a LIKE pattern that matches it literally: %, _ and the escape character itself would
+    otherwise be wildcards."""
+    return value.replace(LIKE_ESCAPE, LIKE_ESCAPE * 2).replace('%', LIKE_ESCAPE + '%').replace('_', LIKE_ESCAPE + '_')
+
+
+class StringPredicates:
+    """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
+    ``f.name().join(",").contains("John")``."""
+
+    def _like(self, pattern: str) -> 'ComparisonOperation':
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def matches(self, pattern: str) -> 'ComparisonOperation':
+        """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
+        ``f.comment().matches("Customer.*Complaints")``."""
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
+                                   StringConstantOperation(pattern))
+
+    def contains(self, value: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(value)}%")
+
+    def starts_with(self, prefix: str) -> 'ComparisonOperation':
+        return self._like(f"{escape_like(prefix)}%")
+
+    def ends_with(self, suffix: str) -> 'ComparisonOperation':
+        return self._like(f"%{escape_like(suffix)}")
+
+
+class ComparisonOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
+    operator: ComparisonOperator
+
+    def __init__(self, left: RelationalOperationElement, op: ComparisonOperator, right: RelationalOperationElement):
+        super().__init__(left, right)
+        self.operator = op
+
+
+class LogicalOperator(Enum):
+    AND = 1
+    OR = 2
+
+
+class LogicalOperation(BinaryOperation, BooleanOperation, BooleanAggregates):
+    operator: LogicalOperator
+
+    def __init__(self, left: RelationalOperationElement, op: LogicalOperator, right: RelationalOperationElement):
+        super().__init__(left, right)
+        self.operator = op
+
+
+def _value_operand(value) -> 'ConstantOperation':
+    """A Python value as the constant it compares with."""
+    if isinstance(value, bool):  # before int: bool is a subclass of int
+        return BooleanConstantOperation(value)
+    if isinstance(value, int):
+        return IntegerConstantOperation(value)
+    if isinstance(value, float):
+        return FloatConstantOperation(value)
+    if isinstance(value, decimal.Decimal):
+        return DecimalConstantOperation(value)
+    if isinstance(value, str):
+        return StringConstantOperation(value)
+    if isinstance(value, datetime.datetime):  # before date: datetime is a subclass of date
+        return DateTimeConstantOperation(value)
+    if isinstance(value, datetime.date):
+        return DateConstantOperation(value)
+    raise TypeError(f"A value to compare with is a bool, number, string, date or datetime, not {type(value).__name__}")
+
+
+class ArithmeticOperation(BinaryOperation, Sortable):
+    """``left operator right`` on numbers, e.g. ``price * quantity``. What it can be compared with and have done to it
+    depends on the kind of number it gives, so that is a subclass: Integer, Double or Decimal ArithmeticOperation, or
+    UntypedArithmeticOperation when the kind of an operand is not known."""
+    operator: ArithmeticOperator
+
+    def __init__(self, left: RelationalOperationElement, operator: ArithmeticOperator,
+                 right: RelationalOperationElement, display_name: str | None = None):
+        super().__init__(left, right)
+        self.operator = operator
+        self.display_name = display_name
+
+
+class UntypedArithmeticOperation(ArithmeticOperation, Arithmetic[Any], Comparable, Aggregates['UntypedAggregateOperation']):
+    """Arithmetic with an operand of unknown kind, so it takes any comparison."""
+
+
+class IntegerArithmeticOperation(ArithmeticOperation, Arithmetic[int], Orderable[int], Aggregates['IntegerAggregateOperation']):
+    """``+ - *`` of integers: an integer. Its sum, minimum and maximum are integers."""
+    _number_kind = int
+
+
+class DoubleArithmeticOperation(ArithmeticOperation, Arithmetic[float], Orderable[float], Aggregates['DoubleAggregateOperation']):
+    """Arithmetic with a double, or a division: a double."""
+    _number_kind = float
+
+
+class DecimalArithmeticOperation(ArithmeticOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
+                                 Aggregates['DecimalAggregateOperation']):
+    """``+ - *`` of decimals, or of a decimal and an integer: a decimal."""
+    _number_kind = decimal.Decimal
+
+
+_ARITHMETIC_RESULTS: 'dict[type | None, type[ArithmeticOperation]]' = {
+    None: UntypedArithmeticOperation, int: IntegerArithmeticOperation, float: DoubleArithmeticOperation,
+    decimal.Decimal: DecimalArithmeticOperation,
+}
 
 
 class ConcatOperation(Operation, Equatable[str], Sortable, StringPredicates):
