@@ -1,14 +1,21 @@
 import datetime
+import decimal
 import itertools
 from typing import Any, Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder import relation
+from datafinder.scalar_functions import StringFunctionOperation
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
+from datafinder.typed_attributes import typed_attribute
 from model.naming import to_snake_case
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
 from model.relational import (
-    Table, Relation, SortOperation, Alias, ColumnWithJoin, NoOperation, TableAlias, UnionOperation)
+    AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
+    ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
+    DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
+    FloatConstantOperation, IntegerConstantOperation, NoOperation, Relation, RelationalOperationElement,
+    ScalarFunctionOperation, SortOperation, StringConstantOperation, Table, TableAlias, UnionOperation,
+    WindowFunctionOperation)
 from model.view import View, ViewDefinitionError
 
 
@@ -85,6 +92,78 @@ def _sort_target(sort_op: SortOperation) -> tuple:
     return column.column.owner_name, column.column.name, tuple(joins)
 
 
+# --- the columns of a result, for a query over it -------------------------------------------------------------------
+
+_NUMBER_TYPES = {int: "BIGINT", float: "DOUBLE", decimal.Decimal: "DECIMAL"}
+
+_CONSTANT_TYPES = {
+    IntegerConstantOperation: "BIGINT", FloatConstantOperation: "DOUBLE", StringConstantOperation: "VARCHAR",
+    DateConstantOperation: "DATE", DateTimeConstantOperation: "TIMESTAMP", DecimalConstantOperation: "DECIMAL",
+    BooleanConstantOperation: "BOOLEAN",
+}
+
+
+def _column_name(element: RelationalOperationElement) -> str:
+    """The name a column of a result has for the step after it: the name it was given, or its display name in snake_case
+    (as a view names its columns)."""
+    return element.name if isinstance(element, Alias) else to_snake_case(display_alias(element))
+
+
+def _column_type(element: RelationalOperationElement) -> str:
+    """The database type of what a result column holds, so a query over the result can compare it as that type."""
+    if isinstance(element, Alias):
+        return _column_type(element.element)
+    if isinstance(element, Attribute):
+        return element.column().type
+    if isinstance(element, ColumnWithJoin):
+        return element.column.type
+    if isinstance(element, Column):
+        return element.type
+    if isinstance(element, CountAllOperation):
+        return "BIGINT"
+    # a number of a known kind: an integer, double or decimal arithmetic result, function, aggregate or constant
+    kind = getattr(element, "_number_kind", None)
+    if kind in _NUMBER_TYPES:
+        return _NUMBER_TYPES[kind]
+    if isinstance(element, AggregateOperation):
+        if element.operator in (AggregateOperator.COUNT, AggregateOperator.COUNT_DISTINCT):
+            return "BIGINT"
+        if element.operator == AggregateOperator.STRING_AGG:
+            return "VARCHAR"
+        if element.operator in (AggregateOperator.MIN, AggregateOperator.MAX, AggregateOperator.SUM):
+            return _column_type(element.element)
+        if element.operator in (AggregateOperator.BOOL_AND, AggregateOperator.BOOL_OR):
+            return "BOOLEAN"
+        return "DOUBLE"
+    if isinstance(element, WindowFunctionOperation):
+        return _column_type(element.element) if element.element is not None else "BIGINT"
+    if isinstance(element, ConstantOperation):
+        return _CONSTANT_TYPES.get(type(element), "VARCHAR")
+    if isinstance(element, CaseOperation):
+        return _column_type(element.then)
+    if isinstance(element, (ConcatOperation, StringFunctionOperation)):
+        return "VARCHAR"
+    if isinstance(element, (DateExtractOperation, DateDiffOperation)):
+        return "BIGINT"
+    if isinstance(element, (DateArithmeticOperation, DateTruncOperation)):
+        return _column_type(element.element)
+    if isinstance(element, ScalarFunctionOperation):  # an untyped one, such as fill_null: what it is applied to
+        return _column_type(element.element)
+    if isinstance(element, ArithmeticOperation):  # one of unknown kind
+        return "DOUBLE"
+    return "VARCHAR"
+
+
+def _attributes(alias: TableAlias) -> dict[str, Attribute]:
+    """The columns of a relation under a name, as a query that reads from it sees them: a typed attribute for each, named
+    as ``_column_name`` names it and owned by the alias."""
+    names = [_column_name(element) for element in alias.columns]
+    duplicates = sorted({n for n in names if names.count(n) > 1})
+    if duplicates:
+        raise ValueError(f"A result needs each column named once, but {duplicates} are repeated: name them with alias()")
+    return {name: typed_attribute(name, _column_type(element), alias) for name, element in zip(names, alias.columns)}
+
+
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
@@ -114,13 +193,13 @@ class FinderResult(DataFrame):
         """This result as a relation: its query, with each column named for what reads it."""
         if self._relation_name is None:
             self._relation_name = f"relation{next(_relation_numbers)}"
-        display = [c if isinstance(c, Alias) else Alias(c, relation.column_name(c)) for c in self._columns]
+        display = [c if isinstance(c, Alias) else Alias(c, _column_name(c)) for c in self._columns]
         query = build_query_specification(
             self._business_date, self._processing_datetime, display, self._table, self._op, self._order_by, self._group_by,
             self._limit, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
             having=self._having, processing_datetime_to=self._processing_datetime_to)
         alias = TableAlias(query, self._relation_name)
-        return alias, relation.attributes(alias)
+        return alias, _attributes(alias)
 
     def columns(self) -> list[str]:
         """The names of this result's columns as what follows it reads them."""
@@ -142,7 +221,7 @@ class FinderResult(DataFrame):
         if list(left) != list(right):
             raise ValueError(f"Concatenated results need the same columns: {list(left)} and {list(right)} differ")
         alias = TableAlias(UnionOperation(left_alias.relation, right_alias.relation, all), f"relation{next(_relation_numbers)}")  # type: ignore[arg-type]
-        return FinderResult(None, None, list(relation.attributes(alias).values()), alias, NoOperation())
+        return FinderResult(None, None, list(_attributes(alias).values()), alias, NoOperation())
 
     def group_by(self, *attrs) -> 'FinderResult':
         self._group_by = list(attrs)
@@ -158,7 +237,7 @@ class FinderResult(DataFrame):
         else:
             return element
         if self._relation_name is not None and isinstance(column.owner, TableAlias) and column.owner.name == self._relation_name:
-            shown = {relation.column_name(c): c.element if isinstance(c, Alias) else c for c in self._columns}
+            shown = {_column_name(c): c.element if isinstance(c, Alias) else c for c in self._columns}
             found = shown.get(column.name, element)
             return found._column_with_join() if isinstance(found, Attribute) else found
         return element

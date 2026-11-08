@@ -546,3 +546,25 @@ class DateTimeAttribute(_MinMax[DateTimeAggregateOperation], Attribute, Orderabl
     def diff_seconds(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
         """Return the number of whole seconds between the column value and ``other``. Equivalent to ``int((other - dt).total_seconds())``."""
         return DateDiffOperation(self._column_with_join(), _diff_other(other), DatePart.SECOND, 'Diff Seconds ' + self.display_name())
+
+
+def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
+    """The attribute for a column of the database type ``db_type``, of the class that compares, does arithmetic and
+    aggregates as that type does: an ``INT`` is an IntegerAttribute, a ``VARCHAR`` a StringAttribute. Its display name
+    is the column's."""
+    kind = db_type.upper().split("(")[0].strip()
+    if kind in ("INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "HUGEINT"):
+        factory = IntegerAttribute
+    elif kind in ("DOUBLE", "FLOAT", "REAL"):
+        factory = DoubleAttribute
+    elif kind in ("DECIMAL", "NUMERIC"):
+        factory = DecimalAttribute
+    elif kind == "DATE":
+        factory = DateAttribute
+    elif kind.startswith("TIMESTAMP") or kind == "DATETIME":
+        factory = DateTimeAttribute
+    elif kind in ("BOOLEAN", "BOOL"):
+        factory = BooleanAttribute
+    else:
+        factory = StringAttribute
+    return factory(name, name, db_type, owner)

@@ -103,17 +103,29 @@ def test_a_result_of_concatenate_reads_from_an_alias_of_the_union():
 
 def test_the_columns_of_a_union_have_the_types_of_what_the_results_show():
     from datafinder import constant
-    from datafinder.relation import column_type
     from model.relational import Alias
-    price = _ID * 2  # an integer
-    ratio = _ID / 2  # a double
-    first = _result([_NAME, Alias(price, "doubled"), Alias(ratio, "half"), Alias(_NAME.length(), "size"),
+    first = _result([_NAME, Alias(_ID * 2, "doubled"), Alias(_ID / 2, "half"), Alias(_NAME.length(), "size"),
                      Alias(_ID.sum(), "total"), Alias(constant(1.5), "rate"), Alias(_NAME.upper(), "loud")])
-    types = {name: column_type(element) for name, element in zip(first.columns(), first._columns)}
-    assert types == {"name": "VARCHAR", "doubled": "BIGINT", "half": "DOUBLE", "size": "BIGINT", "total": "BIGINT",
-                     "rate": "DOUBLE", "loud": "VARCHAR"}
-    # the union reads them as attributes of that type, so a query over the union compares and does arithmetic as that type
     union = first.concatenate(first, all=True)
-    for name, kind in (("doubled", IntegerAttribute), ("half", DoubleAttribute), ("name", StringAttribute),
-                       ("size", IntegerAttribute), ("loud", StringAttribute)):
+    # each column of the union is an attribute of the type of what the results show, so a query over the union compares
+    # and does arithmetic as that type
+    expected = {"name": (StringAttribute, "VARCHAR"), "doubled": (IntegerAttribute, "BIGINT"),
+                "half": (DoubleAttribute, "DOUBLE"), "size": (IntegerAttribute, "BIGINT"),
+                "total": (IntegerAttribute, "BIGINT"), "rate": (DoubleAttribute, "DOUBLE"),
+                "loud": (StringAttribute, "VARCHAR")}
+    assert union.columns() == list(expected)
+    for name, (kind, db_type) in expected.items():
         assert isinstance(union[name], kind), name
+        assert union[name].column().type == db_type, name
+
+
+def test_typed_attribute_chooses_the_class_of_a_database_type():
+    from datafinder.typed_attributes import (
+        BooleanAttribute, DateAttribute, DateTimeAttribute, DecimalAttribute, typed_attribute)
+    for db_type, kind in (("INT", IntegerAttribute), ("bigint", IntegerAttribute), ("DOUBLE", DoubleAttribute),
+                          ("DECIMAL(10, 2)", DecimalAttribute), ("DATE", DateAttribute),
+                          ("TIMESTAMP WITH TIME ZONE", DateTimeAttribute), ("BOOLEAN", BooleanAttribute),
+                          ("VARCHAR", StringAttribute), ("SOMETHING ELSE", StringAttribute)):
+        attribute = typed_attribute("x", db_type, _TABLE)
+        assert type(attribute) is kind, db_type
+        assert attribute.display_name() == "x" and attribute.column().type == db_type and attribute.owner() is _TABLE
