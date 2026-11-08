@@ -26,9 +26,9 @@ def integer_function(element, function: ScalarFunction, label: str | None = None
 
 
 def double_function(element, function: ScalarFunction, label: str | None = None, second_arg: int | float | None = None,
-                    extra_args: list | None = None) -> 'DoubleFunctionOperation':
+                    extra_args: list | None = None, cast: str | None = None) -> 'DoubleFunctionOperation':
     """A function that gives a floating-point number, applied to ``element``."""
-    return DoubleFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args)
+    return DoubleFunctionOperation(element, function, label, second_arg=second_arg, extra_args=extra_args, cast=cast)
 
 
 class StringFunctions:
@@ -200,11 +200,17 @@ class NumericFunctions(Generic[N]):
         """Return the remainder after division by ``n``. Equivalent to ``mod(n)``."""
         return self.mod(n)
 
-    def power(self, n: int):
-        """Return the value raised to the power of ``n``. Equivalent to ``value ** n``."""
-        return double_function(self._function_input(), ScalarFunction.POWER, 'Power ' + self._function_label(), second_arg=n)
+    def power(self, n: int) -> 'IntegerFunctionOperation | DoubleFunctionOperation':
+        """Return the value raised to the power of ``n``. Equivalent to ``value ** n``.
 
-    def __pow__(self, n: int):
+        An integer raised to a whole, non-negative ``n`` is an integer, as in Python. SQL's ``POWER`` gives a double, so
+        the result is cast to ``BIGINT``. Any other power is a floating-point number."""
+        label = 'Power ' + self._function_label()
+        if self._number_type is IntegerFunctionOperation and isinstance(n, int) and not isinstance(n, bool) and n >= 0:
+            return IntegerFunctionOperation(self._function_input(), ScalarFunction.POWER, label, second_arg=n, cast='BIGINT')
+        return double_function(self._function_input(), ScalarFunction.POWER, label, second_arg=n)
+
+    def __pow__(self, n: int) -> 'IntegerFunctionOperation | DoubleFunctionOperation':
         """Return the value raised to the power of ``n``. Equivalent to ``power(n)``."""
         return self.power(n)
 

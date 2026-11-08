@@ -590,12 +590,15 @@ class ScalarFunctionOperation(UnaryOperation, Sortable, Aggregates):
     (``COALESCE`` of a date) is an UntypedFunctionOperation."""
 
     def __init__(self, element: RelationalOperationElement, function: ScalarFunction,
-                 display_name: str | None = None, second_arg: int | float | None = None, extra_args: list | None = None):
+                 display_name: str | None = None, second_arg: int | float | None = None, extra_args: list | None = None,
+                 cast: str | None = None):
         super().__init__(element)
         self.function = function
         self.display_name = display_name
         self.second_arg = second_arg
         self.extra_args = extra_args or []
+        # a SQL type to cast the result to, for a function SQL gives a floating-point number that is a whole number here
+        self.cast = cast
 
 
 class DatePart(Enum):

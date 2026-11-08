@@ -905,6 +905,14 @@ COMPANY_FINDER_SPECS = FinderSpec(
             ),
         ),
         TestExpectation(
+            name="integer_power_is_an_integer",
+            query=lambda f: f.find_all([f.id_(), f.id_().power(2)]).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Power Id"],
+            expected_result=np.array([[1, 1], [2, 4], [3, 9], [4, 16], [5, 25]], dtype=object),
+            expected_sql={"duckdb": "CAST(POWER(t0.id, 2) AS BIGINT)"},
+            skip_backends={"graphql": "The GraphQL finder has no scalar functions"},
+        ),
+        TestExpectation(
             name="aggregate_over_a_window_keeps_every_row",
             skip_backends={"graphql": "Window functions are not supported by the GraphQL engine"},
             query=lambda f: f.find_all(

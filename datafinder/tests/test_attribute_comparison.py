@@ -170,10 +170,16 @@ def test_a_function_result_has_the_type_the_function_gives():
         assert isinstance(function(decimal_), DecimalFunctionOperation)
     assert isinstance(integer.abs().abs(), IntegerFunctionOperation)
     # the square root, powers, logarithm, exponential and trigonometry give a floating-point number
-    for function in (lambda c: c.sqrt(), lambda c: c.power(2), lambda c: c.log(), lambda c: c.exp(), lambda c: c.sin(),
+    for function in (lambda c: c.sqrt(), lambda c: c.log(), lambda c: c.exp(), lambda c: c.sin(),
                      lambda c: c.atan2(1)):
         assert isinstance(function(integer), DoubleFunctionOperation)
     assert isinstance(text.length().sqrt(), DoubleFunctionOperation)
+    # a whole, non-negative power of an integer is an integer; any other power is a floating-point number
+    assert isinstance(integer.power(2), IntegerFunctionOperation) and integer.power(2).cast == "BIGINT"
+    assert isinstance(integer ** 3, IntegerFunctionOperation)
+    assert isinstance(integer.power(-1), DoubleFunctionOperation)
+    assert isinstance(integer.power(0.5), DoubleFunctionOperation)  # type: ignore[arg-type]
+    assert isinstance(double.power(2), DoubleFunctionOperation) and isinstance(decimal_.power(2), DoubleFunctionOperation)
     # fill_null keeps the column's type
     assert isinstance(text.fill_null("x"), StringFunctionOperation)
     assert isinstance(integer.fill_null(0), IntegerFunctionOperation)
