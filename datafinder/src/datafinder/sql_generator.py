@@ -11,7 +11,7 @@ from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, Sin
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
-from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
+from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
@@ -20,17 +20,8 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
 
-class RelationAlias:
-    """A name for a relation in a query. As in Legend, the relation is a table or a query: ``table`` is the table's name,
-    or a OrderedQuerySpecification when the alias stands for ``(SELECT ...)``."""
-
-    def __init__(self, table: 'str | OrderedQuerySpecification', alias: str):
-        self.table = table
-        self.alias = alias
-
-
 class TableAliasColumn(RelationalOperationElement):
-    def __init__(self, column: Column, table_alias: RelationAlias):
+    def __init__(self, column: Column, table_alias: TableAlias):
         super().__init__()
         self.column = column
         self.table_alias = table_alias
@@ -47,8 +38,8 @@ class Join:
         first, second = self.source, self.target
         if second.column.primary_key and not first.column.primary_key:
             first, second = second, first
-        return (first.table_alias.alias + '.' + first.column.name + ' = ' +
-                second.table_alias.alias + '.' + second.column.name)
+        return (first.table_alias.name + '.' + first.column.name + ' = ' +
+                second.table_alias.name + '.' + second.column.name)
 
 def _open_end_clause(end_attr, value, infinite_datetime: str | None) -> Operation:
     """Returns `end > value` normally, or `(end > value OR end IS NULL)` when infinite_datetime is None."""
@@ -523,7 +514,7 @@ def constant_value_string(op:ConstantOperation) -> str:
         raise ValueError
 
 def table_alias_column_string(tac: TableAliasColumn) -> str:
-    return tac.table_alias.alias + '.' + tac.column.name
+    return tac.table_alias.name + '.' + tac.column.name
 
 _AGGREGATE_SQL_NAMES = {
     AggregateOperator.AVERAGE: 'AVG',
@@ -750,7 +741,7 @@ def _reaches_to_many(op: RelationalOperationElement) -> bool:
 
 class SQLQueryGenerator:
     _select: list[Alias]
-    _from: set[RelationAlias]
+    _from: set[TableAlias]
     _join: list[Join]
     __table_alias_incr: int
     _where: str
@@ -870,21 +861,21 @@ class SQLQueryGenerator:
 
     def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
         if isinstance(attr, Column):
-            return self.__table_alias_for_table(attr.owner).alias + '.' + attr.name
+            return self.__table_alias_for_table(attr.owner).name + '.' + attr.name
         column, parent = self.__resolve(attr)
         ta = self.__table_alias_for_table(column.owner, key=self.__join_target_key(parent) if parent is not None else None)
-        return ta.alias + '.' + column.name
+        return ta.name + '.' + column.name
 
     @staticmethod
     def __is_self_join(parent: JoinTreeNodeOperation) -> bool:
-        return parent.join.left.owner == parent.join.right.owner
+        return parent.join.left.owner_name == parent.join.right.owner_name
 
     def __join_target_key(self, parent: JoinTreeNodeOperation):
         """Cache key for the join target alias. Always keyed by node identity so the
         alias in SELECT matches the alias registered in __add_join."""
         return parent
 
-    def __table_alias_for_column(self, column: Column, parent: JoinTreeNodeOperation | None = None) -> RelationAlias:
+    def __table_alias_for_column(self, column: Column, parent: JoinTreeNodeOperation | None = None) -> TableAlias:
         key = self.__join_target_key(parent) if parent is not None else None
         return self.__table_alias_for_table(column.owner, key=key)
 
@@ -1004,7 +995,7 @@ class SQLQueryGenerator:
     def select(self, cols: Sequence[RelationalOperationElement]):
         required_joins: dict = {}
         if self._root_table is not None:
-            self._from.add(self.__table_alias_for_table(self._root_table.name))
+            self._from.add(self.__table_alias_for_table(self._root_table))
 
         for col in cols:
             self.__collect_required_joins(col, required_joins)
@@ -1039,7 +1030,7 @@ class SQLQueryGenerator:
         right = join.right
         tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
         # a sub-select carries the step's filter itself, so it is not repeated in the ON clause
-        on_filter = None if isinstance(tc.table_alias.table, OrderedQuerySpecification) else self._join_filters.get(id(node))
+        on_filter = None if isinstance(tc.table_alias.relation, OrderedQuerySpecification) else self._join_filters.get(id(node))
         self._join.append(Join(sc, tc, on_filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
@@ -1091,10 +1082,10 @@ class SQLQueryGenerator:
                 self.__add_join(node)
             else:
                 ta = self.__table_alias_for_table(column.owner)
-            return ta.alias + '.' + column.name
+            return ta.name + '.' + column.name
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner)
-            return ta.alias + '.' + op.name
+            return ta.name + '.' + op.name
         elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation,
                              DateExtractOperation, DateArithmeticOperation, DateDiffOperation,
                              AggregateOperation, CountAllOperation)):
@@ -1107,10 +1098,10 @@ class SQLQueryGenerator:
         else:
             raise ValueError(op)
 
-    def __table_alias_for_table(self, table: str | None, key=None) -> RelationAlias:
-        if table is None:
-            raise TypeError
-        cache_key = key if key is not None else table
+    def __table_alias_for_table(self, table: Relation | None, key=None) -> TableAlias:
+        if not isinstance(table, NamedRelation):
+            raise TypeError(f"A relation read by name needs a name: {table!r}")
+        cache_key = key if key is not None else table.name
         if cache_key in self.__table_aliases_by_table:
             return self.__table_aliases_by_table[cache_key]
         if key is not None and id(key) in self._sub_selects:
@@ -1120,17 +1111,18 @@ class SQLQueryGenerator:
         self.__table_aliases_by_table[cache_key] = ta
         return ta
 
-    def __new_alias(self, table: 'str | OrderedQuerySpecification') -> RelationAlias:
-        ta = RelationAlias(table, "t" + str(self.__table_alias_incr))
+    def __new_alias(self, relation: Relation) -> TableAlias:
+        ta = TableAlias(relation, "t" + str(self.__table_alias_incr))
         self.__table_alias_incr += 1
         return ta
 
-    def __relation_sql(self, alias: RelationAlias) -> str:
+    def __relation_sql(self, alias: TableAlias) -> str:
         """What follows FROM or JOIN: the table's name, or the query in parentheses, written by a generator of its own
         that numbers its aliases after this one's."""
-        relation = alias.table
-        if isinstance(relation, str):
-            return relation
+        relation = alias.relation
+        if isinstance(relation, Table):
+            return relation.name
+        assert isinstance(relation, QuerySpecification), f"Not a relation to read from: {relation!r}"
         nested = SQLQueryGenerator(first_alias=self.__table_alias_incr)
         nested.generate(relation)
         self.__table_alias_incr = nested.__table_alias_incr
@@ -1139,12 +1131,12 @@ class SQLQueryGenerator:
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:
             alias = j.target.table_alias
-            return ' LEFT OUTER JOIN ' + self.__relation_sql(alias) + ' AS ' + alias.alias + ' ON (' + j.condition() \
+            return ' LEFT OUTER JOIN ' + self.__relation_sql(alias) + ' AS ' + alias.name + ' ON (' + j.condition() \
                 + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
 
         joins = map(join_sql, self._join)
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
-            + ' FROM ' + ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.alias, self._from)) \
+            + ' FROM ' + ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from)) \
             + ''.join(joins) \
             + self.__build_where() \
             + self.__build_group_by() \

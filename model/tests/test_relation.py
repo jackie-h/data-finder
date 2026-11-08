@@ -49,3 +49,18 @@ def test_the_same_relation_can_be_read_under_two_names():
     query = QuerySpecification([_NAME], NoOperation(), table=_TABLE)
     first, second = TableAlias(query, "one"), TableAlias(query, "two")
     assert (first.name, second.name) == ("one", "two") and first.relation is second.relation
+
+
+def test_a_columns_owner_is_a_relation():
+    owner = Table("accounts", [])
+    assert Column("ID", "INT", owner).owner is owner
+    assert Column("ID", "INT", owner).owner_name == "accounts"
+    # a name stands for a table of that name whose columns are not known
+    named = Column("ID", "INT", "accounts")
+    assert isinstance(named.owner, Table) and named.owner.name == "accounts" and list(named.owner.columns) == []
+    assert named.owner_name == "accounts"
+    # a query read under a name is owned by the alias
+    alias = TableAlias(QuerySpecification([_NAME], NoOperation(), table=_TABLE), "relation1")
+    assert Column("name", "VARCHAR", alias).owner_name == "relation1"
+    # no owner, no name
+    assert Column("ID", "INT").owner is None and Column("ID", "INT").owner_name is None

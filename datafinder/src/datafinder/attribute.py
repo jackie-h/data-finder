@@ -1,6 +1,6 @@
 from typing import Any
 
-from model.relational import Aliasable, Column, Operation, RelationalOperationElement, \
+from model.relational import Aliasable, Column, Relation, Operation, RelationalOperationElement, \
     ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, UntypedFunctionOperation, SortOperation, SortDirection, IntegerAggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
@@ -10,11 +10,11 @@ class Attribute(RelationalOperationElement, Aliasable):
 
     __display_name: str
     __column: Column
-    __owner: str
+    __owner: 'Relation | None'
     __parent: Any
     __embedded: Any
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a typed attribute for a named column.
 
@@ -31,7 +31,7 @@ class Attribute(RelationalOperationElement, Aliasable):
         super().__init__()
         self.__display_name = display_name
         self.__column = Column(column_name, column_db_type, owner, nullable=nullable)
-        self.__owner = owner
+        self.__owner = self.__column.owner
         self.__parent = parent
         self.__embedded = embedded
         self.__optional = optional
@@ -49,8 +49,8 @@ class Attribute(RelationalOperationElement, Aliasable):
         """Return the underlying column metadata."""
         return self.__column
 
-    def owner(self) -> str:
-        """Return the owning table or relation name."""
+    def owner(self) -> 'Relation | None':
+        """Return the relation the column belongs to."""
         return self.__owner
 
     def parent(self) -> Any:

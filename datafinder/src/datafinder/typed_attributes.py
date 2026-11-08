@@ -9,7 +9,7 @@ from datafinder.scalar_functions import (
     StringFunctions,
 )
 
-from model.relational import Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
+from model.relational import Relation, Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperator, DateAggregateOperation, DateTimeAggregateOperation, \
     AggregateOperation, DecimalAggregateOperation, DoubleAggregateOperation, IntegerAggregateOperation, StringAggregateOperation, ColumnWithJoin, \
@@ -65,7 +65,7 @@ class StringAttribute(_MinMax[StringAggregateOperation], StringFunctions, Attrib
 
     _aggregate_type = StringAggregateOperation
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a string attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
@@ -125,7 +125,7 @@ class NumericAttribute(NumericFunctions[N], Attribute, Generic[N, A]):
         price.round(d)     # round(price, d)
     """
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a numeric attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
@@ -173,7 +173,7 @@ class DoubleAttribute(NumericAttribute[DoubleFunctionOperation, DoubleAggregateO
     _aggregate_type = DoubleAggregateOperation
     _number_kind = float
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a floating-point attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
@@ -194,7 +194,7 @@ class DecimalAttribute(NumericAttribute[DecimalFunctionOperation, DecimalAggrega
     _aggregate_type = DecimalAggregateOperation
     _number_kind = decimal.Decimal
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a decimal attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
@@ -206,7 +206,7 @@ class DecimalAttribute(NumericAttribute[DecimalFunctionOperation, DecimalAggrega
 class BooleanAttribute(Attribute, Equatable[bool]):
     """A boolean attribute."""
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a boolean attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
@@ -230,7 +230,7 @@ class IntegerAttribute(NumericAttribute[IntegerFunctionOperation, IntegerAggrega
     _aggregate_type = IntegerAggregateOperation
     _number_kind = int
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create an integer attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
@@ -262,7 +262,7 @@ class DateAttribute(_MinMax[DateAggregateOperation], Attribute, Orderable[dateti
 
     _aggregate_type = DateAggregateOperation
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a date attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
@@ -385,7 +385,7 @@ class DateTimeAttribute(_MinMax[DateTimeAggregateOperation], Attribute, Orderabl
 
     _aggregate_type = DateTimeAggregateOperation
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a datetime attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)

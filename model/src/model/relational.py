@@ -992,18 +992,26 @@ class Schema:
 
 
 class Column(RelationalOperationElement):
+    """A column of a relation. As in Legend its ``owner`` is the Relation it belongs to; a name is accepted in its place,
+    and stands for a table of that name whose columns are not known here (what a finder's attributes have: they name the
+    table they read, not the table object)."""
     table: 'Table | None'
+    owner: 'Relation | None'
 
-    #TODO owner should be Relation
-    def __init__(self, name: str, _type: str, owner: str | None = None, primary_key: bool = False,
+    def __init__(self, name: str, _type: str, owner: 'Relation | str | None' = None, primary_key: bool = False,
                  nullable: bool = True):
         self.table = None
         super().__init__()
         self.name = name
         self.type = _type
-        self.owner = owner
+        self.owner = Table(owner, []) if isinstance(owner, str) else owner
         self.primary_key = primary_key
         self.nullable = nullable and not primary_key  # as in Legend, a primary key is never null
+
+    @property
+    def owner_name(self) -> str | None:
+        """The name of the relation the column belongs to: how a query that reads it says which relation that is."""
+        return self.owner.name if isinstance(self.owner, NamedRelation) else None
 
     def qualified_name(self) -> str:
         assert self.table is not None, f"Column {self.name} has no table"
