@@ -5,7 +5,7 @@ import decimal
 
 from datafinder.scalar_functions import NumericFunctions, StringFunctions
 
-from model.relational import RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
+from model.relational import Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation
@@ -35,7 +35,7 @@ def _temporal_constant(value: datetime.datetime | datetime.date):
     return DateConstantOperation(value)
 
 
-class StringAttribute(_MinMax, StringFunctions, Attribute):
+class StringAttribute(_MinMax, StringFunctions, Attribute, Equatable[str]):
     """A string attribute supporting scalar functions and filter operations.
 
     Scalar functions return a ``ScalarFunctionOperation`` that can be passed as
@@ -71,18 +71,6 @@ class StringAttribute(_MinMax, StringFunctions, Attribute):
 
     def _to_constant(self, value):
         return StringConstantOperation(value)
-
-    def eq(self, value: str | RelationalOperationElement) -> ComparisonOperation:
-        """Return equality comparison with a string value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __eq__(self, value: str | RelationalOperationElement) -> ComparisonOperation:  # type: ignore[override]
-        """Return equality comparison with a string value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def ne(self, value: str | RelationalOperationElement) -> ComparisonOperation:
-        """Return inequality comparison with a string value."""
-        return self._compare(ComparisonOperator.NOT_EQUAL, value)
 
     def matches(self, pattern: str) -> ComparisonOperation:
         """Return a regular expression match: the text has a match for ``pattern`` anywhere in it, as Python's ``re.search``.
@@ -155,7 +143,7 @@ class NumericAttribute(NumericFunctions, Attribute, Arithmetic):
 
 
 
-class DoubleAttribute(NumericAttribute):
+class DoubleAttribute(NumericAttribute, Orderable[float]):
     """A floating-point attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
@@ -166,36 +154,12 @@ class DoubleAttribute(NumericAttribute):
     def _to_constant(self, value):
         return FloatConstantOperation(value)
 
-    def eq(self, value: float | RelationalOperationElement) -> ComparisonOperation:
-        """Return equality comparison with a floating-point value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __eq__(self, value: float | RelationalOperationElement) -> ComparisonOperation:  # type: ignore[override]
-        """Return equality comparison with a floating-point value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __gt__(self, value: float | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than comparison with a floating-point value."""
-        return self._compare(ComparisonOperator.GREATER_THAN, value)
-
-    def __lt__(self, value: float | RelationalOperationElement):
-        """Return a less-than comparison with a floating-point value."""
-        return self._compare(ComparisonOperator.LESS_THAN, value)
-
-    def __ge__(self, value: float | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than-or-equal comparison with a floating-point value."""
-        return self._compare(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, value)
-
-    def __le__(self, value: float | RelationalOperationElement):
-        """Return a less-than-or-equal comparison with a floating-point value."""
-        return self._compare(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, value)
-
 
 FloatAttribute = DoubleAttribute
 
 
 
-class DecimalAttribute(NumericAttribute):
+class DecimalAttribute(NumericAttribute, Orderable[decimal.Decimal]):
     """A decimal attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
@@ -206,32 +170,8 @@ class DecimalAttribute(NumericAttribute):
     def _to_constant(self, value):
         return DecimalConstantOperation(value)
 
-    def eq(self, value: decimal.Decimal | RelationalOperationElement) -> ComparisonOperation:
-        """Return equality comparison with a decimal value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
 
-    def __eq__(self, value: decimal.Decimal | RelationalOperationElement) -> ComparisonOperation:  # type: ignore[override]
-        """Return equality comparison with a decimal value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __gt__(self, value: decimal.Decimal | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than comparison with a decimal value."""
-        return self._compare(ComparisonOperator.GREATER_THAN, value)
-
-    def __lt__(self, value: decimal.Decimal | RelationalOperationElement) -> ComparisonOperation:
-        """Return a less-than comparison with a decimal value."""
-        return self._compare(ComparisonOperator.LESS_THAN, value)
-
-    def __ge__(self, value: decimal.Decimal | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than-or-equal comparison with a decimal value."""
-        return self._compare(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, value)
-
-    def __le__(self, value: decimal.Decimal | RelationalOperationElement) -> ComparisonOperation:
-        """Return a less-than-or-equal comparison with a decimal value."""
-        return self._compare(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, value)
-
-
-class BooleanAttribute(Attribute):
+class BooleanAttribute(Attribute, Equatable[bool]):
     """A boolean attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
@@ -242,14 +182,6 @@ class BooleanAttribute(Attribute):
     def _to_constant(self, value):
         return BooleanConstantOperation(value)
 
-    def eq(self, value: bool | RelationalOperationElement) -> ComparisonOperation:
-        """Return equality comparison with a boolean value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __eq__(self, value: bool | RelationalOperationElement) -> ComparisonOperation:  # type: ignore[override]
-        """Return equality comparison with a boolean value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
     def is_true(self) -> ComparisonOperation:
         """Return a comparison that matches true values."""
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(True))
@@ -259,7 +191,7 @@ class BooleanAttribute(Attribute):
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(False))
 
 
-class IntegerAttribute(NumericAttribute):
+class IntegerAttribute(NumericAttribute, Orderable[int]):
     """An integer attribute."""
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
@@ -270,32 +202,8 @@ class IntegerAttribute(NumericAttribute):
     def _to_constant(self, value):
         return IntegerConstantOperation(value)
 
-    def eq(self, value: int | RelationalOperationElement) -> ComparisonOperation:
-        """Return equality comparison with an integer value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
 
-    def __eq__(self, value: int | RelationalOperationElement) -> ComparisonOperation:  # type: ignore[override]
-        """Return equality comparison with an integer value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __gt__(self, value: int | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than comparison with an integer value."""
-        return self._compare(ComparisonOperator.GREATER_THAN, value)
-
-    def __lt__(self, value: int | RelationalOperationElement):
-        """Return a less-than comparison with an integer value."""
-        return self._compare(ComparisonOperator.LESS_THAN, value)
-
-    def __ge__(self, value: int | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than-or-equal comparison with an integer value."""
-        return self._compare(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, value)
-
-    def __le__(self, value: int | RelationalOperationElement):
-        """Return a less-than-or-equal comparison with an integer value."""
-        return self._compare(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, value)
-
-
-class DateAttribute(_MinMax, Attribute):
+class DateAttribute(_MinMax, Attribute, Orderable[datetime.date]):
     """A date attribute (YYYY-MM-DD) supporting extract, arithmetic, and diff operations.
 
     Extract methods mirror ``datetime.date`` attributes::
@@ -323,30 +231,6 @@ class DateAttribute(_MinMax, Attribute):
 
     def _to_constant(self, value):
         return DateConstantOperation(value)
-
-    def eq(self, value: datetime.date | RelationalOperationElement) -> ComparisonOperation:
-        """Return equality comparison with a date value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __eq__(self, value: datetime.date | RelationalOperationElement) -> ComparisonOperation:  # type: ignore[override]
-        """Return equality comparison with a date value."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __gt__(self, value: datetime.date | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than comparison with a date value."""
-        return self._compare(ComparisonOperator.GREATER_THAN, value)
-
-    def __lt__(self, value: datetime.date | RelationalOperationElement):
-        """Return a less-than comparison with a date value."""
-        return self._compare(ComparisonOperator.LESS_THAN, value)
-
-    def __ge__(self, value: datetime.date | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than-or-equal comparison with a date value."""
-        return self._compare(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, value)
-
-    def __le__(self, value: datetime.date | RelationalOperationElement):
-        """Return a less-than-or-equal comparison with a date value."""
-        return self._compare(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, value)
 
     def first_day_of_week(self):
         """The first day of the week the date falls in (a Monday)."""
@@ -441,7 +325,7 @@ class DateAttribute(_MinMax, Attribute):
         return DateDiffOperation(self._column_with_join(), _diff_other(other), DatePart.YEAR, 'Diff Years ' + self.display_name())
 
 
-class DateTimeAttribute(_MinMax, Attribute):
+class DateTimeAttribute(_MinMax, Attribute, Orderable[datetime.datetime | datetime.date]):
     """A datetime attribute (YYYY-MM-DD HH:MM:SS) supporting extract, arithmetic, and diff operations.
 
     Extends the capabilities of ``DateAttribute`` with hour, minute, and second
@@ -468,30 +352,6 @@ class DateTimeAttribute(_MinMax, Attribute):
 
     def _to_constant(self, value):
         return _temporal_constant(value)
-
-    def eq(self, value: datetime.datetime | datetime.date | RelationalOperationElement) -> ComparisonOperation:
-        """Return equality comparison with a datetime value (a plain date is rendered as a date literal)."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __eq__(self, value: datetime.datetime | datetime.date | RelationalOperationElement) -> ComparisonOperation:  # type: ignore[override]
-        """Return equality comparison with a datetime value (a plain date is rendered as a date literal)."""
-        return self._compare(ComparisonOperator.EQUAL, value)
-
-    def __gt__(self, value: datetime.datetime | datetime.date | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than comparison with a datetime value (a plain date is rendered as a date literal)."""
-        return self._compare(ComparisonOperator.GREATER_THAN, value)
-
-    def __lt__(self, value: datetime.datetime | datetime.date | RelationalOperationElement):
-        """Return a less-than comparison with a datetime value (a plain date is rendered as a date literal)."""
-        return self._compare(ComparisonOperator.LESS_THAN, value)
-
-    def __ge__(self, value: datetime.datetime | datetime.date | RelationalOperationElement) -> ComparisonOperation:
-        """Return a greater-than-or-equal comparison with a datetime value (a plain date is rendered as a date literal)."""
-        return self._compare(ComparisonOperator.GREATER_THAN_OR_EQUAL_TO, value)
-
-    def __le__(self, value: datetime.datetime | datetime.date | RelationalOperationElement):
-        """Return a less-than-or-equal comparison with a datetime value (a plain date is rendered as a date literal)."""
-        return self._compare(ComparisonOperator.LESS_THAN_OR_EQUAL_TO, value)
 
     def first_day_of_week(self):
         """The date of the first day of the week the date falls in (a Monday)."""
