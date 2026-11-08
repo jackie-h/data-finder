@@ -13,6 +13,7 @@ Only these are ignored, because they name things rather than say what the query 
   - the ``default`` or ``main`` schema qualifier
   - parentheses around a single predicate, e.g. ON (a = b), or around a whole ON, WHERE or CASE WHEN condition
   - parentheses around an AND directly inside an OR, which binds tighter anyway: x OR (y AND z) is x OR y AND z
+  - parentheses around the argument of DISTINCT: count(distinct(x)) is count(distinct x)
   - how a run of the same operator is grouped: AND and OR are associative, so (a AND b) AND c is a AND (b AND c) is
     a AND b AND c. The order of the operands still matters.
   - which side of an equality in a join condition comes first: ON a.x = b.y is ON b.y = a.x. The same equality in a
@@ -102,10 +103,21 @@ _FALLBACK_DIALECT = "tsql"
 _SEPARATOR_CLAUSE = re.compile(r"\s+separator\s+('(?:[^']|'')*')\s*\)", re.IGNORECASE)
 
 
-def parse(sql: str, dialect: str | None = None) -> exp.Expr:
+# Legend writes the unit of a date difference as a keyword, ``datediff(day, a, b)``, which only the T-SQL grammar reads;
+# the other grammars take it as a column.
+_DATEDIFF_UNIT = re.compile(r"\bdatediff\s*\(\s*(year|quarter|month|week|day|hour|minute|second)\s*,", re.IGNORECASE)
+
+
+def parse(sql: str, dialect: str | None = None, to_run: bool = False) -> exp.Expr:
     """Parse ``sql`` in ``dialect``; if that fails, in the T-SQL grammar (for ``select top N``). ``group_concat(x
-    separator s)`` is read as ``group_concat(x, s)``."""
+    separator s)`` is read as ``group_concat(x, s)``. ``datediff(day, a, b)`` is read as ``datediff('day', a, b)`` to
+    compare it with other SQL, and, for SQL that will be run (``to_run``), in the T-SQL grammar, which knows what it means."""
     sql = _SEPARATOR_CLAUSE.sub(r", \1)", sql)
+    if _DATEDIFF_UNIT.search(sql):
+        if to_run:
+            dialect = dialect or _FALLBACK_DIALECT
+        else:
+            sql = _DATEDIFF_UNIT.sub(lambda m: f"datediff('{m.group(1).lower()}',", sql)
     try:
         return sqlglot.parse_one(sql, read=dialect)
     except sqlglot.errors.ParseError:
@@ -155,6 +167,9 @@ def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
     for paren in list(tree.find_all(exp.Paren)):
         if isinstance(paren.this, exp.Predicate | exp.Binary) and not isinstance(paren.this, exp.Connector):
             paren.replace(paren.this)
+    # DISTINCT applies to the whole argument, so parentheses around it group nothing: distinct(x) is distinct x
+    for distinct in tree.find_all(exp.Distinct):
+        distinct.set("expressions", [e.this if isinstance(e, exp.Paren) else e for e in distinct.expressions])
     # AND binds tighter than OR, so parentheses around an AND directly inside an OR group nothing.
     for paren in list(tree.find_all(exp.Paren)):
         if isinstance(paren.this, exp.And) and isinstance(paren.parent, exp.Or):

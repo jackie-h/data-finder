@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, FLOAT_AVERAGE
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER
 import datetime
 
 _SRC = "functions/tests/testModelGroupBy.pure"
@@ -19,12 +19,13 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
         ported("testGroupByOnRootLevelPrimitiveAttributeWithNoJoinAndFilter", f"{_SRC}::testGroupByOnRootLevelPrimitiveAttributeWithNoJoinAndFilter",
                'select "root".tradeDate as "Date", sum("root".quantity) as "Total Quantity" from tradeTable as "root" where "root".tradeDate = \'2014-12-01\' group by "Date"',
                lambda f: f.find_all([f.date(), f.quantity().sum()], f.date().eq(datetime.date(2014, 12, 1))).group_by(f.date())),
-        unsupported("testUsingAFunctionInTheMapLambdaAndAMultiplyInTheAggregation", f"{_SRC}::testUsingAFunctionInTheMapLambdaAndAMultiplyInTheAggregation",
-                    'select "producttable_0".NAME as "prodName", (sum(case when (("producttable_0".NAME is not null and "producttable_0".NAME like \'%X\') or ("producttable_0".NAME is not null and "producttable_0".NAME like \'%C\')) then "root".quantity else 0.0 end) * 2) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no arithmetic on the result of an aggregate whose argument is a function of the row'),
-        unsupported("testUsingAnAssociationInTheMapFunction", f"{_SRC}::testUsingAnAssociationInTheMapFunction",
-                    'select "producttable_0".NAME as "prodName", (sum(case when ("accounttable_0".name is not null and "accounttable_0".name like \'Account 1%\') then "root".quantity else 0.0 end) * 2) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join accountTable as "accounttable_0" on ("root".accountID = "accounttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no conditional inside the argument of an aggregate'),
+        ported("testUsingAFunctionInTheMapLambdaAndAMultiplyInTheAggregation", f"{_SRC}::testUsingAFunctionInTheMapLambdaAndAMultiplyInTheAggregation",
+               'select "producttable_0".NAME as "prodName", (sum(case when (("producttable_0".NAME is not null and "producttable_0".NAME like \'%X\') or ("producttable_0".NAME is not null and "producttable_0".NAME like \'%C\')) then "root".quantity else 0.0 end) * 2) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all([f.product().name(), when(f.product().name().ends_with("X").or_(f.product().name().ends_with("C"))).then(f.quantity()).otherwise(0.0).sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending())),
+        ported("testUsingAnAssociationInTheMapFunction", f"{_SRC}::testUsingAnAssociationInTheMapFunction",
+               'select "producttable_0".NAME as "prodName", (sum(case when ("accounttable_0".name is not null and "accounttable_0".name like \'Account 1%\') then "root".quantity else 0.0 end) * 2) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join accountTable as "accounttable_0" on ("root".accountID = "accounttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all([f.product().name(), when(f.account().name().starts_with("Account 1")).then(f.quantity()).otherwise(0.0).sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: LEFT_JOIN_ORDER}),
         unsupported("testUniqueValueOnly1", f"{_SRC}::testUniqueValueOnly1",
                     'select "producttable_0".NAME as "prodName", count(distinct("root".quantity)) as "count", case when count(distinct("root".quantity)) = 1 then max("root".quantity) else null end as "uniqueValue" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) where ("producttable_0".NAME = \'Firm C\' and "root".quantity = 45.0) group by "prodName"',
                     'no uniqueValueOnly aggregation'),
@@ -146,9 +147,9 @@ MODEL_GROUP_BY_FIRM_SPECS = FinderSpec(
         unsupported("testUsingFunctionInMapLambdaTakingAParameterPartial", f"{_SRC}::testUsingFunctionInMapLambdaTakingAParameterPartial",
                     'select "root".LEGALNAME as "legalName", "addresstable_0".NAME as "addressName", sum("firmtable_1".aggCol) * 2 as "employeeAge" from firmTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) left outer join (select "firmtable_2".ID as ID, avg(1.0 * "persontable_0".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) group by "legalName", "addressName" order by "legalName" asc',
                     'the aggregate argument is a user defined function'),
-        unsupported("testGroupByIsDistinct", f"{_SRC}::testGroupByIsDistinct",
-                    'select "root".LEGALNAME as "LegalName", count(distinct("persontable_0".FIRSTNAME)) as "FirstNameDistinctCount", count("persontable_0".FIRSTNAME) as "FirstNameCount", count(distinct("persontable_0".FIRSTNAME)) = count("persontable_0".FIRSTNAME) as "IsDistinctFirstName", count(distinct("persontable_0".LASTNAME)) as "LastNameDistinctCount", count("persontable_0".LASTNAME) as "LastNameCount", count(distinct("persontable_0".LASTNAME)) = count("persontable_0".LASTNAME) as "IsDistinctLastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "LegalName" order by "LegalName" desc',
-                    'no isDistinct aggregation'),
+        ported("testGroupByIsDistinct", f"{_SRC}::testGroupByIsDistinct",
+               'select "root".LEGALNAME as "LegalName", count(distinct("persontable_0".FIRSTNAME)) as "FirstNameDistinctCount", count("persontable_0".FIRSTNAME) as "FirstNameCount", count(distinct("persontable_0".FIRSTNAME)) = count("persontable_0".FIRSTNAME) as "IsDistinctFirstName", count(distinct("persontable_0".LASTNAME)) as "LastNameDistinctCount", count("persontable_0".LASTNAME) as "LastNameCount", count(distinct("persontable_0".LASTNAME)) = count("persontable_0".LASTNAME) as "IsDistinctLastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "LegalName" order by "LegalName" desc',
+               lambda f: f.find_all([f.legal_name(), f.employees().first_name().count_distinct(), f.employees().first_name().count(), (f.employees().first_name().count_distinct() == f.employees().first_name().count()).alias("IsDistinctFirstName"), f.employees().last_name().count_distinct(), f.employees().last_name().count(), (f.employees().last_name().count_distinct() == f.employees().last_name().count()).alias("IsDistinctLastName")]).group_by(f.legal_name()).order_by(f.legal_name().descending())),
         ported("testGroupByEmptyColsTerminalOperation", f"{_SRC}::testGroupByEmptyColsTerminalOperation",
                'select count("root".LEGALNAME) as "Firm Count" from firmTable as "root"',
                lambda f: f.find_all([f.legal_name().count()])),

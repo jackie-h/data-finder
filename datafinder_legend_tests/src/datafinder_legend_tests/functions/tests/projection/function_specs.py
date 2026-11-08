@@ -71,8 +71,8 @@ FUNCTION_TRADE_SPECS = FinderSpec(
         ported("testYearZeroToOne", f"{_SRC}::testYearZeroToOne",
                'select extract(year from "root".settlementDateTime) as "year" from tradeTable as "root" where "root".ID in (9, 10)',
                lambda f: f.find_all([f.settlement_date_time().year()], f.id_().is_in([9, 10]))),
-        unsupported("testDateDiffZeroToOne", f"{_SRC}::testDateDiffZeroToOne",
-                    'select datediff(day, "root".tradeDate, "root".settlementDateTime) as "daysDiff" from tradeTable as "root" where "root".ID in (9, 10)',
-                    'no date difference between two columns'),
+        ported("testDateDiffZeroToOne", f"{_SRC}::testDateDiffZeroToOne",
+               'select datediff(day, "root".tradeDate, "root".settlementDateTime) as "daysDiff" from tradeTable as "root" where "root".ID in (9, 10)',
+               lambda f: f.find_all([f.date().diff_days(f.settlement_date_time())], f.id_().is_in([9, 10]))),
     ],
 )
