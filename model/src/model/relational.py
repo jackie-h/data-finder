@@ -613,14 +613,16 @@ class DatePart(Enum):
     DOW = 'DOW'
 
 
-class DateExtractOperation(UnaryOperation, Sortable):
+class DateExtractOperation(UnaryOperation, Sortable, Orderable[int]):
+    """A part of a date or time (year, month, hour, ...), as an integer."""
+
     def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.part = part
         self.display_name = display_name
 
 
-class DateTruncOperation(UnaryOperation, Comparable, Sortable):
+class DateTruncOperation(UnaryOperation, Sortable, Orderable[datetime.date]):
     """The first day of the week, month, quarter or year that the date falls in, as a date."""
 
     def __init__(self, element: RelationalOperationElement, part: DatePart, display_name: str | None = None):
@@ -629,7 +631,10 @@ class DateTruncOperation(UnaryOperation, Comparable, Sortable):
         self.display_name = display_name
 
 
-class DateArithmeticOperation(UnaryOperation, Sortable):
+class DateArithmeticOperation(UnaryOperation, Sortable, Orderable[T]):
+    """A date or datetime moved by an amount of time. It is a ``T``, the type it is moved from: a date stays a date, a
+    datetime a datetime."""
+
     def __init__(self, element: RelationalOperationElement, n: int, unit: DatePart,
                  is_add: bool = True, display_name: str | None = None):
         super().__init__(element)
@@ -639,7 +644,9 @@ class DateArithmeticOperation(UnaryOperation, Sortable):
         self.display_name = display_name
 
 
-class DateDiffOperation(UnaryOperation, Sortable):
+class DateDiffOperation(UnaryOperation, Sortable, Orderable[int]):
+    """The whole number of days, months, ... between a date or time and another."""
+
     def __init__(self, element: RelationalOperationElement, other, unit: DatePart, display_name: str | None = None):
         super().__init__(element)
         self.other = other

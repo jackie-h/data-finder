@@ -192,3 +192,20 @@ def test_a_text_function_is_not_ordered_and_a_number_function_is():
         text.upper() < "b"  # type: ignore[operator]
     assert text.length() < 3
     assert not hasattr(text.upper(), "sqrt") and not hasattr(text.length(), "upper")
+
+
+def test_a_date_operation_is_compared_as_what_it_gives():
+    from model.relational import DateArithmeticOperation, DateDiffOperation, DateExtractOperation, DateTruncOperation
+    table = Table("t", [Column("D", "DATE"), Column("T", "TIMESTAMP")])
+    day = DateAttribute("D", "D", "DATE", "t")
+    moment = DateTimeAttribute("T", "T", "TIMESTAMP", "t")
+    # a part of a date and a difference are integers
+    assert isinstance(day.year(), DateExtractOperation) and isinstance(moment.hour(), DateExtractOperation)
+    assert isinstance(day.diff_days(datetime.date(2020, 1, 1)), DateDiffOperation)
+    sql = to_sql(None, None, [day], table, day.year().is_in([2019, 2020]))
+    assert "EXTRACT(YEAR FROM t0.D) IN (2019, 2020)" in sql
+    assert "EXTRACT(HOUR FROM t0.T) >= 9" in to_sql(None, None, [moment], table, moment.hour() >= 9)
+    assert "WHERE t0.D + INTERVAL '1' DAY > '2020-01-01'" in to_sql(
+        None, None, [day], table, day.add_days(1) > datetime.date(2020, 1, 1))
+    assert isinstance(day.first_day_of_month(), DateTruncOperation)
+    assert isinstance(day.add_days(1), DateArithmeticOperation)
