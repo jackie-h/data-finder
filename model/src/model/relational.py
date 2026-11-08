@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any, Generic, Iterable, Sequence, TypeVar, overload
 
 T = TypeVar("T")
+C = TypeVar("C")  # what a relation's columns are
 K = TypeVar("K")  # the kind of number an expression holds: int, float or Decimal
 AG = TypeVar("AG", bound="AggregateOperation")  # the aggregate that gives an expression's own type
 
@@ -917,24 +918,21 @@ class DateDiffOperation(UnaryOperation, Sortable, Orderable[int]):
         self.display_name = display_name
 
 
-class Relation:
+class Relation(Generic[C]):
     """Something rows are read from, as in Legend: it has columns. A table, a view and a query are relations; a table
-    and a view also have a name (a NamedRelation)."""
+    and a view also have a name (a NamedRelation). ``C`` is what a column is: a table's Columns, a query's display
+    expressions."""
+    columns: Sequence[C]
 
-    def __init__(self):
-        pass
-
-    @property
-    def columns(self) -> Sequence[RelationalOperationElement]:
-        """What the relation has for each column: a table's Columns, a query's display expressions."""
-        raise NotImplementedError(f"{type(self).__name__} does not say what its columns are")
+    def __init__(self, columns: Sequence[C]):
+        self.columns = columns
 
 
-class NamedRelation(Relation):
+class NamedRelation(Relation[C]):
     """A relation that has a name: a table or a view."""
 
-    def __init__(self, name: str):
-        super().__init__()
+    def __init__(self, name: str, columns: Sequence[C]):
+        Relation.__init__(self, columns)
         self.name = name
 
 
@@ -1019,7 +1017,7 @@ class ForeignKey:
         self.references = references
 
 
-class TableAlias(NamedRelation):
+class TableAlias(NamedRelation['RelationalOperationElement']):
     """A relation under a name where it is used, as in Legend and as ANSI SQL's ``<table reference>`` with its
     ``<correlation name>``: ``(query) AS relation1``. It has the columns of the relation it names, and what reads those
     columns says which alias they belong to by its name. A table is already named, so this is for a relation that is not:
@@ -1027,20 +1025,16 @@ class TableAlias(NamedRelation):
     relation: Relation
 
     def __init__(self, relation: Relation, name: str):
-        super().__init__(name)
+        super().__init__(name, relation.columns)
         self.relation = relation
 
-    @property
-    def columns(self) -> Sequence[RelationalOperationElement]:
-        return self.relation.columns
 
-
-class Table(NamedRelation):
+class Table(NamedRelation[Column]):
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
 
     def __init__(self, name: str, columns: list[Column], schema: 'Schema | None' = None):
-        super().__init__(name)
+        super().__init__(name, list(columns))
         self._columns_by_name: dict[str, Column] = {}
         for col in columns:
             if col.name in self._columns_by_name:
@@ -1054,10 +1048,6 @@ class Table(NamedRelation):
             col.table = self
         if schema is not None:
             schema.tables.append(self)
-
-    @property
-    def columns(self) -> list[Column]:
-        return list(self._columns_by_name.values())
 
     @property
     def qualified_name(self) -> str:
@@ -1179,7 +1169,7 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
         return LogicalOperation(self, LogicalOperator.OR, other)
 
 
-class QueryExpression(Relation):
+class QueryExpression(Relation[RelationalOperationElement]):
     """What ANSI SQL calls a ``<query expression>``: a query that returns rows and can be used where a table is, as a
     view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT.
 
@@ -1196,10 +1186,10 @@ class QuerySpecification(QueryExpression):
     row limit; an OrderedQuerySpecification, which is run rather than stored, sets them.
     """
 
-    def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
+    def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
                  group_by: list | None = None, table: 'Table | None' = None, distinct: bool = False,
                  having: Operation | None = None):
-        self.display = display
+        Relation.__init__(self, columns)  # not super(): a View is also a NamedRelation
         self.filter = filter
         self.group_by = group_by or []
         self.table = table
@@ -1212,14 +1202,9 @@ class QuerySpecification(QueryExpression):
         # the query joins to that instead of to the table, so a parent is not repeated for each row that matches.
         self.sub_selects: dict[int, 'OrderedQuerySpecification'] = {}
 
-    @property
-    def columns(self) -> Sequence[RelationalOperationElement]:
-        """The select list."""
-        return self.display
-
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
-        return [*self.display, *self.group_by, self.filter]
+        return [*self.columns, *self.group_by, self.filter]
 
 
 class OrderedQuerySpecification(QuerySpecification):
@@ -1229,17 +1214,17 @@ class OrderedQuerySpecification(QuerySpecification):
     part of a ``<query expression>`` and so cannot be in a view definition. (SQL:2008 added the offset and fetch
     first clauses to the same place.)"""
 
-    def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
+    def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
                  order_by: list[SortOperation] | None = None, group_by: list | None = None,
                  limit: int | None = None, table: 'Table | None' = None, distinct: bool = False,
                  offset: int | None = None, having: Operation | None = None):
-        super().__init__(display, filter, group_by, table, distinct, having)
+        super().__init__(columns, filter, group_by, table, distinct, having)
         self.order_by = order_by or []
         self.limit = limit
         self.offset = offset
 
     def expressions(self) -> list[RelationalOperationElement]:
-        return [*self.display, *self.group_by, *self.order_by, self.filter]
+        return [*self.columns, *self.group_by, *self.order_by, self.filter]
 
 
 class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['UntypedAggregateOperation']):

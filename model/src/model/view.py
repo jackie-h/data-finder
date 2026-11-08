@@ -63,11 +63,11 @@ class View(QuerySpecification, NamedRelation):
                  filter: Operation | None = None, group_by: list | None = None):
         _check_identifier('View name', name)
         _check_identifier('Schema name', schema)
-        NamedRelation.__init__(self, name)
         self.projection = tuple(projection)
         milestoning = table.milestoning_columns.columns() if isinstance(table, MilestonedTable) else []
         milestoning_aliases = [Alias(Column(c.name, c.type, c.qualified_name()), c.name) for c in milestoning]
         self._columns = [*self.projection, *milestoning_aliases]
+        NamedRelation.__init__(self, name, self._columns)
 
         group_by = list(group_by or [])
         if group_by or any(contains_aggregate(column) for column in self.projection):

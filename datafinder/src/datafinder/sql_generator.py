@@ -816,7 +816,7 @@ class SQLQueryGenerator:
         self._sub_selects = query.sub_selects
         ordered = isinstance(query, OrderedQuerySpecification)
         order_by = query.order_by if ordered else []
-        self.select(query.display)
+        self.select(query.columns)
         self._where = self.build_filter(self.__guarded(query.filter))
         required_joins: dict = {}
         for group_by_expr in query.group_by:
@@ -853,12 +853,12 @@ class SQLQueryGenerator:
         if query.group_by or not isinstance(query, OrderedQuerySpecification):
             return [self.__attr_to_col_string(a) if isinstance(a, (Attribute, ColumnWithJoin, Column))
                     else sql_operation_to_string(self.__rewrite_operation(a)) for a in query.group_by]
-        aggregates = [c for c in query.display if contains_aggregate(c)]
+        aggregates = [c for c in query.columns if contains_aggregate(c)]
         if not aggregates:
             return []
         per_root = query.table is not None and any(_reaches_to_many(c) for c in aggregates)
         keys = [self.__attr_to_col_string(c) for c in query.table.columns if c.primary_key] if per_root and query.table else []
-        grouped = [sql_operation_to_string(shown.element) for column, shown in zip(query.display, self._select)
+        grouped = [sql_operation_to_string(shown.element) for column, shown in zip(query.columns, self._select)
                    if not contains_aggregate_or_window(column)]
         return list(dict.fromkeys([*keys, *grouped]))
 

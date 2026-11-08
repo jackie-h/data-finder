@@ -1,6 +1,4 @@
 """Relations, as in Legend: a relation has columns, a named relation has a name, and a table alias is a relation under a name."""
-import pytest
-
 from model.relational import (
     Alias, Column, NamedRelation, NoOperation, OrderedQuerySpecification, QueryExpression, QuerySpecification, Relation,
     Table, TableAlias)
@@ -34,9 +32,8 @@ def test_the_columns_of_each_relation():
     # a view's projection, then the milestoning columns of its root
     view = View("v", "s", _TABLE, [Alias(_NAME, "name")])
     assert [c.name for c in view.columns if isinstance(c, Alias)] == ["name"]
-    # a relation that does not say what its columns are says so
-    with pytest.raises(NotImplementedError):
-        Relation().columns
+    # a relation is given its columns
+    assert list(Relation([_ID]).columns) == [_ID]
 
 
 def test_a_table_alias_is_a_named_relation_with_the_columns_of_what_it_names():
