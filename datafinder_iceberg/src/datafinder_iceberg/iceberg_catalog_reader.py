@@ -17,7 +17,7 @@ from pyiceberg.types import (
     ListType, MapType,
 )
 
-from model.relational import DataCatalog, Schema as RelationalSchema, Table, Column
+from model.relational import DataCatalog, Schema as RelationalSchema, Table
 
 _log = logging.getLogger(__name__)
 
@@ -60,12 +60,10 @@ def _map_type(iceberg_type: IcebergType) -> str:
 def schema_to_table(schema: Schema, table_name: str) -> Table:
     """Convert a pyiceberg Schema to a relational Table."""
     identifier_ids = set(schema.identifier_field_ids)
-    columns = [
-        Column(field.name, _map_type(field.field_type),
-               primary_key=field.field_id in identifier_ids)
-        for field in schema.fields
-    ]
-    return Table(table_name, columns)
+    table = Table(table_name)
+    for field in schema.fields:
+        table.add_column(field.name, _map_type(field.field_type), primary_key=field.field_id in identifier_ids)
+    return table
 
 
 def load_schema_from_dict(schema_dict: dict, table_name: str) -> Table:

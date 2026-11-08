@@ -2,7 +2,7 @@ import os
 import pytest
 
 from mapping_markdown.validate import validate, validate_file
-from model.relational import Table, Column
+from model.relational import Table
 
 
 FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
@@ -12,15 +12,15 @@ SPLIT_FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping_split.m
 class TestTableDuplicateColumn:
 
     def test_unique_columns_accepted(self):
-        Table("t", [Column("a", "INT"), Column("b", "VARCHAR")])
+        Table("t", [("a", "INT"), ("b", "VARCHAR")])
 
     def test_duplicate_column_raises(self):
         with pytest.raises(ValueError, match="Duplicate column name 'a' in table 't'"):
-            Table("t", [Column("a", "INT"), Column("a", "VARCHAR")])
+            Table("t", [("a", "INT"), ("a", "VARCHAR")])
 
     def test_error_names_the_table(self):
         with pytest.raises(ValueError, match="my_table"):
-            Table("my_table", [Column("x", "INT"), Column("x", "INT")])
+            Table("my_table", [("x", "INT"), ("x", "INT")])
 
 
 class TestValidateMarkdown:

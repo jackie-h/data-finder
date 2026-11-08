@@ -89,7 +89,7 @@ def test_a_column_with_no_owner_says_so_when_its_owner_is_needed():
     with pytest.raises(ValueError, match="no owner"):
         orphan.owner_name
     # a column of a table has one
-    table = Table("accounts", [Column("NAME", "VARCHAR")])
+    table = Table("accounts", [("NAME", "VARCHAR")])
     assert table.columns[0].owner_relation is table and table.columns[0].owner_name == "accounts"
 
 
@@ -131,7 +131,7 @@ def test_a_column_name_is_used_once_in_a_table():
     with pytest.raises(ValueError, match="Duplicate column name 'ID'"):
         table.add_column("ID", "INT")
     with pytest.raises(ValueError, match="Duplicate column name 'ID'"):
-        Table("accounts", [Column("ID", "INT"), ("ID", "INT")])
+        Table("accounts", [("ID", "INT"), ("ID", "INT")])
 
 
 def test_a_milestoned_table_is_made_of_names_and_types_too():

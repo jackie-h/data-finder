@@ -12,7 +12,7 @@ from datafinder import QueryRunnerBase
 from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
-from model.relational import Database, Schema, Table, Column
+from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
 
 from datafinder_examples_tests.finance_numeric_specs import (
@@ -33,18 +33,18 @@ def _build_repo():
     repo = Database("finance_db", "duckdb://test.db")
     ref = Schema("ref_data", repo)
     trd = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR"), Column("BRANCH_ID", "INT"), Column("DESK_ID", "INT"),
-                             Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
-    Table("branch", [Column("ID", "INT"), Column("CITY", "VARCHAR")], ref)
-    Table("desk", [Column("ID", "INT"), Column("NAME", "VARCHAR")], ref)
-    Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
-                    Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref)
-    Table("contractualposition", [Column("DATE", "DATE"), Column("QUANTITY", "DOUBLE"), Column("NPV", "DOUBLE"),
-                                      Column("ACCOUNT_ID", "INT"), Column("in_z", "TIMESTAMP"),
-                                      Column("out_z", "TIMESTAMP")], trd)
-    Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
-                     Column("is_settled", "BOOLEAN"), Column("account_id", "INT"),
-                     Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], trd)
+    Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR"), ("BRANCH_ID", "INT"), ("DESK_ID", "INT"),
+                             ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], ref)
+    Table("branch", [("ID", "INT"), ("CITY", "VARCHAR")], ref)
+    Table("desk", [("ID", "INT"), ("NAME", "VARCHAR")], ref)
+    Table("price", [("SYM", "VARCHAR"), ("PRICE", "DOUBLE"),
+                    ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], ref)
+    Table("contractualposition", [("DATE", "DATE"), ("QUANTITY", "DOUBLE"), ("NPV", "DOUBLE"),
+                                      ("ACCOUNT_ID", "INT"), ("in_z", "TIMESTAMP"),
+                                      ("out_z", "TIMESTAMP")], trd)
+    Table("trades", [("sym", "VARCHAR"), ("price", "DOUBLE"),
+                     ("is_settled", "BOOLEAN"), ("account_id", "INT"),
+                     ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], trd)
     return repo
 
 

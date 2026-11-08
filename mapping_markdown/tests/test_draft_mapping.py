@@ -6,19 +6,19 @@ import pytest
 
 from mapping_markdown.markdown_mapping import draft_from_repository, load
 from datafinder_duckdb.duckdb_reader import read_repository_from_duckdb
-from model.relational import Database, Schema, Table, Column
+from model.relational import Database, Schema, Table
 
 
 def _build_repository() -> Database:
     repo = Database("finance_db", "duckdb://test.db")
     ref_data = Schema("ref_data", repo)
     trading = Schema("trading", repo)
-    Table("account_master", [Column("ID", "INT"), Column("ACCT_NAME", "VARCHAR")], ref_data)
-    Table("price", [Column("SYM", "VARCHAR"), Column("PRICE", "DOUBLE"),
-                    Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")], ref_data)
-    Table("trades", [Column("sym", "VARCHAR"), Column("price", "DOUBLE"),
-                     Column("account_id", "INT"), Column("in_z", "TIMESTAMP"),
-                     Column("out_z", "TIMESTAMP")], trading)
+    Table("account_master", [("ID", "INT"), ("ACCT_NAME", "VARCHAR")], ref_data)
+    Table("price", [("SYM", "VARCHAR"), ("PRICE", "DOUBLE"),
+                    ("in_z", "TIMESTAMP"), ("out_z", "TIMESTAMP")], ref_data)
+    Table("trades", [("sym", "VARCHAR"), ("price", "DOUBLE"),
+                     ("account_id", "INT"), ("in_z", "TIMESTAMP"),
+                     ("out_z", "TIMESTAMP")], trading)
     return repo
 
 

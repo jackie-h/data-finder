@@ -4,7 +4,7 @@ import pytest
 from datafinder import IntegerAttribute, StringAttribute, to_sql
 from model.relational import Column, NoOperation, Table, TableAlias
 
-_TABLE = Table("accounts", [Column("ID", "INT"), Column("NAME", "VARCHAR")])
+_TABLE = Table("accounts", [("ID", "INT"), ("NAME", "VARCHAR")])
 
 
 def test_an_attribute_takes_the_relation_that_owns_its_column():
@@ -29,7 +29,7 @@ def test_attributes_of_tables_with_the_same_name_share_an_alias():
 def test_a_table_is_written_by_its_qualified_name():
     from model.relational import Database, Schema
     schema = Schema("vt", Database("db"))
-    table = Table("trades", [Column("ID", "INT")], schema)
+    table = Table("trades", [("ID", "INT")], schema)
     attribute = IntegerAttribute("Id", "ID", "INT", table)
     assert to_sql(None, None, [attribute], table, NoOperation()) == 'SELECT t0.ID AS "Id" FROM vt.trades AS t0'
 
