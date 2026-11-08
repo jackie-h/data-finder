@@ -173,9 +173,11 @@ def _scheme_columns_code(table: Table) -> str:
 def table_code(table: Table) -> str:
     """Python source that builds ``table`` in a generated finder."""
     columns = ", ".join(f"('{c.name}', '{c.type}')" for c in table.columns)
+    keys = ", ".join(f"'{c.name}'" for c in table.columns if c.primary_key)
+    key = f", primary_key=[{keys}]" if keys else ""
     if table.milestoning_scheme is not None:
-        return f"MilestonedTable('{table_qualified_name(table)}', [{columns}], {_scheme_columns_code(table)})"
-    return f"Table('{table_qualified_name(table)}', [{columns}])"
+        return f"MilestonedTable('{table_qualified_name(table)}', [{columns}], {_scheme_columns_code(table)}{key})"
+    return f"Table('{table_qualified_name(table)}', [{columns}]{key})"
 
 
 def _table_of(column: Column) -> Table:

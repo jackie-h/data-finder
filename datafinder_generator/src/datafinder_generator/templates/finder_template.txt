@@ -95,9 +95,9 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
-    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', primary_key=True), {% endif %}{% endfor %}], __zz_milestoning_columns)
+    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}('{{rpm.target.name}}', '{{rpm.target.type}}'), {% endif %}{% endfor %}], __zz_milestoning_columns, primary_key=[{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}'{{rpm.target.name}}', {% endif %}{% endfor %}])
 {% else %}
-    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', primary_key=True), {% endif %}{% endfor %}])
+    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}('{{rpm.target.name}}', '{{rpm.target.type}}'), {% endif %}{% endfor %}], primary_key=[{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}'{{rpm.target.name}}', {% endif %}{% endfor %}])
 {% endif %}
 
     _column_map = {
@@ -213,9 +213,9 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% elif has_uni_business_temporal(rcm.milestone_mapping) %}
     __zz_milestoning_columns = SingleBusinessDateColumn(Column('{{rcm.milestone_mapping._date.target.name}}', '{{rcm.milestone_mapping._date.target.type}}'))
 {% endif %}
-    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', primary_key=True), {% endif %}{% endfor %}], __zz_milestoning_columns)
+    __table = MilestonedTable('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}('{{rpm.target.name}}', '{{rpm.target.type}}'), {% endif %}{% endfor %}], __zz_milestoning_columns, primary_key=[{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}'{{rpm.target.name}}', {% endif %}{% endfor %}])
 {% else %}
-    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}Column('{{rpm.target.name}}', '{{rpm.target.type}}', primary_key=True), {% endif %}{% endfor %}])
+    __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}('{{rpm.target.name}}', '{{rpm.target.type}}'), {% endif %}{% endfor %}], primary_key=[{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}'{{rpm.target.name}}', {% endif %}{% endfor %}])
 {% endif %}
 
 {% for rpm in rcm.property_mappings %}

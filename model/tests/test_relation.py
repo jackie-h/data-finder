@@ -139,3 +139,41 @@ def test_a_milestoned_table_is_made_of_names_and_types_too():
     milestoned = MilestonedTable("trades", [("ID", "INT")], ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"),
                                                                                        Column("out_z", "TIMESTAMP")))
     assert [c.name for c in milestoned.columns] == ["ID"] and milestoned.columns[0].owner is milestoned
+
+
+def test_a_table_takes_its_primary_key_in_the_constructor():
+    table = Table("accounts", [("ID", "INT"), ("REGION", "VARCHAR"), ("NAME", "VARCHAR")], primary_key=["ID", "REGION"])
+    id_, region, name = table.columns
+    assert id_.primary_key and region.primary_key and not name.primary_key
+    # as in Legend, a primary key is never null
+    assert not id_.nullable and not region.nullable and name.nullable
+    assert table.primary_key == [id_, region]
+    assert Table("none", [("ID", "INT")]).primary_key == []
+
+
+def test_the_primary_key_can_name_columns_or_be_them():
+    key = Column("ID", "INT")
+    table = Table("accounts", [key, ("NAME", "VARCHAR")], primary_key=[key])
+    assert key.primary_key and table.primary_key == [key]
+    # a column already made a key stays one
+    assert Table("accounts", [Column("ID", "INT", primary_key=True)], primary_key=["ID"]).primary_key[0].primary_key
+
+
+def test_a_primary_key_is_a_column_of_the_table():
+    import pytest
+    with pytest.raises(ValueError, match="Primary key column 'MISSING' is not a column of table 'accounts'"):
+        Table("accounts", [("ID", "INT")], primary_key=["MISSING"])
+    with pytest.raises(ValueError, match="Primary key column 'ID' is not a column of table 'accounts'"):
+        Table("accounts", [("ID", "INT")], primary_key=[Column("ID", "INT")])  # another column of that name
+
+
+def test_a_milestoned_table_has_a_primary_key_too():
+    from model.milestoning import MilestonedTable, ProcessingTemporalColumns
+    milestoned = MilestonedTable("trades", [("ID", "INT"), ("SYM", "VARCHAR")],
+                                 ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")),
+                                 primary_key=["ID"])
+    assert [c.name for c in milestoned.primary_key] == ["ID"]
+    # add_column makes a key the same way
+    table = Table("t")
+    key = table.add_column("ID", "INT", primary_key=True)
+    assert table.primary_key == [key] and not key.nullable

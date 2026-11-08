@@ -60,10 +60,8 @@ def _map_type(iceberg_type: IcebergType) -> str:
 def schema_to_table(schema: Schema, table_name: str) -> Table:
     """Convert a pyiceberg Schema to a relational Table."""
     identifier_ids = set(schema.identifier_field_ids)
-    table = Table(table_name)
-    for field in schema.fields:
-        table.add_column(field.name, _map_type(field.field_type), primary_key=field.field_id in identifier_ids)
-    return table
+    return Table(table_name, [(field.name, _map_type(field.field_type)) for field in schema.fields],
+                 primary_key=[field.name for field in schema.fields if field.field_id in identifier_ids])
 
 
 def load_schema_from_dict(schema_dict: dict, table_name: str) -> Table:
