@@ -918,8 +918,21 @@ class DateDiffOperation(UnaryOperation, Sortable, Orderable[int]):
 
 
 class Relation:
-    def __init__(self):
-        pass
+    """Something rows are read from, as in Legend: it has columns. A table, a view and a query are relations; a table
+    and a view also have a name (a NamedRelation). As in Legend a column is a RelationalOperationElement: a table's are
+    its Columns, a query's are the expressions it shows."""
+    columns: Sequence[RelationalOperationElement]
+
+    def __init__(self, columns: Sequence[RelationalOperationElement]):
+        self.columns = columns
+
+
+class NamedRelation(Relation):
+    """A relation that has a name: a table or a view."""
+
+    def __init__(self, name: str, columns: Sequence[RelationalOperationElement]):
+        Relation.__init__(self, columns)
+        self.name = name
 
 
 class MilestoningScheme:
@@ -1003,18 +1016,31 @@ class ForeignKey:
         self.references = references
 
 
-class Table(Relation):
+class TableAlias(NamedRelation):
+    """A relation under a name where it is used, as in Legend and as ANSI SQL's ``<table reference>`` with its
+    ``<correlation name>``: ``(query) AS relation1``. It has the columns of the relation it names, and what reads those
+    columns says which alias they belong to by its name. A table is already named, so this is for a relation that is not:
+    a query."""
+    relation: Relation
+
+    def __init__(self, relation: Relation, name: str):
+        super().__init__(name, relation.columns)
+        self.relation = relation
+
+
+class Table(NamedRelation):
+    columns: Sequence[Column]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    # (a table's columns are Columns, as Legend's are: narrower than a relation's elements, never assigned from outside)
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
 
     def __init__(self, name: str, columns: list[Column], schema: 'Schema | None' = None):
-        super().__init__()
+        super().__init__(name, list(columns))
         self._columns_by_name: dict[str, Column] = {}
         for col in columns:
             if col.name in self._columns_by_name:
                 raise ValueError(f"Duplicate column name '{col.name}' in table '{name}'")
             self._columns_by_name[col.name] = col
-        self.name = name
         self.schema = schema
         self.foreign_keys: list[ForeignKey] = []
         # for a table no class is mapped to but a join passes through: how its rows are milestoned
@@ -1023,10 +1049,6 @@ class Table(Relation):
             col.table = self
         if schema is not None:
             schema.tables.append(self)
-
-    @property
-    def columns(self) -> list[Column]:
-        return list(self._columns_by_name.values())
 
     @property
     def qualified_name(self) -> str:
@@ -1148,9 +1170,12 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
         return LogicalOperation(self, LogicalOperator.OR, other)
 
 
-class QueryExpression:
+class QueryExpression(Relation):
     """What ANSI SQL calls a ``<query expression>``: a query that returns rows and can be used where a table is, as a
     view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT.
+
+    It is a relation, as Legend's select is: its columns are what it shows. It has no name of its own: a TableAlias
+    gives it one where it is used.
 
     It has no ORDER BY or row limit: a table is a set of rows with no order. An OrderedQuerySpecification adds those."""
 
@@ -1162,10 +1187,10 @@ class QuerySpecification(QueryExpression):
     row limit; an OrderedQuerySpecification, which is run rather than stored, sets them.
     """
 
-    def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
+    def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
                  group_by: list | None = None, table: 'Table | None' = None, distinct: bool = False,
                  having: Operation | None = None):
-        self.display = display
+        Relation.__init__(self, columns)  # not super(): a View is also a NamedRelation
         self.filter = filter
         self.group_by = group_by or []
         self.table = table
@@ -1180,7 +1205,7 @@ class QuerySpecification(QueryExpression):
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
-        return [*self.display, *self.group_by, self.filter]
+        return [*self.columns, *self.group_by, self.filter]
 
 
 class OrderedQuerySpecification(QuerySpecification):
@@ -1190,17 +1215,17 @@ class OrderedQuerySpecification(QuerySpecification):
     part of a ``<query expression>`` and so cannot be in a view definition. (SQL:2008 added the offset and fetch
     first clauses to the same place.)"""
 
-    def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
+    def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
                  order_by: list[SortOperation] | None = None, group_by: list | None = None,
                  limit: int | None = None, table: 'Table | None' = None, distinct: bool = False,
                  offset: int | None = None, having: Operation | None = None):
-        super().__init__(display, filter, group_by, table, distinct, having)
+        super().__init__(columns, filter, group_by, table, distinct, having)
         self.order_by = order_by or []
         self.limit = limit
         self.offset = offset
 
     def expressions(self) -> list[RelationalOperationElement]:
-        return [*self.display, *self.group_by, *self.order_by, self.filter]
+        return [*self.columns, *self.group_by, *self.order_by, self.filter]
 
 
 class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['UntypedAggregateOperation']):
