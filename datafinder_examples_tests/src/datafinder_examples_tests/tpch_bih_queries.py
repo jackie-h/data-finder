@@ -146,9 +146,9 @@ def _parts_supplier_relationship(ps, p):
         p.APP_TIME, p.SYS_TIME,
         [part.brand().alias("p_brand"), part.type_().alias("p_type"), part.size().alias("p_size"),
          supplier.supplier_key().count_distinct().alias("supplier_cnt")],
-        part.brand().ne("Brand#45").and_(part.type_().not_like("MEDIUM POLISHED%"))
+        part.brand().ne("Brand#45").and_(~part.type_().starts_with("MEDIUM POLISHED"))
         .and_(part.size().is_in([49, 14, 23, 45, 19, 3, 36, 9]))
-        .and_(supplier.comment().not_like("%Customer%Complaints%")),
+        .and_(~supplier.comment().matches("Customer.*Complaints")),
     ).group_by(part.brand(), part.type_(), part.size()).order_by(
         supplier.supplier_key().count_distinct().descending(), part.brand().ascending(), part.type_().ascending(),
         part.size().ascending())
