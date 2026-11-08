@@ -3,9 +3,9 @@ Ported from legend-engine core_relational ``milestoning/tests/testProcessingSnap
 
 A processing snapshot table has one datetime column holding the processing time each row was taken at, which a
 query's processing time must equal. Legend's ``Product.all(%date)`` is ``find_all(None, date, ...)``, its
-``allVersionsInRange(from, to)`` is ``find_for_processing_range(from, to, None, ...)``, and a processing time reaches
-every milestoned table the query joins to, so an ``Order`` (which has no milestoning) given one reads the product at that
-time, as Legend's ``$o.processingTemporalProduct(%date)`` does.
+``allVersionsInRange(from, to)`` is ``find_for_processing_range(from, to, None, ...)``, and an ``Order`` has no
+milestoning, so a query of orders takes no time: the time is given to the property,
+``f.processing_temporal_product(processing_time=...)``, as in Legend's ``$o.processingTemporalProduct(%date)``.
 
 Legend's ``snapshotDate`` is a DATE, so it writes the date and cuts a DateTime to its date. A processing time here is a
 whole datetime, so a date is midnight and a DateTime is kept as given: the SQL differs in how the literal is written, and
@@ -23,6 +23,13 @@ from datafinder_legend_tests.legend import (
 )
 
 _SRC = "milestoning/tests/testProcessingSnapshotMilestoning.pure"
+
+
+def _product_at(f, time, columns_and_filter):
+    """The orders' product as of ``time``: the one step is used for the filter and the columns, as in Legend's
+    ``$o.processingTemporalProduct(%date)`` that is written twice."""
+    columns, condition = columns_and_filter(f.processing_temporal_product(processing_time=time))
+    return f.find_all(columns, condition)
 _MAPPING = "milestoning/tests/processing_snapshot_mapping.md"
 _T = datetime.datetime(2015, 8, 26, 2, 0, 0)
 
@@ -82,10 +89,10 @@ PROCESSING_SNAPSHOT_ORDER_SPECS = FinderSpec(
     expectations=[
         ported("testQueryOnNonTemporalRootWithTemporalProperty", f"{_SRC}::testQueryOnNonTemporalRootWithTemporalProperty",
                'select "producttablewithprocessingsnapshotmilestoning_0".id as "id" from OrderTable as "root" left outer join ProductTableWithProcessingSnapshotMilestoning as "producttablewithprocessingsnapshotmilestoning_0" on ("root".prodFk = "producttablewithprocessingsnapshotmilestoning_0".id and "producttablewithprocessingsnapshotmilestoning_0".snapshotDate = \'2015-08-26\') where "producttablewithprocessingsnapshotmilestoning_0".name = \'ProductName1\'',
-               lambda f: f.find_all(None, "2015-08-26", [f.processing_temporal_product().id_()], f.processing_temporal_product().name().eq("ProductName1"))),
+               lambda f: _product_at(f, "2015-08-26", lambda p: ([p.id_()], p.name().eq("ProductName1")))),
         ported("testQueryWithPropagationOnNonTemporalRootWithTemporalProperty", f"{_SRC}::testQueryWithPropagationOnNonTemporalRootWithTemporalProperty",
                'select "productclassificationtablewithprocessingsnapshotmilestoning_1".type as "type" from OrderTable as "root" left outer join ProductTableWithProcessingSnapshotMilestoning as "producttablewithprocessingsnapshotmilestoning_0" on ("root".prodFk = "producttablewithprocessingsnapshotmilestoning_0".id and "producttablewithprocessingsnapshotmilestoning_0".snapshotDate = \'2015-08-26\') left outer join ProductClassificationTableWithProcessingSnapshotMilestoning as "productclassificationtablewithprocessingsnapshotmilestoning_0" on ("producttablewithprocessingsnapshotmilestoning_0".type = "productclassificationtablewithprocessingsnapshotmilestoning_0".type and "productclassificationtablewithprocessingsnapshotmilestoning_0".snapshotDate = \'2015-08-26\') left outer join (select "productclassificationtablewithprocessingsnapshotmilestoning_2".type as type from ProductClassificationTableWithProcessingSnapshotMilestoning as "productclassificationtablewithprocessingsnapshotmilestoning_2" where "productclassificationtablewithprocessingsnapshotmilestoning_2".snapshotDate = \'2015-08-26\') as "productclassificationtablewithprocessingsnapshotmilestoning_1" on ("producttablewithprocessingsnapshotmilestoning_0".type = "productclassificationtablewithprocessingsnapshotmilestoning_1".type) where "productclassificationtablewithprocessingsnapshotmilestoning_0".type_description = \'STOCK DESC-V2\'',
-               lambda f: f.find_all(None, "2015-08-26", [f.processing_temporal_product().classification().type_()], f.processing_temporal_product().classification().description().eq("STOCK DESC-V2")),
+               lambda f: _product_at(f, "2015-08-26", lambda p: ([p.classification().type_()], p.classification().description().eq("STOCK DESC-V2"))),
                known_gaps={BACKEND: SECOND_JOIN_FOR_PROJECTED_MILESTONED_PROPERTY}),
         unsupported("testUnionQueryOnNonTemporalRootWithTemporalProperty", f"{_SRC}::testUnionQueryOnNonTemporalRootWithTemporalProperty",
                     'select "unionalias_1"."ProductTableWithProcessingSnapshotMilestoningid_ProductTableWithProcessingSnapshotMilestoningid" as "id" from (select "root".prodFk as prodFk_0, null as prodFk_1, "root".id as "pk_0_0", null as "pk_0_1" from OrderTable as "root" UNION ALL select null as prodFk_0, "root".prodFk as prodFk_1, null as "pk_0_0", "root".id as "pk_0_1" from OrderTable as "root") as "unionBase" left outer join (select "root".snapshotDate as "snapshotDate_0", null as "snapshotDate_1", "root".id as id, "root".name as "ProductTableWithProcessingSnapshotMilestoningname_ProductTableWithProcessingSnapshotMilestoningname", "root".id as "ProductTableWithProcessingSnapshotMilestoningid_ProductTableWithProcessingSnapshotMilestoningid" from ProductTableWithProcessingSnapshotMilestoning as "root" where "root".snapshotDate = \'2015-08-26\' UNION ALL select null as "snapshotDate_0", "root".snapshotDate as "snapshotDate_1", "root".id as id, "root".name as "ProductTableWithProcessingSnapshotMilestoningname_ProductTableWithProcessingSnapshotMilestoningname", "root".id as "ProductTableWithProcessingSnapshotMilestoningid_ProductTableWithProcessingSnapshotMilestoningid" from ProductTableWithProcessingSnapshotMilestoning as "root" where "root".snapshotDate = \'2015-08-26\') as "unionalias_1" on (("unionBase".prodFk_0 = "unionalias_1".id or "unionBase".prodFk_1 = "unionalias_1".id) and (coalesce("unionalias_1"."snapshotDate_0", "unionalias_1"."snapshotDate_1") = \'2015-08-26\' or coalesce("unionalias_1"."snapshotDate_0", "unionalias_1"."snapshotDate_1") is null)) where "unionalias_1"."ProductTableWithProcessingSnapshotMilestoningname_ProductTableWithProcessingSnapshotMilestoningname" = \'ProductName1\'',

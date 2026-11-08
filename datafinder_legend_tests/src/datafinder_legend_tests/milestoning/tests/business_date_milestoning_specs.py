@@ -157,11 +157,11 @@ BUSINESS_DATE_ORDER_SPECS = FinderSpec(
     expectations=[
         ported("testNonMilestoningQueryWithMilestoneFilterProject", f"{_SRC}::testNonMilestoningQueryWithMilestoneFilterProject",
                'select "root".id as "orderId", "producttable_2".name as "productName" from OrderTable as "root" left outer join (select distinct "producttable_1".id from ProductTable as "producttable_1" where "producttable_1".from_z <= \'2015-10-15\' and "producttable_1".thru_z > \'2015-10-15\' and "producttable_1".id = 2) as "producttable_0" on ("root".prodFk = "producttable_0".id) left outer join ProductTable as "producttable_2" on ("root".prodFk = "producttable_2".id and "producttable_2".from_z <= \'2015-10-15\' and "producttable_2".thru_z > \'2015-10-15\') where "producttable_0".id is not null',
-               lambda f: f.find_all(None, None, [f.id_(), f.product(business_date="2015-10-15").name()], f.product(business_date="2015-10-15", id=2).exists()),
+               lambda f: f.find_all([f.id_(), f.product(business_date="2015-10-15").name()], f.product(business_date="2015-10-15", id=2).exists()),
                known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
         ported("testNonMilestoningQueryWithMilestoneFilterProjectUsingSamePropertyWithDifferentDates", f"{_SRC}::testNonMilestoningQueryWithMilestoneFilterProjectUsingSamePropertyWithDifferentDates",
                'select "root".id as "orderId", "producttable_2".name as "productName" from OrderTable as "root" left outer join (select distinct "producttable_1".id from ProductTable as "producttable_1" where "producttable_1".from_z <= \'2015-10-15\' and "producttable_1".thru_z > \'2015-10-15\' and "producttable_1".id = 2) as "producttable_0" on ("root".prodFk = "producttable_0".id) left outer join ProductTable as "producttable_2" on ("root".prodFk = "producttable_2".id and "producttable_2".from_z <= \'2015-10-16\' and "producttable_2".thru_z > \'2015-10-16\') where "producttable_0".id is not null',
-               lambda f: f.find_all(None, None, [f.id_(), f.product(business_date="2015-10-16").name()], f.product(business_date="2015-10-15", id=2).exists()),
+               lambda f: f.find_all([f.id_(), f.product(business_date="2015-10-16").name()], f.product(business_date="2015-10-15", id=2).exists()),
                known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
     ],
 )
