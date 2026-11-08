@@ -77,7 +77,7 @@ def _sort_target(sort_op: SortOperation) -> tuple:
     while node is not None:
         joins.append(node.join.name)
         node = node.parent
-    return column.column.owner, column.column.name, tuple(joins)
+    return column.column.owner_name, column.column.name, tuple(joins)
 
 
 class FinderResult(DataFrame):
