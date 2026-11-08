@@ -40,29 +40,35 @@ class Aggregates:
     """Aggregates of an expression, as a column has them: ``(f.price() * f.quantity()).sum()``, ``constant(1).sum()``,
     ``when(...).then(5.0).otherwise(1.0).sum()``."""
 
-    def _aggregate(self, operator: 'AggregateOperator', label: str) -> 'AggregateOperation':
-        return AggregateOperation(self._arithmetic_operand(), operator, label + ' Expression')  # type: ignore[attr-defined]
+    def _aggregate(self, operator: 'AggregateOperator', label: str,
+                   kind: 'type[AggregateOperation] | None' = None) -> 'AggregateOperation':
+        return (kind or UntypedAggregateOperation)(
+            self._arithmetic_operand(), operator, label + ' Expression')  # type: ignore[attr-defined]
 
-    def sum(self) -> 'AggregateOperation':
-        return self._aggregate(AggregateOperator.SUM, 'Sum')
+    # an expression whose type is not known gives an untyped sum, minimum and maximum; a count is an integer, and an
+    # average, standard deviation and variance are floating point, whatever the type
+    def sum(self) -> 'UntypedAggregateOperation':
+        return self._aggregate(AggregateOperator.SUM, 'Sum')  # type: ignore[return-value]
 
-    def min(self) -> 'AggregateOperation':
-        return self._aggregate(AggregateOperator.MIN, 'Min')
+    def min(self) -> 'UntypedAggregateOperation':
+        return self._aggregate(AggregateOperator.MIN, 'Min')  # type: ignore[return-value]
 
-    def max(self) -> 'AggregateOperation':
-        return self._aggregate(AggregateOperator.MAX, 'Max')
+    def max(self) -> 'UntypedAggregateOperation':
+        return self._aggregate(AggregateOperator.MAX, 'Max')  # type: ignore[return-value]
 
-    def average(self) -> 'AggregateOperation':
-        return self._aggregate(AggregateOperator.AVERAGE, 'Average')
+    def average(self) -> 'DoubleAggregateOperation':
+        return self._aggregate(AggregateOperator.AVERAGE, 'Average', DoubleAggregateOperation)  # type: ignore[return-value]
 
-    def count(self) -> 'AggregateOperation':
-        return self._aggregate(AggregateOperator.COUNT, 'Count')
+    def count(self) -> 'IntegerAggregateOperation':
+        return self._aggregate(AggregateOperator.COUNT, 'Count', IntegerAggregateOperation)  # type: ignore[return-value]
 
-    def std(self, ddof: int = 1) -> 'AggregateOperation':
-        return self._aggregate(AggregateOperator.STDDEV_SAMP if _sample(ddof) else AggregateOperator.STDDEV_POP, 'Std')
+    def std(self, ddof: int = 1) -> 'DoubleAggregateOperation':
+        return self._aggregate(AggregateOperator.STDDEV_SAMP if _sample(ddof) else AggregateOperator.STDDEV_POP, 'Std',
+                               DoubleAggregateOperation)  # type: ignore[return-value]
 
-    def var(self, ddof: int = 1) -> 'AggregateOperation':
-        return self._aggregate(AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP, 'Var')
+    def var(self, ddof: int = 1) -> 'DoubleAggregateOperation':
+        return self._aggregate(AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP, 'Var',
+                               DoubleAggregateOperation)  # type: ignore[return-value]
 
 
 def _sample(ddof: int) -> bool:
@@ -79,11 +85,11 @@ class BooleanAggregates:
     def __invert__(self) -> 'NotOperation':
         return NotOperation(self)  # type: ignore[arg-type]
 
-    def all(self) -> 'AggregateOperation':
-        return AggregateOperation(self, AggregateOperator.BOOL_AND, 'All Expression')  # type: ignore[arg-type]
+    def all(self) -> 'BooleanAggregateOperation':
+        return BooleanAggregateOperation(self, AggregateOperator.BOOL_AND, 'All Expression')  # type: ignore[arg-type]
 
-    def any(self) -> 'AggregateOperation':
-        return AggregateOperation(self, AggregateOperator.BOOL_OR, 'Any Expression')  # type: ignore[arg-type]
+    def any(self) -> 'BooleanAggregateOperation':
+        return BooleanAggregateOperation(self, AggregateOperator.BOOL_OR, 'Any Expression')  # type: ignore[arg-type]
 
 
 class Operation(RelationalOperationElement, Aliasable):
@@ -502,7 +508,10 @@ class WindowSpecification:
         self.order_by = order_by or []
 
 
-class AggregateOperation(UnaryOperation, Arithmetic, Sortable, Comparable, StringPredicates):
+class AggregateOperation(UnaryOperation, Sortable):
+    """An aggregate of an expression. What it can then be compared with or have done to it depends on the type it gives,
+    so that is a subclass: Integer, Double, Decimal, String, Boolean, Date or DateTime AggregateOperation, or
+    UntypedAggregateOperation when the type of what it aggregates is not known."""
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
@@ -516,8 +525,41 @@ class AggregateOperation(UnaryOperation, Arithmetic, Sortable, Comparable, Strin
         self.order_by = order_by or []
 
     def over(self, partition_by=None, order_by=None):
-        return AggregateOperation(self.element, self.operator, self.display_name,
-                                  WindowSpecification(partition_by, order_by), self.separator, self.order_by)
+        return type(self)(self.element, self.operator, self.display_name,
+                          WindowSpecification(partition_by, order_by), self.separator, self.order_by)
+
+
+class UntypedAggregateOperation(AggregateOperation, Arithmetic, Comparable, StringPredicates):
+    """An aggregate of an expression whose type is not known here, so it takes any comparison."""
+
+
+class IntegerAggregateOperation(AggregateOperation, Arithmetic, Orderable[int]):
+    """An aggregate that gives a whole number: a count, or the sum, minimum or maximum of an integer."""
+
+
+class DoubleAggregateOperation(AggregateOperation, Arithmetic, Orderable[float]):
+    """An aggregate that gives a floating-point number: an average, standard deviation or variance, or the sum, minimum
+    or maximum of a double."""
+
+
+class DecimalAggregateOperation(AggregateOperation, Arithmetic, Orderable[decimal.Decimal]):
+    """The sum, minimum or maximum of a decimal."""
+
+
+class StringAggregateOperation(AggregateOperation, Equatable[str], StringPredicates):
+    """Text: the values of a group joined, or the minimum or maximum of text."""
+
+
+class BooleanAggregateOperation(AggregateOperation, Equatable[bool]):
+    """Whether every row of a group, or any row, holds."""
+
+
+class DateAggregateOperation(AggregateOperation, Orderable[datetime.date]):
+    """The earliest or latest date of a group."""
+
+
+class DateTimeAggregateOperation(AggregateOperation, Orderable[datetime.datetime | datetime.date]):
+    """The earliest or latest datetime of a group."""
 
 
 class ScalarFunction(Enum):
@@ -841,7 +883,7 @@ class SortOperation(RelationalOperationElement):
         self.direction = direction
 
 
-class CountAllOperation(RelationalOperationElement, Aliasable, Sortable, Comparable):
+class CountAllOperation(RelationalOperationElement, Aliasable, Sortable, Orderable[int]):
     """Represents COUNT(*) — counts all rows without reference to a specific column."""
     def __init__(self, table: str):
         super().__init__()
