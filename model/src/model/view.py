@@ -30,8 +30,11 @@ def contains_aggregate_or_window(op) -> bool:
 
 
 def contains_aggregate(op) -> bool:
-    """True when ``op`` collapses rows: an aggregate or a count. Window functions keep every row."""
-    if isinstance(op, (AggregateOperation, CountAllOperation)):
+    """True when ``op`` collapses rows: an aggregate or a count. Window functions keep every row, and so does an aggregate
+    over a window (``max().over()``)."""
+    if isinstance(op, AggregateOperation):
+        return op.window is None
+    if isinstance(op, CountAllOperation):
         return True
     if isinstance(op, (LogicalOperation, ComparisonOperation)):
         return contains_aggregate(op.left) or contains_aggregate(op.right)
