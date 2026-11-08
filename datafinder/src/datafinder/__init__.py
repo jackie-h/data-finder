@@ -4,7 +4,7 @@ from .output import *
 from .expressions import constant, count_all
 from .conditional import when
 from .runner import *
-from .sql_generator import to_sql, query_sql_to_string, build_query_operation, view_sql_to_string
+from .sql_generator import to_sql, query_sql_to_string, build_query_specification, view_sql_to_string
 from .runner import FinderResult, convert_inputs_and_select_for_date_range, convert_inputs_and_select_for_processing_range
 from model.relational import JoinOperation, WindowFunction, WindowFunctionOperation, WindowSpecification
 from model.view import ViewDefinitionError

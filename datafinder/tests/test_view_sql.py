@@ -96,14 +96,14 @@ def test_rendering_refuses_a_view_whose_joins_fail_the_check():
 
 def test_building_one_query_does_not_change_another_on_a_shared_join():
     from datafinder import StringAttribute
-    from datafinder.sql_generator import build_query_operation, query_sql_to_string
+    from datafinder.sql_generator import build_query_specification, query_sql_to_string
     from model.relational import NoOperation
     root, child = _processing("root"), _processing("child")
     node = _node(child)
     columns = [StringAttribute("Y", "y", "VARCHAR", "child", node)]
 
     def build(year):
-        return build_query_operation(None, datetime.datetime(year, 6, 1, 12), columns, root, NoOperation())
+        return build_query_specification(None, datetime.datetime(year, 6, 1, 12), columns, root, NoOperation())
 
     first = build(2021)
     second = build(2023)
