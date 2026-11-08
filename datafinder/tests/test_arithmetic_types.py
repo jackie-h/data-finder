@@ -8,11 +8,13 @@ from datafinder import DecimalAttribute, DoubleAttribute, IntegerAttribute, Stri
 from model.relational import (
     Column, DecimalArithmeticOperation, DoubleArithmeticOperation, IntegerArithmeticOperation, Table,
     UntypedArithmeticOperation)
+from model.relational import Table as _OwnerTable
+_OWNER_T = _OwnerTable('t', [])
 
-integer = IntegerAttribute("I", "I", "INT", "t")
-other_integer = IntegerAttribute("J", "J", "INT", "t")
-double = DoubleAttribute("D", "D", "DOUBLE", "t")
-money = DecimalAttribute("M", "M", "DECIMAL", "t")
+integer = IntegerAttribute("I", "I", "INT", _OWNER_T)
+other_integer = IntegerAttribute("J", "J", "INT", _OWNER_T)
+double = DoubleAttribute("D", "D", "DOUBLE", _OWNER_T)
+money = DecimalAttribute("M", "M", "DECIMAL", _OWNER_T)
 
 
 def test_integers_stay_integers_for_add_subtract_and_multiply():
@@ -67,7 +69,7 @@ def test_an_expression_of_unknown_kind_is_untyped_and_takes_any_comparison():
 
 
 def test_text_is_not_arithmetic():
-    text = StringAttribute("S", "S", "VARCHAR", "t")
+    text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
     with pytest.raises(TypeError):
         text - 1  # type: ignore[operator]
 

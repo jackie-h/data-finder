@@ -6,12 +6,14 @@ from datafinder_liquibase import to_liquibase_changeset, to_liquibase_changelog,
     to_liquibase_master_changelog
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
 from model.relational import Column
+from model.relational import Table as _OwnerTable
+_OWNER_VT_TRADES = _OwnerTable('vt.trades', [])
 
 
 def _view(name: str = "trades_v", schema: str = "reporting", symbol: str = "AAPL"):
     table = MilestonedTable("vt.trades", [], ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"),
                                                                        Column("out_z", "TIMESTAMP")))
-    sym = StringAttribute("Symbol", "sym", "VARCHAR", "vt.trades")
+    sym = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_VT_TRADES)
     return FinderResult(None, None, [sym], table, sym.eq(symbol)).to_view(name, schema)
 
 

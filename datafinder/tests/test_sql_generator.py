@@ -8,12 +8,36 @@ from datafinder.sql_generator import SQLQueryGenerator, check_view_joins, needs_
 from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute
 from model.relational import Alias, Table, Column, NoOperation, CountAllOperation, JoinOperation, JoinTreeNodeOperation, \
     LogicalOperation, LogicalOperator
+from model.relational import Table as _OwnerTable
+_OWNER_A = _OwnerTable('a', [])
+_OWNER_ACCOUNTS = _OwnerTable('accounts', [])
+_OWNER_ACCOUNT_MASTER = _OwnerTable('account_master', [])
+_OWNER_B = _OwnerTable('b', [])
+_OWNER_BOSS = _OwnerTable('boss', [])
+_OWNER_C = _OwnerTable('c', [])
+_OWNER_CHILD = _OwnerTable('child', [])
+_OWNER_D = _OwnerTable('d', [])
+_OWNER_EMPLOYEES = _OwnerTable('employees', [])
+_OWNER_EVENTS = _OwnerTable('events', [])
+_OWNER_FIRM = _OwnerTable('firm', [])
+_OWNER_INSTRUMENTS = _OwnerTable('instruments', [])
+_OWNER_ORDERS = _OwnerTable('orders', [])
+_OWNER_ORG = _OwnerTable('org', [])
+_OWNER_PARENT = _OwnerTable('parent', [])
+_OWNER_PERSON = _OwnerTable('person', [])
+_OWNER_PLAIN = _OwnerTable('plain', [])
+_OWNER_PRICE = _OwnerTable('price', [])
+_OWNER_RATES = _OwnerTable('rates', [])
+_OWNER_REF_DATA_ACCOUNT_MASTER = _OwnerTable('ref_data.account_master', [])
+_OWNER_T = _OwnerTable('t', [])
+_OWNER_TRADES = _OwnerTable('trades', [])
+_OWNER_TRADING_TRADES = _OwnerTable('trading.trades', [])
 
 
 def _make_table_and_attr():
     col = Column("NAME", "VARCHAR")
     table = Table("accounts", [col])
-    attr = StringAttribute("Name", "NAME", "VARCHAR", "accounts")
+    attr = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_ACCOUNTS)
     return table, attr
 
 
@@ -21,8 +45,8 @@ def _make_multi_col_table():
     name_col = Column("NAME", "VARCHAR")
     id_col = Column("ID", "INT")
     table = Table("accounts", [name_col, id_col])
-    name_attr = StringAttribute("Name", "NAME", "VARCHAR", "accounts")
-    id_attr = IntegerAttribute("Id", "ID", "INT", "accounts")
+    name_attr = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_ACCOUNTS)
+    id_attr = IntegerAttribute("Id", "ID", "INT", _OWNER_ACCOUNTS)
     return table, name_attr, id_attr
 
 
@@ -366,7 +390,7 @@ class TestLimit:
 def _make_double_attr():
     col = Column("PRICE", "DOUBLE")
     table = Table("trades", [col])
-    attr = DoubleAttribute("Price", "PRICE", "DOUBLE", "trades")
+    attr = DoubleAttribute("Price", "PRICE", "DOUBLE", _OWNER_TRADES)
     return table, attr
 
 
@@ -445,14 +469,14 @@ class TestNumericScalarFunctions:
 def _make_date_attr():
     col = Column("TRADE_DATE", "DATE")
     table = Table("trades", [col])
-    attr = DateAttribute("Trade Date", "TRADE_DATE", "DATE", "trades")
+    attr = DateAttribute("Trade Date", "TRADE_DATE", "DATE", _OWNER_TRADES)
     return table, attr
 
 
 def _make_datetime_attr():
     col = Column("CREATED_AT", "TIMESTAMP")
     table = Table("events", [col])
-    attr = DateTimeAttribute("Created At", "CREATED_AT", "TIMESTAMP", "events")
+    attr = DateTimeAttribute("Created At", "CREATED_AT", "TIMESTAMP", _OWNER_EVENTS)
     return table, attr
 
 
@@ -758,7 +782,7 @@ class TestNullEndMilestoning:
     def test_to_sql_with_null_end_contains_is_null(self):
         table = self._make_milestoned_table(infinite_datetime=None)
         from datafinder.typed_attributes import DateTimeAttribute as DTA
-        attr = DTA("start_at", "in_z", "TIMESTAMP", "trades")
+        attr = DTA("start_at", "in_z", "TIMESTAMP", _OWNER_TRADES)
         dt = datetime.datetime(2024, 6, 1, 12, 0, 0)
         sql = to_sql(None, dt, [attr], table, NoOperation())
         assert "IS NULL" in sql
@@ -775,7 +799,7 @@ class TestProcessingDateRendering:
 
     def _sql(self, processing):
         from datafinder.typed_attributes import DateTimeAttribute as DTA
-        return to_sql(None, processing, [DTA("start_at", "in_z", "TIMESTAMP", "trades")], self._table(), NoOperation())
+        return to_sql(None, processing, [DTA("start_at", "in_z", "TIMESTAMP", _OWNER_TRADES)], self._table(), NoOperation())
 
     def test_date_is_a_date_literal(self):
         sql = self._sql(datetime.date(2017, 6, 11))
@@ -801,7 +825,7 @@ class TestProcessingDateRendering:
 
     def test_datetime_attribute_compares_with_a_date(self):
         from datafinder.typed_attributes import DateTimeAttribute as DTA
-        attr = DTA("start_at", "in_z", "TIMESTAMP", "trades")
+        attr = DTA("start_at", "in_z", "TIMESTAMP", _OWNER_TRADES)
         for op, text in ((attr <= datetime.date(2017, 6, 11), "<="), (attr > datetime.date(2017, 6, 11), ">"),
                          (attr == datetime.date(2017, 6, 11), "=")):
             assert f" {text} '2017-06-11'" in SQLQueryGenerator().build_filter(op)
@@ -813,13 +837,13 @@ class TestImplicitGroupBy:
 
     @staticmethod
     def _firm_and_employee_ages(many: bool = True, root_key: bool = True):
-        id_col = Column("ID", "INT", "firm", primary_key=root_key)
-        root = Table("firm", [id_col, Column("LEGALNAME", "VARCHAR", "firm")])
+        id_col = Column("ID", "INT", _OWNER_FIRM, primary_key=root_key)
+        root = Table("firm", [id_col, Column("LEGALNAME", "VARCHAR", _OWNER_FIRM)])
         employees = Table("person", [])
-        join = JoinOperation("Employees", employees, Column("ID", "INT", "firm"), Column("FIRMID", "INT", "person"))
+        join = JoinOperation("Employees", employees, Column("ID", "INT", _OWNER_FIRM), Column("FIRMID", "INT", _OWNER_PERSON))
         node = JoinTreeNodeOperation(join, many=many)
-        name = StringAttribute("Legal Name", "LEGALNAME", "VARCHAR", "firm")
-        age = IntegerAttribute("Employees Age", "AGE", "INT", "person", node)
+        name = StringAttribute("Legal Name", "LEGALNAME", "VARCHAR", _OWNER_FIRM)
+        age = IntegerAttribute("Employees Age", "AGE", "INT", _OWNER_PERSON, node)
         return root, name, age
 
     def _tail(self, sql):
@@ -827,13 +851,13 @@ class TestImplicitGroupBy:
 
     def test_aggregate_with_a_plain_column_groups_by_the_plain_column(self):
         root, name, _ = self._firm_and_employee_ages()
-        price = DoubleAttribute("Price", "PRICE", "DOUBLE", "firm")
+        price = DoubleAttribute("Price", "PRICE", "DOUBLE", _OWNER_FIRM)
         sql = to_sql(None, None, [name, price.sum()], root, NoOperation())
         assert sql.endswith("GROUP BY t0.LEGALNAME")
 
     def test_only_aggregates_over_the_root_are_not_grouped(self):
         root, _, _ = self._firm_and_employee_ages()
-        price = DoubleAttribute("Price", "PRICE", "DOUBLE", "firm")
+        price = DoubleAttribute("Price", "PRICE", "DOUBLE", _OWNER_FIRM)
         assert "GROUP BY" not in to_sql(None, None, [price.sum(), price.average()], root, NoOperation())
 
     def test_count_all_with_a_plain_column_groups_by_the_plain_column(self):
@@ -873,7 +897,7 @@ class TestImplicitGroupBy:
 
     def test_a_plain_column_that_is_the_root_key_is_grouped_once(self):
         root, _, age = self._firm_and_employee_ages()
-        key = IntegerAttribute("Id", "ID", "INT", "firm")
+        key = IntegerAttribute("Id", "ID", "INT", _OWNER_FIRM)
         sql = to_sql(None, None, [key, age.average()], root, NoOperation())
         assert sql.endswith("GROUP BY t0.ID")
 
@@ -884,7 +908,7 @@ class TestImplicitGroupBy:
 
     def test_window_functions_are_not_grouped(self):
         root, name, _ = self._firm_and_employee_ages()
-        price = DoubleAttribute("Price", "PRICE", "DOUBLE", "firm")
+        price = DoubleAttribute("Price", "PRICE", "DOUBLE", _OWNER_FIRM)
         sql = to_sql(None, None, [name, price.rank(), price.sum()], root, NoOperation())
         assert sql.endswith("GROUP BY t0.LEGALNAME")
 
@@ -894,8 +918,8 @@ class TestStringLiteralsAreEscaped:
 
     @staticmethod
     def _where(op):
-        table = Table("t", [Column("name", "VARCHAR", "t")])
-        attr = StringAttribute("Name", "name", "VARCHAR", "t")
+        table = Table("t", [Column("name", "VARCHAR", _OWNER_T)])
+        attr = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
         return to_sql(None, None, [attr], table, op(attr)).split(" WHERE ")[1]
 
     def test_eq(self):
@@ -911,8 +935,8 @@ class TestStringLiteralsAreEscaped:
         assert self._where(lambda a: a.is_in(["a'b", "c"])) == "t0.name IN ('a''b', 'c')"
 
     def test_function_arguments(self):
-        table = Table("t", [Column("name", "VARCHAR", "t")])
-        attr = StringAttribute("Name", "name", "VARCHAR", "t")
+        table = Table("t", [Column("name", "VARCHAR", _OWNER_T)])
+        attr = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
         quote, doubled = "'" * 4, "'" * 6
         sql = to_sql(None, None, [attr.replace("'", "''")], table, NoOperation())
         assert sql.startswith(f"SELECT REPLACE(t0.name, {quote}, {doubled})")
@@ -921,14 +945,14 @@ class TestStringLiteralsAreEscaped:
 class TestCountDistinct:
 
     def test_count_distinct(self):
-        a = StringAttribute("A", "a", "VARCHAR", "t")
-        sql = to_sql(None, None, [a.count_distinct()], Table("t", [Column("a", "VARCHAR", "t")]), NoOperation())
+        a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
+        sql = to_sql(None, None, [a.count_distinct()], Table("t", [Column("a", "VARCHAR", _OWNER_T)]), NoOperation())
         assert sql == 'SELECT COUNT(DISTINCT t0.a) AS "A Count Distinct" FROM t AS t0'
 
     def test_with_group_by(self):
-        a = StringAttribute("A", "a", "VARCHAR", "t")
-        b = StringAttribute("B", "b", "VARCHAR", "t")
-        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "VARCHAR", "t")])
+        a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
+        b = StringAttribute("B", "b", "VARCHAR", _OWNER_T)
+        table = Table("t", [Column("a", "VARCHAR", _OWNER_T), Column("b", "VARCHAR", _OWNER_T)])
         sql = to_sql(None, None, [b, a.count_distinct()], table, NoOperation(), group_by=[b])
         assert "COUNT(DISTINCT t0.a)" in sql and sql.endswith("GROUP BY t0.b")
 
@@ -937,12 +961,12 @@ class TestJoin:
 
     @staticmethod
     def _sql(*columns, **kwargs):
-        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "VARCHAR", "t")])
+        table = Table("t", [Column("a", "VARCHAR", _OWNER_T), Column("b", "VARCHAR", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation(), **kwargs)
 
     @staticmethod
     def _ab():
-        return StringAttribute("A", "a", "VARCHAR", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+        return StringAttribute("A", "a", "VARCHAR", _OWNER_T), StringAttribute("B", "b", "VARCHAR", _OWNER_T)
 
     def test_separator_only(self):
         a, _ = self._ab()
@@ -970,12 +994,12 @@ class TestArithmetic:
 
     @staticmethod
     def _sql(*columns):
-        table = Table("t", [Column("a", "DOUBLE", "t"), Column("b", "DOUBLE", "t")])
+        table = Table("t", [Column("a", "DOUBLE", _OWNER_T), Column("b", "DOUBLE", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation())
 
     @staticmethod
     def _ab():
-        return DoubleAttribute("A", "a", "DOUBLE", "t"), DoubleAttribute("B", "b", "DOUBLE", "t")
+        return DoubleAttribute("A", "a", "DOUBLE", _OWNER_T), DoubleAttribute("B", "b", "DOUBLE", _OWNER_T)
 
     def test_operators(self):
         a, b = self._ab()
@@ -1017,19 +1041,19 @@ class TestArithmetic:
 
     def test_a_function_that_gives_text_is_not_a_number(self):
         with pytest.raises(TypeError, match="Text is joined with text"):
-            StringAttribute("Name", "name", "VARCHAR", "t").upper() + 1  # type: ignore[operator]
+            StringAttribute("Name", "name", "VARCHAR", _OWNER_T).upper() + 1  # type: ignore[operator]
 
 
 class TestConcat:
 
     @staticmethod
     def _sql(*columns):
-        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "VARCHAR", "t")])
+        table = Table("t", [Column("a", "VARCHAR", _OWNER_T), Column("b", "VARCHAR", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation())
 
     @staticmethod
     def _ab():
-        return StringAttribute("A", "a", "VARCHAR", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+        return StringAttribute("A", "a", "VARCHAR", _OWNER_T), StringAttribute("B", "b", "VARCHAR", _OWNER_T)
 
     def test_two_columns(self):
         a, b = self._ab()
@@ -1056,7 +1080,7 @@ class TestConcat:
             a + 1  # type: ignore[operator]
 
     def test_numbers_still_add(self):
-        n = IntegerAttribute("N", "n", "INT", "t")
+        n = IntegerAttribute("N", "n", "INT", _OWNER_T)
         assert self._sql(n + 1) == 'SELECT t0.n + 1 AS "Expression" FROM t AS t0'
 
 
@@ -1065,12 +1089,12 @@ class TestChainedFunctions:
 
     @staticmethod
     def _sql(*columns):
-        table = Table("t", [Column("name", "VARCHAR", "t"), Column("n", "DOUBLE", "t")])
+        table = Table("t", [Column("name", "VARCHAR", _OWNER_T), Column("n", "DOUBLE", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation())
 
     @staticmethod
     def _cols():
-        return StringAttribute("Name", "name", "VARCHAR", "t"), DoubleAttribute("N", "n", "DOUBLE", "t")
+        return StringAttribute("Name", "name", "VARCHAR", _OWNER_T), DoubleAttribute("N", "n", "DOUBLE", _OWNER_T)
 
     def test_text_functions_chain(self):
         name, _ = self._cols()
@@ -1109,12 +1133,12 @@ class TestExpressionFilters:
 
     @staticmethod
     def _where(op):
-        table = Table("t", [Column("a", "DOUBLE", "t"), Column("n", "VARCHAR", "t")])
-        return to_sql(None, None, [DoubleAttribute("A", "a", "DOUBLE", "t")], table, op).split(" WHERE ")[1]
+        table = Table("t", [Column("a", "DOUBLE", _OWNER_T), Column("n", "VARCHAR", _OWNER_T)])
+        return to_sql(None, None, [DoubleAttribute("A", "a", "DOUBLE", _OWNER_T)], table, op).split(" WHERE ")[1]
 
     @staticmethod
     def _cols():
-        return DoubleAttribute("A", "a", "DOUBLE", "t"), StringAttribute("N", "n", "VARCHAR", "t")
+        return DoubleAttribute("A", "a", "DOUBLE", _OWNER_T), StringAttribute("N", "n", "VARCHAR", _OWNER_T)
 
     def test_a_function(self):
         _, n = self._cols()
@@ -1156,16 +1180,16 @@ class TestExpressionFilters:
 class TestSortByAnAggregate:
 
     def test_order_by_an_aggregate(self):
-        key = StringAttribute("Category", "category", "VARCHAR", "t")
-        n = IntegerAttribute("Id", "id", "INT", "t")
-        table = Table("t", [Column("category", "VARCHAR", "t"), Column("id", "INT", "t")])
+        key = StringAttribute("Category", "category", "VARCHAR", _OWNER_T)
+        n = IntegerAttribute("Id", "id", "INT", _OWNER_T)
+        table = Table("t", [Column("category", "VARCHAR", _OWNER_T), Column("id", "INT", _OWNER_T)])
         sql = to_sql(None, None, [key, n.count()], table, NoOperation(), order_by=[n.count().descending(), key.ascending()],
                      group_by=[key])
         assert sql.endswith("GROUP BY t0.category ORDER BY COUNT(t0.id) DESC, t0.category ASC")
 
     def test_order_by_a_sum(self):
-        n = IntegerAttribute("Id", "id", "INT", "t")
-        table = Table("t", [Column("id", "INT", "t")])
+        n = IntegerAttribute("Id", "id", "INT", _OWNER_T)
+        table = Table("t", [Column("id", "INT", _OWNER_T)])
         sql = to_sql(None, None, [n.sum()], table, NoOperation(), order_by=[n.sum().ascending()])
         assert sql.endswith("ORDER BY SUM(t0.id) ASC")
 
@@ -1174,33 +1198,33 @@ class TestConditionAsColumn:
 
     @staticmethod
     def _sql(*columns):
-        table = Table("t", [Column("a", "INT", "t"), Column("b", "VARCHAR", "t")])
+        table = Table("t", [Column("a", "INT", _OWNER_T), Column("b", "VARCHAR", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation())
 
     def test_a_comparison(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
         assert self._sql(a > 3) == 'SELECT t0.a > 3 AS "Expression" FROM t AS t0'
 
     def test_and_or_and_null_checks(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
-        b = StringAttribute("B", "b", "VARCHAR", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
+        b = StringAttribute("B", "b", "VARCHAR", _OWNER_T)
         assert self._sql(a.eq(1).or_(b.eq("x")).and_(a > 0), b.is_none(), b.is_not_none()) == \
             """SELECT (t0.a = 1 OR t0.b = 'x') AND t0.a > 0 AS "Expression",t0.b IS NULL AS "Expression",""" \
             """t0.b IS NOT NULL AS "Expression" FROM t AS t0"""
 
     def test_is_in(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
         assert self._sql(a.is_in([1, 2])) == 'SELECT t0.a IN (1, 2) AS "Expression" FROM t AS t0'
 
     def test_expression_is_in_and_is_not_in(self):
-        b = StringAttribute("B", "b", "VARCHAR", "t")
+        b = StringAttribute("B", "b", "VARCHAR", _OWNER_T)
         assert "SUBSTR" in self._sql(b.substring(0, 2).is_in(["ab"])) and " IN ('ab')" in self._sql(b.substring(0, 2).is_in(["ab"]))
         assert " NOT IN ('ab', 'cd')" in self._sql(b.substring(0, 2).is_not_in(["ab", "cd"]))
         with pytest.raises(ValueError):
             b.substring(0, 2).is_in([])
 
     def test_next_to_a_plain_column(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
         assert self._sql(a, a > 3) == 'SELECT t0.a AS "A",t0.a > 3 AS "Expression" FROM t AS t0'
 
 
@@ -1209,30 +1233,30 @@ class TestAlias:
 
     @staticmethod
     def _select(*columns):
-        return to_sql(None, None, list(columns), Table("t", [Column("a", "INT", "t")]), NoOperation())
+        return to_sql(None, None, list(columns), Table("t", [Column("a", "INT", _OWNER_T)]), NoOperation())
 
     def test_an_attribute_takes_the_alias_as_its_name(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._select(attr.alias("Key")) == 'SELECT t0.id AS "Key" FROM t AS t0'
 
     def test_an_aggregate_takes_the_alias(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._select(attr.sum().alias("Total")) == 'SELECT SUM(t0.id) AS "Total" FROM t AS t0'
 
     def test_a_function_of_a_column_takes_the_alias(self):
-        attr = StringAttribute("Name", "name", "VARCHAR", "t")
+        attr = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
         assert self._select(attr.upper().alias("Loud")) == 'SELECT UPPER(t0.name) AS "Loud" FROM t AS t0'
 
     def test_the_same_column_can_be_named_twice(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._select(attr.alias("A"), attr.alias("B")) == 'SELECT t0.id AS "A",t0.id AS "B" FROM t AS t0'
 
     def test_aliasing_again_replaces_the_name(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._select(attr.alias("A").alias("B")) == 'SELECT t0.id AS "B" FROM t AS t0'
 
     def test_an_alias_does_not_change_the_aliased_column(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         attr.alias("Key")
         assert self._select(attr) == 'SELECT t0.id AS "Id" FROM t AS t0'
 
@@ -1242,7 +1266,7 @@ class TestConstantColumns:
 
     @staticmethod
     def _select(*columns):
-        return to_sql(None, None, list(columns), Table("t", [Column("a", "INT", "t")]), NoOperation())
+        return to_sql(None, None, list(columns), Table("t", [Column("a", "INT", _OWNER_T)]), NoOperation())
 
     def test_types(self):
         from datafinder import constant
@@ -1273,38 +1297,38 @@ class TestConstantColumns:
 class TestFillNull:
 
     def test_a_default(self):
-        attr = StringAttribute("Name", "name", "VARCHAR", "t")
-        sql = to_sql(None, None, [attr.fill_null("N/A")], Table("t", [Column("name", "VARCHAR", "t")]), NoOperation())
+        attr = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
+        sql = to_sql(None, None, [attr.fill_null("N/A")], Table("t", [Column("name", "VARCHAR", _OWNER_T)]), NoOperation())
         assert sql == """SELECT COALESCE(t0.name, 'N/A') AS "Fill Null Name" FROM t AS t0"""
 
     def test_a_number(self):
-        attr = IntegerAttribute("Age", "age", "INT", "t")
-        sql = to_sql(None, None, [attr.fill_null(0)], Table("t", [Column("age", "INT", "t")]), NoOperation())
+        attr = IntegerAttribute("Age", "age", "INT", _OWNER_T)
+        sql = to_sql(None, None, [attr.fill_null(0)], Table("t", [Column("age", "INT", _OWNER_T)]), NoOperation())
         assert sql == """SELECT COALESCE(t0.age, 0) AS "Fill Null Age" FROM t AS t0"""
 
     def test_a_default_is_a_string_number_or_bool(self):
         with pytest.raises(TypeError):
-            StringAttribute("Name", "name", "VARCHAR", "t").fill_null(datetime.date(2020, 1, 1))  # type: ignore[arg-type]
+            StringAttribute("Name", "name", "VARCHAR", _OWNER_T).fill_null(datetime.date(2020, 1, 1))  # type: ignore[arg-type]
 
 
 class TestDistinct:
 
     def test_select_distinct(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
-        sql = to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation(), distinct=True)
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
+        sql = to_sql(None, None, [attr], Table("t", [Column("id", "INT", _OWNER_T)]), NoOperation(), distinct=True)
         assert sql == 'SELECT DISTINCT t0.id AS "Id" FROM t AS t0'
 
     def test_not_distinct_by_default(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
-        assert "DISTINCT" not in to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation())
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
+        assert "DISTINCT" not in to_sql(None, None, [attr], Table("t", [Column("id", "INT", _OWNER_T)]), NoOperation())
 
 
 class TestOffset:
 
     @staticmethod
     def _sql(**kwargs):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
-        return to_sql(None, None, [attr], Table("t", [Column("id", "INT", "t")]), NoOperation(), **kwargs)
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
+        return to_sql(None, None, [attr], Table("t", [Column("id", "INT", _OWNER_T)]), NoOperation(), **kwargs)
 
     def test_offset_alone(self):
         assert self._sql(offset=5).endswith("FROM t AS t0 OFFSET 5")
@@ -1313,7 +1337,7 @@ class TestOffset:
         assert self._sql(limit=2, offset=1).endswith("FROM t AS t0 LIMIT 2 OFFSET 1")
 
     def test_offset_after_order_by(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._sql(order_by=[attr.ascending()], limit=3, offset=2).endswith("ORDER BY t0.id ASC LIMIT 3 OFFSET 2")
 
     def test_no_offset_by_default(self):
@@ -1324,12 +1348,12 @@ class TestIf:
 
     @staticmethod
     def _sql(*columns):
-        table = Table("t", [Column("a", "INT", "t"), Column("b", "VARCHAR", "t")])
+        table = Table("t", [Column("a", "INT", _OWNER_T), Column("b", "VARCHAR", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation())
 
     @staticmethod
     def _ab():
-        return IntegerAttribute("A", "a", "INT", "t"), StringAttribute("B", "b", "VARCHAR", "t")
+        return IntegerAttribute("A", "a", "INT", _OWNER_T), StringAttribute("B", "b", "VARCHAR", _OWNER_T)
 
     def test_two_values(self):
         from datafinder import when
@@ -1383,41 +1407,41 @@ class TestOrFilter:
     """or_() builds an OR like and_() builds an AND, and renders with the parentheses the operators need."""
 
     def _where(self, op):
-        table = Table("t", [Column("id", "INT", "t")])
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        table = Table("t", [Column("id", "INT", _OWNER_T)])
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         return to_sql(None, None, [attr], table, op).split(" WHERE ")[1]
 
     def test_or_of_two_comparisons(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._where(attr.eq(1).or_(attr.eq(2))) == "t0.id = 1 OR t0.id = 2"
 
     def test_a_chain_of_ors_is_flat(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._where(attr.eq(1).or_(attr.eq(2)).or_(attr.eq(3))) == "t0.id = 1 OR t0.id = 2 OR t0.id = 3"
 
     def test_and_after_or_applies_to_the_whole_or(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._where(attr.eq(1).or_(attr.eq(2)).and_(attr.eq(3))) == "(t0.id = 1 OR t0.id = 2) AND t0.id = 3"
 
     def test_or_after_and_applies_to_the_whole_and(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._where(attr.eq(1).and_(attr.eq(2)).or_(attr.eq(3))) == "(t0.id = 1 AND t0.id = 2) OR t0.id = 3"
 
     def test_or_of_ands(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         op = attr.eq(1).and_(attr.eq(2)).or_(attr.eq(3).and_(attr.eq(4)))
         assert self._where(op) == "(t0.id = 1 AND t0.id = 2) OR (t0.id = 3 AND t0.id = 4)"
 
     def test_or_of_null_checks(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert self._where(attr.is_none().or_(attr.eq(1))) == "t0.id IS NULL OR t0.id = 1"
 
     def test_or_is_combined_with_milestoning_as_a_group(self):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
-        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", "t"), Column("out_z", "TIMESTAMP", "t"),
+        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", _OWNER_T), Column("out_z", "TIMESTAMP", _OWNER_T),
                                        infinite_datetime="9999-12-31 23:59:59")
-        table = MilestonedTable("t", [Column("id", "INT", "t")], mc)
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        table = MilestonedTable("t", [Column("id", "INT", _OWNER_T)], mc)
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         sql = to_sql(None, datetime.datetime(2024, 1, 1), [attr], table, attr.eq(1).or_(attr.eq(2)))
         assert sql.endswith("WHERE (t0.id = 1 OR t0.id = 2) AND t0.in_z <= '2024-01-01 00:00:00' "
                             "AND t0.out_z > '2024-01-01 00:00:00'")
@@ -1432,44 +1456,44 @@ class TestMilestoningFilterShape:
 
     def _bitemporal(self, name="trades", infinite_datetime: str | None = "9999-12-31 23:59:59"):
         from model.milestoning import BiTemporalColumns, MilestonedTable
-        mc = BiTemporalColumns(Column("from_z", "DATE", name), Column("thru_z", "DATE", name),
-                               Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+        mc = BiTemporalColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
+                               Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                infinite_datetime=infinite_datetime)
-        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
 
     def _processing_only(self, name="trades"):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
-        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                        infinite_datetime="9999-12-31 23:59:59")
-        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
 
     def _joined(self, target):
-        root = Table("parent", [Column("id", "INT", "parent")])
-        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", target.name))
-        return root, StringAttribute("Child Id", "id", "VARCHAR", target.name, JoinTreeNodeOperation(join))
+        root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
+        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", target))
+        return root, StringAttribute("Child Id", "id", "VARCHAR", target, JoinTreeNodeOperation(join))
 
     def test_bitemporal_where_is_one_flat_and_with_processing_first(self):
-        sql = to_sql(self._B, self._P, [IntegerAttribute("Id", "id", "INT", "trades")], self._bitemporal(), NoOperation())
+        sql = to_sql(self._B, self._P, [IntegerAttribute("Id", "id", "INT", _OWNER_TRADES)], self._bitemporal(), NoOperation())
         assert sql.endswith(
             "WHERE t0.in_z <= '2017-06-11 00:00:00' AND t0.out_z > '2017-06-11 00:00:00' "
             "AND t0.from_z <= '2017-06-10' AND t0.thru_z > '2017-06-10'")
 
     def test_user_filter_and_milestoning_are_one_flat_and(self):
-        attr = IntegerAttribute("Id", "id", "INT", "trades")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_TRADES)
         sql = to_sql(self._B, self._P, [attr], self._bitemporal(), attr.eq(1))
         assert sql.endswith(
             "WHERE t0.id = 1 AND t0.in_z <= '2017-06-11 00:00:00' AND t0.out_z > '2017-06-11 00:00:00' "
             "AND t0.from_z <= '2017-06-10' AND t0.thru_z > '2017-06-10'")
 
     def test_or_in_a_user_filter_keeps_its_parentheses(self):
-        attr = IntegerAttribute("Id", "id", "INT", "trades")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_TRADES)
         user_filter = LogicalOperation(attr.eq(1), LogicalOperator.OR, attr.eq(2))
         sql = to_sql(None, self._P, [attr], self._processing_only(), user_filter)
         assert sql.endswith(
             "WHERE (t0.id = 1 OR t0.id = 2) AND t0.in_z <= '2017-06-11 00:00:00' AND t0.out_z > '2017-06-11 00:00:00'")
 
     def test_null_end_keeps_the_parentheses_around_its_or(self):
-        sql = to_sql(None, self._P, [IntegerAttribute("Id", "id", "INT", "trades")],
+        sql = to_sql(None, self._P, [IntegerAttribute("Id", "id", "INT", _OWNER_TRADES)],
                      self._bitemporal(infinite_datetime=None), NoOperation())
         assert sql.endswith("WHERE t0.in_z <= '2017-06-11 00:00:00' "
                             "AND (t0.out_z > '2017-06-11 00:00:00' OR t0.out_z IS NULL)")
@@ -1478,9 +1502,9 @@ class TestMilestoningFilterShape:
         """The guard Legend writes on an optional property is for what a query compares, not for the dates that choose
         which version of a milestoned table a join reads."""
         target = self._bitemporal("child")
-        root = Table("parent", [Column("id", "INT", "parent")])
-        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
-        attr = IntegerAttribute("Child Id", "id", "INT", "child", JoinTreeNodeOperation(join, optional=True))
+        root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
+        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        attr = IntegerAttribute("Child Id", "id", "INT", _OWNER_CHILD, JoinTreeNodeOperation(join, optional=True))
         sql = to_sql(self._B, self._P, [attr], root, attr > 5)
         assert " ON (t0.id = t1.fk AND t1.in_z <= '2017-06-11 00:00:00' AND t1.out_z > '2017-06-11 00:00:00' " \
                "AND t1.from_z <= '2017-06-10' AND t1.thru_z > '2017-06-10')" in sql
@@ -1520,7 +1544,7 @@ class TestNeedsParentheses:
 
     @staticmethod
     def _cmp(n):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         return attr.eq(n)
 
     @classmethod
@@ -1547,8 +1571,8 @@ class TestNeedsParentheses:
         assert not needs_parentheses(self._op(a, LogicalOperator.AND, b), a)
 
     def test_rendering_follows_the_rule(self):
-        table = Table("t", [Column("id", "INT", "t")])
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        table = Table("t", [Column("id", "INT", _OWNER_T)])
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         a, b, c, d = (attr.eq(n) for n in (1, 2, 3, 4))
         and_, or_ = LogicalOperator.AND, LogicalOperator.OR
 
@@ -1570,21 +1594,21 @@ class TestMilestoningOnJoinedTable:
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
 
         # Non-milestoned root: Account
-        account_id_col = Column("ID", "INT", "account_master")
+        account_id_col = Column("ID", "INT", _OWNER_ACCOUNT_MASTER)
         account_table = Table("account_master", [account_id_col])
 
         # Milestoned join target: Trade
-        in_z = Column("in_z", "TIMESTAMP", "trades")
-        out_z = Column("out_z", "TIMESTAMP", "trades")
-        sym_col = Column("sym", "VARCHAR", "trades")
-        fk_col = Column("account_id", "INT", "trades")
+        in_z = Column("in_z", "TIMESTAMP", _OWNER_TRADES)
+        out_z = Column("out_z", "TIMESTAMP", _OWNER_TRADES)
+        sym_col = Column("sym", "VARCHAR", _OWNER_TRADES)
+        fk_col = Column("account_id", "INT", _OWNER_TRADES)
         mc = ProcessingTemporalColumns(in_z, out_z)
         trade_table = MilestonedTable("trades", [sym_col, fk_col, in_z, out_z], mc)
 
         # Reverse join: account_master.ID → trades.account_id
         join = JoinOperation("Trade", trade_table, account_id_col, fk_col)
         node = JoinTreeNodeOperation(join)
-        sym_attr = StringAttribute("Trade Symbol", "sym", "VARCHAR", "trades", node)
+        sym_attr = StringAttribute("Trade Symbol", "sym", "VARCHAR", _OWNER_TRADES, node)
         return account_table, sym_attr
 
     def test_milestoning_appears_in_join_on_clause_not_where(self):
@@ -1624,24 +1648,24 @@ class TestMilestoningOnJoinedTable:
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
 
         # Milestoned root: Trade
-        in_z_root = Column("in_z", "TIMESTAMP", "trades")
-        out_z_root = Column("out_z", "TIMESTAMP", "trades")
-        fk_col = Column("account_id", "INT", "trades")
-        sym_col = Column("sym", "VARCHAR", "trades")
+        in_z_root = Column("in_z", "TIMESTAMP", _OWNER_TRADES)
+        out_z_root = Column("out_z", "TIMESTAMP", _OWNER_TRADES)
+        fk_col = Column("account_id", "INT", _OWNER_TRADES)
+        sym_col = Column("sym", "VARCHAR", _OWNER_TRADES)
         mc_root = ProcessingTemporalColumns(in_z_root, out_z_root)
         trade_table = MilestonedTable("trades", [sym_col, fk_col, in_z_root, out_z_root], mc_root)
-        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trades")
+        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADES)
 
         # Milestoned join target: Price
-        in_z_price = Column("in_z", "TIMESTAMP", "price")
-        out_z_price = Column("out_z", "TIMESTAMP", "price")
-        price_col = Column("PRICE", "DOUBLE", "price")
+        in_z_price = Column("in_z", "TIMESTAMP", _OWNER_PRICE)
+        out_z_price = Column("out_z", "TIMESTAMP", _OWNER_PRICE)
+        price_col = Column("PRICE", "DOUBLE", _OWNER_PRICE)
         mc_price = ProcessingTemporalColumns(in_z_price, out_z_price)
         price_table = MilestonedTable("price", [price_col, in_z_price, out_z_price], mc_price)
-        sym_fk = Column("sym", "VARCHAR", "trades")
-        sym_pk = Column("SYM", "VARCHAR", "price")
+        sym_fk = Column("sym", "VARCHAR", _OWNER_TRADES)
+        sym_pk = Column("SYM", "VARCHAR", _OWNER_PRICE)
         join = JoinOperation("Instrument", price_table, sym_fk, sym_pk)
-        price_attr = StringAttribute("Price", "PRICE", "DOUBLE", "price", JoinTreeNodeOperation(join))
+        price_attr = StringAttribute("Price", "PRICE", "DOUBLE", _OWNER_PRICE, JoinTreeNodeOperation(join))
 
         dt = datetime.datetime(2023, 1, 1, 12, 0, 0)
         sql = to_sql(None, dt, [sym_attr, price_attr], trade_table, NoOperation())
@@ -1662,22 +1686,22 @@ class TestJoinOrdering:
     def test_two_joins_order_is_stable(self):
         """Selecting columns from two different joined tables must always produce
         the joins in the same order regardless of Python set iteration."""
-        account_id_col = Column("account_id", "INT", "trades")
-        sym_col = Column("sym", "VARCHAR", "trades")
+        account_id_col = Column("account_id", "INT", _OWNER_TRADES)
+        sym_col = Column("sym", "VARCHAR", _OWNER_TRADES)
         trade_table = Table("trades", [account_id_col, sym_col])
 
-        acct_id = Column("ID", "INT", "accounts")
+        acct_id = Column("ID", "INT", _OWNER_ACCOUNTS)
         acct_table = Table("accounts", [acct_id])
         acct_join = JoinOperation("account", acct_table, account_id_col, acct_id)
         acct_node = JoinTreeNodeOperation(acct_join)
 
-        inst_sym = Column("SYM", "VARCHAR", "instruments")
+        inst_sym = Column("SYM", "VARCHAR", _OWNER_INSTRUMENTS)
         inst_table = Table("instruments", [inst_sym])
         inst_join = JoinOperation("instrument", inst_table, sym_col, inst_sym)
         inst_node = JoinTreeNodeOperation(inst_join)
 
-        acct_name = StringAttribute("Account Id", "ID", "INT", "accounts", acct_node)
-        inst_sym_attr = StringAttribute("Symbol", "SYM", "VARCHAR", "instruments", inst_node)
+        acct_name = StringAttribute("Account Id", "ID", "INT", _OWNER_ACCOUNTS, acct_node)
+        inst_sym_attr = StringAttribute("Symbol", "SYM", "VARCHAR", _OWNER_INSTRUMENTS, inst_node)
 
         sqls = [
             to_sql(None, None, [acct_name, inst_sym_attr], trade_table, NoOperation()),
@@ -1694,19 +1718,19 @@ class TestMultiHopJoins:
 
     def _make_two_hop_setup(self):
         # Root: org table
-        org_id = Column("id", "INT", "org")
+        org_id = Column("id", "INT", _OWNER_ORG)
         org_table = Table("org", [org_id])
 
         # Intermediate: employees table
-        emp_id = Column("id", "INT", "employees")
-        emp_org_fk = Column("org_id", "INT", "employees")
-        emp_mgr_fk = Column("manager_id", "INT", "employees")
-        emp_name = Column("name", "VARCHAR", "employees")
+        emp_id = Column("id", "INT", _OWNER_EMPLOYEES)
+        emp_org_fk = Column("org_id", "INT", _OWNER_EMPLOYEES)
+        emp_mgr_fk = Column("manager_id", "INT", _OWNER_EMPLOYEES)
+        emp_name = Column("name", "VARCHAR", _OWNER_EMPLOYEES)
         emp_table = Table("employees", [emp_id, emp_org_fk, emp_mgr_fk, emp_name])
 
         # Leaf: trades table (joined via employees.id → trades.employee_id)
-        trade_sym = Column("sym", "VARCHAR", "trades")
-        trade_emp_fk = Column("employee_id", "INT", "trades")
+        trade_sym = Column("sym", "VARCHAR", _OWNER_TRADES)
+        trade_emp_fk = Column("employee_id", "INT", _OWNER_TRADES)
         trade_table = Table("trades", [trade_sym, trade_emp_fk])
 
         # Hop 1: org → employees
@@ -1717,7 +1741,7 @@ class TestMultiHopJoins:
         trade_join = JoinOperation("trades", trade_table, emp_id, trade_emp_fk)
         trade_node = JoinTreeNodeOperation(trade_join, parent=emp_node)
 
-        trade_sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trades", trade_node)
+        trade_sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADES, trade_node)
         return org_table, emp_node, trade_node, trade_sym_attr
 
     def test_ancestor_join_emitted_when_no_intermediate_column_selected(self):
@@ -1738,19 +1762,19 @@ class TestMultiHopJoins:
 
     def test_three_join_chain_correct_order(self):
         """A→B→C→D produces joins in B, C, D order."""
-        a_id = Column("id", "INT", "a")
+        a_id = Column("id", "INT", _OWNER_A)
         a_table = Table("a", [a_id])
 
-        b_id = Column("id", "INT", "b")
-        b_fk = Column("a_id", "INT", "b")
+        b_id = Column("id", "INT", _OWNER_B)
+        b_fk = Column("a_id", "INT", _OWNER_B)
         b_table = Table("b", [b_id, b_fk])
 
-        c_id = Column("id", "INT", "c")
-        c_fk = Column("b_id", "INT", "c")
+        c_id = Column("id", "INT", _OWNER_C)
+        c_fk = Column("b_id", "INT", _OWNER_C)
         c_table = Table("c", [c_id, c_fk])
 
-        d_val = Column("val", "VARCHAR", "d")
-        d_fk = Column("c_id", "INT", "d")
+        d_val = Column("val", "VARCHAR", _OWNER_D)
+        d_fk = Column("c_id", "INT", _OWNER_D)
         d_table = Table("d", [d_val, d_fk])
 
         b_join = JoinOperation("b", b_table, a_id, b_fk)
@@ -1760,7 +1784,7 @@ class TestMultiHopJoins:
         d_join = JoinOperation("d", d_table, c_id, d_fk)
         d_node = JoinTreeNodeOperation(d_join, parent=c_node)
 
-        d_attr = StringAttribute("Val", "val", "VARCHAR", "d", d_node)
+        d_attr = StringAttribute("Val", "val", "VARCHAR", _OWNER_D, d_node)
         sql = to_sql(None, None, [d_attr], a_table, NoOperation())
 
         assert sql.count("LEFT OUTER JOIN") == 3
@@ -1775,13 +1799,13 @@ class TestIsNoneIsNotNone:
     def _make_table_and_string_attr(self):
         col = Column("NOTES", "VARCHAR")
         table = Table("orders", [col])
-        attr = StringAttribute("Notes", "NOTES", "VARCHAR", "orders")
+        attr = StringAttribute("Notes", "NOTES", "VARCHAR", _OWNER_ORDERS)
         return table, attr
 
     def _make_table_and_int_attr(self):
         col = Column("QUANTITY", "INT")
         table = Table("orders", [col])
-        attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
+        attr = IntegerAttribute("Quantity", "QUANTITY", "INT", _OWNER_ORDERS)
         return table, attr
 
     def test_is_none_string_produces_is_null(self):
@@ -1810,7 +1834,7 @@ class TestIsNoneIsNotNone:
         table, attr = self._make_table_and_string_attr()
         qty_col = Column("QUANTITY", "INT")
         table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
-        qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
+        qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", _OWNER_ORDERS)
         combined = attr.is_none().and_(qty_attr > 0)
         sql = to_sql(None, None, [attr], table2, combined)
         assert "IS NULL" in sql
@@ -1818,7 +1842,7 @@ class TestIsNoneIsNotNone:
 
     def test_is_not_none_combined_with_other_filter(self):
         table, attr = self._make_table_and_string_attr()
-        qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", "orders")
+        qty_attr = IntegerAttribute("Quantity", "QUANTITY", "INT", _OWNER_ORDERS)
         combined = attr.is_not_none().and_(qty_attr > 0)
         qty_col = Column("QUANTITY", "INT")
         table2 = Table("orders", [qty_col, Column("NOTES", "VARCHAR")])
@@ -1831,17 +1855,17 @@ class TestExistsNotExists:
 
     def _make_trade_with_account_join(self):
         from datafinder.finder import RelatedFinder
-        trade_table = Table("trading.trades", [Column("sym", "VARCHAR", "trading.trades"),
-                                               Column("account_id", "INT", "trading.trades")])
+        trade_table = Table("trading.trades", [Column("sym", "VARCHAR", _OWNER_TRADING_TRADES),
+                                               Column("account_id", "INT", _OWNER_TRADING_TRADES)])
         account_table = Table("ref_data.account_master", [])
         account_join = JoinOperation(
             "Account", account_table,
-            Column("account_id", "INT", "trading.trades"),
-            Column("ID", "INT", "ref_data.account_master"),
+            Column("account_id", "INT", _OWNER_TRADING_TRADES),
+            Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER),
         )
         account_node = JoinTreeNodeOperation(account_join)
         account_finder = RelatedFinder(account_node)
-        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trading.trades")
+        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADING_TRADES)
         return trade_table, sym_attr, account_finder, account_node
 
     def test_exists_generates_is_not_null_on_join_key(self):
@@ -1966,7 +1990,7 @@ class TestFindForDateRange:
 
     def test_to_sql_with_business_date_to_generates_range_sql(self):
         table = self._make_bitemporal_table()
-        attr = DateAttribute("Biz From", "biz_from", "DATE", "trades")
+        attr = DateAttribute("Biz From", "biz_from", "DATE", _OWNER_TRADES)
         pdt = datetime.datetime(2025, 6, 1, 0, 0, 0)
         sql = to_sql(
             datetime.date(2024, 1, 1), pdt, [attr], table, NoOperation(),
@@ -1979,7 +2003,7 @@ class TestFindForDateRange:
     def test_to_sql_without_business_date_to_unchanged(self):
         """Passing business_date_to=None must not change existing point-in-time behaviour."""
         table = self._make_bitemporal_table()
-        attr = DateAttribute("Biz From", "biz_from", "DATE", "trades")
+        attr = DateAttribute("Biz From", "biz_from", "DATE", _OWNER_TRADES)
         pdt = datetime.datetime(2025, 6, 1, 0, 0, 0)
         bd = datetime.date(2024, 6, 15)
         sql_point = to_sql(bd, pdt, [attr], table, NoOperation())
@@ -1997,14 +2021,14 @@ class TestEmbeddedJoinElision:
         account_master = Table("ref_data.account_master", [])
         join = JoinOperation(
             "account", account_master,
-            Column("account_id", "INT", "trading.trades"), Column("ID", "INT", "ref_data.account_master"),
+            Column("account_id", "INT", _OWNER_TRADING_TRADES), Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER),
         )
         node = JoinTreeNodeOperation(join, None)
-        embedded_name = StringAttribute("Account Name", "acct_name", "VARCHAR", "trading.trades", None)
+        embedded_name = StringAttribute("Account Name", "acct_name", "VARCHAR", _OWNER_TRADING_TRADES, None)
         name_attr = StringAttribute(
-            "Account Name", "ACCT_NAME", "VARCHAR", "ref_data.account_master", node, embedded=embedded_name,
+            "Account Name", "ACCT_NAME", "VARCHAR", _OWNER_REF_DATA_ACCOUNT_MASTER, node, embedded=embedded_name,
         )
-        id_attr = IntegerAttribute("Account Id", "ID", "INT", "ref_data.account_master", node)
+        id_attr = IntegerAttribute("Account Id", "ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER, node)
         return trades, node, name_attr, id_attr
 
     def test_only_embedded_property_selected_elides_join(self):
@@ -2025,7 +2049,7 @@ class TestEmbeddedJoinElision:
 
         trades, node, name_attr, id_attr = self._make_trades_with_account_join()
         kwargs_filter = ComparisonOperation(
-            ColumnWithJoin(Column("ID", "INT", "ref_data.account_master"), node),
+            ColumnWithJoin(Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER), node),
             ComparisonOperator.EQUAL, IntegerConstantOperation(5),
         )
         sql = to_sql(None, None, [name_attr], trades, kwargs_filter)
@@ -2033,22 +2057,22 @@ class TestEmbeddedJoinElision:
 
     def test_order_by_only_embedded_property_elides_join(self):
         trades, node, name_attr, id_attr = self._make_trades_with_account_join()
-        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trading.trades", None)
+        sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADING_TRADES, None)
         sql = to_sql(None, None, [sym_attr], trades, NoOperation(), order_by=[name_attr.ascending()])
         assert "JOIN" not in sql
         assert "ORDER BY" in sql and "acct_name" in sql
 
     def test_a_sort_cannot_be_aliased(self):
-        attr = IntegerAttribute("Id", "id", "INT", "t")
+        attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         assert not hasattr(attr.ascending(), "alias")
 
 
 class TestAliasOfExpressions:
 
     def test_arithmetic_a_text_join_and_a_date_truncation_can_be_named(self):
-        price = DoubleAttribute("Price", "price", "DOUBLE", "t")
-        name = StringAttribute("Name", "name", "VARCHAR", "t")
-        table = Table("t", [Column("price", "DOUBLE", "t"), Column("name", "VARCHAR", "t")])
+        price = DoubleAttribute("Price", "price", "DOUBLE", _OWNER_T)
+        name = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
+        table = Table("t", [Column("price", "DOUBLE", _OWNER_T), Column("name", "VARCHAR", _OWNER_T)])
         sql = to_sql(None, None, [(price * 2).alias("Double"), (name + "!").alias("Shout")], table, NoOperation())
         assert sql == 'SELECT t0.price * 2 AS "Double",t0.name || \'!\' AS "Shout" FROM t AS t0'
 
@@ -2060,9 +2084,9 @@ class TestJoinConditionOrder:
     def _sql(key_on_target: bool):
         person = Table("person", [])
         firm = Table("firm", [])
-        join = JoinOperation("Firm", firm, Column("FIRMID", "INT", "person"),
-                             Column("ID", "INT", "firm", primary_key=key_on_target))
-        name = StringAttribute("Name", "NAME", "VARCHAR", "firm", JoinTreeNodeOperation(join))
+        join = JoinOperation("Firm", firm, Column("FIRMID", "INT", _OWNER_PERSON),
+                             Column("ID", "INT", _OWNER_FIRM, primary_key=key_on_target))
+        name = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_FIRM, JoinTreeNodeOperation(join))
         return to_sql(None, None, [name], person, NoOperation())
 
     def test_the_key_column_comes_first(self):
@@ -2075,9 +2099,9 @@ class TestJoinConditionOrder:
 class TestAliasOfConditions:
 
     def test_a_condition_can_be_named(self):
-        a = StringAttribute("A", "a", "VARCHAR", "t")
-        b = IntegerAttribute("B", "b", "INT", "t")
-        table = Table("t", [Column("a", "VARCHAR", "t"), Column("b", "INT", "t")])
+        a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
+        b = IntegerAttribute("B", "b", "INT", _OWNER_T)
+        table = Table("t", [Column("a", "VARCHAR", _OWNER_T), Column("b", "INT", _OWNER_T)])
         sql = to_sql(None, None, [a.is_none().alias("Missing"), a.is_not_none().alias("There"), (b > 1).alias("Big"),
                                   a.is_in(["x"]).alias("Listed")], table, NoOperation())
         assert sql == ('SELECT t0.a IS NULL AS "Missing",t0.a IS NOT NULL AS "There",t0.b > 1 AS "Big",'
@@ -2088,7 +2112,7 @@ class TestMoreAggregates:
 
     @staticmethod
     def _sql(*columns):
-        table = Table("t", [Column("a", "INT", "t"), Column("s", "VARCHAR", "t"), Column("d", "DATE", "t")])
+        table = Table("t", [Column("a", "INT", _OWNER_T), Column("s", "VARCHAR", _OWNER_T), Column("d", "DATE", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation())
 
     def test_count_all(self):
@@ -2096,22 +2120,22 @@ class TestMoreAggregates:
         assert self._sql(count_all()) == 'SELECT COUNT(*) AS "Count" FROM t AS t0'
 
     def test_standard_deviation_is_the_sample_one_unless_asked(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
         assert self._sql(a.std()) == 'SELECT STDDEV_SAMP(t0.a) AS "Std A" FROM t AS t0'
         assert self._sql(a.std(ddof=0)) == 'SELECT STDDEV_POP(t0.a) AS "Std A" FROM t AS t0'
 
     def test_variance_is_the_sample_one_unless_asked(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
         assert self._sql(a.var()) == 'SELECT VAR_SAMP(t0.a) AS "Var A" FROM t AS t0'
         assert self._sql(a.var(ddof=0)) == 'SELECT VAR_POP(t0.a) AS "Var A" FROM t AS t0'
 
     def test_ddof_is_zero_or_one(self):
         with pytest.raises(ValueError):
-            IntegerAttribute("A", "a", "INT", "t").std(ddof=2)
+            IntegerAttribute("A", "a", "INT", _OWNER_T).std(ddof=2)
 
     def test_min_and_max_of_text_and_dates(self):
-        s = StringAttribute("S", "s", "VARCHAR", "t")
-        d = DateAttribute("D", "d", "DATE", "t")
+        s = StringAttribute("S", "s", "VARCHAR", _OWNER_T)
+        d = DateAttribute("D", "d", "DATE", _OWNER_T)
         assert self._sql(s.min(), d.max()) == 'SELECT MIN(t0.s) AS "Min S",MAX(t0.d) AS "Max D" FROM t AS t0'
 
 
@@ -2119,12 +2143,12 @@ class TestAggregatesOfExpressions:
 
     @staticmethod
     def _sql(*columns):
-        table = Table("t", [Column("a", "INT", "t"), Column("b", "INT", "t")])
+        table = Table("t", [Column("a", "INT", _OWNER_T), Column("b", "INT", _OWNER_T)])
         return to_sql(None, None, list(columns), table, NoOperation())
 
     def test_sum_of_arithmetic(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
-        b = IntegerAttribute("B", "b", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
+        b = IntegerAttribute("B", "b", "INT", _OWNER_T)
         assert self._sql((a * b).sum()) == 'SELECT SUM(t0.a * t0.b) AS "Sum Expression" FROM t AS t0'
 
     def test_sum_of_a_constant(self):
@@ -2133,18 +2157,18 @@ class TestAggregatesOfExpressions:
 
     def test_aggregate_of_a_conditional(self):
         from datafinder import when
-        a = IntegerAttribute("A", "a", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
         sql = self._sql(when(a > 3).then(5.0).otherwise(1.0).sum().alias("Profit"))
         assert sql == 'SELECT SUM(CASE WHEN t0.a > 3 THEN 5.0 ELSE 1.0 END) AS "Profit" FROM t AS t0'
 
     def test_all_and_any_of_a_condition(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
         sql = self._sql((a > 3).all().alias("All"), (a > 3).any().alias("Any"))
         assert sql == 'SELECT BOOL_AND(t0.a > 3) AS "All",BOOL_OR(t0.a > 3) AS "Any" FROM t AS t0'
 
     def test_a_grouped_aggregate_of_an_expression_groups_by_the_other_columns(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
-        b = IntegerAttribute("B", "b", "INT", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
+        b = IntegerAttribute("B", "b", "INT", _OWNER_T)
         assert self._sql(b, (a * 2).sum()).endswith("GROUP BY t0.b")
 
 
@@ -2153,33 +2177,33 @@ class TestHaving:
     @staticmethod
     def _sql(having, *columns):
         from datafinder import FinderResult
-        table = Table("t", [Column("a", "INT", "t"), Column("s", "VARCHAR", "t")])
+        table = Table("t", [Column("a", "INT", _OWNER_T), Column("s", "VARCHAR", _OWNER_T)])
         return FinderResult(None, None, list(columns), table, NoOperation()).group_by(columns[0]).having(*having).to_sql()
 
     def test_having_a_count(self):
         from datafinder import count_all
-        s = StringAttribute("S", "s", "VARCHAR", "t")
+        s = StringAttribute("S", "s", "VARCHAR", _OWNER_T)
         sql = self._sql([count_all() > 1], s, count_all())
         assert sql == 'SELECT t0.s AS "S",COUNT(*) AS "Count" FROM t AS t0 GROUP BY t0.s HAVING COUNT(*) > 1'
 
     def test_conditions_are_anded_and_calls_accumulate(self):
-        a = IntegerAttribute("A", "a", "INT", "t")
-        s = StringAttribute("S", "s", "VARCHAR", "t")
+        a = IntegerAttribute("A", "a", "INT", _OWNER_T)
+        s = StringAttribute("S", "s", "VARCHAR", _OWNER_T)
         from datafinder import FinderResult
-        table = Table("t", [Column("a", "INT", "t"), Column("s", "VARCHAR", "t")])
+        table = Table("t", [Column("a", "INT", _OWNER_T), Column("s", "VARCHAR", _OWNER_T)])
         result = FinderResult(None, None, [s, a.sum()], table, NoOperation()).group_by(s)
         sql = result.having(a.sum() > 3, s.ne("x")).having(a.max() < 9).to_sql()
         assert sql.endswith("HAVING SUM(t0.a) > 3 AND t0.s <> 'x' AND MAX(t0.a) < 9")
 
     def test_string_tests_on_a_joined_text(self):
-        s = StringAttribute("S", "s", "VARCHAR", "t")
+        s = StringAttribute("S", "s", "VARCHAR", _OWNER_T)
         sql = self._sql([s.join(",").contains("x_")], s, s.join(","))
         assert sql.endswith("HAVING STRING_AGG(t0.s, ',') LIKE '%x!_%' ESCAPE '!'")
 
     def test_a_string_test_on_a_function_result(self):
         from datafinder import FinderResult
-        s = StringAttribute("S", "s", "VARCHAR", "t")
-        table = Table("t", [Column("s", "VARCHAR", "t")])
+        s = StringAttribute("S", "s", "VARCHAR", _OWNER_T)
+        table = Table("t", [Column("s", "VARCHAR", _OWNER_T)])
         sql = FinderResult(None, None, [s], table, s.upper().starts_with("AC")).to_sql()
         assert sql.endswith("WHERE UPPER(t0.s) LIKE 'AC%'")
 
@@ -2191,9 +2215,9 @@ class TestOptionalPropertyGuard:
 
     @staticmethod
     def _age(optional: bool = True, node=None):
-        table = Table("person", [Column("AGE", "INT", "person"), Column("NAME", "VARCHAR", "person")])
-        age = IntegerAttribute("Age", "AGE", "INT", "person", node, optional=optional)
-        name = StringAttribute("Name", "NAME", "VARCHAR", "person", node, optional=optional)
+        table = Table("person", [Column("AGE", "INT", _OWNER_PERSON), Column("NAME", "VARCHAR", _OWNER_PERSON)])
+        age = IntegerAttribute("Age", "AGE", "INT", _OWNER_PERSON, node, optional=optional)
+        name = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_PERSON, node, optional=optional)
         return table, age, name
 
     @staticmethod
@@ -2240,15 +2264,15 @@ class TestOptionalPropertyGuard:
         assert self._where(sql) == " WHERE t0.AGE = 1 AND t0.NAME IS NOT NULL AND t0.NAME LIKE 'x%'"
 
     def test_a_value_reached_through_an_optional_navigation_is_guarded(self):
-        join = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", "person"), Column("ID", "INT", "boss"))
+        join = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_PERSON), Column("ID", "INT", _OWNER_BOSS))
         for optional, guarded in ((True, True), (False, False)):
             node = JoinTreeNodeOperation(join, optional=optional)
             table, age, _ = self._age(optional=False, node=node)
             assert ("IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)) is guarded
 
     def test_an_optional_step_anywhere_on_the_way_counts(self):
-        first = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", "person"), Column("ID", "INT", "boss"))
-        second = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", "boss"), Column("ID", "INT", "boss"))
+        first = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_PERSON), Column("ID", "INT", _OWNER_BOSS))
+        second = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_BOSS), Column("ID", "INT", _OWNER_BOSS))
         parent = JoinTreeNodeOperation(first, optional=True)
         child = JoinTreeNodeOperation(second, parent, optional=False)
         table, age, _ = self._age(optional=False, node=child)
@@ -2259,8 +2283,8 @@ class TestOptionalPropertyGuard:
     ])
     def test_not_in_follows_the_column_and_not_the_property(self, nullable, optional, matches_null):
         """As in Legend, which writes ``or col is null`` for a required property over a nullable column."""
-        table = Table("person", [Column("NAME", "VARCHAR", "person")])
-        name = StringAttribute("Name", "NAME", "VARCHAR", "person", nullable=nullable, optional=optional)
+        table = Table("person", [Column("NAME", "VARCHAR", _OWNER_PERSON)])
+        name = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_PERSON, nullable=nullable, optional=optional)
         sql = to_sql(None, None, [name], table, name.is_not_in(["x"]))
         assert ("t0.NAME IS NULL" in sql) is matches_null
 
@@ -2269,8 +2293,8 @@ class TestOptionalPropertyGuard:
     ])
     def test_the_guard_follows_the_property_and_not_the_column(self, nullable, optional, guarded):
         """As in Legend, which guards an optional property over a NOT NULL column but not a required one over a nullable one."""
-        table = Table("person", [Column("AGE", "INT", "person")])
-        age = IntegerAttribute("Age", "AGE", "INT", "person", nullable=nullable, optional=optional)
+        table = Table("person", [Column("AGE", "INT", _OWNER_PERSON)])
+        age = IntegerAttribute("Age", "AGE", "INT", _OWNER_PERSON, nullable=nullable, optional=optional)
         assert ("IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)) is guarded
 
     def test_having_is_not_guarded(self):
@@ -2296,29 +2320,29 @@ class TestPerNavigationDates:
     @staticmethod
     def _processing_table(name):
         from model.milestoning import MilestonedTable, ProcessingTemporalColumns
-        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)],
-                               ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")],
+                               ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                                          infinite_datetime="9999-12-31 23:59:59"))
 
     @staticmethod
     def _bitemporal_table(name):
         from model.milestoning import BiTemporalColumns, MilestonedTable
-        mc = BiTemporalColumns(Column("from_z", "DATE", name), Column("thru_z", "DATE", name),
-                               Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+        mc = BiTemporalColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
+                               Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                infinite_datetime="9999-12-31 23:59:59")
-        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
 
     def _step(self, target, parent=None, **dates):
-        parent_name = "parent" if parent is None else parent.join.target.name
-        join = JoinOperation(target.name.title(), target, Column("id", "INT", parent_name), Column("fk", "INT", target.name))
+        parent_table = Table("parent", []) if parent is None else parent.join.target
+        join = JoinOperation(target.name.title(), target, Column("id", "INT", parent_table), Column("fk", "INT", target))
         return JoinTreeNodeOperation(join, parent, **dates)
 
     @staticmethod
     def _attr(step):
-        return IntegerAttribute("Value", "id", "INT", step.join.target.name, step)
+        return IntegerAttribute("Value", "id", "INT", step.join.target, step)
 
     def _sql(self, *attrs, business=None, business_to=None, processing=_QUERY_P):
-        return to_sql(business, processing, list(attrs), Table("parent", [Column("id", "INT", "parent")]), NoOperation(),
+        return to_sql(business, processing, list(attrs), Table("parent", [Column("id", "INT", _OWNER_PARENT)]), NoOperation(),
                       business_date_to=business_to)
 
     def test_a_step_without_dates_uses_the_querys(self):
@@ -2372,7 +2396,7 @@ class TestPerNavigationDates:
         assert "t1.from_z <= '2015-09-01'" in sql and "t1.thru_z > '2015-01-01'" in sql
 
     def test_a_date_given_to_a_table_with_no_milestoning_is_passed_down_to_the_steps_below_it(self):
-        plain = self._step(Table("plain", [Column("id", "INT", "plain"), Column("fk", "INT", "plain")]),
+        plain = self._step(Table("plain", [Column("id", "INT", _OWNER_PLAIN), Column("fk", "INT", _OWNER_PLAIN)]),
                            processing_datetime=self._OWN_P)
         below = self._step(self._processing_table("below"), plain)
         sql = self._sql(self._attr(below))
@@ -2395,12 +2419,12 @@ class TestBusinessDateRangeOnly:
     @staticmethod
     def _ranged(name="rates", infinite_datetime: str | None = None):
         from model.milestoning import BusinessDateRangeColumns, MilestonedTable
-        mc = BusinessDateRangeColumns(Column("from_z", "DATE", name), Column("thru_z", "DATE", name),
+        mc = BusinessDateRangeColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
                                       infinite_datetime=infinite_datetime)
-        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
 
     def _id(self):
-        return IntegerAttribute("Id", "id", "INT", "rates")
+        return IntegerAttribute("Id", "id", "INT", _OWNER_RATES)
 
     def test_a_date_is_inside_the_range(self):
         sql = to_sql(self._B, None, [self._id()], self._ranged(), NoOperation())
@@ -2420,10 +2444,10 @@ class TestBusinessDateRangeOnly:
         assert sql.endswith("WHERE t0.from_z <= '2021-02-01' AND (t0.thru_z > '2020-12-01' OR t0.thru_z IS NULL)")
 
     def test_a_joined_table_with_a_range_uses_the_query_date(self):
-        root = Table("parent", [Column("id", "INT", "parent")])
+        root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
         target = self._ranged("child")
-        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
-        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join))
+        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join))
         sql = to_sql(self._B, None, [attr], root, NoOperation())
         assert "t1.from_z <= '2017-06-10' AND (t1.thru_z > '2017-06-10' OR t1.thru_z IS NULL)" in sql
 
@@ -2431,17 +2455,17 @@ class TestBusinessDateRangeOnly:
         from model.view import View
         parent = self._ranged("parent")
         target = self._ranged("child")
-        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
-        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join))
+        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join))
         view = View("v", "main", parent, [Alias(attr, "value")], NoOperation(), [])
         check_view_joins(view)
 
     def test_a_view_refuses_a_joined_range_when_the_root_has_no_business_date(self):
         from model.view import View, ViewDefinitionError
-        parent = Table("parent", [Column("id", "INT", "parent")])
+        parent = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
         target = self._ranged("child")
-        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
-        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join))
+        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join))
         view = View("v", "main", parent, [Alias(attr, "value")], NoOperation(), [])
         with pytest.raises(ViewDefinitionError, match="no business date to anchor"):
             check_view_joins(view)
@@ -2476,24 +2500,24 @@ class TestProcessingSnapshot:
     @staticmethod
     def _snapshot(name="quotes"):
         from model.milestoning import SingleProcessingDatetimeColumn, MilestonedTable
-        mc = SingleProcessingDatetimeColumn(Column("taken_at", "TIMESTAMP", name))
-        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+        mc = SingleProcessingDatetimeColumn(Column("taken_at", "TIMESTAMP"))
+        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
 
     @staticmethod
     def _in_out(name="quotes"):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
-        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", name), Column("out_z", "TIMESTAMP", name),
+        mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
                                        infinite_datetime="9999-12-31 23:59:59")
-        return MilestonedTable(name, [Column("id", "INT", name), Column("fk", "INT", name)], mc)
+        return MilestonedTable(name, [Column("id", "INT"), Column("fk", "INT")], mc)
 
     def _id(self, table="quotes"):
-        return IntegerAttribute("Id", "id", "INT", table)
+        return IntegerAttribute("Id", "id", "INT", Table(table, []))
 
     @staticmethod
     def _joined(target):
-        root = Table("parent", [Column("id", "INT", "parent")])
-        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", target.name))
-        return root, StringAttribute("Child Id", "id", "VARCHAR", target.name, JoinTreeNodeOperation(join))
+        root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
+        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", target))
+        return root, StringAttribute("Child Id", "id", "VARCHAR", target, JoinTreeNodeOperation(join))
 
     def test_the_processing_time_must_equal_the_snapshot_time(self):
         sql = to_sql(None, self._P, [self._id()], self._snapshot(), NoOperation())
@@ -2532,24 +2556,24 @@ class TestProcessingSnapshot:
     def test_a_time_given_to_a_step_is_a_point_and_ends_the_range(self):
         from model.relational import JoinTreeNodeOperation as Node
         target = self._snapshot("child")
-        join = JoinOperation("Child", target, Column("id", "INT", "parent"), Column("fk", "INT", "child"))
+        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
         own = datetime.datetime(2024, 1, 5, 9, 0, 0)
-        attr = StringAttribute("Child Id", "id", "VARCHAR", "child", Node(join, processing_datetime=own))
-        sql = to_sql(None, self._P, [attr], Table("parent", [Column("id", "INT", "parent")]), NoOperation(),
+        attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, Node(join, processing_datetime=own))
+        sql = to_sql(None, self._P, [attr], Table("parent", [Column("id", "INT", _OWNER_PARENT)]), NoOperation(),
                      processing_datetime_to=self._P_TO)
         assert "t1.taken_at = '2024-01-05 09:00:00'" in sql and ">=" not in sql
 
     def test_a_view_pins_a_joined_snapshot_to_the_root_rows_own_snapshot_time(self):
         from model.view import View
         parent = self._snapshot("parent")
-        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", "parent"), Column("fk", "INT", "child"))
-        view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
+        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
         check_view_joins(view)
 
     def test_a_view_refuses_a_joined_snapshot_when_the_root_has_no_processing_time(self):
         from model.view import View, ViewDefinitionError
-        parent = Table("parent", [Column("id", "INT", "parent")])
-        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", "parent"), Column("fk", "INT", "child"))
-        view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", "child", JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
+        parent = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
+        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
         with pytest.raises(ViewDefinitionError, match="no processing time to anchor"):
             check_view_joins(view)

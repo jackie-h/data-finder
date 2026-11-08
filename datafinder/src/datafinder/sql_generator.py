@@ -57,18 +57,24 @@ def _and_all(ops: Iterable[Operation | None]) -> Operation | None:
                   present[1:], present[0]) if present else None
 
 
+def _table_of(column: Column) -> Table:
+    """The table a milestoning or view column is a column of."""
+    assert column.table is not None, f"Column {column.name} has no table"
+    return column.table
+
+
 def _processing_predicate(mc: MilestoningColumns, processing_datetime: datetime.datetime | datetime.date | None,
                           join_node: 'JoinTreeNodeOperation | None') -> Operation | None:
     """The table's processing range contains the processing time, or its processing snapshot column equals it."""
     if processing_datetime is None:
         return None
     if isinstance(mc, SingleProcessingDatetimeColumn):
-        snapshot = DateTimeAttribute('processing_datetime', mc.processing_datetime_column.name, mc.processing_datetime_column.type, mc.processing_datetime_column.qualified_name(), join_node)
+        snapshot = DateTimeAttribute('processing_datetime', mc.processing_datetime_column.name, mc.processing_datetime_column.type, _table_of(mc.processing_datetime_column), join_node)
         return snapshot == processing_datetime
     if not isinstance(mc, ProcessingTemporalColumns):
         return None
-    start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.qualified_name(), join_node)
-    end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.qualified_name(), join_node)
+    start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, _table_of(mc.start_at_column), join_node)
+    end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, _table_of(mc.end_at_column), join_node)
     return LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime))
 
 
@@ -77,12 +83,12 @@ def _processing_range_predicate(mc: MilestoningColumns, processing_from: datetim
                                 join_node: 'JoinTreeNodeOperation | None') -> Operation | None:
     """The table's processing range overlaps the processing range, or its processing snapshot column is within it."""
     if isinstance(mc, SingleProcessingDatetimeColumn):
-        snapshot = DateTimeAttribute('processing_datetime', mc.processing_datetime_column.name, mc.processing_datetime_column.type, mc.processing_datetime_column.qualified_name(), join_node)
+        snapshot = DateTimeAttribute('processing_datetime', mc.processing_datetime_column.name, mc.processing_datetime_column.type, _table_of(mc.processing_datetime_column), join_node)
         return LogicalOperation(snapshot >= processing_from, LogicalOperator.AND, snapshot <= processing_to)
     if not isinstance(mc, ProcessingTemporalColumns):
         return None
-    start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, mc.start_at_column.qualified_name(), join_node)
-    end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, mc.end_at_column.qualified_name(), join_node)
+    start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, _table_of(mc.start_at_column), join_node)
+    end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, _table_of(mc.end_at_column), join_node)
     return LogicalOperation(start_at <= processing_to, LogicalOperator.AND, _open_end_clause(end_at, processing_from, mc.infinite_datetime))
 
 
@@ -92,11 +98,11 @@ def _business_predicate(mc: MilestoningColumns, business_date: datetime.date | N
     if business_date is None:
         return None
     if isinstance(mc, BusinessDateRangeColumns):
-        date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.qualified_name(), join_node)
-        date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.qualified_name(), join_node)
+        date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, _table_of(mc.business_date_from_column), join_node)
+        date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, _table_of(mc.business_date_to_column), join_node)
         return LogicalOperation(date_from <= business_date, LogicalOperator.AND, _open_end_clause(date_to, business_date, mc.infinite_datetime))
     if isinstance(mc, SingleBusinessDateColumn):
-        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.qualified_name(), join_node)
+        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, _table_of(mc.business_date_column), join_node)
         return business_att == business_date
     return None
 
@@ -108,11 +114,11 @@ def _business_range_predicate(mc: MilestoningColumns, business_date_from: dateti
     if business_date_from is None or business_date_to is None:
         return None
     if isinstance(mc, BusinessDateRangeColumns):
-        date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, mc.business_date_from_column.qualified_name(), join_node)
-        date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, mc.business_date_to_column.qualified_name(), join_node)
+        date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, _table_of(mc.business_date_from_column), join_node)
+        date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, _table_of(mc.business_date_to_column), join_node)
         return LogicalOperation(date_from <= business_date_to, LogicalOperator.AND, _open_end_clause(date_to, business_date_from, mc.infinite_datetime))
     if isinstance(mc, SingleBusinessDateColumn):
-        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, mc.business_date_column.qualified_name(), join_node)
+        business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, _table_of(mc.business_date_column), join_node)
         return LogicalOperation(business_att >= business_date_from, LogicalOperator.AND, business_att <= business_date_to)
     return None
 
@@ -169,7 +175,7 @@ def _build_join_kwargs_filter(node, filter_kwargs: dict, filter_column_map: dict
         if key not in filter_column_map:
             raise ValueError(f"Unknown property '{key}' — valid properties are: {sorted(filter_column_map)}")
         col_name, col_type, table = filter_column_map[key]
-        col = ColumnWithJoin(Column(col_name, col_type, table), node)
+        col = ColumnWithJoin(Column(col_name, col_type, table), node)  # table: the relation the column is of
         if isinstance(value, bool):
             const = BooleanConstantOperation(value)
         elif isinstance(value, int):
@@ -1101,7 +1107,7 @@ class SQLQueryGenerator:
     def __table_alias_for_table(self, table: Relation | None, key=None) -> TableAlias:
         if not isinstance(table, NamedRelation):
             raise TypeError(f"A relation read by name needs a name: {table!r}")
-        cache_key = key if key is not None else table.name
+        cache_key = key if key is not None else table.qualified_name
         if cache_key in self.__table_aliases_by_table:
             return self.__table_aliases_by_table[cache_key]
         if key is not None and id(key) in self._sub_selects:
@@ -1121,7 +1127,7 @@ class SQLQueryGenerator:
         that numbers its aliases after this one's."""
         relation = alias.relation
         if isinstance(relation, Table):
-            return relation.name
+            return relation.qualified_name
         assert isinstance(relation, QuerySpecification), f"Not a relation to read from: {relation!r}"
         nested = SQLQueryGenerator(first_alias=self.__table_alias_incr)
         nested.generate(relation)
@@ -1200,12 +1206,12 @@ def query_sql_to_string(query: QuerySpecification, validate_sqlglot: bool = True
 
 def _as_of_column(column: Column, node: JoinTreeNodeOperation) -> ColumnWithJoin:
     """The joined table's column, read through the join."""
-    return ColumnWithJoin(Column(column.name, column.type, column.qualified_name()), node)
+    return ColumnWithJoin(Column(column.name, column.type, _table_of(column)), node)
 
 
 def _as_of_root_column(column: Column) -> Column:
     """The root table's column: it is read directly, with no join."""
-    return Column(column.name, column.type, column.qualified_name())
+    return Column(column.name, column.type, _table_of(column))
 
 
 def _as_of_and(ops: list):

@@ -11,6 +11,10 @@ from datafinder import IntegerAttribute, StringAttribute
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns, SingleBusinessDateColumn
 from model.relational import Alias, Column, ColumnWithJoin, JoinOperation, JoinTreeNodeOperation, NoOperation, SortDirection, Table
 from model.view import View
+from model.relational import Table as _OwnerTable
+_OWNER_OTHER = _OwnerTable('other', [])
+_OWNER_T = _OwnerTable('t', [])
+_OWNER_TRADES = _OwnerTable('trades', [])
 
 
 def _make_result() -> FinderResult:
@@ -141,32 +145,32 @@ class TestOrderByAccumulates:
         return [(s.column.column.name, s.direction) for s in result._order_by]  # type: ignore[attr-defined]
 
     def test_the_later_call_is_primary(self):
-        a = StringAttribute("A", "a", "VARCHAR", "t")
-        b = StringAttribute("B", "b", "VARCHAR", "t")
+        a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
+        b = StringAttribute("B", "b", "VARCHAR", _OWNER_T)
         result = self._result().order_by(a.ascending()).order_by(b.descending())
         assert self._columns(result) == [("b", SortDirection.DESC), ("a", SortDirection.ASC)]
 
     def test_one_call_keeps_the_order_it_was_given(self):
-        a = StringAttribute("A", "a", "VARCHAR", "t")
-        b = StringAttribute("B", "b", "VARCHAR", "t")
+        a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
+        b = StringAttribute("B", "b", "VARCHAR", _OWNER_T)
         result = self._result().order_by(a.ascending(), b.descending())
         assert self._columns(result) == [("a", SortDirection.ASC), ("b", SortDirection.DESC)]
 
     def test_three_calls_run_newest_first(self):
-        a, b, c = (StringAttribute(n.upper(), n, "VARCHAR", "t") for n in "abc")
+        a, b, c = (StringAttribute(n.upper(), n, "VARCHAR", _OWNER_T) for n in "abc")
         result = self._result().order_by(a.ascending()).order_by(b.ascending()).order_by(c.ascending())
         assert [name for name, _ in self._columns(result)] == ["c", "b", "a"]
 
     def test_sorting_a_column_again_replaces_its_earlier_direction(self):
-        a = StringAttribute("A", "a", "VARCHAR", "t")
-        b = StringAttribute("B", "b", "VARCHAR", "t")
+        a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
+        b = StringAttribute("B", "b", "VARCHAR", _OWNER_T)
         result = self._result().order_by(a.ascending(), b.ascending()).order_by(a.descending())
         assert self._columns(result) == [("a", SortDirection.DESC), ("b", SortDirection.ASC)]
 
     def test_the_same_column_reached_through_a_join_is_a_different_sort(self):
-        join = JoinOperation("Other", Table("other", []), Column("fk", "INT", "t"), Column("id", "INT", "other"))
-        own = StringAttribute("Name", "name", "VARCHAR", "t")
-        joined = StringAttribute("Other Name", "name", "VARCHAR", "other", JoinTreeNodeOperation(join))
+        join = JoinOperation("Other", Table("other", []), Column("fk", "INT", _OWNER_T), Column("id", "INT", _OWNER_OTHER))
+        own = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
+        joined = StringAttribute("Other Name", "name", "VARCHAR", _OWNER_OTHER, JoinTreeNodeOperation(join))
         result = self._result().order_by(own.ascending()).order_by(joined.ascending())
         assert len(result._order_by) == 2
 
@@ -243,7 +247,7 @@ class TestDuckDbTimeout:
 
 
 def _view() -> View:
-    return View("trades_v", "reporting", Table("trades", []), [Alias(Column("sym", "VARCHAR", "trades"), "symbol")])
+    return View("trades_v", "reporting", Table("trades", []), [Alias(Column("sym", "VARCHAR", _OWNER_TRADES), "symbol")])
 
 
 class _Rows(DataFrame):

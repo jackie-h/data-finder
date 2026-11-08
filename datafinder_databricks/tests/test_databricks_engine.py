@@ -6,12 +6,14 @@ import pytest
 from datafinder import QueryRunnerBase, StringAttribute, IntegerAttribute
 from datafinder_databricks.databricks_engine import _to_databricks_sql, DatabricksConnect
 from model.relational import Table, Column, NoOperation
+from model.relational import Table as _OwnerTable
+_OWNER_ACCOUNTS = _OwnerTable('accounts', [])
 
 
 def _make_table_and_attr():
     col = Column("NAME", "VARCHAR")
     table = Table("accounts", [col])
-    attr = StringAttribute("Name", "NAME", "VARCHAR", "accounts")
+    attr = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_ACCOUNTS)
     return table, attr
 
 
@@ -19,8 +21,8 @@ def _make_multi_col_table():
     name_col = Column("NAME", "VARCHAR")
     id_col = Column("ID", "INT")
     table = Table("accounts", [name_col, id_col])
-    name_attr = StringAttribute("Name", "NAME", "VARCHAR", "accounts")
-    id_attr = IntegerAttribute("Id", "ID", "INT", "accounts")
+    name_attr = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_ACCOUNTS)
+    id_attr = IntegerAttribute("Id", "ID", "INT", _OWNER_ACCOUNTS)
     return table, name_attr, id_attr
 
 

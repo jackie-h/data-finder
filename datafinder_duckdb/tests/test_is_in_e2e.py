@@ -3,6 +3,8 @@ import pytest
 
 from datafinder import to_sql, StringAttribute, IntegerAttribute
 from model.relational import Table, Column
+from model.relational import Table as _OwnerTable
+_OWNER_PEOPLE = _OwnerTable('people', [])
 
 
 @pytest.fixture
@@ -14,9 +16,9 @@ def con():
 
 
 def _make_attrs():
-    table = Table("people", [Column("id", "INTEGER", "people"), Column("first_name", "VARCHAR", "people")])
-    id_attr = IntegerAttribute("Id", "id", "INTEGER", "people")
-    name_attr = StringAttribute("First Name", "first_name", "VARCHAR", "people")
+    table = Table("people", [Column("id", "INTEGER", _OWNER_PEOPLE), Column("first_name", "VARCHAR", _OWNER_PEOPLE)])
+    id_attr = IntegerAttribute("Id", "id", "INTEGER", _OWNER_PEOPLE)
+    name_attr = StringAttribute("First Name", "first_name", "VARCHAR", _OWNER_PEOPLE)
     return table, id_attr, name_attr
 
 
@@ -36,7 +38,7 @@ class TestIsInE2E:
 
     def test_is_not_in_not_null_column_has_no_null_check(self, con):
         table, id_attr, _ = _make_attrs()
-        name_attr = StringAttribute("First Name", "first_name", "VARCHAR", "people", nullable=False)
+        name_attr = StringAttribute("First Name", "first_name", "VARCHAR", _OWNER_PEOPLE, nullable=False)
         sql = to_sql(None, None, [id_attr], table, name_attr.is_not_in(["John", "Peter"]))
         assert "IS NULL" not in sql
         # the NULL row is excluded, which is why a nullable column has to match it explicitly

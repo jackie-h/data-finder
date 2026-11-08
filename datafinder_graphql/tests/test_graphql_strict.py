@@ -11,16 +11,19 @@ from model.graphql_mapping import GraphQLFilterConvention, format_path_segment
 from model.relational import (
     ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator, WindowFunction, WindowFunctionOperation,
 )
+from model.relational import Table as _OwnerTable
+_OWNER_EMPLOYEES = _OwnerTable('employees', [])
+_OWNER_TRADES = _OwnerTable('trades', [])
 
 CONVENTION = GraphQLFilterConvention("where", "order_by", "limit")
 
 
 def _name() -> StringAttribute:
-    return StringAttribute("Account Name", "account.name", "STRING", "trades")
+    return StringAttribute("Account Name", "account.name", "STRING", _OWNER_TRADES)
 
 
 def _price() -> DoubleAttribute:
-    return DoubleAttribute("Price", "price", "DOUBLE", "trades")
+    return DoubleAttribute("Price", "price", "DOUBLE", _OWNER_TRADES)
 
 
 def test_top_level_filter_is_pushed():
@@ -44,7 +47,7 @@ def test_is_not_in_on_a_nullable_field_also_matches_nulls():
 
 
 def test_is_not_in_on_a_not_null_field_is_a_plain_nin():
-    name = StringAttribute("Account Name", "account.name", "STRING", "trades", nullable=False)
+    name = StringAttribute("Account Name", "account.name", "STRING", _OWNER_TRADES, nullable=False)
     args = _build_server_args(name.is_not_in(["Acme"]), None, None, CONVENTION)
     assert args == ['where: { account: { name: { _nin: ["Acme"] } } }']
 
@@ -98,7 +101,7 @@ def test_an_unsupported_column_expression_fails_rather_than_disappearing():
 
 
 def _projects_name() -> StringAttribute:
-    return StringAttribute("Project Name", "projects[].name", "STRING", "employees")
+    return StringAttribute("Project Name", "projects[].name", "STRING", _OWNER_EMPLOYEES)
 
 
 def test_a_to_many_relation_expands_to_a_row_per_child():
@@ -137,7 +140,7 @@ def test_expanded_rows_are_sorted_after_expansion():
 
 def _filtered_projects_name(**filters) -> StringAttribute:
     path = format_path_segment("projects", True, filters) + ".name"
-    return StringAttribute("Project Name", path, "STRING", "employees")
+    return StringAttribute("Project Name", path, "STRING", _OWNER_EMPLOYEES)
 
 
 def test_a_filtered_to_many_relation_takes_a_where_argument():
@@ -153,14 +156,14 @@ def test_several_filters_on_a_relation_are_anded():
 
 def test_a_filtered_relation_nested_in_another_keeps_its_arguments():
     path = "manager." + format_path_segment("projects", True, {"code": "ALPHA"}) + ".name"
-    column = StringAttribute("Manager Project Name", path, "STRING", "employees")
+    column = StringAttribute("Manager Project Name", path, "STRING", _OWNER_EMPLOYEES)
     assert _build_fields_str([column], CONVENTION) == 'manager { projects(where: { code: { _eq: "ALPHA" } }) { name } }'
 
 
 def test_a_to_one_relation_cannot_be_filtered():
     path = format_path_segment("account", False, {"name": "Acme"}) + ".name"
     with pytest.raises(GraphQLPushdownError, match="to-one"):
-        _build_fields_str([StringAttribute("Account Name", path, "STRING", "trades")], CONVENTION)
+        _build_fields_str([StringAttribute("Account Name", path, "STRING", _OWNER_TRADES)], CONVENTION)
 
 
 def test_filtering_a_relation_needs_a_filter_convention():

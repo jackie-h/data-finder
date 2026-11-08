@@ -11,6 +11,8 @@ import pytest
 from datafinder import QueryRunnerBase, StringAttribute, IntegerAttribute, DoubleAttribute, BooleanAttribute
 from datafinder_duckdb.duckdb_engine import DuckDbConnect
 from model.relational import Table, NoOperation
+from model.relational import Table as _OwnerTable
+_OWNER_TYPE_CHECK_WIDGETS = _OwnerTable('type_check.widgets', [])
 
 _BUSINESS_DATE = datetime.date(2024, 1, 1)
 _PROCESSING_DATETIME = datetime.datetime(2024, 1, 1, 0, 0, 0)
@@ -36,10 +38,10 @@ def con():
 
 def _columns():
     table = Table("type_check.widgets", [])
-    name_attr = StringAttribute("Name", "name", "VARCHAR", "type_check.widgets")
-    qty_attr = IntegerAttribute("Quantity", "quantity", "INTEGER", "type_check.widgets")
-    price_attr = DoubleAttribute("Price", "price", "DOUBLE", "type_check.widgets")
-    active_attr = BooleanAttribute("Active", "active", "BOOLEAN", "type_check.widgets")
+    name_attr = StringAttribute("Name", "name", "VARCHAR", _OWNER_TYPE_CHECK_WIDGETS)
+    qty_attr = IntegerAttribute("Quantity", "quantity", "INTEGER", _OWNER_TYPE_CHECK_WIDGETS)
+    price_attr = DoubleAttribute("Price", "price", "DOUBLE", _OWNER_TYPE_CHECK_WIDGETS)
+    active_attr = BooleanAttribute("Active", "active", "BOOLEAN", _OWNER_TYPE_CHECK_WIDGETS)
     return table, [name_attr, qty_attr, price_attr, active_attr]
 
 

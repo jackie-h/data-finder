@@ -14,7 +14,7 @@ class Attribute(RelationalOperationElement, Aliasable):
     __parent: Any
     __embedded: Any
 
-    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation | str', parent=None,
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation', parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a typed attribute for a named column.
 
