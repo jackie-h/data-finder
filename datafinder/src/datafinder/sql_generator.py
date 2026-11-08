@@ -867,9 +867,9 @@ class SQLQueryGenerator:
 
     def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
         if isinstance(attr, Column):
-            return self.__table_alias_for_table(attr.owner).name + '.' + attr.name
+            return self.__table_alias_for_table(attr.owner_relation).name + '.' + attr.name
         column, parent = self.__resolve(attr)
-        ta = self.__table_alias_for_table(column.owner, key=self.__join_target_key(parent) if parent is not None else None)
+        ta = self.__table_alias_for_table(column.owner_relation, key=self.__join_target_key(parent) if parent is not None else None)
         return ta.name + '.' + column.name
 
     @staticmethod
@@ -883,7 +883,7 @@ class SQLQueryGenerator:
 
     def __table_alias_for_column(self, column: Column, parent: JoinTreeNodeOperation | None = None) -> TableAlias:
         key = self.__join_target_key(parent) if parent is not None else None
-        return self.__table_alias_for_table(column.owner, key=key)
+        return self.__table_alias_for_table(column.owner_relation, key=key)
 
     def __rewrite_window_spec(self, window: WindowSpecification | None):
         if window is None:
@@ -907,7 +907,7 @@ class SQLQueryGenerator:
             column, parent = self.__resolve(op)
             return TableAliasColumn(column, self.__table_alias_for_column(column, parent))
         elif isinstance(op, Column):
-            return TableAliasColumn(op, self.__table_alias_for_table(op.owner))
+            return TableAliasColumn(op, self.__table_alias_for_table(op.owner_relation))
         elif isinstance(op, AggregateOperation):
             return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,
                                       self.__rewrite_window_spec(op.window), op.separator,
@@ -1029,12 +1029,12 @@ class SQLQueryGenerator:
         join = node.join
         left = join.left
         src_key = node.parent if node.parent is not None else None
-        src_ta = self.__table_alias_for_table(left.owner, key=src_key)
+        src_ta = self.__table_alias_for_table(left.owner_relation, key=src_key)
         if node.parent is None:
             self._from.add(src_ta)
         sc = TableAliasColumn(left, src_ta)
         right = join.right
-        tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
+        tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner_relation, key=node))
         # a sub-select carries the step's filter itself, so it is not repeated in the ON clause
         on_filter = None if isinstance(tc.table_alias.relation, OrderedQuerySpecification) else self._join_filters.get(id(node))
         self._join.append(Join(sc, tc, on_filter))
@@ -1084,13 +1084,13 @@ class SQLQueryGenerator:
         elif isinstance(op, ColumnWithJoin):
             column, node = self.__resolve(op)
             if node is not None:
-                ta = self.__table_alias_for_table(column.owner, key=node)
+                ta = self.__table_alias_for_table(column.owner_relation, key=node)
                 self.__add_join(node)
             else:
-                ta = self.__table_alias_for_table(column.owner)
+                ta = self.__table_alias_for_table(column.owner_relation)
             return ta.name + '.' + column.name
         elif isinstance(op, Column):
-            ta = self.__table_alias_for_table(op.owner)
+            ta = self.__table_alias_for_table(op.owner_relation)
             return ta.name + '.' + op.name
         elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation,
                              DateExtractOperation, DateArithmeticOperation, DateDiffOperation,
@@ -1104,7 +1104,7 @@ class SQLQueryGenerator:
         else:
             raise ValueError(op)
 
-    def __table_alias_for_table(self, table: Relation | None, key=None) -> TableAlias:
+    def __table_alias_for_table(self, table: Relation, key=None) -> TableAlias:
         if not isinstance(table, NamedRelation):
             raise TypeError(f"A relation read by name needs a name: {table!r}")
         cache_key = key if key is not None else table.qualified_name

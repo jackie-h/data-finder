@@ -60,8 +60,8 @@ def test_a_columns_owner_is_a_relation():
     # a query read under a name is owned by the alias
     alias = TableAlias(QuerySpecification([_NAME], NoOperation(), table=_TABLE), "relation1")
     assert Column("name", "VARCHAR", alias).owner_name == "relation1"
-    # no owner, no name
-    assert Column("ID", "INT").owner is None and Column("ID", "INT").owner_name is None
+    # until a table claims it, a column has no owner
+    assert Column("ID", "INT").owner is None
 
 
 def test_a_name_is_not_an_owner():
@@ -79,3 +79,22 @@ def test_a_table_is_the_owner_of_its_columns():
     start, end = Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")
     milestoned = MilestonedTable("trades", [], ProcessingTemporalColumns(start, end))
     assert start.owner is milestoned and end.owner is milestoned
+
+
+def test_a_column_with_no_owner_says_so_when_its_owner_is_needed():
+    import pytest
+    orphan = Column("ID", "INT")
+    with pytest.raises(ValueError, match="Column 'ID' has no owner"):
+        orphan.owner_relation
+    with pytest.raises(ValueError, match="no owner"):
+        orphan.owner_name
+    # a column of a table has one
+    table = Table("accounts", [Column("NAME", "VARCHAR")])
+    assert table.columns[0].owner_relation is table and table.columns[0].owner_name == "accounts"
+
+
+def test_a_column_of_an_unnamed_relation_has_no_name_to_read_it_by():
+    import pytest
+    query = QuerySpecification([_NAME], NoOperation(), table=_TABLE)
+    with pytest.raises(TypeError, match="has no name"):
+        Column("name", "VARCHAR", query).owner_name

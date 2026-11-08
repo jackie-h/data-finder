@@ -10,7 +10,7 @@ class Attribute(RelationalOperationElement, Aliasable):
 
     __display_name: str
     __column: Column
-    __owner: 'Relation | None'
+    __owner: 'Relation'
     __parent: Any
     __embedded: Any
 
@@ -31,7 +31,7 @@ class Attribute(RelationalOperationElement, Aliasable):
         super().__init__()
         self.__display_name = display_name
         self.__column = Column(column_name, column_db_type, owner, nullable=nullable)
-        self.__owner = self.__column.owner
+        self.__owner = owner
         self.__parent = parent
         self.__embedded = embedded
         self.__optional = optional
@@ -49,7 +49,7 @@ class Attribute(RelationalOperationElement, Aliasable):
         """Return the underlying column metadata."""
         return self.__column
 
-    def owner(self) -> 'Relation | None':
+    def owner(self) -> 'Relation':
         """Return the relation the column belongs to."""
         return self.__owner
 
