@@ -2,7 +2,7 @@ import re
 from typing import Sequence
 
 from model.milestoning import MilestonedTable
-from model.relational import QuerySpecification, Relation, Alias, Table, Column, Operation, NoOperation, \
+from model.relational import QuerySpecification, NamedRelation, Alias, Table, Column, Operation, NoOperation, \
     LogicalOperation, ComparisonOperation, UnaryOperation, AggregateOperation, WindowFunctionOperation, \
     CountAllOperation
 
@@ -43,7 +43,7 @@ def contains_aggregate(op) -> bool:
     return False
 
 
-class View(QuerySpecification, Relation):
+class View(QuerySpecification, NamedRelation):
     """A SQL view definition: a named relation defined by a query specification over a root table, with no dates.
 
     A view can hold what ANSI SQL allows in a view's query expression, which is everything a
@@ -63,7 +63,7 @@ class View(QuerySpecification, Relation):
                  filter: Operation | None = None, group_by: list | None = None):
         _check_identifier('View name', name)
         _check_identifier('Schema name', schema)
-        Relation.__init__(self)
+        NamedRelation.__init__(self, name)
         self.projection = tuple(projection)
         milestoning = table.milestoning_columns.columns() if isinstance(table, MilestonedTable) else []
         milestoning_aliases = [Alias(Column(c.name, c.type, c.qualified_name()), c.name) for c in milestoning]

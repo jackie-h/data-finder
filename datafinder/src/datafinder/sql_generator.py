@@ -20,7 +20,7 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
 
-class TableAlias:
+class RelationAlias:
     """A name for a relation in a query. As in Legend, the relation is a table or a query: ``table`` is the table's name,
     or a OrderedQuerySpecification when the alias stands for ``(SELECT ...)``."""
 
@@ -30,7 +30,7 @@ class TableAlias:
 
 
 class TableAliasColumn(RelationalOperationElement):
-    def __init__(self, column: Column, table_alias: TableAlias):
+    def __init__(self, column: Column, table_alias: RelationAlias):
         super().__init__()
         self.column = column
         self.table_alias = table_alias
@@ -750,7 +750,7 @@ def _reaches_to_many(op: RelationalOperationElement) -> bool:
 
 class SQLQueryGenerator:
     _select: list[Alias]
-    _from: set[TableAlias]
+    _from: set[RelationAlias]
     _join: list[Join]
     __table_alias_incr: int
     _where: str
@@ -884,7 +884,7 @@ class SQLQueryGenerator:
         alias in SELECT matches the alias registered in __add_join."""
         return parent
 
-    def __table_alias_for_column(self, column: Column, parent: JoinTreeNodeOperation | None = None) -> TableAlias:
+    def __table_alias_for_column(self, column: Column, parent: JoinTreeNodeOperation | None = None) -> RelationAlias:
         key = self.__join_target_key(parent) if parent is not None else None
         return self.__table_alias_for_table(column.owner, key=key)
 
@@ -1107,7 +1107,7 @@ class SQLQueryGenerator:
         else:
             raise ValueError(op)
 
-    def __table_alias_for_table(self, table: str | None, key=None) -> TableAlias:
+    def __table_alias_for_table(self, table: str | None, key=None) -> RelationAlias:
         if table is None:
             raise TypeError
         cache_key = key if key is not None else table
@@ -1120,12 +1120,12 @@ class SQLQueryGenerator:
         self.__table_aliases_by_table[cache_key] = ta
         return ta
 
-    def __new_alias(self, table: 'str | OrderedQuerySpecification') -> TableAlias:
-        ta = TableAlias(table, "t" + str(self.__table_alias_incr))
+    def __new_alias(self, table: 'str | OrderedQuerySpecification') -> RelationAlias:
+        ta = RelationAlias(table, "t" + str(self.__table_alias_incr))
         self.__table_alias_incr += 1
         return ta
 
-    def __relation_sql(self, alias: TableAlias) -> str:
+    def __relation_sql(self, alias: RelationAlias) -> str:
         """What follows FROM or JOIN: the table's name, or the query in parentheses, written by a generator of its own
         that numbers its aliases after this one's."""
         relation = alias.table

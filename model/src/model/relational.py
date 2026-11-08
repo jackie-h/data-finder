@@ -918,8 +918,24 @@ class DateDiffOperation(UnaryOperation, Sortable, Orderable[int]):
 
 
 class Relation:
+    """Something rows are read from, as in Legend: it has columns. A table, a view and a query are relations; a table
+    and a view also have a name (a NamedRelation)."""
+
     def __init__(self):
         pass
+
+    @property
+    def columns(self) -> Sequence[RelationalOperationElement]:
+        """What the relation has for each column: a table's Columns, a query's display expressions."""
+        raise NotImplementedError(f"{type(self).__name__} does not say what its columns are")
+
+
+class NamedRelation(Relation):
+    """A relation that has a name: a table or a view."""
+
+    def __init__(self, name: str):
+        super().__init__()
+        self.name = name
 
 
 class MilestoningScheme:
@@ -1003,18 +1019,33 @@ class ForeignKey:
         self.references = references
 
 
-class Table(Relation):
+class TableAlias(NamedRelation):
+    """A relation under a name where it is used, as in Legend and as ANSI SQL's ``<table reference>`` with its
+    ``<correlation name>``: ``(query) AS relation1``. It has the columns of the relation it names, and what reads those
+    columns says which alias they belong to by its name. A table is already named, so this is for a relation that is not:
+    a query."""
+    relation: Relation
+
+    def __init__(self, relation: Relation, name: str):
+        super().__init__(name)
+        self.relation = relation
+
+    @property
+    def columns(self) -> Sequence[RelationalOperationElement]:
+        return self.relation.columns
+
+
+class Table(NamedRelation):
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
 
     def __init__(self, name: str, columns: list[Column], schema: 'Schema | None' = None):
-        super().__init__()
+        super().__init__(name)
         self._columns_by_name: dict[str, Column] = {}
         for col in columns:
             if col.name in self._columns_by_name:
                 raise ValueError(f"Duplicate column name '{col.name}' in table '{name}'")
             self._columns_by_name[col.name] = col
-        self.name = name
         self.schema = schema
         self.foreign_keys: list[ForeignKey] = []
         # for a table no class is mapped to but a join passes through: how its rows are milestoned
@@ -1148,9 +1179,12 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
         return LogicalOperation(self, LogicalOperator.OR, other)
 
 
-class QueryExpression:
+class QueryExpression(Relation):
     """What ANSI SQL calls a ``<query expression>``: a query that returns rows and can be used where a table is, as a
     view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT.
+
+    It is a relation, as Legend's select is: its columns are what it shows. It has no name of its own: a TableAlias
+    gives it one where it is used.
 
     It has no ORDER BY or row limit: a table is a set of rows with no order. An OrderedQuerySpecification adds those."""
 
@@ -1177,6 +1211,11 @@ class QuerySpecification(QueryExpression):
         # Steps the query only asks the existence of, each as the query that stands for its table, keyed by id(node):
         # the query joins to that instead of to the table, so a parent is not repeated for each row that matches.
         self.sub_selects: dict[int, 'OrderedQuerySpecification'] = {}
+
+    @property
+    def columns(self) -> Sequence[RelationalOperationElement]:
+        """The select list."""
+        return self.display
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
