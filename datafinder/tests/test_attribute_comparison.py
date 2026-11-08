@@ -225,6 +225,7 @@ def test_joined_text_is_compared_for_equality_only():
 
 
 def test_an_aggregate_has_the_type_it_gives():
+    from datafinder import when
     from model.relational import (
         BooleanAggregateOperation, DateAggregateOperation, DateTimeAggregateOperation, DecimalAggregateOperation,
         DoubleAggregateOperation, IntegerAggregateOperation, StringAggregateOperation, UntypedAggregateOperation)
@@ -251,8 +252,8 @@ def test_an_aggregate_has_the_type_it_gives():
     assert isinstance(text.min(), StringAggregateOperation) and isinstance(text.join(","), StringAggregateOperation)
     assert isinstance(day.min(), DateAggregateOperation) and isinstance(moment.max(), DateTimeAggregateOperation)
     assert isinstance((integer > 1).all(), BooleanAggregateOperation) and isinstance((integer > 1).any(), BooleanAggregateOperation)
-    # an expression of an unknown type gives an untyped sum, but a known count and average
-    assert isinstance((integer * double).sum(), UntypedAggregateOperation)
+    # an expression of an unknown type (a case) gives an untyped sum, but a known count and average
+    assert isinstance(when(integer > 1).then(1).otherwise(0).sum(), UntypedAggregateOperation)
     assert isinstance((integer * double).count(), IntegerAggregateOperation)
     assert isinstance((integer * double).average(), DoubleAggregateOperation)
     # over() keeps the type

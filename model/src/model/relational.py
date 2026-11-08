@@ -5,6 +5,7 @@ from typing import Any, Generic, Iterable, Sequence, TypeVar, overload
 
 T = TypeVar("T")
 K = TypeVar("K")  # the kind of number an expression holds: int, float or Decimal
+AG = TypeVar("AG", bound="AggregateOperation")  # the aggregate that gives an expression's own type
 
 
 # Interface
@@ -37,24 +38,27 @@ class Aliasable:
         return Alias(self, name)  # type: ignore[arg-type]
 
 
-class Aggregates:
+class Aggregates(Generic[AG]):
     """Aggregates of an expression, as a column has them: ``(f.price() * f.quantity()).sum()``, ``constant(1).sum()``,
-    ``when(...).then(5.0).otherwise(1.0).sum()``."""
+    ``when(...).then(5.0).otherwise(1.0).sum()``.
+
+    ``AG`` is the aggregate that gives the expression's own type, the type of its ``sum``, ``min`` and ``max``: an
+    integer expression has an IntegerAggregateOperation sum. An expression whose type is not known has an
+    UntypedAggregateOperation. A count is an integer, and an average, standard deviation and variance are floating
+    point, whatever the type."""
 
     def _aggregate(self, operator: 'AggregateOperator', label: str,
                    kind: 'type[AggregateOperation] | None' = None) -> 'AggregateOperation':
-        return (kind or UntypedAggregateOperation)(
-            self._arithmetic_operand(), operator, label + ' Expression')  # type: ignore[attr-defined]
+        kind = kind or getattr(self, '_value_aggregate', None) or UntypedAggregateOperation
+        return kind(self._arithmetic_operand(), operator, label + ' Expression')  # type: ignore[attr-defined]
 
-    # an expression whose type is not known gives an untyped sum, minimum and maximum; a count is an integer, and an
-    # average, standard deviation and variance are floating point, whatever the type
-    def sum(self) -> 'UntypedAggregateOperation':
+    def sum(self) -> AG:
         return self._aggregate(AggregateOperator.SUM, 'Sum')  # type: ignore[return-value]
 
-    def min(self) -> 'UntypedAggregateOperation':
+    def min(self) -> AG:
         return self._aggregate(AggregateOperator.MIN, 'Min')  # type: ignore[return-value]
 
-    def max(self) -> 'UntypedAggregateOperation':
+    def max(self) -> AG:
         return self._aggregate(AggregateOperator.MAX, 'Max')  # type: ignore[return-value]
 
     def average(self) -> 'DoubleAggregateOperation':
@@ -107,7 +111,7 @@ class NoOperation(Operation):
     def __init__(self):
         super().__init__()
 
-class ConstantOperation(RelationalOperationElement, Aliasable, Sortable, Aggregates):
+class ConstantOperation(RelationalOperationElement, Aliasable, Sortable, Aggregates['UntypedAggregateOperation']):
     def __init__(self):
         super().__init__()
 
@@ -609,7 +613,7 @@ class Arithmetic(Generic[K]):
         return self._arithmetic(ArithmeticOperator.DIVIDE, other, True)
 
 
-class ArithmeticOperation(BinaryOperation, Sortable, Aggregates):
+class ArithmeticOperation(BinaryOperation, Sortable):
     """``left operator right`` on numbers, e.g. ``price * quantity``. What it can be compared with and have done to it
     depends on the kind of number it gives, so that is a subclass: Integer, Double or Decimal ArithmeticOperation, or
     UntypedArithmeticOperation when the kind of an operand is not known."""
@@ -622,21 +626,22 @@ class ArithmeticOperation(BinaryOperation, Sortable, Aggregates):
         self.display_name = display_name
 
 
-class UntypedArithmeticOperation(ArithmeticOperation, Arithmetic[Any], Comparable):
+class UntypedArithmeticOperation(ArithmeticOperation, Arithmetic[Any], Comparable, Aggregates['UntypedAggregateOperation']):
     """Arithmetic with an operand of unknown kind, so it takes any comparison."""
 
 
-class IntegerArithmeticOperation(ArithmeticOperation, Arithmetic[int], Orderable[int]):
-    """``+ - *`` of integers: an integer."""
+class IntegerArithmeticOperation(ArithmeticOperation, Arithmetic[int], Orderable[int], Aggregates['IntegerAggregateOperation']):
+    """``+ - *`` of integers: an integer. Its sum, minimum and maximum are integers."""
     _number_kind = int
 
 
-class DoubleArithmeticOperation(ArithmeticOperation, Arithmetic[float], Orderable[float]):
+class DoubleArithmeticOperation(ArithmeticOperation, Arithmetic[float], Orderable[float], Aggregates['DoubleAggregateOperation']):
     """Arithmetic with a double, or a division: a double."""
     _number_kind = float
 
 
-class DecimalArithmeticOperation(ArithmeticOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal]):
+class DecimalArithmeticOperation(ArithmeticOperation, Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
+                                 Aggregates['DecimalAggregateOperation']):
     """``+ - *`` of decimals, or of a decimal and an integer: a decimal."""
     _number_kind = decimal.Decimal
 
@@ -678,7 +683,7 @@ def concat(left, right) -> ConcatOperation:
 
 
 
-class CaseOperation(Operation, Aggregates):
+class CaseOperation(Operation, Aggregates['UntypedAggregateOperation']):
     """``CASE WHEN condition THEN then ELSE default END``; without a ``default`` the value is NULL."""
 
     def __init__(self, condition: RelationalOperationElement, then: RelationalOperationElement,
@@ -833,7 +838,7 @@ class WindowFunctionOperation(Operation, Sortable):
                                        window=WindowSpecification(partition_by, order_by))
 
 
-class ScalarFunctionOperation(UnaryOperation, Sortable, Aggregates):
+class ScalarFunctionOperation(UnaryOperation, Sortable):
     """A scalar function applied to an expression. What it can then be compared with, or have done to it, depends on
     the type it gives, so that is a subclass in ``datafinder.scalar_functions``: StringFunctionOperation,
     IntegerFunctionOperation, DoubleFunctionOperation, DecimalFunctionOperation. One whose type is not known
@@ -1190,5 +1195,11 @@ class OrderedQuerySpecification(QuerySpecification):
         return [*self.display, *self.group_by, *self.order_by, self.filter]
 
 
-class UntypedFunctionOperation(ScalarFunctionOperation, Comparable):
+class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['UntypedAggregateOperation']):
     """A scalar function whose result type is not known here, so it is compared with any value."""
+
+
+# the aggregate that gives an expression's own type: the type of its sum, minimum and maximum
+IntegerArithmeticOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
+DoubleArithmeticOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
+DecimalArithmeticOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]

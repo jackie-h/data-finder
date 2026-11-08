@@ -63,10 +63,42 @@ def test_an_expression_of_unknown_kind_is_untyped_and_takes_any_comparison():
     from datafinder import when
     case = when(integer > 1).then(1).otherwise(0)
     assert isinstance(case * integer, UntypedArithmeticOperation)
-    assert isinstance((integer * double).sum() * 2, UntypedArithmeticOperation)
+    assert isinstance(case.sum() * integer, UntypedArithmeticOperation)
 
 
 def test_text_is_not_arithmetic():
     text = StringAttribute("S", "S", "VARCHAR", "t")
     with pytest.raises(TypeError):
         text - 1  # type: ignore[operator]
+
+
+def test_an_aggregate_of_arithmetic_has_the_type_of_the_arithmetic():
+    from model.relational import (
+        DecimalAggregateOperation, DoubleAggregateOperation, IntegerAggregateOperation, UntypedAggregateOperation)
+    # the sum, minimum and maximum are of the expression's kind
+    assert isinstance(assert_type((integer * 2).sum(), IntegerAggregateOperation), IntegerAggregateOperation)
+    assert isinstance(assert_type((integer + other_integer).max(), IntegerAggregateOperation), IntegerAggregateOperation)
+    assert isinstance(assert_type((integer * double).sum(), DoubleAggregateOperation), DoubleAggregateOperation)
+    assert isinstance(assert_type((integer / 2).min(), DoubleAggregateOperation), DoubleAggregateOperation)
+    assert isinstance(assert_type((money * 2).sum(), DecimalAggregateOperation), DecimalAggregateOperation)
+    # a count is an integer and an average is a double, whatever the kind
+    assert isinstance(assert_type((money * 2).count(), IntegerAggregateOperation), IntegerAggregateOperation)
+    assert isinstance(assert_type((integer * 2).average(), DoubleAggregateOperation), DoubleAggregateOperation)
+    assert isinstance(assert_type((integer * 2).std(), DoubleAggregateOperation), DoubleAggregateOperation)
+    # so the result can be compared and used in arithmetic as that kind
+    assert isinstance(assert_type((integer * 2).sum() * 3, IntegerArithmeticOperation), IntegerArithmeticOperation)
+    assert isinstance(assert_type((integer * 2).sum() / (integer * 3).sum(), DoubleArithmeticOperation),
+                      DoubleArithmeticOperation)
+    assert (integer * 2).sum() > 10
+    # a function result has aggregates of its own kind, an expression of unknown kind has untyped ones
+    assert isinstance(assert_type(integer.abs().sum(), IntegerAggregateOperation), IntegerAggregateOperation)
+    assert isinstance(assert_type(double.sqrt().max(), DoubleAggregateOperation), DoubleAggregateOperation)
+    from datafinder import when
+    assert isinstance(assert_type(when(integer > 1).then(1).otherwise(0).sum(), UntypedAggregateOperation),
+                      UntypedAggregateOperation)
+
+
+def test_over_keeps_the_kind_of_an_aggregate_of_arithmetic():
+    from model.relational import IntegerAggregateOperation
+    total = (integer * 2).sum().over(partition_by=[other_integer])
+    assert isinstance(total, IntegerAggregateOperation)
