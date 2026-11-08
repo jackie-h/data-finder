@@ -390,7 +390,7 @@ def _apply_sub_selects(query: QuerySpecification, business_date: datetime.date |
                                                  processing_datetime_to)
         values = node.join.filter_kwargs
         condition = _build_join_kwargs_filter(None, values, node.join.filter_column_map) if values else NoOperation()
-        query.sub_selects[id(node)] = build_query_operation(
+        query.sub_selects[id(node)] = build_query_specification(
             bd, pdt, [Alias(right, right.name)], node.join.target, condition, business_date_to=bd_to, distinct=True,
             processing_datetime_to=pdt_to)
 
@@ -419,7 +419,7 @@ def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | 
     return business_date, business_date_to, processing_datetime, processing_datetime_to
 
 
-def build_query_operation(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
+def build_query_specification(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
                          columns: Sequence[RelationalOperationElement], table: Table, op: Operation,
                          order_by: list[SortOperation] | None = None, group_by: list | None = None,
                          limit: int | None = None, business_date_to: datetime.date | None = None,
@@ -1186,7 +1186,7 @@ def to_sql(business_date: datetime.date | None, processing_datetime: datetime.da
            business_date_to: datetime.date | None = None, distinct: bool = False,
            offset: int | None = None, having=None,
            processing_datetime_to: datetime.datetime | datetime.date | None = None) -> str:
-    query = build_query_operation(business_date, processing_datetime, columns, table, op,
+    query = build_query_specification(business_date, processing_datetime, columns, table, op,
                                   order_by or [], group_by or [], limit,
                                   business_date_to=business_date_to, distinct=distinct, offset=offset, having=having,
                                   processing_datetime_to=processing_datetime_to)
