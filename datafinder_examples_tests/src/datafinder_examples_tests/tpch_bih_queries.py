@@ -130,6 +130,30 @@ def _q19_branch(f, brand: str, containers: list[str], quantity: float, max_size:
 
 
 
+def _order_priority_checking(lines, p):
+    order = lines.order()
+    return lines.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [order.order_priority().alias("o_orderpriority"), order.order_key().count_distinct().alias("order_count")],
+        (lines.commit_date() < lines.receipt_date()).and_(order.order_date() >= p.DATE_FROM)
+        .and_(order.order_date() < p.DATE_TO),
+    ).group_by(order.order_priority()).order_by(order.order_priority().ascending())
+
+
+def _parts_supplier_relationship(ps, p):
+    part, supplier = ps.part(), ps.supplier()
+    return ps.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [part.brand().alias("p_brand"), part.type_().alias("p_type"), part.size().alias("p_size"),
+         supplier.supplier_key().count_distinct().alias("supplier_cnt")],
+        part.brand().ne("Brand#45").and_(part.type_().not_like("MEDIUM POLISHED%"))
+        .and_(part.size().is_in([49, 14, 23, 45, 19, 3, 36, 9]))
+        .and_(supplier.comment().not_like("%Customer%Complaints%")),
+    ).group_by(part.brand(), part.type_(), part.size()).order_by(
+        supplier.supplier_key().count_distinct().descending(), part.brand().ascending(), part.type_().ascending(),
+        part.size().ascending())
+
+
 TPCH = {
     "Q2": Unsupported("A correlated scalar subquery: ps_supplycost = (select min(ps_supplycost) ... for the same part)"),
 
@@ -142,9 +166,8 @@ TPCH = {
     ).group_by(q.lineitem.order().order_key(), q.lineitem.order().order_date(), q.lineitem.order().ship_priority())
         .order_by(_revenue(q.lineitem).sum().descending(), q.lineitem.order().order_date().ascending()).limit(10)),
 
-    "Q4": Unsupported(
-        "exists (select * from lineitem where l_orderkey = o_orderkey and l_commitdate < l_receiptdate): exists() takes no "
-        "condition, and a filter through the line items joins, so it repeats an order for each line"),
+    # EXISTS (a late line) is a count of the distinct orders of the late lines: the lines are the rows
+    "Q4": FinderQuery(["o_orderpriority", "order_count"], lambda q, p: _order_priority_checking(q.lineitem, p)),
 
     "Q5": FinderQuery(["n_name", "revenue"], lambda q, p: q.lineitem.find_all(
         p.APP_TIME, p.SYS_TIME,
@@ -228,8 +251,8 @@ TPCH = {
         (q.lineitem.ship_date() >= p.DATE_FROM).and_(q.lineitem.ship_date() < p.DATE_TO).and_(q.lineitem.part().exists()))),
 
     "Q15": Unsupported("A derived table of revenue by supplier, and total_revenue = (select max(total_revenue) from it)"),
-    "Q16": Unsupported("ps_suppkey not in (select s_suppkey ... where s_comment like '%Customer%Complaints%'), and p_type not "
-                       "like '[TYPE]%': a NOT IN subquery and NOT LIKE"),
+    # NOT IN (the suppliers with complaints) is the supplier's own comment not being a complaint: the supplier is a navigation
+    "Q16": FinderQuery(["p_brand", "p_type", "p_size", "supplier_cnt"], lambda q, p: _parts_supplier_relationship(q.partsupp, p)),
     "Q17": Unsupported("A correlated scalar subquery: l_quantity < (select 0.2 * avg(l_quantity) ... for the same part)"),
     "Q18": Unsupported("o_orderkey in (select l_orderkey from lineitem group by l_orderkey having sum(l_quantity) > [QUANTITY]): "
                        "an IN subquery with GROUP BY and HAVING"),
