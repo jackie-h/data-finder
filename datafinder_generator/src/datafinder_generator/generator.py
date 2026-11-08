@@ -128,24 +128,29 @@ def has_business_date_range(mapping: MilestonePropertyMapping) -> bool:
 def has_processing_snapshot(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, SingleProcessingDatetimeMilestonePropertyMapping)
 
+def owner_code(table) -> str:
+    """Python source for the relation a column or an attribute belongs to: a table of that name, whose columns this finder
+    does not need to know."""
+    return f"Table('{table_qualified_name(table)}', [])"
+
+
 def column_code(column: Column) -> str:
     """Python source that builds ``column`` in a generated finder."""
     key = ", primary_key=True" if column.primary_key else ""
-    return f"Column('{column.name}', '{column.type}', '{table_qualified_name(column.table)}'{key})"
+    return f"Column('{column.name}', '{column.type}', {owner_code(column.table)}{key})"
 
 
 def _scheme_columns_code(table: Table) -> str:
     """Python source for the milestoning columns of a table a join passes through, from its milestoning scheme."""
     scheme = table.milestoning_scheme
     assert scheme is not None
-    qualified = table_qualified_name(table)
     by_name = {c.name: c for c in table.columns}
 
     def col(name: str | None) -> str:
         column = by_name.get(name or "")
         if column is None:
             raise ValueError(f"Table '{table.name}': milestoning column '{name}' of scheme '{scheme.name}' is not a column")
-        return f"Column('{column.name}', '{column.type}', '{qualified}')"
+        return f"Column('{column.name}', '{column.type}')"
 
     infinite = f", infinite_datetime='{scheme.infinite_datetime}'" if scheme.infinite_datetime else ""
     if scheme.processing_datetime:
@@ -167,7 +172,7 @@ def _scheme_columns_code(table: Table) -> str:
 
 def table_code(table: Table) -> str:
     """Python source that builds ``table`` in a generated finder."""
-    columns = ", ".join(f"Column('{c.name}', '{c.type}', '{table_qualified_name(table)}')" for c in table.columns)
+    columns = ", ".join(f"Column('{c.name}', '{c.type}')" for c in table.columns)
     if table.milestoning_scheme is not None:
         return f"MilestonedTable('{table_qualified_name(table)}', [{columns}], {_scheme_columns_code(table)})"
     return f"Table('{table_qualified_name(table)}', [{columns}])"
@@ -298,6 +303,7 @@ def generate(mapping: Mapping, output_directory):
         embedded_classes=embedded_classes,
         parent_expr=parent_expr,
         column_code=column_code,
+        owner_code=owner_code,
     )
 
     for rcm in mapping.mappings:

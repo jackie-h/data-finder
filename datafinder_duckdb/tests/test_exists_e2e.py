@@ -16,6 +16,11 @@ from datafinder.finder import RelatedFinder
 from datafinder.typed_attributes import StringAttribute, IntegerAttribute
 from model.relational import Column, Table, JoinOperation, JoinTreeNodeOperation, NoOperation
 from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+from model.relational import Table as _OwnerTable
+_OWNER_CATEGORIES = _OwnerTable('categories', [])
+_OWNER_ORDERS = _OwnerTable('orders', [])
+_OWNER_REF_DATA_ACCOUNT_MASTER = _OwnerTable('ref_data.account_master', [])
+_OWNER_TRADING_TRADES = _OwnerTable('trading.trades', [])
 
 INFINITE = "9999-12-31 23:59:59"
 PROCESSING_DT = datetime.datetime(2024, 6, 1, 12, 0, 0)
@@ -57,15 +62,15 @@ def _build_finder():
     account_join = JoinOperation(
         "Account",
         account_table,
-        Column("account_id", "INT", "trading.trades"),
-        Column("ID", "INT", "ref_data.account_master"),
+        Column("account_id", "INT", _OWNER_TRADING_TRADES),
+        Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER),
     )
     account_node = JoinTreeNodeOperation(account_join)
     account_finder = RelatedFinder(account_node)
 
-    id_attr = IntegerAttribute("Id", "id", "INTEGER", "trading.trades")
-    sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trading.trades")
-    acct_name_attr = StringAttribute("Account Name", "ACCT_NAME", "VARCHAR", "ref_data.account_master", account_node)
+    id_attr = IntegerAttribute("Id", "id", "INTEGER", _OWNER_TRADING_TRADES)
+    sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADING_TRADES)
+    acct_name_attr = StringAttribute("Account Name", "ACCT_NAME", "VARCHAR", _OWNER_REF_DATA_ACCOUNT_MASTER, account_node)
 
     return trade_table, id_attr, sym_attr, acct_name_attr, account_finder
 
@@ -157,15 +162,15 @@ def _build_plain_finder():
     cat_join = JoinOperation(
         "Category",
         categories_table,
-        Column("category_id", "INT", "orders"),
-        Column("ID", "INT", "categories"),
+        Column("category_id", "INT", _OWNER_ORDERS),
+        Column("ID", "INT", _OWNER_CATEGORIES),
     )
     cat_node = JoinTreeNodeOperation(cat_join)
     cat_finder = RelatedFinder(cat_node)
 
-    id_attr = IntegerAttribute("Id", "id", "INTEGER", "orders")
-    sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "orders")
-    cat_name_attr = StringAttribute("Category", "NAME", "VARCHAR", "categories", cat_node)
+    id_attr = IntegerAttribute("Id", "id", "INTEGER", _OWNER_ORDERS)
+    sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_ORDERS)
+    cat_name_attr = StringAttribute("Category", "NAME", "VARCHAR", _OWNER_CATEGORIES, cat_node)
 
     return orders_table, id_attr, sym_attr, cat_name_attr, cat_finder
 

@@ -11,6 +11,9 @@ from datafinder import to_sql
 from datafinder.typed_attributes import StringAttribute, IntegerAttribute, FloatAttribute
 from model.relational import Column, Table, JoinOperation, JoinTreeNodeOperation, NoOperation
 from model.milestoning import ProcessingTemporalColumns, MilestonedTable
+from model.relational import Table as _OwnerTable
+_OWNER_REF_DATA_ACCOUNT_MASTER = _OwnerTable('ref_data.account_master', [])
+_OWNER_TRADING_TRADES = _OwnerTable('trading.trades', [])
 
 
 @pytest.fixture
@@ -52,14 +55,14 @@ def _build_finder():
     account_join = JoinOperation(
         "Account",
         account_table,
-        Column("account_id", "INT", "trading.trades"),
-        Column("ID", "INT", "ref_data.account_master"),
+        Column("account_id", "INT", _OWNER_TRADING_TRADES),
+        Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER),
     )
     account_node = JoinTreeNodeOperation(account_join)
 
-    sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", "trading.trades")
-    price_attr = FloatAttribute("Price", "price", "DOUBLE", "trading.trades")
-    acct_name_attr = StringAttribute("Account Name", "ACCT_NAME", "VARCHAR", "ref_data.account_master", account_node)
+    sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADING_TRADES)
+    price_attr = FloatAttribute("Price", "price", "DOUBLE", _OWNER_TRADING_TRADES)
+    acct_name_attr = StringAttribute("Account Name", "ACCT_NAME", "VARCHAR", _OWNER_REF_DATA_ACCOUNT_MASTER, account_node)
 
     return trade_table, sym_attr, price_attr, acct_name_attr
 

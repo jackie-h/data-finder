@@ -934,6 +934,11 @@ class NamedRelation(Relation):
         Relation.__init__(self, columns)
         self.name = name
 
+    @property
+    def qualified_name(self) -> str:
+        """What the relation is called where it is read: a table's name with its schema's."""
+        return self.name
+
 
 class MilestoningScheme:
     def __init__(self, name: str, processing_start: str | None = None, processing_end: str | None = None,
@@ -992,26 +997,27 @@ class Schema:
 
 
 class Column(RelationalOperationElement):
-    """A column of a relation. As in Legend its ``owner`` is the Relation it belongs to; a name is accepted in its place,
-    and stands for a table of that name whose columns are not known here (what a finder's attributes have: they name the
-    table they read, not the table object)."""
+    """A column of a relation. As in Legend its ``owner`` is the Relation it belongs to. A Table gives the columns it is
+    made of their owner, so a column that is only in a table's list needs none."""
     table: 'Table | None'
     owner: 'Relation | None'
 
-    def __init__(self, name: str, _type: str, owner: 'Relation | str | None' = None, primary_key: bool = False,
+    def __init__(self, name: str, _type: str, owner: 'Relation | None' = None, primary_key: bool = False,
                  nullable: bool = True):
         self.table = None
         super().__init__()
         self.name = name
         self.type = _type
-        self.owner = Table(owner, []) if isinstance(owner, str) else owner
+        if isinstance(owner, str):
+            raise TypeError(f"A column is owned by a Relation, not by the name {owner!r}: give the table")
+        self.owner = owner
         self.primary_key = primary_key
         self.nullable = nullable and not primary_key  # as in Legend, a primary key is never null
 
     @property
     def owner_name(self) -> str | None:
         """The name of the relation the column belongs to: how a query that reads it says which relation that is."""
-        return self.owner.name if isinstance(self.owner, NamedRelation) else None
+        return self.owner.qualified_name if isinstance(self.owner, NamedRelation) else None
 
     def qualified_name(self) -> str:
         assert self.table is not None, f"Column {self.name} has no table"
@@ -1055,6 +1061,7 @@ class Table(NamedRelation):
         self.milestoning_scheme: 'MilestoningScheme | None' = None
         for col in self._columns_by_name.values():
             col.table = self
+            col.owner = self  # a table's own columns belong to it
         if schema is not None:
             schema.tables.append(self)
 

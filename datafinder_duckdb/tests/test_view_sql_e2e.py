@@ -15,6 +15,10 @@ from model.milestoning import MilestonedTable, ProcessingTemporalColumns
 from model.relational import Column, Table, Alias, JoinOperation, JoinTreeNodeOperation, NoOperation, \
     AggregateOperation, AggregateOperator, WindowFunction, WindowFunctionOperation, WindowSpecification
 from model.view import View
+from model.relational import Table as _OwnerTable
+_OWNER_VT_ACCOUNT = _OwnerTable('vt.account', [])
+_OWNER_VT_BRANCH = _OwnerTable('vt.branch', [])
+_OWNER_VT_TRADES = _OwnerTable('vt.trades', [])
 
 _OPEN = "9999-12-31 23:59:59"
 
@@ -47,15 +51,15 @@ class _Model:
     def __init__(self):
         self.trades = MilestonedTable("vt.trades", [], _milestoning())
         account_join = JoinOperation("Account", MilestonedTable("vt.account", [], _milestoning()),
-                                     Column("account_id", "INT", "vt.trades"), Column("id", "INT", "vt.account"))
+                                     Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", _OWNER_VT_ACCOUNT))
         account_node = JoinTreeNodeOperation(account_join)
-        branch_join = JoinOperation("Branch", Table("vt.branch", []), Column("branch_id", "INT", "vt.account"),
-                                    Column("id", "INT", "vt.branch"))
+        branch_join = JoinOperation("Branch", Table("vt.branch", []), Column("branch_id", "INT", _OWNER_VT_ACCOUNT),
+                                    Column("id", "INT", _OWNER_VT_BRANCH))
         branch_node = JoinTreeNodeOperation(branch_join, account_node)
-        self.symbol = StringAttribute("Symbol", "sym", "VARCHAR", "vt.trades")
-        self.price = FloatAttribute("Price", "price", "DOUBLE", "vt.trades")
-        self.account_name = StringAttribute("Account Name", "name", "VARCHAR", "vt.account", account_node)
-        self.city = StringAttribute("Branch City", "city", "VARCHAR", "vt.branch", branch_node)
+        self.symbol = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_VT_TRADES)
+        self.price = FloatAttribute("Price", "price", "DOUBLE", _OWNER_VT_TRADES)
+        self.account_name = StringAttribute("Account Name", "name", "VARCHAR", _OWNER_VT_ACCOUNT, account_node)
+        self.city = StringAttribute("Branch City", "city", "VARCHAR", _OWNER_VT_BRANCH, branch_node)
 
 
 def _rows(con, sql):

@@ -13,6 +13,10 @@ from datafinder_ibis.ibis_engine import IbisConnect, sql_for_backend
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
 from model.relational import Alias, Column, JoinOperation, JoinTreeNodeOperation, NoOperation, Table
 from model.view import View
+from model.relational import Table as _OwnerTable
+_OWNER_VT_ACCOUNT = _OwnerTable('vt.account', [])
+_OWNER_VT_TRADES = _OwnerTable('vt.trades', [])
+_OWNER_WIDGETS = _OwnerTable('widgets', [])
 
 _BUSINESS_DATE = datetime.date(2024, 1, 1)
 _PROCESSING_DATETIME = datetime.datetime(2024, 1, 1, 0, 0, 0)
@@ -91,10 +95,10 @@ class TestIbisOutputTypes:
     def _columns(self):
         table = Table("widgets", [])
         columns = [
-            StringAttribute("Name", "name", "VARCHAR", "widgets"),
-            IntegerAttribute("Quantity", "quantity", "INTEGER", "widgets"),
-            DoubleAttribute("Price", "price", "DOUBLE", "widgets"),
-            BooleanAttribute("Active", "active", "BOOLEAN", "widgets"),
+            StringAttribute("Name", "name", "VARCHAR", _OWNER_WIDGETS),
+            IntegerAttribute("Quantity", "quantity", "INTEGER", _OWNER_WIDGETS),
+            DoubleAttribute("Price", "price", "DOUBLE", _OWNER_WIDGETS),
+            BooleanAttribute("Active", "active", "BOOLEAN", _OWNER_WIDGETS),
         ]
         return table, columns
 
@@ -155,11 +159,11 @@ class TestIbisSelectView:
             return ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"))
 
         join = JoinOperation("Account", MilestonedTable("vt.account", [], milestoning()),
-                             Column("account_id", "INT", "vt.trades"), Column("id", "INT", "vt.account"))
+                             Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", _OWNER_VT_ACCOUNT))
         node = JoinTreeNodeOperation(join)
         return View("trade_account", "reporting", MilestonedTable("vt.trades", [], milestoning()),
-                    [Alias(StringAttribute("Symbol", "sym", "VARCHAR", "vt.trades"), "symbol"),
-                     Alias(StringAttribute("Account Name", "name", "VARCHAR", "vt.account", node), "account_name")])
+                    [Alias(StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_VT_TRADES), "symbol"),
+                     Alias(StringAttribute("Account Name", "name", "VARCHAR", _OWNER_VT_ACCOUNT, node), "account_name")])
 
     def test_select_view_reads_the_rows_of_a_view_that_was_created(self, view):
         IbisConnect.create_view(view)

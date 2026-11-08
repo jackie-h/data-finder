@@ -1,10 +1,13 @@
 """Display names chain along the join path from the root, so a column's name says how it was reached."""
 from datafinder.finder import display_prefix
 from model.relational import Column, JoinOperation, JoinTreeNodeOperation, Table
+from model.relational import Table as _OwnerTable
+_OWNER_T = _OwnerTable('t', [])
 
 
 def _node(name, parent=None):
-    join = JoinOperation(name, Table(name.lower(), []), Column("fk", "INT", "t"), Column("id", "INT", name.lower()))
+    target = Table(name.lower(), [])
+    join = JoinOperation(name, target, Column("fk", "INT", _OWNER_T), Column("id", "INT", target))
     return JoinTreeNodeOperation(join, parent)
 
 

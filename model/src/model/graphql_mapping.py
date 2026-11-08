@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from model.m3 import Property, Class
+from model.relational import NamedRelation
 from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
 
 
@@ -48,10 +49,12 @@ class GraphQLBiTemporalMilestone:
 GraphQLMilestone = GraphQLProcessingMilestone | GraphQLBusinessDateMilestone | GraphQLBiTemporalMilestone
 
 
-class GraphQLQuery:
+class GraphQLQuery(NamedRelation):
+    """A named query of a GraphQL endpoint: the relation its fields are read from."""
+
     def __init__(self, name: str, endpoint: GraphQLEndpoint,
                  milestone: GraphQLMilestone | None = None):
-        self.name = name
+        super().__init__(name, [])
         self.endpoint = endpoint
         self.milestone = milestone
 

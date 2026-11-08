@@ -4,6 +4,8 @@ import pytest
 
 from datafinder import to_sql, StringAttribute, IntegerAttribute
 from model.relational import Table, Column
+from model.relational import Table as _OwnerTable
+_OWNER_NOTES = _OwnerTable('notes', [])
 
 
 @pytest.fixture
@@ -19,13 +21,13 @@ def con():
 
 
 def _ids(con, op):
-    table = Table("notes", [Column("id", "INTEGER", "notes"), Column("text", "VARCHAR", "notes")])
-    id_attr = IntegerAttribute("Id", "id", "INTEGER", "notes")
+    table = Table("notes", [Column("id", "INTEGER", _OWNER_NOTES), Column("text", "VARCHAR", _OWNER_NOTES)])
+    id_attr = IntegerAttribute("Id", "id", "INTEGER", _OWNER_NOTES)
     return sorted(r[0] for r in con.sql(to_sql(None, None, [id_attr], table, op)).fetchall())
 
 
 def _text():
-    return StringAttribute("Text", "text", "VARCHAR", "notes")
+    return StringAttribute("Text", "text", "VARCHAR", _OWNER_NOTES)
 
 
 class TestContains:
@@ -61,7 +63,7 @@ class TestStartsWithAndEndsWith:
 class TestTheSql:
 
     def test_the_escape_is_named_only_where_it_is_needed(self):
-        table = Table("notes", [Column("text", "VARCHAR", "notes")])
+        table = Table("notes", [Column("text", "VARCHAR", _OWNER_NOTES)])
         text = _text()
         assert to_sql(None, None, [text], table, text.contains("a_b")).endswith("LIKE '%a!_b%' ESCAPE '!'")
         assert to_sql(None, None, [text], table, text.contains("ab")).endswith("LIKE '%ab%'")

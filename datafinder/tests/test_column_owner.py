@@ -1,24 +1,37 @@
-"""An attribute's column belongs to a relation, which can be given as the relation or, as the finders do, by name."""
+"""An attribute's column belongs to a relation, which is given as the relation: a name does not stand for one."""
+import pytest
+
 from datafinder import IntegerAttribute, StringAttribute, to_sql
-from model.relational import Column, NoOperation, Relation, Table, TableAlias
+from model.relational import Column, NoOperation, Table, TableAlias
 
 _TABLE = Table("accounts", [Column("ID", "INT"), Column("NAME", "VARCHAR")])
 
 
-def test_an_attribute_owned_by_a_table_object_reads_as_one_owned_by_its_name():
-    by_table = StringAttribute("Name", "NAME", "VARCHAR", _TABLE)
-    by_name = StringAttribute("Name", "NAME", "VARCHAR", "accounts")
-    assert by_table.owner() is _TABLE and isinstance(by_name.owner(), Relation)
-    assert by_table.column().owner is _TABLE and by_name.column().owner_name == "accounts"
-    for attribute in (by_table, by_name):
-        assert to_sql(None, None, [attribute], _TABLE, NoOperation()) == 'SELECT t0.NAME AS "Name" FROM accounts AS t0'
+def test_an_attribute_takes_the_relation_that_owns_its_column():
+    attribute = StringAttribute("Name", "NAME", "VARCHAR", _TABLE)
+    assert attribute.owner() is _TABLE and attribute.column().owner is _TABLE
+    assert to_sql(None, None, [attribute], _TABLE, NoOperation()) == 'SELECT t0.NAME AS "Name" FROM accounts AS t0'
 
 
-def test_two_attributes_of_one_table_share_its_alias_whichever_way_they_name_it():
-    by_table = IntegerAttribute("Id", "ID", "INT", _TABLE)
-    by_name = StringAttribute("Name", "NAME", "VARCHAR", "accounts")
-    sql = to_sql(None, None, [by_table, by_name], _TABLE, NoOperation())
+def test_an_attribute_cannot_be_given_a_name_as_its_owner():
+    with pytest.raises(TypeError, match="owned by a Relation"):
+        StringAttribute("Name", "NAME", "VARCHAR", "accounts")  # type: ignore[arg-type]
+
+
+def test_attributes_of_tables_with_the_same_name_share_an_alias():
+    # the finders name the table they read with a Table of its own, which is the same relation as the root by its name
+    other = Table("accounts", [])
+    sql = to_sql(None, None, [IntegerAttribute("Id", "ID", "INT", _TABLE), StringAttribute("Name", "NAME", "VARCHAR", other)],
+                 _TABLE, NoOperation())
     assert sql == 'SELECT t0.ID AS "Id",t0.NAME AS "Name" FROM accounts AS t0'
+
+
+def test_a_table_is_written_by_its_qualified_name():
+    from model.relational import Database, Schema
+    schema = Schema("vt", Database("db"))
+    table = Table("trades", [Column("ID", "INT")], schema)
+    attribute = IntegerAttribute("Id", "ID", "INT", table)
+    assert to_sql(None, None, [attribute], table, NoOperation()) == 'SELECT t0.ID AS "Id" FROM vt.trades AS t0'
 
 
 def test_the_generator_names_each_relation_it_reads_with_a_table_alias():

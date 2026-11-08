@@ -9,6 +9,9 @@ from datafinder.typed_attributes import StringAttribute
 from datafinder_liquibase import write_changelog
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
 from model.relational import Column, JoinOperation, JoinTreeNodeOperation, NoOperation
+from model.relational import Table as _OwnerTable
+_OWNER_VT_ACCOUNT = _OwnerTable('vt.account', [])
+_OWNER_VT_TRADES = _OwnerTable('vt.trades', [])
 
 _OPEN = "9999-12-31 23:59:59"
 
@@ -17,11 +20,11 @@ def _trade_account_view():
     milestoning = lambda: ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"))
     trades = MilestonedTable("vt.trades", [], milestoning())
     account = MilestonedTable("vt.account", [], milestoning())
-    join = JoinOperation("Account", account, Column("account_id", "INT", "vt.trades"),
-                         Column("id", "INT", "vt.account"))
+    join = JoinOperation("Account", account, Column("account_id", "INT", _OWNER_VT_TRADES),
+                         Column("id", "INT", _OWNER_VT_ACCOUNT))
     node = JoinTreeNodeOperation(join, None)
-    symbol = StringAttribute("Symbol", "sym", "VARCHAR", "vt.trades")
-    account_name = StringAttribute("Account Name", "name", "VARCHAR", "vt.account", node)
+    symbol = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_VT_TRADES)
+    account_name = StringAttribute("Account Name", "name", "VARCHAR", _OWNER_VT_ACCOUNT, node)
     return FinderResult(None, None, [account_name, symbol], trades, NoOperation()).to_view("trade_account", "reporting")
 
 

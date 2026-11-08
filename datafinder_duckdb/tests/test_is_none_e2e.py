@@ -5,6 +5,8 @@ from numpy.testing import assert_array_equal
 
 from datafinder import to_sql, StringAttribute, IntegerAttribute
 from model.relational import Table, Column
+from model.relational import Table as _OwnerTable
+_OWNER_ORDERS = _OwnerTable('orders', [])
 
 
 @pytest.fixture
@@ -24,13 +26,13 @@ def con():
 
 
 def _make_attrs():
-    id_col = Column("id", "INTEGER", "orders")
-    notes_col = Column("notes", "VARCHAR", "orders")
-    qty_col = Column("quantity", "INTEGER", "orders")
+    id_col = Column("id", "INTEGER", _OWNER_ORDERS)
+    notes_col = Column("notes", "VARCHAR", _OWNER_ORDERS)
+    qty_col = Column("quantity", "INTEGER", _OWNER_ORDERS)
     table = Table("orders", [id_col, notes_col, qty_col])
-    id_attr = IntegerAttribute("Id", "id", "INTEGER", "orders")
-    notes_attr = StringAttribute("Notes", "notes", "VARCHAR", "orders")
-    qty_attr = IntegerAttribute("Quantity", "quantity", "INTEGER", "orders")
+    id_attr = IntegerAttribute("Id", "id", "INTEGER", _OWNER_ORDERS)
+    notes_attr = StringAttribute("Notes", "notes", "VARCHAR", _OWNER_ORDERS)
+    qty_attr = IntegerAttribute("Quantity", "quantity", "INTEGER", _OWNER_ORDERS)
     return table, id_attr, notes_attr, qty_attr
 
 

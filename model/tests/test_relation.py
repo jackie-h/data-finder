@@ -3,9 +3,11 @@ from model.relational import (
     Alias, Column, NamedRelation, NoOperation, OrderedQuerySpecification, QueryExpression, QuerySpecification, Relation,
     Table, TableAlias)
 from model.view import View
+from model.relational import Table as _OwnerTable
+_OWNER_ACCOUNTS = _OwnerTable('accounts', [])
 
-_ID = Column("ID", "INT", "accounts")
-_NAME = Column("NAME", "VARCHAR", "accounts")
+_ID = Column("ID", "INT", _OWNER_ACCOUNTS)
+_NAME = Column("NAME", "VARCHAR", _OWNER_ACCOUNTS)
 _TABLE = Table("accounts", [_ID, _NAME])
 
 
@@ -55,12 +57,25 @@ def test_a_columns_owner_is_a_relation():
     owner = Table("accounts", [])
     assert Column("ID", "INT", owner).owner is owner
     assert Column("ID", "INT", owner).owner_name == "accounts"
-    # a name stands for a table of that name whose columns are not known
-    named = Column("ID", "INT", "accounts")
-    assert isinstance(named.owner, Table) and named.owner.name == "accounts" and list(named.owner.columns) == []
-    assert named.owner_name == "accounts"
     # a query read under a name is owned by the alias
     alias = TableAlias(QuerySpecification([_NAME], NoOperation(), table=_TABLE), "relation1")
     assert Column("name", "VARCHAR", alias).owner_name == "relation1"
     # no owner, no name
     assert Column("ID", "INT").owner is None and Column("ID", "INT").owner_name is None
+
+
+def test_a_name_is_not_an_owner():
+    import pytest
+    with pytest.raises(TypeError, match="owned by a Relation"):
+        Column("ID", "INT", "accounts")  # type: ignore[arg-type]
+
+
+def test_a_table_is_the_owner_of_its_columns():
+    first, second = Column("ID", "INT"), Column("NAME", "VARCHAR")
+    table = Table("accounts", [first, second])
+    assert first.owner is table and second.owner is table and first.table is table
+    # a milestoned table owns its milestoning columns too
+    from model.milestoning import MilestonedTable, ProcessingTemporalColumns
+    start, end = Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")
+    milestoned = MilestonedTable("trades", [], ProcessingTemporalColumns(start, end))
+    assert start.owner is milestoned and end.owner is milestoned

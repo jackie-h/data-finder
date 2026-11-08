@@ -20,6 +20,9 @@ from model.graphql_mapping import (
 from model.m3 import Class, Property, String, Float, Integer, Package, ONE_TO_ONE, ZERO_TO_ONE
 
 from mock_graphql_server import start_mock_server
+from model.relational import Table as _OwnerTable
+_OWNER_ACCOUNTS = _OwnerTable('accounts', [])
+_OWNER_INSTRUMENTS = _OwnerTable('instruments', [])
 
 
 @pytest.fixture(scope="module")
@@ -67,8 +70,8 @@ class TestGraphQLEngine:
         endpoint = _endpoint(graphql_server)
         gql_query = GraphQLQuery("instruments", endpoint)
 
-        sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
-        price_attr = Attribute("Price", "price", "FLOAT", "instruments")
+        sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
+        price_attr = Attribute("Price", "price", "FLOAT", _OWNER_INSTRUMENTS)
 
         result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # type: ignore[arg-type]
         data = result.to_numpy()
@@ -83,7 +86,7 @@ class TestGraphQLEngine:
         # Milestone wires business_date to the "businessDate" argument
         gql_query = GraphQLQuery("instruments", endpoint,
                                   milestone=GraphQLBusinessDateMilestone("businessDate"))
-        sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
+        sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
 
         bd = datetime.date(2024, 1, 10)
         result = FinderResult(bd, None, [sym_attr], gql_query, None)  # type: ignore[arg-type]
@@ -96,7 +99,7 @@ class TestGraphQLEngine:
         endpoint = _endpoint(graphql_server)
         gql_query = GraphQLQuery("instruments", endpoint,
                                   milestone=GraphQLProcessingMilestone("asOf"))
-        sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
+        sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
 
         pdt = datetime.datetime(2020, 1, 1, 9, 0, 0)
         result = FinderResult(None, pdt, [sym_attr], gql_query, None)  # type: ignore[arg-type]
@@ -107,7 +110,7 @@ class TestGraphQLEngine:
     def test_no_milestone_ignores_dates(self, graphql_server):
         endpoint = _endpoint(graphql_server)
         gql_query = GraphQLQuery("instruments", endpoint)  # no milestone
-        sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
+        sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
 
         # Dates present but no milestone — no arguments added, still returns all rows
         result = FinderResult(datetime.date(2024, 1, 10),
@@ -120,8 +123,8 @@ class TestGraphQLEngine:
         endpoint = _endpoint(graphql_server)
         gql_query = GraphQLQuery("accounts", endpoint)
 
-        id_attr = Attribute("Id", "id", "INT", "accounts")
-        name_attr = Attribute("Name", "name", "STRING", "accounts")
+        id_attr = Attribute("Id", "id", "INT", _OWNER_ACCOUNTS)
+        name_attr = Attribute("Name", "name", "STRING", _OWNER_ACCOUNTS)
 
         result = FinderResult(None, None, [id_attr, name_attr], gql_query, None)  # type: ignore[arg-type]
         data = result.to_numpy()
@@ -135,8 +138,8 @@ class TestGraphQLEngine:
         endpoint = _endpoint(graphql_server)
         gql_query = GraphQLQuery("instruments", endpoint)
 
-        sym_attr = Attribute("Symbol", "sym", "STRING", "instruments")
-        price_attr = Attribute("Price", "price", "FLOAT", "instruments")
+        sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
+        price_attr = Attribute("Price", "price", "FLOAT", _OWNER_INSTRUMENTS)
 
         result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # type: ignore[arg-type]
         df = result.to_pandas()

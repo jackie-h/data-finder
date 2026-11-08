@@ -76,3 +76,4 @@ class MilestonedTable(Table):
         self.milestoning_columns = milestoning_columns
         for col in milestoning_columns.columns():
             col.table = self
+            col.owner = self

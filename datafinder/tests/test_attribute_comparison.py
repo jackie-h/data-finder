@@ -8,6 +8,8 @@ import pytest
 from datafinder import DateAttribute, DateTimeAttribute, IntegerAttribute, StringAttribute, to_sql
 from datafinder.typed_attributes import BooleanAttribute, DecimalAttribute, DoubleAttribute
 from model.relational import Column, NoOperation, Table
+from model.relational import Table as _OwnerTable
+_OWNER_T = _OwnerTable('t', [])
 
 
 def _table():
@@ -17,15 +19,15 @@ def _table():
 
 def _attrs():
     return {
-        "int": (IntegerAttribute("I", "I", "INT", "t"), IntegerAttribute("J", "J", "INT", "t"), 5),
-        "double": (DoubleAttribute("D", "D", "DOUBLE", "t"), DoubleAttribute("E", "E", "DOUBLE", "t"), 1.5),
-        "decimal": (DecimalAttribute("N", "N", "DECIMAL", "t"), DecimalAttribute("M", "M", "DECIMAL", "t"),
+        "int": (IntegerAttribute("I", "I", "INT", _OWNER_T), IntegerAttribute("J", "J", "INT", _OWNER_T), 5),
+        "double": (DoubleAttribute("D", "D", "DOUBLE", _OWNER_T), DoubleAttribute("E", "E", "DOUBLE", _OWNER_T), 1.5),
+        "decimal": (DecimalAttribute("N", "N", "DECIMAL", _OWNER_T), DecimalAttribute("M", "M", "DECIMAL", _OWNER_T),
                     decimal.Decimal("2.5")),
-        "string": (StringAttribute("S", "S", "VARCHAR", "t"), StringAttribute("T", "T", "VARCHAR", "t"), "x"),
-        "date": (DateAttribute("A", "A", "DATE", "t"), DateAttribute("B", "B", "DATE", "t"), datetime.date(2024, 1, 2)),
-        "datetime": (DateTimeAttribute("U", "U", "TIMESTAMP", "t"), DateTimeAttribute("V", "V", "TIMESTAMP", "t"),
+        "string": (StringAttribute("S", "S", "VARCHAR", _OWNER_T), StringAttribute("T", "T", "VARCHAR", _OWNER_T), "x"),
+        "date": (DateAttribute("A", "A", "DATE", _OWNER_T), DateAttribute("B", "B", "DATE", _OWNER_T), datetime.date(2024, 1, 2)),
+        "datetime": (DateTimeAttribute("U", "U", "TIMESTAMP", _OWNER_T), DateTimeAttribute("V", "V", "TIMESTAMP", _OWNER_T),
                      datetime.datetime(2024, 1, 2, 3, 4, 5)),
-        "boolean": (BooleanAttribute("P", "P", "BOOLEAN", "t"), BooleanAttribute("Q", "Q", "BOOLEAN", "t"), True),
+        "boolean": (BooleanAttribute("P", "P", "BOOLEAN", _OWNER_T), BooleanAttribute("Q", "Q", "BOOLEAN", _OWNER_T), True),
     }
 
 
@@ -107,60 +109,60 @@ def test_a_date_difference_with_a_value_is_unchanged():
 
 
 def test_a_condition_is_negated_with_a_tilde():
-    name = StringAttribute("N", "N", "VARCHAR", "t")
+    name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
     assert "NOT (t0.N LIKE 'MEDIUM POLISHED%')" in _sql(name, ~name.starts_with("MEDIUM POLISHED"))
     assert "NOT (t0.N = 'x' AND t0.N <> 'y')" in _sql(name, ~(name.eq("x").and_(name.ne("y"))))
 
 
 def test_negating_a_negation_is_the_condition_again():
-    name = StringAttribute("N", "N", "VARCHAR", "t")
+    name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
     condition = name.eq("x")
     assert ~~condition is condition
 
 
 def test_a_negated_ordering_comparison_is_not_guarded_against_a_missing_value():
-    price = DoubleAttribute("P", "P", "DOUBLE", "t", optional=True)
+    price = DoubleAttribute("P", "P", "DOUBLE", _OWNER_T, optional=True)
     assert "IS NOT NULL" in _sql(price, price > 5.0)
     assert "IS NOT NULL" not in _sql(price, ~(price > 5.0))
 
 
 def test_matches_searches_for_a_regular_expression_anywhere_in_the_text():
-    name = StringAttribute("N", "N", "VARCHAR", "t")
+    name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
     assert "REGEXP_MATCHES(t0.N, 'Customer.*Complaints')" in _sql(name, name.matches("Customer.*Complaints"))
     assert "NOT (REGEXP_MATCHES(t0.N, 'a.b'))" in _sql(name, ~name.matches("a.b"))
 
 
 def test_matches_a_function_of_a_column():
-    name = StringAttribute("N", "N", "VARCHAR", "t")
+    name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
     assert "REGEXP_MATCHES(UPPER(t0.N), 'AC.*E')" in _sql(name, name.upper().matches("AC.*E"))
 
 
 def test_only_a_type_with_an_order_can_be_compared_with_less_than():
-    boolean = BooleanAttribute("B", "B", "BOOLEAN", "t")
-    text = StringAttribute("S", "S", "VARCHAR", "t")
+    boolean = BooleanAttribute("B", "B", "BOOLEAN", _OWNER_T)
+    text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
     for column in (boolean, text):
         for compare in (lambda c: c < 1, lambda c: c <= 1, lambda c: c > 1, lambda c: c >= 1):
             with pytest.raises(TypeError):
                 compare(column)
-    assert IntegerAttribute("I", "I", "INT", "t") < 1
-    assert DateAttribute("D", "D", "DATE", "t") >= datetime.date(2020, 1, 1)
+    assert IntegerAttribute("I", "I", "INT", _OWNER_T) < 1
+    assert DateAttribute("D", "D", "DATE", _OWNER_T) >= datetime.date(2020, 1, 1)
 
 
 def test_in_takes_the_type_of_the_column():
     table = Table("t", [Column("I", "INT"), Column("B", "BOOLEAN"), Column("S", "VARCHAR")])
-    integer = IntegerAttribute("I", "I", "INT", "t")
+    integer = IntegerAttribute("I", "I", "INT", _OWNER_T)
     assert "IN (1, 2)" in to_sql(None, None, [integer], table, integer.is_in([1, 2]))
-    assert "IN ('a')" in to_sql(None, None, [integer], table, StringAttribute("S", "S", "VARCHAR", "t").is_in(["a"]))
-    assert "NOT IN (TRUE)" in to_sql(None, None, [integer], table, BooleanAttribute("B", "B", "BOOLEAN", "t").is_not_in([True]))
+    assert "IN ('a')" in to_sql(None, None, [integer], table, StringAttribute("S", "S", "VARCHAR", _OWNER_T).is_in(["a"]))
+    assert "NOT IN (TRUE)" in to_sql(None, None, [integer], table, BooleanAttribute("B", "B", "BOOLEAN", _OWNER_T).is_not_in([True]))
 
 
 def test_a_function_result_has_the_type_the_function_gives():
     from datafinder.scalar_functions import (
         DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, StringFunctionOperation)
-    text = StringAttribute("S", "S", "VARCHAR", "t")
-    integer = IntegerAttribute("I", "I", "INT", "t")
-    double = DoubleAttribute("D", "D", "DOUBLE", "t")
-    decimal_ = DecimalAttribute("M", "M", "DECIMAL", "t")
+    text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
+    integer = IntegerAttribute("I", "I", "INT", _OWNER_T)
+    double = DoubleAttribute("D", "D", "DOUBLE", _OWNER_T)
+    decimal_ = DecimalAttribute("M", "M", "DECIMAL", _OWNER_T)
     assert isinstance(text.substring(0, 2), StringFunctionOperation)
     assert isinstance(text.length(), IntegerFunctionOperation)
     # abs, ceil, floor, mod and round keep the type of what they are given
@@ -187,7 +189,7 @@ def test_a_function_result_has_the_type_the_function_gives():
 
 
 def test_a_text_function_is_not_ordered_and_a_number_function_is():
-    text = StringAttribute("S", "S", "VARCHAR", "t")
+    text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
     with pytest.raises(TypeError):
         text.upper() < "b"  # type: ignore[operator]
     assert text.length() < 3
@@ -197,8 +199,8 @@ def test_a_text_function_is_not_ordered_and_a_number_function_is():
 def test_a_date_operation_is_compared_as_what_it_gives():
     from model.relational import DateArithmeticOperation, DateDiffOperation, DateExtractOperation, DateTruncOperation
     table = Table("t", [Column("D", "DATE"), Column("T", "TIMESTAMP")])
-    day = DateAttribute("D", "D", "DATE", "t")
-    moment = DateTimeAttribute("T", "T", "TIMESTAMP", "t")
+    day = DateAttribute("D", "D", "DATE", _OWNER_T)
+    moment = DateTimeAttribute("T", "T", "TIMESTAMP", _OWNER_T)
     # a part of a date and a difference are integers
     assert isinstance(day.year(), DateExtractOperation) and isinstance(moment.hour(), DateExtractOperation)
     assert isinstance(day.diff_days(datetime.date(2020, 1, 1)), DateDiffOperation)
@@ -212,8 +214,8 @@ def test_a_date_operation_is_compared_as_what_it_gives():
 
 
 def test_joined_text_is_compared_for_equality_only():
-    first = StringAttribute("F", "F", "VARCHAR", "t")
-    last = StringAttribute("L", "L", "VARCHAR", "t")
+    first = StringAttribute("F", "F", "VARCHAR", _OWNER_T)
+    last = StringAttribute("L", "L", "VARCHAR", _OWNER_T)
     table = Table("t", [Column("F", "VARCHAR"), Column("L", "VARCHAR")])
     name = first + " " + last
     for compare in (lambda n: n < "b", lambda n: n >= "b"):
@@ -229,12 +231,12 @@ def test_an_aggregate_has_the_type_it_gives():
     from model.relational import (
         BooleanAggregateOperation, DateAggregateOperation, DateTimeAggregateOperation, DecimalAggregateOperation,
         DoubleAggregateOperation, IntegerAggregateOperation, StringAggregateOperation, UntypedAggregateOperation)
-    text = StringAttribute("S", "S", "VARCHAR", "t")
-    integer = IntegerAttribute("I", "I", "INT", "t")
-    double = DoubleAttribute("D", "D", "DOUBLE", "t")
-    decimal_ = DecimalAttribute("M", "M", "DECIMAL", "t")
-    day = DateAttribute("A", "A", "DATE", "t")
-    moment = DateTimeAttribute("T", "T", "TIMESTAMP", "t")
+    text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
+    integer = IntegerAttribute("I", "I", "INT", _OWNER_T)
+    double = DoubleAttribute("D", "D", "DOUBLE", _OWNER_T)
+    decimal_ = DecimalAttribute("M", "M", "DECIMAL", _OWNER_T)
+    day = DateAttribute("A", "A", "DATE", _OWNER_T)
+    moment = DateTimeAttribute("T", "T", "TIMESTAMP", _OWNER_T)
     # a count is an integer, whatever it counts
     for column in (text, integer, double, day):
         assert isinstance(column.count(), IntegerAggregateOperation)
@@ -261,10 +263,10 @@ def test_an_aggregate_has_the_type_it_gives():
 
 
 def test_an_aggregate_is_ordered_only_if_what_it_gives_is():
-    text = StringAttribute("S", "S", "VARCHAR", "t")
-    integer = IntegerAttribute("I", "I", "INT", "t")
+    text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
+    integer = IntegerAttribute("I", "I", "INT", _OWNER_T)
     assert integer.sum() > 3 and integer.count() <= 2 and integer.max() + 1
-    assert DateAttribute("A", "A", "DATE", "t").max() >= datetime.date(2020, 1, 1)
+    assert DateAttribute("A", "A", "DATE", _OWNER_T).max() >= datetime.date(2020, 1, 1)
     for text_aggregate in (text.min(), text.join(",")):
         with pytest.raises(TypeError):
             text_aggregate < "b"  # type: ignore[operator]

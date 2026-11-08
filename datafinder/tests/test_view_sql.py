@@ -8,6 +8,11 @@ from model.milestoning import MilestonedTable, ProcessingTemporalColumns, Single
 from model.relational import Column, Table, Alias, ColumnWithJoin, ComparisonOperation, JoinOperation, \
     JoinTreeNodeOperation
 from model.view import View, ViewDefinitionError
+from model.relational import Table as _OwnerTable
+_OWNER_CHILD = _OwnerTable('child', [])
+_OWNER_LEAF = _OwnerTable('leaf', [])
+_OWNER_MID = _OwnerTable('mid', [])
+_OWNER_ROOT = _OwnerTable('root', [])
 
 
 def _processing(name):
@@ -24,12 +29,12 @@ def _bitemporal(name):
 
 
 def _node(child, name="Child"):
-    join = JoinOperation(name, child, Column("fk", "INT", "root"), Column("id", "INT", child.name))
+    join = JoinOperation(name, child, Column("fk", "INT", _OWNER_ROOT), Column("id", "INT", child))
     return JoinTreeNodeOperation(join, None)
 
 
 def _alias(name, table="root", node=None):
-    return Alias(ColumnWithJoin(Column(name, "VARCHAR", table), node), name)
+    return Alias(ColumnWithJoin(Column(name, "VARCHAR", _OwnerTable(table, [])), node), name)
 
 
 def test_rendering_pins_the_joined_table_to_the_root_row():
@@ -74,7 +79,7 @@ def test_non_milestoned_child_needs_no_condition():
 
 def test_an_ancestor_that_cannot_be_anchored_is_rejected_too():
     parent = _node(_business("mid"), name="Mid")
-    leaf_join = JoinOperation("Leaf", Table("leaf", []), Column("fk", "INT", "mid"), Column("id", "INT", "leaf"))
+    leaf_join = JoinOperation("Leaf", Table("leaf", []), Column("fk", "INT", _OWNER_MID), Column("id", "INT", _OWNER_LEAF))
     view = View("v", "s", _processing("root"), [_alias("y", "leaf", JoinTreeNodeOperation(leaf_join, parent))])
     with pytest.raises(ViewDefinitionError, match="'Mid'"):
         check_view_joins(view)
@@ -83,7 +88,7 @@ def test_an_ancestor_that_cannot_be_anchored_is_rejected_too():
 def test_joins_read_only_through_group_by_are_still_checked():
     mid = _node(_business("child"))
     view = View("v", "s", _processing("root"), [_alias("x")],
-                group_by=[ColumnWithJoin(Column("y", "VARCHAR", "child"), mid)])
+                group_by=[ColumnWithJoin(Column("y", "VARCHAR", _OWNER_CHILD), mid)])
     with pytest.raises(ViewDefinitionError, match="no business date"):
         check_view_joins(view)
 
@@ -100,7 +105,7 @@ def test_building_one_query_does_not_change_another_on_a_shared_join():
     from model.relational import NoOperation
     root, child = _processing("root"), _processing("child")
     node = _node(child)
-    columns = [StringAttribute("Y", "y", "VARCHAR", "child", node)]
+    columns = [StringAttribute("Y", "y", "VARCHAR", _OWNER_CHILD, node)]
 
     def build(year):
         return build_query_specification(None, datetime.datetime(year, 6, 1, 12), columns, root, NoOperation())

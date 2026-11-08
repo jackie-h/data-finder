@@ -4,7 +4,7 @@ from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint, association_segment, GraphQLBiTemporalMilestone, GraphQLBusinessDateMilestone, GraphQLProcessingMilestone
-from model.relational import NoOperation
+from model.relational import NamedRelation, NoOperation
 
 {% for target_cm in related_classes(cm) %}
 
@@ -24,7 +24,7 @@ class _{{target_cm.clazz.name}}RelatedFinder:
         self._display_prefix = display_prefix or parent_field.title()
 {% for tpm in target_cm.property_mappings %}
 {% if is_primitive_mapping(tpm) %}
-        self.__{{to_python_name(tpm.property)}} = {{tpm.property.type.name}}Attribute(self._display_prefix + ' {{display_name(tpm.property)}}', parent_field + '.{{tpm.target.name}}', '{{type_str(tpm.property.type)}}', '{{cm.query.name}}')
+        self.__{{to_python_name(tpm.property)}} = {{tpm.property.type.name}}Attribute(self._display_prefix + ' {{display_name(tpm.property)}}', parent_field + '.{{tpm.target.name}}', '{{type_str(tpm.property.type)}}', NamedRelation('{{cm.query.name}}', []))
 {% endif %}
 {% endfor %}
 
@@ -57,7 +57,7 @@ class {{cm.clazz.name}}Finder:
 {% endif %}
 {% for pm in cm.property_mappings %}
 {% if is_primitive_mapping(pm) %}
-        self.__{{to_python_name(pm.property)}} = {{pm.property.type.name}}Attribute('{{display_name(pm.property)}}', '{{pm.target.name}}', '{{type_str(pm.property.type)}}', '{{cm.query.name}}')
+        self.__{{to_python_name(pm.property)}} = {{pm.property.type.name}}Attribute('{{display_name(pm.property)}}', '{{pm.target.name}}', '{{type_str(pm.property.type)}}', self._query)
 {% elif is_association_mapping(pm) %}
 {% set target_cm = class_mappings_by_name.get(pm.property.type.name) %}
 {% if target_cm %}

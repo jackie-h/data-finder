@@ -65,7 +65,7 @@ class View(QuerySpecification, NamedRelation):
         _check_identifier('Schema name', schema)
         self.projection = tuple(projection)
         milestoning = table.milestoning_columns.columns() if isinstance(table, MilestonedTable) else []
-        milestoning_aliases = [Alias(Column(c.name, c.type, c.qualified_name()), c.name) for c in milestoning]
+        milestoning_aliases = [Alias(Column(c.name, c.type, table), c.name) for c in milestoning]
         self._columns = [*self.projection, *milestoning_aliases]
         NamedRelation.__init__(self, name, self._columns)
 

@@ -7,6 +7,9 @@ from datafinder import FinderResult, ViewDefinition, ViewDefinitionError, ViewRe
 from datafinder.typed_attributes import StringAttribute, FloatAttribute
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns, SingleBusinessDateColumn
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation
+from model.relational import Table as _OwnerTable
+_OWNER_VT_PLAIN = _OwnerTable('vt.plain', [])
+_OWNER_VT_TRADES = _OwnerTable('vt.trades', [])
 
 
 def _processing(name):
@@ -14,17 +17,17 @@ def _processing(name):
 
 
 def _symbol():
-    return StringAttribute("Symbol", "sym", "VARCHAR", "vt.trades")
+    return StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_VT_TRADES)
 
 
 def _price():
-    return FloatAttribute("Price", "price", "DOUBLE", "vt.trades")
+    return FloatAttribute("Price", "price", "DOUBLE", _OWNER_VT_TRADES)
 
 
 def _account_name(child=None):
     child = child if child is not None else _processing("vt.account")
-    join = JoinOperation("Account", child, Column("account_id", "INT", "vt.trades"), Column("id", "INT", child.name))
-    return StringAttribute("Account Name", "name", "VARCHAR", child.name, JoinTreeNodeOperation(join))
+    join = JoinOperation("Account", child, Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", child))
+    return StringAttribute("Account Name", "name", "VARCHAR", child, JoinTreeNodeOperation(join))
 
 
 def _query(columns, op=None, table=None) -> FinderResult:
@@ -112,5 +115,5 @@ def test_a_join_that_cannot_be_anchored_is_rejected_when_the_view_is_defined():
 
 def test_a_non_milestoned_root_gets_no_validity_columns():
     plain = Table("vt.plain", [])
-    view = _query([StringAttribute("Name", "name", "VARCHAR", "vt.plain")], table=plain).to_view("v", "reporting")
+    view = _query([StringAttribute("Name", "name", "VARCHAR", _OWNER_VT_PLAIN)], table=plain).to_view("v", "reporting")
     assert view.column_names() == ["name"]
