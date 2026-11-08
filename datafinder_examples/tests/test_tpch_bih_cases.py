@@ -2,7 +2,7 @@
 temporal clauses of the report's SQL are translated as SQL:2011 defines them."""
 import pytest
 
-from datafinder_examples_tests.tpch_bih_build import CASES_FILE, build
+from datafinder_examples_tests.tpch_bih_build import EXPECTED_FILE, build
 from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS
 from datafinder_examples_tests.tpch_bih_queries import QUERIES
 from datafinder_examples_tests.tpch_bih_sql import (
@@ -11,7 +11,7 @@ from datafinder_examples_tests.tpch_bih_sql import (
 
 
 def test_the_checked_in_cases_are_what_the_definitions_give():
-    assert CASES_FILE.read_text() == build(), "run: uv run datafinder_examples/tools/build_tpch_bih_cases.py"
+    assert EXPECTED_FILE.read_text() == build(), "run: uv run datafinder_examples/tools/build_tpch_bih_cases.py"
 
 
 def test_every_case_has_a_finder_query_or_a_reason():

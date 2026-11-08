@@ -1,4 +1,4 @@
-"""The finder query for each benchmark case of tpch_bih_cases.py (the case holds the report's SQL and the expected rows).
+"""The finder query for each benchmark case of tpch_bih_cases.py (a case holds the SQL of tpch_bih_definitions.py and the expected rows).
 
 An entry is a ``FinderQuery``, the finder columns it returns and the query, which is given the finders ``q`` and the values of the
 case's parameters ``p``; or ``Unsupported`` with the reason the finders cannot ask the query as the report does. The

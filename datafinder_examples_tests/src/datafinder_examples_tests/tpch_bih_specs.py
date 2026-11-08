@@ -2,8 +2,8 @@
 Test specifications for the TPC-BiH benchmark (Kaufmann et al., "TPC-BiH: A Benchmark for Bitemporal Databases", TPCTC 2013):
 the finder route of each benchmark case.
 
-A case (tpch_bih_cases.py, generated from tpch_bih_definitions.py and tpch_bih_tpch_definitions.py) holds the report's SQL, the
-values of its parameters and the rows that SQL returns on the generated data. tpch_bih_queries.py has the finder query for it,
+A case (tpch_bih_cases.py) holds the SQL of tpch_bih_definitions.py, the values of its parameters and the rows that SQL returns on
+the generated data (tpch_bih_expected.py, generated). tpch_bih_queries.py has the finder query for it,
 or the reason the finders cannot ask it as the report does, which makes the spec a skip. The SQL route, which runs the report's
 SQL itself, is in the backend's test.
 
