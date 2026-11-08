@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 from datafinder import Attribute
 import decimal
 
-from model.function_mixins import DateFunctions, DateTimeFunctions, N, NumericFunctions, StringFunctions
+from model.relational import DateFunctions, DateTimeFunctions, N, NumericFunctions, StringFunctions
 from model.relational import DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, StringFunctionOperation
 
 from model.relational import Relation, Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
