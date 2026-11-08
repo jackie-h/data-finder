@@ -13,13 +13,14 @@ import duckdb
 from datafinder_examples_tests.tpch_bih_case import BenchmarkCase
 from datafinder_examples_tests.tpch_bih_data import csv_dir
 from datafinder_examples_tests.tpch_bih_db import load
-from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS
+from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS as BIH_DEFINITIONS
+from datafinder_examples_tests.tpch_definitions import TPCH_DEFINITIONS
 
 EXPECTED_FILE = Path(__file__).with_name("tpch_bih_expected.py")
 
 _HEADER = '''"""The rows each benchmark case returns on the generated data. Generated: do not edit.
 
-Built by datafinder_examples/tools/build_tpch_bih_cases.py: each is what the SQL of the case with that id (tpch_bih_definitions.py) returns
+Built by datafinder_examples/tools/build_tpch_bih_cases.py: each is what the SQL of the case with that id (tpch_bih_definitions.py or tpch_definitions.py) returns
 on the data tpch_bih_generator.py makes (see tpch_bih_data.py).
 """
 import datetime
@@ -29,7 +30,7 @@ ROWS = {
 '''
 
 
-def evaluate(definitions: list[BenchmarkCase] = DEFINITIONS) -> list[BenchmarkCase]:
+def evaluate(definitions: list[BenchmarkCase] = [*BIH_DEFINITIONS, *TPCH_DEFINITIONS]) -> list[BenchmarkCase]:
     """Each definition with the rows its SQL returns."""
     connection = duckdb.connect()
     load(connection, csv_dir())

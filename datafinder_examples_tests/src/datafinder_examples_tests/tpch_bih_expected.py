@@ -1,6 +1,6 @@
 """The rows each benchmark case returns on the generated data. Generated: do not edit.
 
-Built by datafinder_examples/tools/build_tpch_bih_cases.py: each is what the SQL of the case with that id (tpch_bih_definitions.py) returns
+Built by datafinder_examples/tools/build_tpch_bih_cases.py: each is what the SQL of the case with that id (tpch_bih_definitions.py or tpch_definitions.py) returns
 on the data tpch_bih_generator.py makes (see tpch_bih_data.py).
 """
 import datetime

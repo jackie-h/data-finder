@@ -1,6 +1,6 @@
 """Writes datafinder_examples_tests/src/datafinder_examples_tests/tpch_bih_expected.py: the rows each benchmark case returns.
 
-``uv run datafinder_examples/tools/build_tpch_bih_cases.py`` runs the SQL of every case (tpch_bih_definitions.py) on the generated
+``uv run datafinder_examples/tools/build_tpch_bih_cases.py`` runs the SQL of every case (tpch_bih_definitions.py, tpch_definitions.py) on the generated
 data and writes what it returns. Run it after changing a definition, the generator or the seed.
 """
 import sys

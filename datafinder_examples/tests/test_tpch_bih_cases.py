@@ -3,7 +3,8 @@ temporal clauses of the report's SQL are translated as SQL:2011 defines them."""
 import pytest
 
 from datafinder_examples_tests.tpch_bih_build import EXPECTED_FILE, build
-from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS
+from datafinder_examples_tests.tpch_bih_definitions import DEFINITIONS as BIH_DEFINITIONS
+from datafinder_examples_tests.tpch_definitions import TPCH_DEFINITIONS
 from datafinder_examples_tests.tpch_bih_queries import QUERIES
 from datafinder_examples_tests.tpch_bih_sql import (
     temporal_clauses_to_subselects, time_travel, to_duckdb, to_duckdb_statements,
@@ -15,11 +16,11 @@ def test_the_checked_in_cases_are_what_the_definitions_give():
 
 
 def test_every_case_has_a_finder_query_or_a_reason():
-    assert sorted(QUERIES) == sorted(d.id for d in DEFINITIONS)
+    assert sorted(QUERIES) == sorted(d.id for d in [*BIH_DEFINITIONS, *TPCH_DEFINITIONS])
 
 
 def test_a_case_id_is_used_once():
-    ids = [d.id for d in DEFINITIONS]
+    ids = [d.id for d in [*BIH_DEFINITIONS, *TPCH_DEFINITIONS]]
     assert len(ids) == len(set(ids))
 
 
