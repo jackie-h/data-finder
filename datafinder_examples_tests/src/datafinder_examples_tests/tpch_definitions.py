@@ -86,8 +86,8 @@ LIMIT 10""",
     count(*) AS order_count
 FROM orders FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
 WHERE
-    o_orderdate >= CAST('1993-07-01' AS date)
-    AND o_orderdate < CAST('1993-10-01' AS date)
+    o_orderdate >= CAST('[DATE_FROM]' AS date)
+    AND o_orderdate < CAST('[DATE_TO]' AS date)
     AND EXISTS (
         SELECT
             *
@@ -99,7 +99,7 @@ GROUP BY
     o_orderpriority
 ORDER BY
     o_orderpriority""",
-        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1993, 10, 1)},
+        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1993, 10, 1), 'DATE_FROM': datetime.date(1993, 7, 1), 'DATE_TO': datetime.date(1993, 10, 1)},
         select=('o_orderpriority', 'order_count'), ordered=True),
 
     BenchmarkCase(
