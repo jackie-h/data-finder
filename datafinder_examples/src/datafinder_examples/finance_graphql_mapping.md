@@ -5,7 +5,7 @@
 
 ## Endpoint: http://localhost:4000/graphql (filter: where, sort: order_by, limit: limit)
 
-### Query: accounts → Account
+### Query: accounts → Account (milestone: processing, asOf)
 
 | Field | Property ID |
 |-------|----------|

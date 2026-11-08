@@ -69,14 +69,15 @@ PROCESSING_SNAPSHOT_POSITION_FINDER_SPECS = FinderSpec(
     mapping_file=PROCESSING_SNAPSHOT_MAPPING,
     expectations=[
         TestExpectation(
-            name="the_query_time_reaches_the_quotes_a_position_joins",
-            query=lambda f: f.find_all(None, _JAN_1, [f.id_(), f.quotes().price()]).order_by(f.id_().ascending()),
+            name="a_navigation_is_read_at_the_time_it_is_given",
+            query=lambda f: f.find_all([f.id_(), f.quotes(processing_time=_JAN_1).price()])
+                             .order_by(f.id_().ascending()),
             expected_columns=["Id", "Quotes Price"],
             expected_result=np.array([[1, 150.0], [2, 300.0]], dtype=object),
         ),
         TestExpectation(
-            name="a_navigation_can_be_given_its_own_time",
-            query=lambda f: f.find_all(None, None, [f.id_(), f.quotes(processing_time=_JAN_2).price()])
+            name="a_navigation_given_another_time_reads_the_snapshot_of_that_time",
+            query=lambda f: f.find_all([f.id_(), f.quotes(processing_time=_JAN_2).price()])
                              .order_by(f.id_().ascending()),
             expected_columns=["Id", "Quotes Price"],
             expected_result=np.array([[1, 152.0], [2, None]], dtype=object),

@@ -260,7 +260,8 @@ class TestGraphQLFinanceE2E:
 
         account_cm = by_class["Account"]
         assert account_cm.query.name == "accounts"
-        assert account_cm.query.milestone is None
+        assert isinstance(account_cm.query.milestone, GraphQLProcessingMilestone)
+        assert account_cm.query.milestone.argument_name == "asOf"
         field_names = [pm.target.name for pm in account_cm.property_mappings
                        if not isinstance(pm, GraphQLAssociationMapping)]
         assert field_names == ["id", "name"]

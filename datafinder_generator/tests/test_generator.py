@@ -524,27 +524,27 @@ class TestJoinsThroughTablesFinder:
 
     def test_a_property_of_an_embedded_object_is_read_through_the_tables_on_the_way(self):
         f = self.finder
-        sql = f.find_all(None, None, [f.home().country().name()]).to_sql()
+        sql = f.find_all([f.home().country().name()]).to_sql()
         assert ("FROM hr.employees AS t0 LEFT OUTER JOIN hr.country_refs AS t2 ON (t0.home_country = t2.ref) "
                 "LEFT OUTER JOIN hr.countries AS t1 ON (t1.code = t2.code)") in sql
 
     def test_the_embedded_columns_of_the_same_object_need_no_join(self):
         f = self.finder
-        assert "JOIN" not in f.find_all(None, None, [f.home().street()]).to_sql()
+        assert "JOIN" not in f.find_all([f.home().street()]).to_sql()
 
     def test_a_property_mapped_through_tables_is_read_through_them(self):
         f = self.finder
-        sql = f.find_all(None, None, [f.citizenship().name()]).to_sql()
+        sql = f.find_all([f.citizenship().name()]).to_sql()
         assert "JOIN hr.country_refs AS t2 ON (t0.citizen_ref = t2.ref) LEFT OUTER JOIN hr.countries AS t1" in sql
 
     def test_the_tables_on_the_way_add_nothing_to_a_display_name(self):
         f = self.finder
-        sql = f.find_all(None, None, [f.home().country().name(), f.citizenship().name()]).to_sql()
+        sql = f.find_all([f.home().country().name(), f.citizenship().name()]).to_sql()
         assert 'AS "Home Country Name"' in sql and 'AS "Citizenship Name"' in sql
 
     def test_a_filter_on_a_property_through_tables_joins_them(self):
         f = self.finder
-        sql = f.find_all(None, None, [f.id_()], f.citizenship().name().eq("Finland")).to_sql()
+        sql = f.find_all([f.id_()], f.citizenship().name().eq("Finland")).to_sql()
         assert "JOIN hr.country_refs" in sql and "t1.name = 'Finland'" in sql
 
     def test_a_property_through_tables_has_no_reverse_accessor(self):
