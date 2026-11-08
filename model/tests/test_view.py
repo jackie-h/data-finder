@@ -3,7 +3,7 @@ from typing import Any
 import pytest
 
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
-from model.relational import Column, Table, Alias, SelectOperation, QueryExpression, Relation, \
+from model.relational import Column, Table, Alias, OrderedQuerySpecification, QuerySpecification, QueryExpression, Relation, \
     AggregateOperation, AggregateOperator, NoOperation, ComparisonOperation, ComparisonOperator, \
     IntegerConstantOperation, WindowFunction, WindowFunctionOperation
 from model.view import View, ViewDefinitionError
@@ -25,13 +25,13 @@ def _sum_of(name, alias):
     return Alias(AggregateOperation(Column(name, "DOUBLE", "root"), AggregateOperator.SUM), alias)
 
 
-def test_a_view_is_a_relation_and_shares_its_query_base_with_select():
+def test_a_view_is_a_relation_and_a_query_specification_without_ordering():
     view = View("v", "s", _processing("root"), [_alias("x")])
-    assert isinstance(view, Relation) and isinstance(view, QueryExpression)
-    assert isinstance(SelectOperation([], NoOperation()), QueryExpression)
-    assert not isinstance(view, SelectOperation)
+    assert isinstance(view, Relation) and isinstance(view, QuerySpecification) and isinstance(view, QueryExpression)
+    assert isinstance(OrderedQuerySpecification([], NoOperation()), QuerySpecification)
+    assert not isinstance(view, OrderedQuerySpecification)
     # what a view can't hold: it is stored, not run
-    assert view.order_by == [] and view.limit is None
+    assert not hasattr(view, 'order_by') and not hasattr(view, 'limit')
 
 
 def test_a_view_exposes_the_projection_then_the_root_milestoning_columns():
@@ -46,7 +46,7 @@ def test_non_milestoned_root_exposes_only_the_projection():
 
 def test_a_query_lists_its_expressions_in_render_order():
     display, group, filter_op = _alias("x"), Column("g", "VARCHAR", "root"), NoOperation()
-    query = SelectOperation([display], filter_op, order_by=[], group_by=[group])
+    query = OrderedQuerySpecification([display], filter_op, order_by=[], group_by=[group])
     assert query.expressions() == [display, group, filter_op]
 
 
