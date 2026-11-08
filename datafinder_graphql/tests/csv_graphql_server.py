@@ -321,8 +321,21 @@ def _apply_limit(rows: list[dict], query_str: str) -> list[dict]:
 class NestedVersions:
     """A nested object resolved from a milestoned set of rows, as of the query's asOf (null if none is live)."""
 
-    foreign_key: str  # row key holding the id of the nested object
-    versions: list[dict]  # each has an "id", plus _in_z / _out_z when the nested object is milestoned
+    foreign_key: str  # row key holding the key of the nested object
+    versions: list[dict]  # each has the key, plus _in_z / _out_z when the nested object is milestoned
+    key: str = "id"  # the versions' key
+
+
+@dataclass
+class NestedRows:
+    """A list of nested objects: the rows whose ``foreign_key`` holds the ``key`` of the row they are nested in.
+
+    They are milestoned if they have _in_z / _out_z, and have a businessDate if ``business_date_key`` names it."""
+
+    key: str  # key of the row they are nested in
+    foreign_key: str  # key of each nested row that holds it
+    rows: list[dict]
+    business_date_key: str | None = None
 
 
 @dataclass
@@ -338,7 +351,7 @@ class GraphQLTable:
     # the root query accepts businessDate, matching this row key
     business_date_key: str | None = None
     # nested object fields, keyed by field name
-    nested: dict[str, NestedVersions] | None = None
+    nested: dict[str, NestedVersions | NestedRows] | None = None
 
 
 def _parse_selection(s: str, pos: int = 0) -> tuple[dict, int]:
@@ -381,42 +394,57 @@ def _parse_selection(s: str, pos: int = 0) -> tuple[dict, int]:
     return fields, pos + 1
 
 
-def _select(value, selection: dict | None):
-    """Return only the requested fields, as a server does."""
+def _select(value, selection: dict | None, nested: dict | None = None, as_of: datetime.datetime | None = None,
+            business_date: str | None = None):
+    """Return only the requested fields, as a server does. A nested relation is read at the asOf and businessDate of its
+    own arguments, else of the field it is in."""
     if selection is None:
         return value
     if isinstance(value, list):
-        return [_select(item, selection) for item in value]
+        return [_select(item, selection, nested, as_of, business_date) for item in value]
     if value is None:
         return None
-    return {name: _select_field(value.get(name), sub, args) for name, (sub, args) in selection.items()}
+    return {name: _select_field(value, name, sub, args, nested, as_of, business_date)
+            for name, (sub, args) in selection.items()}
 
 
-def _select_field(value, selection: dict | None, args: str):
-    if args:
+def _select_field(row: dict, name: str, selection: dict | None, args: str, nested: dict | None,
+                  as_of: datetime.datetime | None, business_date: str | None):
+    own_as_of, own_business_date = _extract_arg(args, "asOf"), _extract_arg(args, "businessDate")
+    as_of = _parse_dt(own_as_of) if own_as_of else as_of
+    business_date = own_business_date or business_date
+    if nested and name in nested:
+        value = _resolve_relation(nested[name], row, as_of, business_date)
+    else:
+        value = row.get(name)
+        if own_as_of or own_business_date:
+            raise GraphQLServerError("field does not accept a date")
+    if args and (_extract_balanced(args, "where", "{") or "order_by" in args or re.search(r"\blimit:", args)):
         # a list relationship takes where, order_by and limit; an object relationship takes no arguments
         if not isinstance(value, list):
             raise GraphQLServerError("field does not accept arguments")
         value = _apply_limit(_apply_order_by(_apply_where(value, args), args), args)
-    return _select(value, selection)
+    return _select(value, selection, None, as_of, business_date)
 
 
-def _resolve_nested(rows: list[dict], nested: dict[str, NestedVersions], as_of_str: str | None) -> list[dict]:
-    as_of = _parse_dt(as_of_str) if as_of_str else None
-
-    def resolve(spec: NestedVersions, row: dict) -> dict | None:
-        candidates = [v for v in spec.versions if v["id"] == row[spec.foreign_key]]
+def _resolve_relation(spec: NestedVersions | NestedRows, row: dict, as_of: datetime.datetime | None,
+                      business_date: str | None):
+    """A nested object (the latest version live at as_of, null if none) or a list of them."""
+    if isinstance(spec, NestedVersions):
+        candidates = [v for v in spec.versions if v[spec.key] == row[spec.foreign_key]]
         if as_of is not None:
             candidates = [v for v in candidates if "_in_z" not in v] + \
                 _filter_processing([v for v in candidates if "_in_z" in v], as_of, "_in_z", "_out_z")
         if not candidates:
             return None
         return max(candidates, key=lambda v: v.get("_in_z", ""))
-
-    return [
-        {**row, **{name: resolve(spec, row) for name, spec in nested.items()}}
-        for row in rows
-    ]
+    rows = [r for r in spec.rows if r[spec.foreign_key] == row[spec.key]]
+    if as_of is not None:
+        rows = [r for r in rows if "_in_z" not in r] + _filter_processing(
+            [r for r in rows if "_in_z" in r], as_of, "_in_z", "_out_z")
+    if business_date and spec.business_date_key:
+        rows = [r for r in rows if r[spec.business_date_key] == business_date]
+    return rows
 
 
 def _serve_query(tables: dict[str, GraphQLTable], query_str: str) -> dict:
@@ -437,12 +465,19 @@ def _serve_query(tables: dict[str, GraphQLTable], query_str: str) -> dict:
         as_of_str = _extract_arg(args, "asOf")
         if as_of_str:
             rows = _filter_processing(rows, _parse_dt(as_of_str), "_in_z", "_out_z")
+    # a nested relation is read at the root's asOf and businessDate unless it is given its own
+    as_of_str = _extract_arg(args, "asOf") if table.processing_milestoned else None
+    as_of = _parse_dt(as_of_str) if as_of_str else None
+    business_date = _extract_arg(args, "businessDate") if table.business_date_key else None
     if table.nested:
-        rows = _resolve_nested(rows, table.nested, _extract_arg(args, "asOf"))
-    rows = _apply_where(rows, args)
-    rows = _apply_order_by(rows, args)
-    rows = _apply_limit(rows, args)
-    return {name: _select(rows, sub_selection)}
+        # the root's where and order_by can name a nested field, which they see as of the root's dates
+        seen = [{**row, **{key: _resolve_relation(spec, row, as_of, business_date) for key, spec in table.nested.items()},
+                 "__row": row} for row in rows]
+        seen = _apply_limit(_apply_order_by(_apply_where(seen, args), args), args)
+        rows = [row["__row"] for row in seen]
+    else:
+        rows = _apply_limit(_apply_order_by(_apply_where(rows, args), args), args)
+    return {name: _select(rows, sub_selection, table.nested, as_of, business_date)}
 
 
 def start_graphql_server(tables: dict[str, GraphQLTable]) -> HTTPServer:
@@ -510,17 +545,21 @@ def csv_table(csv_name: str, fields: dict[str, str | tuple[str, type]],
 
 def finance_tables(accounts_csv: str = "finance_accounts.csv",
                    trades_csv: str = "finance_trades.csv",
-                   branches_csv: str = "finance_branches.csv") -> dict[str, GraphQLTable]:
+                   branches_csv: str = "finance_branches.csv",
+                   desks_csv: str = "finance_desks.csv",
+                   prices_csv: str = "finance_prices.csv") -> dict[str, GraphQLTable]:
     branches = [{"id": int(r["ID"]), "city": r["CITY"]} for r in _read_csv(branches_csv)]
     branch_index = {b["id"]: b for b in branches}
+    desks = [{"id": int(r["ID"]), "name": r["NAME"]} for r in _read_csv(desks_csv)]
+    desk_index = {d["id"]: d for d in desks}
+    # an account is milestoned in processing time: every version is served, as of the query's asOf
     versions = [
         {"id": int(r["ID"]), "name": r["ACCT_NAME"], "branch": branch_index[int(r["BRANCH_ID"])],
+         "desk": desk_index.get(int(r["DESK_ID"])) if r.get("DESK_ID") else None,
+         "_branch_id": int(r["BRANCH_ID"]), "_desk_id": int(r["DESK_ID"]) if r.get("DESK_ID") else None,
          "_in_z": r.get("in_z", "1900-01-01 00:00:00"), "_out_z": r.get("out_z", "9999-12-31 23:59:59")}
         for r in _read_csv(accounts_csv)
     ]
-    # the account query is milestoned in processing time: every version is served, as of the query's asOf
-    accounts = [{"id": v["id"], "name": v["name"], "branch": v["branch"], "_in_z": v["_in_z"], "_out_z": v["_out_z"]}
-                for v in versions]
 
     trades = [
         {
@@ -530,10 +569,17 @@ def finance_tables(accounts_csv: str = "finance_accounts.csv",
             "validFrom": r["in_z"],
             "validTo": r["out_z"],
             "_account_id": int(r["account_id"]),
+            "_symbol": r["sym"],
             "_in_z": r["in_z"],
             "_out_z": r["out_z"],
         }
         for r in _read_csv(trades_csv)
+    ]
+
+    # an instrument is milestoned in processing time, and its key is its symbol
+    instruments = [
+        {"symbol": r["SYM"], "price": float(r["PRICE"]), "_in_z": r["in_z"], "_out_z": r["out_z"]}
+        for r in _read_csv(prices_csv)
     ]
 
     positions = [
@@ -541,6 +587,7 @@ def finance_tables(accounts_csv: str = "finance_accounts.csv",
             "businessDate": r["DATE"],
             "quantity": float(r["QUANTITY"]),
             "npv": float(r["NPV"]),
+            "_account_id": int(r["ACCOUNT_ID"]),
             "_in_z": r["in_z"],
             "_out_z": r["out_z"],
         }
@@ -548,10 +595,15 @@ def finance_tables(accounts_csv: str = "finance_accounts.csv",
     ]
 
     return {
-        "accounts": GraphQLTable(accounts, processing_milestoned=True),
-        "branches": GraphQLTable(branches),
+        "accounts": GraphQLTable(versions, processing_milestoned=True,
+                                 nested={"positions": NestedRows("id", "_account_id", positions, "businessDate")}),
+        "branches": GraphQLTable(branches, nested={"accounts": NestedRows("id", "_branch_id", versions)}),
+        "desks": GraphQLTable(desks, nested={"accounts": NestedRows("id", "_desk_id", versions)}),
+        "instruments": GraphQLTable(instruments, processing_milestoned=True),
         "trades": GraphQLTable(trades, processing_milestoned=True,
-                               nested={"account": NestedVersions("_account_id", versions)}),
+                               nested={"account": NestedVersions("_account_id", versions),
+                                       "instrument": NestedVersions("_symbol", instruments, "symbol")}),
         "contractualPositions": GraphQLTable(positions, processing_milestoned=True,
-                                             business_date_key="businessDate"),
+                                             business_date_key="businessDate",
+                                             nested={"account": NestedVersions("_account_id", versions)}),
     }

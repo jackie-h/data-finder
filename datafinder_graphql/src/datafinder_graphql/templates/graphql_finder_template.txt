@@ -3,11 +3,7 @@ import datetime
 from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range
-{% if milestone_class(cm.query.milestone) %}
-from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint, association_segment, {{milestone_class(cm.query.milestone)}}
-{% else %}
-from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint, association_segment
-{% endif %}
+from model.graphql_mapping import GraphQLQuery, GraphQLEndpoint, association_segment, GraphQLBiTemporalMilestone, GraphQLBusinessDateMilestone, GraphQLProcessingMilestone
 from model.relational import NoOperation
 
 {% for target_cm in related_classes(cm) %}
@@ -39,9 +35,10 @@ class _{{target_cm.clazz.name}}RelatedFinder:
         return self.__{{to_python_name(tpm.property)}}
 
 {% elif is_association_mapping(tpm) and class_mappings_by_name.get(tpm.property.type.name) %}
-    def {{to_python_name(tpm.property)}}(self, **kwargs) -> _{{tpm.property.type.name}}RelatedFinder:
+    def {{to_python_name(tpm.property)}}(self, business_date: Union[datetime.date, str, None] = None,
+            processing_time: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs) -> _{{tpm.property.type.name}}RelatedFinder:
         """{{display_name(tpm.property)}}"""
-        segment = association_segment('{{association_name(tpm)}}', {{association_many(tpm)}}, kwargs, _{{tpm.property.type.name}}RelatedFinder._FIELDS)
+        segment = association_segment('{{association_name(tpm)}}', {{association_many(tpm)}}, kwargs, _{{tpm.property.type.name}}RelatedFinder._FIELDS, {{milestone_expr(class_mappings_by_name.get(tpm.property.type.name).query.milestone)}}, business_date, processing_time)
         return _{{tpm.property.type.name}}RelatedFinder(self._parent_field + '.' + segment, self._display_prefix + ' {{association_display(tpm)}}')
 
 {% endif %}
@@ -78,10 +75,11 @@ class {{cm.clazz.name}}Finder:
 {% elif is_association_mapping(pm) %}
 {% set target_cm = class_mappings_by_name.get(pm.property.type.name) %}
 {% if target_cm %}
-    def {{to_python_name(pm.property)}}(self, **kwargs) -> _{{pm.property.type.name}}RelatedFinder:
+    def {{to_python_name(pm.property)}}(self, business_date: Union[datetime.date, str, None] = None,
+            processing_time: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs) -> _{{pm.property.type.name}}RelatedFinder:
         """{{display_name(pm.property)}}"""
-        if kwargs:
-            segment = association_segment('{{association_name(pm)}}', {{association_many(pm)}}, kwargs, _{{pm.property.type.name}}RelatedFinder._FIELDS)
+        if kwargs or business_date is not None or processing_time is not None:
+            segment = association_segment('{{association_name(pm)}}', {{association_many(pm)}}, kwargs, _{{pm.property.type.name}}RelatedFinder._FIELDS, {{milestone_expr(target_cm.query.milestone)}}, business_date, processing_time)
             return _{{pm.property.type.name}}RelatedFinder(segment, '{{association_display(pm)}}')
         return self.__{{to_python_name(pm.property)}}
 

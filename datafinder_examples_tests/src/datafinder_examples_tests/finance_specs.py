@@ -697,7 +697,6 @@ _START_OF_2024 = datetime.datetime(2024, 1, 1)
 TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": "The finance GraphQL mapping does not map the TradeInstrument association"},
     expectations=[
         TestExpectation(
             name="one_way_association_reads_through_to_the_instrument",
@@ -739,7 +738,6 @@ TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS = FinderSpec(
 TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": "The GraphQL finders do not take a date on a navigation"},
     expectations=[
         TestExpectation(
             name="navigation_given_its_own_processing_time_uses_it",
@@ -796,7 +794,6 @@ def _call_with_a_time_then_plain(f):
 BRANCH_FINDER_SPECS = FinderSpec(
     finder_name="BranchFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": "The finance GraphQL mapping does not map the accounts of a branch"},
     expectations=[
         TestExpectation(
             name="non_milestoned_root_reads_a_milestoned_navigation_at_the_time_it_is_given",
@@ -820,7 +817,7 @@ BRANCH_FINDER_SPECS = FinderSpec(
 # exists() and not_exists() on a to-many association ask whether a row exists, so a branch with several accounts is one
 # row, and counts once. Branch has no milestoning of its own, and the accounts it reaches are milestoned: at
 # _MSFT_WITH_LIVE_ACCOUNT_AT New York has two accounts, 'Acme Corp' and 'Beta Inc', and London has none.
-_GRAPHQL_NO_BRANCH_ACCOUNTS = "The finance GraphQL mapping does not map the accounts of a branch"
+_GRAPHQL_NO_EXISTS = "exists/not_exists are not yet generated for GraphQL finders"
 
 
 def _branch_accounts_exist_or_not(f):
@@ -836,7 +833,7 @@ def _branch_value_read_through_the_accounts_that_exist(f):
 BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="BranchFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_BRANCH_ACCOUNTS},
+    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
@@ -884,7 +881,6 @@ BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
     ],
 )
 
-_GRAPHQL_NO_DESKS = "The finance GraphQL mapping does not map desks or the positions of an account"
 
 # A desk has accounts, milestoned in processing time: at _MSFT_WITH_LIVE_ACCOUNT_AT Equities has two ('Acme Corp' and
 # 'Beta Inc'), and Rates and Credit have none; at _BOTH_AT Rates has 'Acme Ltd'. Desk has no milestoning of its own, so
@@ -892,7 +888,7 @@ _GRAPHQL_NO_DESKS = "The finance GraphQL mapping does not map desks or the posit
 DESK_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="DeskFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_DESKS},
+    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
@@ -953,7 +949,7 @@ _POSITIONS_RECORDED_AT = "2023-02-01 12:00:00"
 ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="AccountFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_DESKS},
+    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
@@ -1056,7 +1052,7 @@ ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
 POSITION_DESK_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="ContractualPositionFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_DESKS},
+    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             # position -> account -> desk are to-one; the accounts of the desk are to-many. Equities has two accounts,
@@ -1075,7 +1071,7 @@ POSITION_DESK_EXISTS_FINDER_SPECS = FinderSpec(
 TRADE_TO_MANY_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_BRANCH_ACCOUNTS},
+    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             # trade -> account -> branch are to-one; the accounts of the branch are to-many. New York has two accounts,

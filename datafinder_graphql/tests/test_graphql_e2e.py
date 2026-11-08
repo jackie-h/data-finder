@@ -378,7 +378,7 @@ class TestGraphQLAssociationE2E:
         trade_cm = by_class["Trade"]
 
         assoc_pms = [pm for pm in trade_cm.property_mappings if isinstance(pm, GraphQLAssociationMapping)]
-        assert len(assoc_pms) == 1
+        assert [pm.association_name for pm in assoc_pms] == ["TradeAccount", "TradeInstrument"]
         pm = assoc_pms[0]
         assert pm.association_name == "TradeAccount"
         assert pm.target.name == "account"
