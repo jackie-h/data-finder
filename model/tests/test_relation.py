@@ -98,3 +98,44 @@ def test_a_column_of_an_unnamed_relation_has_no_name_to_read_it_by():
     query = QuerySpecification([_NAME], NoOperation(), table=_TABLE)
     with pytest.raises(TypeError, match="has no name"):
         Column("name", "VARCHAR", query).owner_name
+
+
+def test_a_table_is_made_of_names_and_types():
+    table = Table("accounts", [("ID", "INT"), ("NAME", "VARCHAR")])
+    assert [(c.name, c.type) for c in table.columns] == [("ID", "INT"), ("NAME", "VARCHAR")]
+    assert all(c.owner is table and c.table is table for c in table.columns)
+    # a column that is more than a name and a type is a Column, and the two can be mixed
+    key = Column("ID", "INT", primary_key=True)
+    mixed = Table("accounts", [key, ("NAME", "VARCHAR")])
+    assert mixed.columns[0] is key and key.owner is mixed and mixed.columns[1].name == "NAME"
+    assert Table("empty").columns == []
+
+
+def test_add_column_adds_a_column_the_table_owns():
+    table = Table("accounts", [("ID", "INT")])
+    name = table.add_column("NAME", "VARCHAR")
+    key = table.add_column("CODE", "VARCHAR", primary_key=True)
+    assert [c.name for c in table.columns] == ["ID", "NAME", "CODE"]
+    assert name.owner is table and name.table is table and name.nullable
+    assert key.primary_key and not key.nullable
+    assert table.add_column("AGE", "INT", nullable=False).nullable is False
+    # a relation that reads the table sees its columns
+    assert len(TableAlias(table, "a").columns) == 4
+
+
+def test_a_column_name_is_used_once_in_a_table():
+    import pytest
+    with pytest.raises(ValueError, match="Duplicate column name 'ID' in table 'accounts'"):
+        Table("accounts", [("ID", "INT"), ("ID", "INT")])
+    table = Table("accounts", [("ID", "INT")])
+    with pytest.raises(ValueError, match="Duplicate column name 'ID'"):
+        table.add_column("ID", "INT")
+    with pytest.raises(ValueError, match="Duplicate column name 'ID'"):
+        Table("accounts", [Column("ID", "INT"), ("ID", "INT")])
+
+
+def test_a_milestoned_table_is_made_of_names_and_types_too():
+    from model.milestoning import MilestonedTable, ProcessingTemporalColumns
+    milestoned = MilestonedTable("trades", [("ID", "INT")], ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"),
+                                                                                       Column("out_z", "TIMESTAMP")))
+    assert [c.name for c in milestoned.columns] == ["ID"] and milestoned.columns[0].owner is milestoned

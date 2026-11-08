@@ -1060,22 +1060,33 @@ class Table(NamedRelation):
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
 
-    def __init__(self, name: str, columns: list[Column], schema: 'Schema | None' = None):
-        super().__init__(name, list(columns))
+    def __init__(self, name: str, columns: 'Sequence[Column | tuple[str, str]]' = (), schema: 'Schema | None' = None):
+        """A table of its columns, each a Column or a ``(name, type)``: ``Table("accounts", [("ID", "INT"), ("NAME",
+        "VARCHAR")])``. A column that is a primary key or not nullable is a Column, or is added with ``add_column``."""
         self._columns_by_name: dict[str, Column] = {}
-        for col in columns:
-            if col.name in self._columns_by_name:
-                raise ValueError(f"Duplicate column name '{col.name}' in table '{name}'")
-            self._columns_by_name[col.name] = col
+        self._own_columns: list[Column] = []
+        super().__init__(name, self._own_columns)  # the list is the table's own: add_column adds to it
         self.schema = schema
         self.foreign_keys: list[ForeignKey] = []
         # for a table no class is mapped to but a join passes through: how its rows are milestoned
         self.milestoning_scheme: 'MilestoningScheme | None' = None
-        for col in self._columns_by_name.values():
-            col.table = self
-            col.owner = self  # a table's own columns belong to it
+        for column in columns:
+            self._add(column if isinstance(column, Column) else Column(column[0], column[1]))
         if schema is not None:
             schema.tables.append(self)
+
+    def _add(self, column: Column) -> Column:
+        if column.name in self._columns_by_name:
+            raise ValueError(f"Duplicate column name '{column.name}' in table '{self.name}'")
+        self._columns_by_name[column.name] = column
+        column.table = self
+        column.owner = self  # a table's own columns belong to it
+        self._own_columns.append(column)
+        return column
+
+    def add_column(self, name: str, type: str, primary_key: bool = False, nullable: bool = True) -> Column:
+        """Add a column of this table, which owns it: ``table.add_column("ID", "INT", primary_key=True)``. It is returned."""
+        return self._add(Column(name, type, primary_key=primary_key, nullable=nullable))
 
     @property
     def qualified_name(self) -> str:
