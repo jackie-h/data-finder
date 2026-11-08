@@ -592,6 +592,7 @@ class _FieldNode:
     children: dict = field(default_factory=dict)
     many: bool = False
     filters: dict | None = None
+    args: dict | None = None  # the dates the relation is read at, by argument name
 
 
 def _filters_to_where(filters: dict) -> str:
@@ -614,12 +615,17 @@ def _build_fields_str(columns: list, filter_conv) -> str:
                 node.filters = seg.filters
             elif node.filters != seg.filters:
                 raise GraphQLUnsupportedError(f"The relation {seg.name} is selected with different filters")
+            if node.args is None:
+                node.args = seg.args
+            elif node.args != seg.args:
+                raise GraphQLUnsupportedError(f"The relation {seg.name} is selected at different dates")
             children = node.children
 
     def render(children: dict) -> str:
         parts = []
         for name, node in children.items():
             args = ""
+            arguments = [f'{key}: "{value}"' for key, value in (node.args or {}).items()]
             if node.filters:
                 if not node.many:
                     raise GraphQLPushdownError(
@@ -627,7 +633,9 @@ def _build_fields_str(columns: list, filter_conv) -> str:
                 if filter_conv is None:
                     raise GraphQLPushdownError(
                         "The endpoint declares no filter convention, so a relation cannot be filtered on the server")
-                args = f"({filter_conv.filter_arg}: {_filters_to_where(node.filters)})"
+                arguments.append(f"{filter_conv.filter_arg}: {_filters_to_where(node.filters)}")
+            if arguments:
+                args = f"({', '.join(arguments)})"
             parts.append(f"{name}{args} {{ {render(node.children)} }}" if node.children else f"{name}{args}")
         return " ".join(parts)
 
