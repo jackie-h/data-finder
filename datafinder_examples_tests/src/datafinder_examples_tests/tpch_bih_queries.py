@@ -443,12 +443,13 @@ TPCH = {
           / _revenue(q.lineitem).sum()).alias("promo_revenue")],
         (q.lineitem.ship_date() >= p.DATE_FROM).and_(q.lineitem.ship_date() < p.DATE_TO).and_(q.lineitem.part().exists()))),
 
-    "Q15": Unsupported("A derived table of revenue by supplier, and total_revenue = (select max(total_revenue) from it)"),
+    "Q15": FinderQuery(["s_suppkey", "s_name", "s_address", "s_phone", "total_revenue"], lambda q, p: _top_supplier(q, p)),
     # NOT IN (the suppliers with complaints) is the supplier's own comment not being a complaint: the supplier is a navigation
     "Q16": FinderQuery(["p_brand", "p_type", "p_size", "supplier_cnt"], lambda q, p: _parts_supplier_relationship(q.partsupp, p)),
-    "Q17": Unsupported("A correlated scalar subquery: l_quantity < (select 0.2 * avg(l_quantity) ... for the same part)"),
-    "Q18": Unsupported("o_orderkey in (select l_orderkey from lineitem group by l_orderkey having sum(l_quantity) > [QUANTITY]): "
-                       "an IN subquery with GROUP BY and HAVING"),
+    "Q17": FinderQuery(["avg_yearly"], lambda q, p: _small_quantity_order_revenue(q.lineitem, p)),
+    # IN (... GROUP BY ... HAVING ...) is a join to the grouped relation, filtered
+    "Q18": FinderQuery(["c_name", "c_custkey", "o_orderkey", "o_orderdate", "o_totalprice", "sum(l_quantity)"],
+                       lambda q, p: _large_volume_customer(q.lineitem, p)),
 
     "Q19": FinderQuery(["revenue"], lambda q, p: q.lineitem.find_all(
         p.APP_TIME, p.SYS_TIME, [_revenue(q.lineitem).sum().alias("revenue")],
