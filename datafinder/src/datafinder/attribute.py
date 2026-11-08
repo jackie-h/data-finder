@@ -1,7 +1,7 @@
 from typing import Any
 
 from model.relational import Aliasable, Column, Operation, RelationalOperationElement, \
-    ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, UntypedFunctionOperation, SortOperation, SortDirection, AggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
+    ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, UntypedFunctionOperation, SortOperation, SortDirection, IntegerAggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
 
@@ -156,13 +156,13 @@ class Attribute(RelationalOperationElement, Aliasable):
             window=self._window_spec(partition_by, order_by),
         )
 
-    def count(self) -> AggregateOperation:
+    def count(self) -> IntegerAggregateOperation:
         """Return a count aggregation for this Attribute."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.COUNT, self.__display_name + ' Count')
+        return IntegerAggregateOperation(self._column_with_join(), AggregateOperator.COUNT, self.__display_name + ' Count')
 
-    def count_distinct(self) -> AggregateOperation:
+    def count_distinct(self) -> IntegerAggregateOperation:
         """Return the number of different non-NULL values in the group: ``COUNT(DISTINCT column)``."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.COUNT_DISTINCT,
+        return IntegerAggregateOperation(self._column_with_join(), AggregateOperator.COUNT_DISTINCT,
                                   self.__display_name + ' Count Distinct')
 
     def fill_null(self, default: str | int | float | bool) -> ScalarFunctionOperation:

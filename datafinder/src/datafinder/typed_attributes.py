@@ -1,4 +1,5 @@
 import datetime
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 
 from datafinder import Attribute
 import decimal
@@ -10,20 +11,28 @@ from datafinder.scalar_functions import (
 
 from model.relational import Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
-    BooleanConstantOperation, DecimalConstantOperation, AggregateOperation, AggregateOperator, ColumnWithJoin, \
+    BooleanConstantOperation, DecimalConstantOperation, AggregateOperator, DateAggregateOperation, DateTimeAggregateOperation, \
+    AggregateOperation, DecimalAggregateOperation, DoubleAggregateOperation, IntegerAggregateOperation, StringAggregateOperation, ColumnWithJoin, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation
 
 
-class _MinMax:
-    """The smallest and largest value of a group, for a column that can be ordered but not summed."""
+A = TypeVar("A", bound=AggregateOperation)
 
-    def min(self):
+
+class _MinMax(Generic[A]):
+    """The smallest and largest value of a group, for a column that can be ordered but not summed. They are of the
+    column's type: the minimum of a date is a date."""
+
+    if TYPE_CHECKING:  # provided by the class this is mixed into
+        _aggregate_type: Callable[..., A]
+
+    def min(self) -> A:
         """Return the smallest value in the group."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())  # type: ignore[attr-defined]
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())  # type: ignore[attr-defined]
 
-    def max(self):
+    def max(self) -> A:
         """Return the largest value in the group."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())  # type: ignore[attr-defined]
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())  # type: ignore[attr-defined]
 
 
 def _diff_other(other):
@@ -38,7 +47,7 @@ def _temporal_constant(value: datetime.datetime | datetime.date):
     return DateConstantOperation(value)
 
 
-class StringAttribute(_MinMax, StringFunctions, Attribute, Equatable[str]):
+class StringAttribute(_MinMax[StringAggregateOperation], StringFunctions, Attribute, Equatable[str]):
     """A string attribute supporting scalar functions and filter operations.
 
     Scalar functions return a ``ScalarFunctionOperation`` that can be passed as
@@ -54,6 +63,8 @@ class StringAttribute(_MinMax, StringFunctions, Attribute, Equatable[str]):
         finder.name() * 3    # repeated 3 times
     """
 
+    _aggregate_type = StringAggregateOperation
+
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
         """Create a string attribute."""
@@ -63,10 +74,10 @@ class StringAttribute(_MinMax, StringFunctions, Attribute, Equatable[str]):
         """Join text: ``first_name() + " " + last_name()``. A NULL part makes the whole NULL."""
         return concat(self, other)
 
-    def join(self, separator: str = "", order_by: list | None = None) -> AggregateOperation:
+    def join(self, separator: str = "", order_by: list | None = None) -> StringAggregateOperation:
         """Join the values of a group into one text with ``separator`` between them. ``order_by`` is the order they
         are joined in (``[f.name().ascending()]``); without it the order is not defined. Missing values are skipped."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.STRING_AGG,
+        return StringAggregateOperation(self._column_with_join(), AggregateOperator.STRING_AGG,
                                   'Join ' + self.display_name(), separator=separator, order_by=order_by)
 
     def __radd__(self, other) -> ConcatOperation:
@@ -95,7 +106,7 @@ class StringAttribute(_MinMax, StringFunctions, Attribute, Equatable[str]):
         """Return a suffix match comparison."""
         return ComparisonOperation(self._column_with_join(), ComparisonOperator.LIKE, StringConstantOperation(f"%{escape_like(suffix)}"))
 
-class NumericAttribute(NumericFunctions[N], Attribute, Arithmetic):
+class NumericAttribute(NumericFunctions[N], Attribute, Arithmetic, Generic[N, A]):
     """A numeric attribute supporting aggregate and scalar functions.
 
     Aggregate functions return an ``AggregateOperation`` for use with
@@ -119,43 +130,47 @@ class NumericAttribute(NumericFunctions[N], Attribute, Arithmetic):
         """Create a numeric attribute."""
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
+    if TYPE_CHECKING:  # the aggregate of this type, set by each numeric type
+        _aggregate_type: Callable[..., A]
+
     def _coalesce_type(self) -> type[ScalarFunctionOperation]:
         return self._number_type  # type: ignore[return-value]
 
-    def sum(self):
+    def sum(self) -> A:
         """Return the sum of all values in the group."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.SUM, 'Sum ' + self.display_name())
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.SUM, 'Sum ' + self.display_name())
 
-    def min(self):
+    def min(self) -> A:
         """Return the minimum value in the group."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())
 
-    def max(self):
+    def max(self) -> A:
         """Return the maximum value in the group."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())
 
-    def average(self):
+    def average(self) -> DoubleAggregateOperation:
         """Return the mean of all values in the group."""
-        return AggregateOperation(self._column_with_join(), AggregateOperator.AVERAGE, 'Average ' + self.display_name())
+        return DoubleAggregateOperation(self._column_with_join(), AggregateOperator.AVERAGE, 'Average ' + self.display_name())
 
-    def std(self, ddof: int = 1):
+    def std(self, ddof: int = 1) -> DoubleAggregateOperation:
         """Return the standard deviation of the values in the group; ``ddof=1`` (the default) is the sample standard
         deviation and ``ddof=0`` the population one, as in ``Series.std``."""
         operator = AggregateOperator.STDDEV_SAMP if _sample(ddof) else AggregateOperator.STDDEV_POP
-        return AggregateOperation(self._column_with_join(), operator, 'Std ' + self.display_name())
+        return DoubleAggregateOperation(self._column_with_join(), operator, 'Std ' + self.display_name())
 
-    def var(self, ddof: int = 1):
+    def var(self, ddof: int = 1) -> DoubleAggregateOperation:
         """Return the variance of the values in the group; ``ddof=1`` (the default) is the sample variance and
         ``ddof=0`` the population one, as in ``Series.var``."""
         operator = AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP
-        return AggregateOperation(self._column_with_join(), operator, 'Var ' + self.display_name())
+        return DoubleAggregateOperation(self._column_with_join(), operator, 'Var ' + self.display_name())
 
 
 
-class DoubleAttribute(NumericAttribute[DoubleFunctionOperation], Orderable[float]):
+class DoubleAttribute(NumericAttribute[DoubleFunctionOperation, DoubleAggregateOperation], Orderable[float]):
     """A floating-point attribute."""
 
     _number_type = DoubleFunctionOperation
+    _aggregate_type = DoubleAggregateOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -170,10 +185,11 @@ FloatAttribute = DoubleAttribute
 
 
 
-class DecimalAttribute(NumericAttribute[DecimalFunctionOperation], Orderable[decimal.Decimal]):
+class DecimalAttribute(NumericAttribute[DecimalFunctionOperation, DecimalAggregateOperation], Orderable[decimal.Decimal]):
     """A decimal attribute."""
 
     _number_type = DecimalFunctionOperation
+    _aggregate_type = DecimalAggregateOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -204,10 +220,11 @@ class BooleanAttribute(Attribute, Equatable[bool]):
         return ComparisonOperation(self._column_with_join(),ComparisonOperator.EQUAL, BooleanConstantOperation(False))
 
 
-class IntegerAttribute(NumericAttribute[IntegerFunctionOperation], Orderable[int]):
+class IntegerAttribute(NumericAttribute[IntegerFunctionOperation, IntegerAggregateOperation], Orderable[int]):
     """An integer attribute."""
 
     _number_type = IntegerFunctionOperation
+    _aggregate_type = IntegerAggregateOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -218,7 +235,7 @@ class IntegerAttribute(NumericAttribute[IntegerFunctionOperation], Orderable[int
         return IntegerConstantOperation(value)
 
 
-class DateAttribute(_MinMax, Attribute, Orderable[datetime.date]):
+class DateAttribute(_MinMax[DateAggregateOperation], Attribute, Orderable[datetime.date]):
     """A date attribute (YYYY-MM-DD) supporting extract, arithmetic, and diff operations.
 
     Extract methods mirror ``datetime.date`` attributes::
@@ -238,6 +255,8 @@ class DateAttribute(_MinMax, Attribute, Orderable[datetime.date]):
 
         trade_date.diff_days(other)   # (other - d).days
     """
+
+    _aggregate_type = DateAggregateOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
@@ -340,7 +359,7 @@ class DateAttribute(_MinMax, Attribute, Orderable[datetime.date]):
         return DateDiffOperation(self._column_with_join(), _diff_other(other), DatePart.YEAR, 'Diff Years ' + self.display_name())
 
 
-class DateTimeAttribute(_MinMax, Attribute, Orderable[datetime.datetime | datetime.date]):
+class DateTimeAttribute(_MinMax[DateTimeAggregateOperation], Attribute, Orderable[datetime.datetime | datetime.date]):
     """A datetime attribute (YYYY-MM-DD HH:MM:SS) supporting extract, arithmetic, and diff operations.
 
     Extends the capabilities of ``DateAttribute`` with hour, minute, and second
@@ -359,6 +378,8 @@ class DateTimeAttribute(_MinMax, Attribute, Orderable[datetime.datetime | dateti
         ts.subtract_hours(n)  # dt - timedelta(hours=n)
         ts.diff_seconds(other)
     """
+
+    _aggregate_type = DateTimeAggregateOperation
 
     def __init__(self, display_name: str, column_name: str, column_db_type: str, owner:str, parent=None,
                  embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):

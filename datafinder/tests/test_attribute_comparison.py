@@ -222,3 +222,52 @@ def test_joined_text_is_compared_for_equality_only():
     assert "IN ('Ann Lee')" in to_sql(None, None, [first], table, name.is_in(["Ann Lee"]))
     assert "NOT IN ('Ann Lee')" in to_sql(None, None, [first], table, name.is_not_in(["Ann Lee"]))
     assert "WHERE t0.F || ' ' || t0.L = 'Ann Lee'" in to_sql(None, None, [first], table, name.eq("Ann Lee"))
+
+
+def test_an_aggregate_has_the_type_it_gives():
+    from model.relational import (
+        BooleanAggregateOperation, DateAggregateOperation, DateTimeAggregateOperation, DecimalAggregateOperation,
+        DoubleAggregateOperation, IntegerAggregateOperation, StringAggregateOperation, UntypedAggregateOperation)
+    text = StringAttribute("S", "S", "VARCHAR", "t")
+    integer = IntegerAttribute("I", "I", "INT", "t")
+    double = DoubleAttribute("D", "D", "DOUBLE", "t")
+    decimal_ = DecimalAttribute("M", "M", "DECIMAL", "t")
+    day = DateAttribute("A", "A", "DATE", "t")
+    moment = DateTimeAttribute("T", "T", "TIMESTAMP", "t")
+    # a count is an integer, whatever it counts
+    for column in (text, integer, double, day):
+        assert isinstance(column.count(), IntegerAggregateOperation)
+        assert isinstance(column.count_distinct(), IntegerAggregateOperation)
+    # the sum, minimum and maximum of a number are of its type
+    for function in (lambda c: c.sum(), lambda c: c.min(), lambda c: c.max()):
+        assert isinstance(function(integer), IntegerAggregateOperation)
+        assert isinstance(function(double), DoubleAggregateOperation)
+        assert isinstance(function(decimal_), DecimalAggregateOperation)
+    # an average, standard deviation and variance are floating point, even of an integer
+    for function in (lambda c: c.average(), lambda c: c.std(), lambda c: c.var(ddof=0)):
+        for column in (integer, double, decimal_):
+            assert isinstance(function(column), DoubleAggregateOperation)
+    # the minimum and maximum of text and of dates are of their type
+    assert isinstance(text.min(), StringAggregateOperation) and isinstance(text.join(","), StringAggregateOperation)
+    assert isinstance(day.min(), DateAggregateOperation) and isinstance(moment.max(), DateTimeAggregateOperation)
+    assert isinstance((integer > 1).all(), BooleanAggregateOperation) and isinstance((integer > 1).any(), BooleanAggregateOperation)
+    # an expression of an unknown type gives an untyped sum, but a known count and average
+    assert isinstance((integer * double).sum(), UntypedAggregateOperation)
+    assert isinstance((integer * double).count(), IntegerAggregateOperation)
+    assert isinstance((integer * double).average(), DoubleAggregateOperation)
+    # over() keeps the type
+    assert isinstance(integer.sum().over(partition_by=[text]), IntegerAggregateOperation)
+
+
+def test_an_aggregate_is_ordered_only_if_what_it_gives_is():
+    text = StringAttribute("S", "S", "VARCHAR", "t")
+    integer = IntegerAttribute("I", "I", "INT", "t")
+    assert integer.sum() > 3 and integer.count() <= 2 and integer.max() + 1
+    assert DateAttribute("A", "A", "DATE", "t").max() >= datetime.date(2020, 1, 1)
+    for text_aggregate in (text.min(), text.join(",")):
+        with pytest.raises(TypeError):
+            text_aggregate < "b"  # type: ignore[operator]
+        assert text_aggregate.eq("a") and text_aggregate.starts_with("a")
+    with pytest.raises(TypeError):
+        (integer > 1).all() < True  # type: ignore[operator]
+    assert not hasattr(text.min(), "sum")
