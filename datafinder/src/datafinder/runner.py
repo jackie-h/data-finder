@@ -145,7 +145,7 @@ class FinderResult(DataFrame):
         return FinderResult(None, None, list(relation.attributes(alias).values()), alias, NoOperation())
 
     def group_by(self, *attrs) -> 'FinderResult':
-        self._group_by = [self._own(a) for a in attrs]
+        self._group_by = list(attrs)
         return self
 
     def _own(self, element):
