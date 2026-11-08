@@ -18,13 +18,13 @@ from model.relational import LIKE_ESCAPE, Table, Operation, LogicalOperator, Log
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    SelectOperation, QueryExpression, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
+    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
 
 class TableAlias:
     """A name for a relation in a query. As in Legend, the relation is a table or a query: ``table`` is the table's name,
-    or a SelectOperation when the alias stands for ``(SELECT ...)``."""
+    or a OrderedQuerySpecification when the alias stands for ``(SELECT ...)``."""
 
-    def __init__(self, table: 'str | SelectOperation', alias: str):
+    def __init__(self, table: 'str | OrderedQuerySpecification', alias: str):
         self.table = table
         self.alias = alias
 
@@ -295,7 +295,7 @@ def _compute_elidable_nodes(node_refs: dict) -> set:
             elidable.add(node_id)
     return elidable
 
-def _required_joins(query: QueryExpression, node_refs: dict | None = None) -> dict:
+def _required_joins(query: QuerySpecification, node_refs: dict | None = None) -> dict:
     """Join-tree nodes the query's expressions read through, keyed by node id."""
     required_joins: dict = {}
     for expression in query.expressions():
@@ -303,7 +303,7 @@ def _required_joins(query: QueryExpression, node_refs: dict | None = None) -> di
     return required_joins
 
 
-def _joined_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
+def _joined_nodes(query: QuerySpecification) -> list[JoinTreeNodeOperation]:
     """Every join the query needs, ancestors first.
 
     The SQL generator joins a node's ancestors whenever it joins the node, so each of them needs its
@@ -323,7 +323,7 @@ def _joined_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
     return list(ordered.values())
 
 
-def _apply_join_filters(query: QueryExpression,
+def _apply_join_filters(query: QuerySpecification,
                         milestoning_condition: Callable[[JoinTreeNodeOperation], Operation | None]) -> None:
     """Set ``query.join_filters`` to each joined node's ON-clause condition: the join's own fixed filter and its raw
     kwargs filter ANDed with ``milestoning_condition(node)``.
@@ -347,7 +347,7 @@ def _apply_join_filters(query: QueryExpression,
             query.join_filters[id(node)] = combined
 
 
-def _exists_only_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
+def _exists_only_nodes(query: QuerySpecification) -> list[JoinTreeNodeOperation]:
     """The to-many steps the query reaches only to ask whether a row exists (``exists`` or ``not_exists``).
 
     Joining such a step repeats the parent once per matching row. A step the query also reads a value through is left as a
@@ -359,7 +359,7 @@ def _exists_only_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
     required: dict = {}
     node_refs: dict = {}
     expressions = list(query.expressions())
-    having = getattr(query, 'having', None)
+    having = query.having
     if having is not None:
         expressions.append(having)
     for expression in expressions:
@@ -375,7 +375,7 @@ def _exists_only_nodes(query: QueryExpression) -> list[JoinTreeNodeOperation]:
             and node.join.filter is None]
 
 
-def _apply_sub_selects(query: QueryExpression, business_date: datetime.date | None,
+def _apply_sub_selects(query: QuerySpecification, business_date: datetime.date | None,
                        business_date_to: datetime.date | None,
                        processing_datetime: datetime.datetime | datetime.date | None,
                        processing_datetime_to: datetime.datetime | datetime.date | None = None) -> None:
@@ -425,7 +425,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
                          limit: int | None = None, business_date_to: datetime.date | None = None,
                          distinct: bool = False, offset: int | None = None,
                          having: Operation | None = None,
-                         processing_datetime_to: datetime.datetime | datetime.date | None = None) -> SelectOperation:
+                         processing_datetime_to: datetime.datetime | datetime.date | None = None) -> OrderedQuerySpecification:
     if isinstance(table, MilestonedTable):
         if business_date_to is not None or processing_datetime_to is not None:
             milestoned_op = build_milestoning_filter_operation_for_date_range(
@@ -436,7 +436,7 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
         if milestoned_op is not None:
             op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
 
-    select = SelectOperation(columns, op, order_by or [], group_by or [], limit, table, distinct, offset, having)
+    query = OrderedQuerySpecification(columns, op, order_by or [], group_by or [], limit, table, distinct, offset, having)
 
     def milestoning_condition(node):
         if not isinstance(node.join.target, MilestonedTable):
@@ -448,9 +448,9 @@ def build_query_operation(business_date: datetime.date | None, processing_dateti
                                                                      processing_datetime_to=pdt_to)
         return build_milestoning_filter_operation(bd, pdt, node.join.target, node)
 
-    _apply_join_filters(select, milestoning_condition)
-    _apply_sub_selects(select, business_date, business_date_to, processing_datetime, processing_datetime_to)
-    return select
+    _apply_join_filters(query, milestoning_condition)
+    _apply_sub_selects(query, business_date, business_date_to, processing_datetime, processing_datetime_to)
+    return query
 
 def sql_format_datetime(value:datetime.datetime) -> str:
     return value.strftime("'%Y-%m-%d %H:%M:%S'")
@@ -769,12 +769,12 @@ class SQLQueryGenerator:
         self._root_table = None
         self._join_filters: dict = {}
 
-    def __compute_elidable_ids(self, select: QueryExpression) -> set:
+    def __compute_elidable_ids(self, query: QuerySpecification) -> set:
         """Determine upfront which join nodes can be satisfied entirely by embedded (join-less)
         alternates, so every later leaf resolution can build the right TableAliasColumn directly —
         see __resolve."""
         node_refs: dict = {}
-        _required_joins(select, node_refs)
+        _required_joins(query, node_refs)
         return _compute_elidable_nodes(node_refs)
 
     def __resolve(self, op: 'Attribute | ColumnWithJoin') -> tuple[Column, JoinTreeNodeOperation | None]:
@@ -808,23 +808,25 @@ class SQLQueryGenerator:
             return self.__resolve_optional(op.embedded)
         return op.optional
 
-    def generate(self, select: QueryExpression):
-        self._root_table = select.table
-        self._join_filters = select.join_filters
-        self.__elidable_ids = self.__compute_elidable_ids(select)
-        self._sub_selects = select.sub_selects
-        self.select(select.display)
-        self._where = self.build_filter(self.__guarded(select.filter))
+    def generate(self, query: QuerySpecification):
+        self._root_table = query.table
+        self._join_filters = query.join_filters
+        self.__elidable_ids = self.__compute_elidable_ids(query)
+        self._sub_selects = query.sub_selects
+        ordered = isinstance(query, OrderedQuerySpecification)
+        order_by = query.order_by if ordered else []
+        self.select(query.display)
+        self._where = self.build_filter(self.__guarded(query.filter))
         required_joins: dict = {}
-        for group_by_expr in select.group_by:
+        for group_by_expr in query.group_by:
             self.__collect_required_joins(group_by_expr, required_joins)
-        for sort_op in select.order_by:
+        for sort_op in order_by:
             self.__collect_required_joins(sort_op.column, required_joins)
         for parent in required_joins.values():
             self.__add_join(parent)
-        self._group_by_parts = self.__group_by_parts(select)
+        self._group_by_parts = self.__group_by_parts(query)
         self._having = ''
-        having = select.having if isinstance(select, SelectOperation) else None
+        having = query.having
         if having is not None:
             having_joins: dict = {}
             self.__collect_required_joins(having, having_joins)
@@ -833,13 +835,13 @@ class SQLQueryGenerator:
             self._having = self.build_filter(having)
         self._order_by_parts = [
             self.__sort_expression(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
-            for s in select.order_by
+            for s in order_by
         ]
-        self._limit = select.limit
-        self._distinct = isinstance(select, SelectOperation) and select.distinct
-        self._offset = select.offset if isinstance(select, SelectOperation) else None
+        self._limit = query.limit if ordered else None
+        self._distinct = query.distinct
+        self._offset = query.offset if ordered else None
 
-    def __group_by_parts(self, select: QueryExpression) -> list[str]:
+    def __group_by_parts(self, query: QuerySpecification) -> list[str]:
         """The GROUP BY of a query: the grouping it was given, else the grouping its columns imply.
 
         Columns that are not aggregated are what the aggregates are computed for, so a query that selects both is
@@ -847,15 +849,15 @@ class SQLQueryGenerator:
         association is computed for each row of the root table, as Legend does, so the root's primary key is grouped
         by too. A query that selects only aggregates over the root's own columns is not grouped: the aggregate covers
         every row."""
-        if select.group_by or not isinstance(select, SelectOperation):
+        if query.group_by or not isinstance(query, OrderedQuerySpecification):
             return [self.__attr_to_col_string(a) if isinstance(a, (Attribute, ColumnWithJoin, Column))
-                    else sql_operation_to_string(self.__rewrite_operation(a)) for a in select.group_by]
-        aggregates = [c for c in select.display if contains_aggregate(c)]
+                    else sql_operation_to_string(self.__rewrite_operation(a)) for a in query.group_by]
+        aggregates = [c for c in query.display if contains_aggregate(c)]
         if not aggregates:
             return []
-        per_root = select.table is not None and any(_reaches_to_many(c) for c in aggregates)
-        keys = [self.__attr_to_col_string(c) for c in select.table.columns if c.primary_key] if per_root and select.table else []
-        grouped = [sql_operation_to_string(shown.element) for column, shown in zip(select.display, self._select)
+        per_root = query.table is not None and any(_reaches_to_many(c) for c in aggregates)
+        keys = [self.__attr_to_col_string(c) for c in query.table.columns if c.primary_key] if per_root and query.table else []
+        grouped = [sql_operation_to_string(shown.element) for column, shown in zip(query.display, self._select)
                    if not contains_aggregate_or_window(column)]
         return list(dict.fromkeys([*keys, *grouped]))
 
@@ -1036,7 +1038,7 @@ class SQLQueryGenerator:
         right = join.right
         tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner, key=node))
         # a sub-select carries the step's filter itself, so it is not repeated in the ON clause
-        on_filter = None if isinstance(tc.table_alias.table, SelectOperation) else self._join_filters.get(id(node))
+        on_filter = None if isinstance(tc.table_alias.table, OrderedQuerySpecification) else self._join_filters.get(id(node))
         self._join.append(Join(sc, tc, on_filter))
 
     def build_filter(self, op:RelationalOperationElement) -> str:
@@ -1116,7 +1118,7 @@ class SQLQueryGenerator:
         self.__table_aliases_by_table[cache_key] = ta
         return ta
 
-    def __new_alias(self, table: 'str | SelectOperation') -> TableAlias:
+    def __new_alias(self, table: 'str | OrderedQuerySpecification') -> TableAlias:
         ta = TableAlias(table, "t" + str(self.__table_alias_incr))
         self.__table_alias_incr += 1
         return ta
@@ -1184,16 +1186,16 @@ def to_sql(business_date: datetime.date | None, processing_datetime: datetime.da
            business_date_to: datetime.date | None = None, distinct: bool = False,
            offset: int | None = None, having=None,
            processing_datetime_to: datetime.datetime | datetime.date | None = None) -> str:
-    select_op = build_query_operation(business_date, processing_datetime, columns, table, op,
-                                      order_by or [], group_by or [], limit,
-                                      business_date_to=business_date_to, distinct=distinct, offset=offset, having=having,
-                                      processing_datetime_to=processing_datetime_to)
-    return select_sql_to_string(select_op, validate_sqlglot=validate_sqlglot)
+    query = build_query_operation(business_date, processing_datetime, columns, table, op,
+                                  order_by or [], group_by or [], limit,
+                                  business_date_to=business_date_to, distinct=distinct, offset=offset, having=having,
+                                  processing_datetime_to=processing_datetime_to)
+    return query_sql_to_string(query, validate_sqlglot=validate_sqlglot)
 
 
-def select_sql_to_string(select_operation: QueryExpression, validate_sqlglot: bool = True) -> str:
+def query_sql_to_string(query: QuerySpecification, validate_sqlglot: bool = True) -> str:
     qe = SQLQueryGenerator()
-    qe.generate(select_operation)
+    qe.generate(query)
     sql = qe.build_query_string()
     if validate_sqlglot:
         sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
@@ -1312,7 +1314,7 @@ def view_sql_to_string(view: View, dialect: str | None = None) -> str:
     table = view.table
     assert table is not None
     _apply_join_filters(view, lambda node: build_as_of_join_condition(table, node))
-    sql = f"CREATE OR REPLACE VIEW {view.qualified_name} AS " + select_sql_to_string(view, validate_sqlglot=False)
+    sql = f"CREATE OR REPLACE VIEW {view.qualified_name} AS " + query_sql_to_string(view, validate_sqlglot=False)
     if dialect is None:
         sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
         return sql

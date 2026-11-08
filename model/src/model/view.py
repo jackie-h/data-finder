@@ -2,7 +2,7 @@ import re
 from typing import Sequence
 
 from model.milestoning import MilestonedTable
-from model.relational import QueryExpression, Relation, Alias, Table, Column, Operation, NoOperation, \
+from model.relational import QuerySpecification, Relation, Alias, Table, Column, Operation, NoOperation, \
     LogicalOperation, ComparisonOperation, UnaryOperation, AggregateOperation, WindowFunctionOperation, \
     CountAllOperation
 
@@ -40,11 +40,11 @@ def contains_aggregate(op) -> bool:
     return False
 
 
-class View(QueryExpression, Relation):
-    """A SQL view definition: a named relation defined by a query expression over a root table, with no dates.
+class View(QuerySpecification, Relation):
+    """A SQL view definition: a named relation defined by a query specification over a root table, with no dates.
 
     A view can hold what ANSI SQL allows in a view's query expression, which is everything a
-    QueryExpression has: joins, a filter, grouping, aggregates and window functions. It has no
+    QuerySpecification has: joins, a filter, grouping, aggregates and window functions. It has no
     ORDER BY or row limit.
 
     Its columns are the projection plus the root table's milestoning columns, so consumers choose the point in
@@ -69,7 +69,7 @@ class View(QueryExpression, Relation):
         group_by = list(group_by or [])
         if group_by or any(contains_aggregate(column) for column in self.projection):
             group_by += [alias.element for alias in milestoning_aliases]
-        QueryExpression.__init__(self, self._columns, NoOperation() if filter is None else filter, group_by, table)
+        QuerySpecification.__init__(self, self._columns, NoOperation() if filter is None else filter, group_by, table)
         self.name = name
         self.schema = schema
         self._validate()

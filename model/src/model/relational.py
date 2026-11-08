@@ -855,45 +855,55 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
 
 
 class QueryExpression:
-    """A query expression over a root table: what to show, which rows qualify and how they are grouped.
-    This is the part of a SELECT that ANSI SQL also allows in a view definition.
+    """What ANSI SQL calls a ``<query expression>``: a query that returns rows and can be used where a table is, as a
+    view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT.
 
-    ``order_by`` and ``limit`` exist so a query can be rendered uniformly, but they are always empty here:
-    a view definition has no ORDER BY or row limit. A SelectOperation, which is run rather than stored, can set them.
+    It has no ORDER BY or row limit: a table is a set of rows with no order. An OrderedQuerySpecification adds those."""
+
+
+class QuerySpecification(QueryExpression):
+    """A single SELECT over a root table, as ANSI SQL's ``<query specification>`` with its ``<table expression>``: what to
+    show, which rows qualify, how they are grouped, which groups qualify (HAVING) and whether duplicates are removed
+    (DISTINCT). It is the part of a SELECT that ANSI SQL also allows in a view definition, so it has no ORDER BY or
+    row limit; an OrderedQuerySpecification, which is run rather than stored, sets them.
     """
-    order_by: list[SortOperation]
-    limit: int | None
 
     def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
-                 group_by: list | None = None, table: 'Table | None' = None):
+                 group_by: list | None = None, table: 'Table | None' = None, distinct: bool = False,
+                 having: Operation | None = None):
         self.display = display
         self.filter = filter
         self.group_by = group_by or []
         self.table = table
-        self.order_by = []
-        self.limit = None
+        self.distinct = distinct
+        self.having = having
         # ON-clause conditions this query adds to its joins (milestoning, kwargs filters), keyed by id(node).
         # Join objects are shared between queries, so per-query conditions live here and not on the join.
         self.join_filters: dict[int, Operation] = {}
         # Steps the query only asks the existence of, each as the query that stands for its table, keyed by id(node):
         # the query joins to that instead of to the table, so a parent is not repeated for each row that matches.
-        self.sub_selects: dict[int, 'SelectOperation'] = {}
+        self.sub_selects: dict[int, 'OrderedQuerySpecification'] = {}
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
-        return [*self.display, *self.group_by, *self.order_by, self.filter]
+        return [*self.display, *self.group_by, self.filter]
 
 
-class SelectOperation(QueryExpression):
-    """A query that is run: a query expression plus the ordering and row limit applied to its result."""
+class OrderedQuerySpecification(QuerySpecification):
+    """A query specification that is run: it adds the ordering, row limit and offset applied to its result.
+
+    ANSI SQL calls this a ``<cursor specification>``: a ``<query expression>`` with an ``<order by clause>``, which is not
+    part of a ``<query expression>`` and so cannot be in a view definition. (SQL:2008 added the offset and fetch
+    first clauses to the same place.)"""
 
     def __init__(self, display: Sequence[RelationalOperationElement], filter: Operation,
                  order_by: list[SortOperation] | None = None, group_by: list | None = None,
                  limit: int | None = None, table: 'Table | None' = None, distinct: bool = False,
                  offset: int | None = None, having: Operation | None = None):
-        super().__init__(display, filter, group_by, table)
-        self.having = having
+        super().__init__(display, filter, group_by, table, distinct, having)
         self.order_by = order_by or []
         self.limit = limit
-        self.distinct = distinct
         self.offset = offset
+
+    def expressions(self) -> list[RelationalOperationElement]:
+        return [*self.display, *self.group_by, *self.order_by, self.filter]
