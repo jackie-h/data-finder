@@ -17,7 +17,7 @@ MERGE_RULES_SYNONYM_SPECS = FinderSpec(
     expectations=[
         ported("testToOneJoinTreeNodesForFilterAndProjectMerge", f"{_SRC}::testToOneJoinTreeNodesForFilterAndProjectMerge",
                'select "root".NAME as "synonymName", "producttable_0".NAME as "productName" from productSchema.synonymTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".PRODID = "producttable_0".ID) where "producttable_0".NAME = \'Firm C\'',
-               lambda f: f.find_all(None, None, [f.name(), f.product().name()], f.product().name().eq("Firm C"))),
+               lambda f: f.find_all([f.name(), f.product().name()], f.product().name().eq("Firm C"))),
     ],
 )
 
@@ -28,10 +28,10 @@ MERGE_RULES_FIRM_SPECS = FinderSpec(
     expectations=[
         ported("testZeroToOneJoinTreeNodesForFilterAndProjectMerge", f"{_SRC}::testZeroToOneJoinTreeNodesForFilterAndProjectMerge",
                'select "root".LEGALNAME as "legalName", "addresstable_0".NAME as "firmAddress" from firmTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) where "addresstable_0".NAME = \'Tokyo\'',
-               lambda f: f.find_all(None, None, [f.legal_name(), f.address().name()], f.address().name().eq("Tokyo"))),
+               lambda f: f.find_all([f.legal_name(), f.address().name()], f.address().name().eq("Tokyo"))),
         ported("testToManyJoinTreeNodesForFilterAndProjectDoNotMerge", f"{_SRC}::testToManyJoinTreeNodesForFilterAndProjectDoNotMerge",
                'select "root".LEGALNAME as "legalName", "persontable_2".LASTNAME as "lastName" from firmTable as "root" left outer join (select distinct "persontable_1".FIRMID from personTable as "persontable_1" where "persontable_1".LASTNAME = \'Smith\') as "persontable_0" on ("root".ID = "persontable_0".FIRMID) left outer join personTable as "persontable_2" on ("root".ID = "persontable_2".FIRMID) where "persontable_0".FIRMID is not null',
-               lambda f: f.find_all(None, None, [f.legal_name(), f.employees().last_name()], f.employees(lastName="Smith").exists()),
+               lambda f: f.find_all([f.legal_name(), f.employees().last_name()], f.employees(lastName="Smith").exists()),
                known_gaps={BACKEND: EXISTS_SUB_SELECT_ORDER}),
     ],
 )

@@ -17,7 +17,7 @@ DATE_FILTERS_SPECS = FinderSpec(
     expectations=[
         ported("testDateWithSeconds", f"{_SRC}::testDateWithSeconds",
                'select "root".settlementDateTime as "date" from tradeTable as "root" where ("root".settlementDateTime is not null and "root".settlementDateTime > \'2014-12-04 15:22:24\')',
-               lambda f: f.find_all(None, None, [f.settlement_date_time()],
+               lambda f: f.find_all([f.settlement_date_time()],
                                     f.settlement_date_time() > datetime.datetime(2014, 12, 4, 15, 22, 24))),
         unsupported("testAdjust", f"{_SRC}::testAdjust",
                     'select "root".tradeDate as "date" from tradeTable as "root" where "root".tradeDate = dateadd(DAY, 1, \'2014-11-30\')',
