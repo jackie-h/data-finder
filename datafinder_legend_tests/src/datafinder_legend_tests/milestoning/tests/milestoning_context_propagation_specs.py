@@ -127,11 +127,11 @@ PROPAGATION_ORDER_SPECS = FinderSpec(
     expectations=[
         ported("testMilestoningContextIsPropogatedThroughAutoMap", f"{_SRC}::testMilestoningContextIsPropogatedThroughAutoMap",
                'select "root".id as "orderId", "productclassificationtable_0".type_description as "classificationDescription" from OrderTable as "root" left outer join ProductTable as "producttable_0" on ("root".prodFk = "producttable_0".id and "producttable_0".from_z <= \'2015-08-15\' and "producttable_0".thru_z > \'2015-08-15\') left outer join (select "productclassificationtable_1".type as type, "productclassificationtable_1".type_description as type_description from ProductClassificationTable as "productclassificationtable_1" where "productclassificationtable_1".from_z <= \'2015-08-15\' and "productclassificationtable_1".thru_z > \'2015-08-15\') as "productclassificationtable_0" on ("producttable_0".type = "productclassificationtable_0".type)',
-               lambda f: f.find_all(None, None, [f.id_(), f.product(business_date="2015-8-15").classification().description()]),
+               lambda f: f.find_all([f.id_(), f.product(business_date="2015-8-15").classification().description()]),
                known_gaps={BACKEND: ISOLATED_MILESTONED_JOIN}),
         ported("testMilestoningFiltersAppliedToIntermediateMilestonedJoinTablesWhereTargetTypeIsTemporalAndTargetMainTableIsNotMilestoned", f"{_SRC}::testMilestoningFiltersAppliedToIntermediateMilestonedJoinTablesWhereTargetTypeIsTemporalAndTargetMainTableIsNotMilestoned",
                'select "systemaorderdescriptiontable_0".description as "systemADescription" from OrderTable as "root" left outer join OrderToSystemADescriptions as "ordertosystemadescriptions_0" on ("root".id = "ordertosystemadescriptions_0".orderId and "ordertosystemadescriptions_0".from_z <= \'2015-08-14\' and "ordertosystemadescriptions_0".thru_z > \'2015-08-14\') left outer join SystemAOrderDescriptionTable as "systemaorderdescriptiontable_0" on ("ordertosystemadescriptions_0".systemADescriptionId = "systemaorderdescriptiontable_0".descriptionId)',
-               lambda f: f.find_all(None, None, [f.system_a_description(business_date="2015-8-14").description()])),
+               lambda f: f.find_all([f.system_a_description(business_date="2015-8-14").description()])),
     ],
 )
 

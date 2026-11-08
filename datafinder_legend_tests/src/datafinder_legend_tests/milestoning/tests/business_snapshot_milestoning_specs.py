@@ -3,9 +3,8 @@ Ported from legend-engine core_relational ``milestoning/tests/testBusinessSnapsh
 
 A business snapshot table has one business date column, which a query's business date must equal. Legend's
 ``Product.all(%date)`` is ``find_all(date, None, ...)`` and its ``allVersionsInRange(from, to)`` is
-``find_for_date_range(from, to, None, ...)``. A date reaches every milestoned table the query joins to, so an
-``Order`` (which has no milestoning) given a date reads the product at that date, as Legend's
-``$o.product(%date)`` does. Not ported: the union mappings, and a range on a navigation that differs from the root's.
+``find_for_date_range(from, to, None, ...)``. An ``Order`` has no milestoning, so a query of orders takes no date: the date is given
+to the property, ``f.product(business_date=...)``, as in Legend's ``$o.product(%date)``. Not ported: the union mappings, and a range on a navigation that differs from the root's.
 Mapping: milestoning/tests/business_snapshot_mapping.md.
 """
 import datetime
@@ -18,6 +17,13 @@ from datafinder_legend_tests.legend import (
 )
 
 _SRC = "milestoning/tests/testBusinessSnapshotMilestoning.pure"
+
+
+def _product_at(f, date, columns_and_filter):
+    """The orders' product as of ``date``: the one step is used for the filter and the columns, as in Legend's
+    ``$o.product(%date)`` that is written twice."""
+    columns, condition = columns_and_filter(f.product(business_date=date))
+    return f.find_all(columns, condition)
 _MAPPING = "milestoning/tests/business_snapshot_mapping.md"
 
 BUSINESS_SNAPSHOT_PRODUCT_SPECS = FinderSpec(
@@ -76,10 +82,10 @@ BUSINESS_SNAPSHOT_ORDER_SPECS = FinderSpec(
     expectations=[
         ported("testQueryOnNonTemporalRootWithTemporalProperty", f"{_SRC}::testQueryOnNonTemporalRootWithTemporalProperty",
                'select "producttablewithbusinesssnapshotmilestoning_0".id as "id" from OrderTable as "root" left outer join ProductTableWithBusinessSnapshotMilestoning as "producttablewithbusinesssnapshotmilestoning_0" on ("root".prodFk = "producttablewithbusinesssnapshotmilestoning_0".id and "producttablewithbusinesssnapshotmilestoning_0".snapshotDate = \'2015-08-26\') where "producttablewithbusinesssnapshotmilestoning_0".name = \'ProductName1\'',
-               lambda f: f.find_all("2015-08-26", None, [f.product().id_()], f.product().name().eq("ProductName1"))),
+               lambda f: _product_at(f, "2015-08-26", lambda p: ([p.id_()], p.name().eq("ProductName1")))),
         ported("testQueryWithPropagationOnNonTemporalRootWithTemporalProperty", f"{_SRC}::testQueryWithPropagationOnNonTemporalRootWithTemporalProperty",
                'select "productclassificationtablewithbusinesssnapshotmilestoning_1".type as "type" from OrderTable as "root" left outer join ProductTableWithBusinessSnapshotMilestoning as "producttablewithbusinesssnapshotmilestoning_0" on ("root".prodFk = "producttablewithbusinesssnapshotmilestoning_0".id and "producttablewithbusinesssnapshotmilestoning_0".snapshotDate = \'2015-08-26\') left outer join ProductClassificationTableWithBusinessSnapshotMilestoning as "productclassificationtablewithbusinesssnapshotmilestoning_0" on ("producttablewithbusinesssnapshotmilestoning_0".type = "productclassificationtablewithbusinesssnapshotmilestoning_0".type and "productclassificationtablewithbusinesssnapshotmilestoning_0".snapshotDate = \'2015-08-26\') left outer join (select "productclassificationtablewithbusinesssnapshotmilestoning_2".type as type from ProductClassificationTableWithBusinessSnapshotMilestoning as "productclassificationtablewithbusinesssnapshotmilestoning_2" where "productclassificationtablewithbusinesssnapshotmilestoning_2".snapshotDate = \'2015-08-26\') as "productclassificationtablewithbusinesssnapshotmilestoning_1" on ("producttablewithbusinesssnapshotmilestoning_0".type = "productclassificationtablewithbusinesssnapshotmilestoning_1".type) where "productclassificationtablewithbusinesssnapshotmilestoning_0".type_description = \'STOCK DESC-V2\'',
-               lambda f: f.find_all("2015-08-26", None, [f.product().classification().type_()], f.product().classification().description().eq("STOCK DESC-V2")),
+               lambda f: _product_at(f, "2015-08-26", lambda p: ([p.classification().type_()], p.classification().description().eq("STOCK DESC-V2"))),
                known_gaps={BACKEND: SECOND_JOIN_FOR_PROJECTED_MILESTONED_PROPERTY}),
         unsupported("testUnionQueryOnNonTemporalRootWithTemporalProperty", f"{_SRC}::testUnionQueryOnNonTemporalRootWithTemporalProperty",
                     'select "unionalias_1"."ProductTableWithBusinessSnapshotMilestoningid_ProductTableWithBusinessSnapshotMilestoningid" as "id" from (select "root".prodFk as prodFk_0, null as prodFk_1, "root".id as "pk_0_0", null as "pk_0_1" from OrderTable as "root" UNION ALL select null as prodFk_0, "root".prodFk as prodFk_1, null as "pk_0_0", "root".id as "pk_0_1" from OrderTable as "root") as "unionBase" left outer join (select "root".snapshotDate as "snapshotDate_0", null as "snapshotDate_1", "root".id as id, "root".name as "ProductTableWithBusinessSnapshotMilestoningname_ProductTableWithBusinessSnapshotMilestoningname", "root".id as "ProductTableWithBusinessSnapshotMilestoningid_ProductTableWithBusinessSnapshotMilestoningid" from ProductTableWithBusinessSnapshotMilestoning as "root" where "root".snapshotDate = \'2015-08-26\' UNION ALL select null as "snapshotDate_0", "root".snapshotDate as "snapshotDate_1", "root".id as id, "root".name as "ProductTableWithBusinessSnapshotMilestoningname_ProductTableWithBusinessSnapshotMilestoningname", "root".id as "ProductTableWithBusinessSnapshotMilestoningid_ProductTableWithBusinessSnapshotMilestoningid" from ProductTableWithBusinessSnapshotMilestoning as "root" where "root".snapshotDate = \'2015-08-26\') as "unionalias_1" on (("unionBase".prodFk_0 = "unionalias_1".id or "unionBase".prodFk_1 = "unionalias_1".id) and (coalesce("unionalias_1"."snapshotDate_0", "unionalias_1"."snapshotDate_1") = \'2015-08-26\' or coalesce("unionalias_1"."snapshotDate_0", "unionalias_1"."snapshotDate_1") is null)) where "unionalias_1"."ProductTableWithBusinessSnapshotMilestoningname_ProductTableWithBusinessSnapshotMilestoningname" = \'ProductName1\'',
