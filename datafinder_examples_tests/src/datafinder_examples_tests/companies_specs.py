@@ -953,6 +953,17 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_result=np.array([[3], [2], [1]], dtype=object),
         ),
         TestExpectation(
+            name="concatenate_more_than_two_results_with_named_columns",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _descending(
+                f.find_all([f.id_().alias("theKey")], f.id_().eq(1)).concatenate(f.find_all([f.id_().alias("theKey")], f.id_().eq(2)), all=True)
+                .concatenate(f.find_all([f.id_().alias("theKey")], f.id_().eq(3)), all=True), "theKey"),
+            expected_columns=["theKey"],
+            expected_result=np.array([[3], [2], [1]], dtype=object),
+            # one chain of unions, not a select over each union
+            expected_sql={"duckdb": " UNION ALL SELECT"},
+        ),
+        TestExpectation(
             name="concatenate_then_offset_and_limit",
             skip_backends={"graphql": "The GraphQL finder has no union"},
             query=lambda f: _ascending(

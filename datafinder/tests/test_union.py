@@ -129,3 +129,15 @@ def test_typed_attribute_chooses_the_class_of_a_database_type():
         attribute = typed_attribute("x", db_type, _TABLE)
         assert type(attribute) is kind, db_type
         assert attribute.display_name() == "x" and attribute.column().type == db_type and attribute.owner() is _TABLE
+
+
+def test_concatenating_again_extends_one_chain_of_unions():
+    a, b, c = (_result([_NAME], _ID.eq(i)) for i in (1, 2, 3))
+    sql = a.concatenate(b, all=True).concatenate(c, all=True).to_sql()
+    assert sql.count("UNION ALL") == 2 and sql.count("FROM (") == 1
+
+
+def test_a_different_set_operator_is_not_flattened():
+    a, b, c = (_result([_NAME], _ID.eq(i)) for i in (1, 2, 3))
+    sql = a.concatenate(b, all=True).concatenate(c).to_sql()
+    assert "UNION ALL" in sql and sql.count("FROM (") == 2
