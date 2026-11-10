@@ -2,7 +2,8 @@
 Test specifications for a value that can be missing, using companies_mapping.md.
 
 Uses a dataset in which two companies have no category, which Company.category (multiplicity 0..1) allows. As in
-Legend, a missing value is different from any value, so ``!=`` matches it, and ``==`` does not.
+Legend, a missing value is different from any value, so ``!=`` against a value matches it, and ``==``
+does not. Legend writes the ``OR IS NULL`` for any column, a required property and a primary key included.
 
     companies — id INT, name VARCHAR, category VARCHAR (NULL for ids 2 and 4)
 """
@@ -42,10 +43,18 @@ COMPANIES_MISSING_CATEGORY_SPECS = FinderSpec(
             expected_sql={"duckdb": "(t0.category <> 'Finance' OR t0.category IS NULL) AND"},
         ),
         TestExpectation(
-            name="not_equal_on_a_required_value_is_a_plain_comparison",
+            name="not_equal_on_a_required_property_also_has_the_null_alternative",
             query=lambda f: f.find_all([f.id_()], f.name() != "Acme Corp").order_by(f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[2], [3], [4]], dtype=object),
+            expected_sql={"duckdb": "<> 'Acme Corp' OR "},
+        ),
+        TestExpectation(
+            name="not_equal_on_a_primary_key_also_has_the_null_alternative",
+            query=lambda f: f.find_all([f.id_()], f.id_() != 1).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[2], [3], [4]], dtype=object),
+            expected_sql={"duckdb": "<> 1 OR "},
         ),
     ],
 )
