@@ -1,4 +1,7 @@
+import contextlib
 import datetime
+import threading
+from typing import Callable, Iterator
 
 import numpy as np
 import pandas as pd
@@ -14,6 +17,29 @@ class DataFrame(ToNumpy):
 
     def to_pandas(self) -> pd.DataFrame:
         raise NotImplementedError()
+
+
+@contextlib.contextmanager
+def interrupt_after(timeout_ms: int, interrupt: Callable[[], None]) -> Iterator[None]:
+    """Call ``interrupt`` once ``timeout_ms`` is up, and again every few milliseconds until the block ends. A single call is not
+    enough: an interrupt that comes before the database has started the query (while a library is still building it) does
+    nothing, and the query then runs to the end."""
+    finished = threading.Event()
+
+    def watch() -> None:
+        if not finished.wait(timeout_ms / 1000):
+            while True:
+                interrupt()
+                if finished.wait(0.005):
+                    return
+
+    watcher = threading.Thread(target=watch, daemon=True)
+    watcher.start()
+    try:
+        yield
+    finally:
+        finished.set()
+        watcher.join()
 
 
 def _intervals_as_durations(table):
