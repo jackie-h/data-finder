@@ -6,8 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.gaps import NOT_EQUAL_NULL
-from datafinder_legend_tests.legend import BACKEND, ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported
 
 _SRC = "tds/tests/testTDSConcatenate.pure"
 
@@ -23,7 +22,7 @@ CONCATENATE_SPECS = FinderSpec(
                     lambda f: f.find_all([(f.last_name() + '_0').alias("lastName")]).concatenate(f.find_all([(f.last_name() + '_1').alias("lastName")]), all=True).concatenate(f.find_all([(f.last_name() + '_2').alias("lastName")]), all=True).concatenate(f.find_all([(f.last_name() + '_3').alias("lastName")]), all=True)),
         ported("testConcatenateWithPreOperation1", f"{_SRC}::testConcatenateWithPreOperation1",
                     'select "unionalias_0"."lastName" as "lastName" from (select "root".LASTNAME as "lastName" from personTable as "root" where "root".LASTNAME <> \'hello\' or "root".LASTNAME is null union all select "root".LASTNAME as "lastName" from personTable as "root") as "unionalias_0"',
-                    lambda f: f.find_all([f.last_name().alias("lastName")], f.last_name() != 'hello').concatenate(f.find_all([f.last_name().alias("lastName")]), all=True), known_gaps={BACKEND: NOT_EQUAL_NULL}),
+                    lambda f: f.find_all([f.last_name().alias("lastName")], f.last_name() != 'hello').concatenate(f.find_all([f.last_name().alias("lastName")]), all=True)),
         unsupported("testConcatenateWithPostOperation1", f"{_SRC}::testConcatenateWithPostOperation1",
                     'select "unionalias_0"."lastName" as "lastName" from (select "root".LASTNAME as "lastName" from personTable as "root" union all select "root".LASTNAME as "lastName" from personTable as "root") as "unionalias_0" where "unionalias_0"."lastName" <> \'hello\' or "unionalias_0"."lastName" is null',
                     'a filter or join on a concatenated result: results cannot be chained yet'),
@@ -32,7 +31,7 @@ CONCATENATE_SPECS = FinderSpec(
                     'a filter or join on a concatenated result: results cannot be chained yet'),
         ported("testConcatenateWithPreOperation2", f"{_SRC}::testConcatenateWithPreOperation2",
                     'select "unionalias_0"."lastName" as "lastName" from (select "root".LASTNAME as "lastName" from personTable as "root" union all select "root".LASTNAME as "lastName" from personTable as "root" where "root".LASTNAME <> \'hello\' or "root".LASTNAME is null) as "unionalias_0"',
-                    lambda f: f.find_all([f.last_name().alias("lastName")]).concatenate(f.find_all([f.last_name().alias("lastName")], f.last_name() != 'hello'), all=True), known_gaps={BACKEND: NOT_EQUAL_NULL}),
+                    lambda f: f.find_all([f.last_name().alias("lastName")]).concatenate(f.find_all([f.last_name().alias("lastName")], f.last_name() != 'hello'), all=True)),
         ported("testConcatenateWithPreOperation3", f"{_SRC}::testConcatenateWithPreOperation3",
                     'select "unionalias_0"."lastName" as "lastName" from (select "root".LASTNAME as "lastName" from personTable as "root" where "root".LASTNAME = \'hello\' union all select "root".LASTNAME as "lastName" from personTable as "root") as "unionalias_0"',
                     lambda f: f.find_all([f.last_name().alias("lastName")], f.last_name().eq('hello')).concatenate(f.find_all([f.last_name().alias("lastName")]), all=True)),

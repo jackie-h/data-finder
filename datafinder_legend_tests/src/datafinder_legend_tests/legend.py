@@ -30,10 +30,6 @@ FLOAT_AVERAGE = (
     "Legend writes avg(1.0 * x) so an integer column averages as a float; the column is already a float, so the finder "
     "writes avg(x)"
 )
-NOT_EQUAL_NULL = (
-    "Legend writes `!=` as `col <> x or col is null`, so a missing value counts as different; the finder writes just "
-    "`col <> x`, which is not true for a missing value"
-)
 FLOAT_DIVISION = (
     "Legend writes x / y as (1.0 * x) / y so integer columns divide as floats; the column is already a float, so the "
     "finder writes x / y"
@@ -61,7 +57,6 @@ LEFT_JOIN_ORDER = (
     "them in the order of the projection and then the filter. Left joins that do not depend on one another return the "
     "same rows in either order"
 )
-NOT_EQUAL_NULL_AND_ISOLATED_MILESTONED_JOIN = NOT_EQUAL_NULL + "; and " + ISOLATED_MILESTONED_JOIN
 AGGREGATE_IN_DERIVED_TABLE = (
     "when a query projects an aggregate of a to-many navigation beside plain columns, Legend aggregates in a derived "
     "table grouped by the root's keys and joins it back to the root; the finder groups the one query by the root's keys, "

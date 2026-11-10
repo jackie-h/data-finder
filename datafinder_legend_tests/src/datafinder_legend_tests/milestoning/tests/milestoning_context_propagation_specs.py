@@ -7,8 +7,8 @@ Mapping: tests/simple_mapping.md.
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import (
-    BACKEND, EXISTS_ON_TO_ONE_STEP, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL,
-    NOT_EQUAL_NULL_AND_ISOLATED_MILESTONED_JOIN, ported, unsupported,
+    BACKEND, EXISTS_ON_TO_ONE_STEP, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER,
+    ported, unsupported,
 )
 
 _SRC = "milestoning/tests/testMilestoningContextPropagation.pure"
@@ -103,12 +103,11 @@ PROPAGATION_PRODUCT_SPECS = FinderSpec(
                known_gaps={BACKEND: LEFT_JOIN_ORDER}),
         ported("testMilestoningContextPropagatedThroughFilterToNoArgMilestonedQualifiedPropertyInProjectPath", f"{_SRC}::testMilestoningContextPropagatedThroughFilterToNoArgMilestonedQualifiedPropertyInProjectPath",
                'select "root".name as "name", "productclassificationtable_0".type_description as "description" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= \'2015-10-16\' and "productclassificationtable_0".thru_z > \'2015-10-16\') where ("root".name <> \'\' OR "root".name is null) and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
-               lambda f: f.find_all("2015-10-16", None, [f.name(), f.classification().description()], f.name().ne("")),
-               known_gaps={BACKEND: NOT_EQUAL_NULL}),
+               lambda f: f.find_all("2015-10-16", None, [f.name(), f.classification().description()], f.name().ne(""))),
         ported("testMilestoningContextPropagatedFromMilestoningQualifiedPropertyWithArgToNoArgMilestonedQualifiedPropertyInProjectPath", f"{_SRC}::testMilestoningContextPropagatedFromMilestoningQualifiedPropertyWithArgToNoArgMilestonedQualifiedPropertyInProjectPath",
                'select "root".name as "productName", "productexchangetable_0".name as "exchangeName" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= \'2016-10-16\' and "productclassificationtable_0".thru_z > \'2016-10-16\') left outer join (select "productexchangetable_1".name as name from ProductExchangeTable as "productexchangetable_1" where "productexchangetable_1".from_z <= \'2016-10-16\' and "productexchangetable_1".thru_z > \'2016-10-16\') as "productexchangetable_0" on ("productclassificationtable_0".exchange = "productexchangetable_0".name) where ("root".name <> \'\' OR "root".name is null) and "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                lambda f: f.find_all("2015-10-16", None, [f.name(), f.classification(business_date="2016-10-16").exchange().name()], f.name().ne("")),
-               known_gaps={BACKEND: NOT_EQUAL_NULL_AND_ISOLATED_MILESTONED_JOIN}),
+               known_gaps={BACKEND: ISOLATED_MILESTONED_JOIN}),
         ported("testMilestoningContextPropagatedUsingVariableInProjectPath", f"{_SRC}::testMilestoningContextPropagatedUsingVariableInProjectPath",
                'select "root".name as "name", "productclassificationtable_0".type_description as "description" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= \'2015-10-16\' and "productclassificationtable_0".thru_z > \'2015-10-16\') where "root".from_z <= \'2015-10-16\' and "root".thru_z > \'2015-10-16\'',
                lambda f: f.find_all("2015-10-16", None, [f.name(), f.classification().description()])),

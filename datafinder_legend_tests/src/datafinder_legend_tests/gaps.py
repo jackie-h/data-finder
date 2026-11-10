@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, NOT_EQUAL_NULL, NOT_EQUAL_NULL_AND_ISOLATED_MILESTONED_JOIN, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -100,22 +100,6 @@ def _drop_float_cast_in_division(tree: exp.Expr) -> exp.Expr:
         left = div.this.this if isinstance(div.this, exp.Paren) else div.this
         if isinstance(left, exp.Mul) and isinstance(left.left, exp.Literal) and left.left.name == "1.0":
             div.set("this", left.right.copy())
-    return tree
-
-
-def _drop_null_alternative_to_not_equal(tree: exp.Expr) -> exp.Expr:
-    """``col <> x OR col IS NULL`` is ``col <> x``."""
-    for node in reversed(list(tree.find_all(exp.Or))):
-        if isinstance(node.parent, exp.Or):
-            continue
-        operands = _operands(node, exp.Or)
-        unequal = {o.this.sql() for o in operands if isinstance(o, exp.NEQ)}
-        kept = [o for o in operands
-                if not (isinstance(o, exp.Is) and isinstance(o.expression, exp.Null) and o.this.sql() in unequal)]
-        if len(kept) != len(operands):
-            replacement = reduce(lambda left, right: _connect(exp.Or, left, right), kept[1:], kept[0])
-            target = node.parent if isinstance(node.parent, exp.Paren) and len(kept) == 1 else node
-            target.replace(replacement)
     return tree
 
 
@@ -246,8 +230,6 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     PROCESSING_SNAPSHOT_DATETIME: [_keep_truncated_datetime],
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
-    NOT_EQUAL_NULL: [_drop_null_alternative_to_not_equal],
-    NOT_EQUAL_NULL_AND_ISOLATED_MILESTONED_JOIN: [_drop_null_alternative_to_not_equal, _inline_isolated_join_filter],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
 }
 

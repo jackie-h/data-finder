@@ -2,7 +2,7 @@
 from datafinder_legend_tests.gaps import gap_is_only
 from datafinder_legend_tests.legend import (
     CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER,
-    NOT_EQUAL_NULL, PROCESSING_SNAPSHOT_DATETIME, TDS_FILTER_OPTIONAL_PROPERTY,
+    PROCESSING_SNAPSHOT_DATETIME, TDS_FILTER_OPTIONAL_PROPERTY,
 )
 
 def test_a_null_guard_is_covered_only_by_the_optional_property_gap():
@@ -11,14 +11,6 @@ def test_a_null_guard_is_covered_only_by_the_optional_property_gap():
     assert gap_is_only(TDS_FILTER_OPTIONAL_PROPERTY, actual, expected)
     assert not gap_is_only(CONCAT_FUNCTION, actual, expected)
     assert not gap_is_only(TDS_FILTER_OPTIONAL_PROPERTY, "SELECT t0.age FROM p AS t0 WHERE t0.age > 31", expected)
-
-
-def test_a_null_alternative_is_covered_only_by_the_not_equal_gap():
-    actual = "SELECT t0.a FROM p AS t0 WHERE t0.a <> 'x'"
-    expected = "SELECT t0.a FROM p AS t0 WHERE t0.a <> 'x' OR t0.a IS NULL"
-    assert gap_is_only(NOT_EQUAL_NULL, actual, expected)
-    assert not gap_is_only(CONCAT_FUNCTION, actual, expected)
-    assert not gap_is_only(NOT_EQUAL_NULL, actual, "SELECT t0.a FROM p AS t0 WHERE t0.a <> 'x' OR t0.b IS NULL")
 
 
 def test_a_datetime_milestoning_date_is_the_date_of_the_datetime():
