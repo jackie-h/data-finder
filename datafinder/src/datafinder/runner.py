@@ -12,7 +12,7 @@ from model.relational import (
     AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
     DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
-    FloatConstantOperation, IntegerConstantOperation, NoOperation, QueryExpression, Relation, RelationalOperationElement,
+    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, NoOperation, QueryExpression, Relation, RelationalOperationElement,
     ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
     UnionOperation,
     WindowFunctionOperation)
@@ -99,7 +99,7 @@ _NUMBER_TYPES = {int: "BIGINT", float: "DOUBLE", decimal.Decimal: "DECIMAL"}
 _CONSTANT_TYPES = {
     IntegerConstantOperation: "BIGINT", FloatConstantOperation: "DOUBLE", StringConstantOperation: "VARCHAR",
     DateConstantOperation: "DATE", DateTimeConstantOperation: "TIMESTAMP", DecimalConstantOperation: "DECIMAL",
-    BooleanConstantOperation: "BOOLEAN",
+    BooleanConstantOperation: "BOOLEAN", IntervalConstantOperation: "INTERVAL",
 }
 
 
@@ -121,6 +121,8 @@ def _column_type(element: RelationalOperationElement) -> str:
         return element.type
     if isinstance(element, CountAllOperation):
         return "BIGINT"
+    if isinstance(element, IntervalOperation):  # before the number kinds: it is arithmetic's subclass, but not a number
+        return "INTERVAL"
     # a number of a known kind: an integer, double or decimal arithmetic result, function, aggregate or constant
     kind = getattr(element, "_number_kind", None)
     if kind in _NUMBER_TYPES:

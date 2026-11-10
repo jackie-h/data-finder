@@ -48,7 +48,7 @@ class IbisConnect(QueryRunnerBase):
         # conn.sql() only builds the expression — nothing executes until IbisOutput actually
         # materializes it, driven by which of to_pandas()/to_numpy() the caller asks for.
         expr = conn.sql(query)
-        return IbisOutput(conn, expr, timeout_ms)
+        return IbisOutput(conn, expr, timeout_ms, query)
 
     @staticmethod
     def create_view(view: View) -> None:
@@ -62,7 +62,7 @@ class IbisConnect(QueryRunnerBase):
         query = f"SELECT * FROM {view.qualified_name}"
         if order_by:
             query += " ORDER BY " + ", ".join('"' + column + '"' for column in order_by)
-        return IbisOutput(conn, conn.sql(query), timeout_ms)
+        return IbisOutput(conn, conn.sql(query), timeout_ms, query)
 
 
 class IbisOutput(DataFrame):
@@ -72,8 +72,9 @@ class IbisOutput(DataFrame):
     an integer column to float64, without to_numpy() ever allocating a DataFrame it doesn't
     need."""
 
-    def __init__(self, conn: DuckDBBackend, expr: 'ibis.Table', timeout_ms: int):
+    def __init__(self, conn: DuckDBBackend, expr: 'ibis.Table', timeout_ms: int, query: str):
         self.__conn = conn
+        self.__query = query
         self.__expr = expr
         self.__timeout_ms = timeout_ms
         self.__arrow: pa.Table | None = None
@@ -84,7 +85,11 @@ class IbisOutput(DataFrame):
             timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.con.interrupt)
             timer.start()
             try:
-                arrow = self.__expr.to_pyarrow()
+                try:
+                    arrow = self.__expr.to_pyarrow()
+                except pa.ArrowNotImplementedError:
+                    # ibis types an interval as a duration, which Arrow cannot cast DuckDB's interval to: read it as DuckDB gives it
+                    arrow = self.__conn.con.sql(self.__query).arrow()
             except duckdb.InterruptException:
                 raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
             finally:

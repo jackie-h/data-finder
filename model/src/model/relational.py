@@ -79,6 +79,17 @@ class Aggregates(Generic[AG]):
                                DoubleAggregateOperation)  # type: ignore[return-value]
 
 
+class Extremes(Generic[AG]):
+    """The smallest and largest of a group, for an expression that can be ordered but not summed. They are of the
+    expression's own type: the minimum of an interval is an interval."""
+
+    def min(self) -> AG:
+        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MIN, 'Min Expression')  # type: ignore[attr-defined]
+
+    def max(self) -> AG:
+        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MAX, 'Max Expression')  # type: ignore[attr-defined]
+
+
 def _sample(ddof: int) -> bool:
     if ddof not in (0, 1):
         raise ValueError(f"ddof is 0 (population) or 1 (sample), not {ddof}")
@@ -872,11 +883,26 @@ class DateTimeFunctions:
             return NotImplemented
         return self._timedelta_op(td, is_add=True)
 
-    def __sub__(self, td: datetime.timedelta):
-        """Subtract a ``timedelta``. Equivalent to ``dt - td``."""
-        if not isinstance(td, datetime.timedelta):
-            return NotImplemented
-        return self._timedelta_op(td, is_add=False)
+    @overload
+    def __sub__(self, other: datetime.timedelta) -> 'DateArithmeticOperation[datetime.datetime]': ...
+    @overload
+    def __sub__(self, other: 'datetime.datetime | DateTimeFunctions') -> 'IntervalOperation': ...
+    def __sub__(self, other):
+        """Subtract a ``timedelta``, giving a datetime (``dt - td``), or another datetime, giving the time between them as
+        an IntervalOperation (``end - start``, a ``timedelta``)."""
+        if isinstance(other, datetime.timedelta):
+            return self._timedelta_op(other, is_add=False)
+        if isinstance(other, datetime.datetime):
+            return IntervalOperation(self._arithmetic_operand(), DateTimeConstantOperation(other))  # type: ignore[attr-defined]
+        if isinstance(other, DateTimeFunctions) and isinstance(other, RelationalOperationElement):
+            return IntervalOperation(self._arithmetic_operand(), other._arithmetic_operand())  # type: ignore[attr-defined]
+        return NotImplemented
+
+    def __rsub__(self, other: datetime.datetime) -> 'IntervalOperation':
+        """A datetime minus this: ``datetime.datetime(2005, 1, 1) - ts``, the time between them."""
+        if isinstance(other, datetime.datetime):
+            return IntervalOperation(DateTimeConstantOperation(other), self._arithmetic_operand())  # type: ignore[attr-defined]
+        return NotImplemented
 
     def _timedelta_op(self, td: datetime.timedelta, is_add: bool):
         total_seconds = int(td.total_seconds())
@@ -1003,6 +1029,15 @@ class DateTimeConstantOperation(ConstantOperation, DateTimeFunctions, Orderable[
     def __init__(self, value:datetime.datetime):
         super().__init__()
         self.value = value
+
+class IntervalConstantOperation(ConstantOperation, Orderable[datetime.timedelta], Extremes['IntervalAggregateOperation']):
+    """A fixed length of time, a ``timedelta``."""
+    value: datetime.timedelta
+
+    def __init__(self, value: datetime.timedelta):
+        super().__init__()
+        self.value = value
+
 
 class DecimalConstantOperation(ConstantOperation, NumericFunctions['DecimalFunctionOperation'],
                                Arithmetic[decimal.Decimal], Orderable[decimal.Decimal],
@@ -1137,7 +1172,9 @@ def _value_operand(value) -> 'ConstantOperation':
         return DateTimeConstantOperation(value)
     if isinstance(value, datetime.date):
         return DateConstantOperation(value)
-    raise TypeError(f"A value to compare with is a bool, number, string, date or datetime, not {type(value).__name__}")
+    if isinstance(value, datetime.timedelta):
+        return IntervalConstantOperation(value)
+    raise TypeError(f"A value to compare with is a bool, number, string, date, datetime or timedelta, not {type(value).__name__}")
 
 
 class ArithmeticOperation(BinaryOperation, Sortable):
@@ -1208,6 +1245,15 @@ def concat(left, right) -> ConcatOperation:
         raise TypeError(f"Text is joined with text, not {type(value).__name__}")
     return ConcatOperation([*parts_of(left), *parts_of(right)])
 
+
+
+class IntervalOperation(ArithmeticOperation, Orderable[datetime.timedelta], Extremes['IntervalAggregateOperation']):
+    """The time between two datetimes, ``left - right``, as Python's ``datetime - datetime`` is a ``timedelta``: an interval.
+    It is ordered as an interval, so it is compared with a ``timedelta`` or another interval, and its minimum and maximum
+    are intervals. Only these: an interval is not a number, so it has no arithmetic."""
+
+    def __init__(self, left: RelationalOperationElement, right: RelationalOperationElement, display_name: str | None = None):
+        super().__init__(left, ArithmeticOperator.SUBTRACT, right, display_name)
 
 
 class CaseOperation(Operation, Aggregates['UntypedAggregateOperation']):
@@ -1299,6 +1345,10 @@ class DateAggregateOperation(AggregateOperation, Orderable[datetime.date]):
 
 class DateTimeAggregateOperation(AggregateOperation, Orderable[datetime.datetime | datetime.date]):
     """The earliest or latest datetime of a group."""
+
+
+class IntervalAggregateOperation(AggregateOperation, Orderable[datetime.timedelta]):
+    """The shortest or longest interval of a group."""
 
 
 class ScalarFunction(Enum):
@@ -1901,3 +1951,5 @@ DecimalArithmeticOperation._value_aggregate = DecimalAggregateOperation  # type:
 IntegerConstantOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
 FloatConstantOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
 DecimalConstantOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
+IntervalOperation._value_aggregate = IntervalAggregateOperation  # type: ignore[attr-defined]
+IntervalConstantOperation._value_aggregate = IntervalAggregateOperation  # type: ignore[attr-defined]

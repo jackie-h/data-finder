@@ -18,7 +18,7 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation
+    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation
 
 class TableAliasColumn(RelationalOperationElement):
     def __init__(self, column: Column, table_alias: TableAlias):
@@ -516,6 +516,8 @@ def constant_value_string(op:ConstantOperation) -> str:
         return "TRUE" if op.value else "FALSE"
     elif isinstance(op, DecimalConstantOperation):
         return str(op.value)
+    elif isinstance(op, IntervalConstantOperation):
+        return "INTERVAL '" + format(op.value.total_seconds(), 'f').rstrip('0').rstrip('.') + "' SECOND"
     else:
         raise ValueError
 
@@ -687,6 +689,8 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return _selected_constant_string(operation)
     elif isinstance(operation, ConcatOperation):
         return ' || '.join(_operand_string(part) for part in operation.parts)
+    elif isinstance(operation, IntervalOperation):  # the datetimes are typed, as a select list's constants are
+        return sql_operation_to_string(operation.left) + ' - ' + sql_operation_to_string(operation.right)
     elif isinstance(operation, ArithmeticOperation):
         left = _operand_string(operation.left)
         right = _operand_string(operation.right)
@@ -921,6 +925,8 @@ class SQLQueryGenerator:
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
                                            second_arg=op.second_arg, extra_args=list(op.extra_args), cast=op.cast)
+        elif isinstance(op, IntervalOperation):
+            return IntervalOperation(self.__rewrite_operation(op.left), self.__rewrite_operation(op.right), op.display_name)
         elif isinstance(op, ArithmeticOperation):
             return ArithmeticOperation(self.__rewrite_operation(op.left), op.operator,
                                        self.__rewrite_operation(op.right), op.display_name)

@@ -5,7 +5,7 @@ import decimal
 from model.relational import (
     BooleanConstantOperation, CaseOperation, ComparisonOperation, ConstantOperation, DateConstantOperation,
     DateTimeConstantOperation, DecimalConstantOperation, ExistsOperation, FloatConstantOperation, InOperation,
-    IntegerConstantOperation, IsNotNullOperation, IsNullOperation, LogicalOperation, NotExistsOperation,
+    IntegerConstantOperation, IntervalConstantOperation, IsNotNullOperation, IsNullOperation, LogicalOperation, NotExistsOperation,
     NotInOperation, NotOperation, RelationalOperationElement, StringConstantOperation,
 )
 
@@ -22,6 +22,7 @@ def _value(value) -> RelationalOperationElement:
         (bool, BooleanConstantOperation), (int, IntegerConstantOperation), (float, FloatConstantOperation),
         (decimal.Decimal, DecimalConstantOperation), (str, StringConstantOperation),
         (datetime.datetime, DateTimeConstantOperation), (datetime.date, DateConstantOperation),
+            (datetime.timedelta, IntervalConstantOperation),
     ]  # bool before int and datetime before date: each is a subclass of the next
     for python_type, constant in constants:
         if isinstance(value, python_type):

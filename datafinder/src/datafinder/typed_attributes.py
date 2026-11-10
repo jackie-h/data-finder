@@ -9,7 +9,7 @@ from model.relational import DecimalFunctionOperation, DoubleFunctionOperation, 
 
 from model.relational import Relation, Equatable, Orderable, RelationalOperationElement, _sample, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
-    BooleanConstantOperation, DecimalConstantOperation, AggregateOperator, DateAggregateOperation, DateTimeAggregateOperation, \
+    BooleanConstantOperation, DecimalConstantOperation, AggregateOperator, DateAggregateOperation, DateTimeAggregateOperation, IntervalAggregateOperation, \
     AggregateOperation, DecimalAggregateOperation, DoubleAggregateOperation, IntegerAggregateOperation, StringAggregateOperation, ColumnWithJoin, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation
 
@@ -295,6 +295,17 @@ class DateTimeAttribute(_MinMax[DateTimeAggregateOperation], DateTimeFunctions, 
         return _temporal_constant(value)
 
 
+class IntervalAttribute(_MinMax[IntervalAggregateOperation], Attribute, Orderable[datetime.timedelta]):
+    """A column that holds a length of time, as the difference of two datetimes is: compared with a ``timedelta`` and ordered,
+    and its smallest and largest are intervals."""
+
+    _aggregate_type = IntervalAggregateOperation
+
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation', parent=None,
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
+
+
 def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
     """The attribute for a column of the database type ``db_type``, of the class that compares, does arithmetic and
     aggregates as that type does: an ``INT`` is an IntegerAttribute, a ``VARCHAR`` a StringAttribute. Its display name
@@ -312,6 +323,8 @@ def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
         factory = DateTimeAttribute
     elif kind in ("BOOLEAN", "BOOL"):
         factory = BooleanAttribute
+    elif kind == "INTERVAL":
+        factory = IntervalAttribute
     else:
         factory = StringAttribute
     return factory(name, name, db_type, owner)

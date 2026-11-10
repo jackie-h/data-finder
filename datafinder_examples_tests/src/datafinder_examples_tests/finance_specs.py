@@ -40,6 +40,7 @@ FINANCE_MAPPING = "finance_mapping.md"
 _AT = "2023-12-01 12:00:00"
 # Processing time at which both AAPL and GOOG are active (before GOOG expires 2022-01-01)
 _BOTH_AT = "2021-06-01 12:00:00"
+_NO_INTERVAL = {"graphql": "The GraphQL finder cannot read the difference of two datetimes"}
 # valid_from for both trades = 2020-01-01 00:00:00
 _VALID_FROM = datetime.datetime(2020, 1, 1, 0, 0, 0)
 # MSFT is live from 2024-01-01 but its account (2) only from 2024-06-01
@@ -408,6 +409,44 @@ TRADE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_seconds(datetime.datetime(2020, 1, 1, 0, 1, 0))]),
             expected_columns=["Diff Seconds Valid From"],
             expected_result=np.array([[60]], dtype=object),
+        ),
+        # --- the time between two datetimes is an interval: a timedelta (GOOG is valid for 731 days, AAPL for longer) ---
+        TestExpectation(
+            name="interval_between_two_datetimes",
+            skip_backends=_NO_INTERVAL,
+            query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol(), (f.valid_to() - f.valid_from()).alias("length")],
+                                       f.symbol().eq("GOOG")),
+            expected_columns=["Symbol", "length"],
+            expected_result=np.array([["GOOG", datetime.timedelta(days=731)]], dtype=object),
+        ),
+        TestExpectation(
+            name="interval_compared_with_a_timedelta",
+            skip_backends=_NO_INTERVAL,
+            query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol()], (f.valid_to() - f.valid_from()) > datetime.timedelta(days=731)),
+            expected_columns=["Symbol"],
+            expected_result=np.array([["AAPL"]], dtype=object),
+        ),
+        TestExpectation(
+            name="interval_compared_with_a_timedelta_that_none_exceeds",
+            skip_backends=_NO_INTERVAL,
+            query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol()], (f.valid_to() - f.valid_from()) < datetime.timedelta(days=731)),
+            expected_columns=["Symbol"],
+            expected_result=np.empty((0, 1), dtype=object),
+        ),
+        TestExpectation(
+            name="interval_against_a_datetime",
+            skip_backends=_NO_INTERVAL,
+            query=lambda f: f.find_all(None, _BOTH_AT, [(f.valid_to() - datetime.datetime(2021, 1, 1)).max().alias("longest")],
+                                       f.symbol().eq("GOOG")),
+            expected_columns=["longest"],
+            expected_result=np.array([[datetime.timedelta(days=365)]], dtype=object),
+        ),
+        TestExpectation(
+            name="interval_smallest",
+            skip_backends=_NO_INTERVAL,
+            query=lambda f: f.find_all(None, _BOTH_AT, [(f.valid_to() - f.valid_from()).min().alias("shortest")]),
+            expected_columns=["shortest"],
+            expected_result=np.array([[datetime.timedelta(days=731)]], dtype=object),
         ),
     ],
 )
