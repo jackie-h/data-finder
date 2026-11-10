@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND
 
 _SRC = "tds/tests/testTDSFilter.pure"
 
@@ -66,8 +66,7 @@ TDS_FILTER_SPECS = FinderSpec(
                lambda f: f.find_all([f.first_name()], f.first_name() == "John")),
         ported("testFilterWithStringConcat", f"{_SRC}::testFilterWithStringConcat",
                'select "root".FIRSTNAME as "name" from personTable as "root" where concat("root".FIRSTNAME, \'A\') = \'JohnA\'',
-               lambda f: f.find_all([f.first_name()], (f.first_name() + "A") == "JohnA"),
-               known_gaps={BACKEND: CONCAT_FUNCTION}),
+               lambda f: f.find_all([f.first_name()], (f.first_name() + "A") == "JohnA")),
         unsupported("testFilterOnEnum", f"{_SRC}::testFilterOnEnum",
                     'select "root".NAME as "name", "root".TYPE as "type" from addressTable as "root" where "root".TYPE = 1',
                     'no enumeration properties'),
