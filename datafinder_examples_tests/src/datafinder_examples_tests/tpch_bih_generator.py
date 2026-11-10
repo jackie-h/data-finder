@@ -218,6 +218,7 @@ class Generator:
 
     def initialise(self) -> None:
         con = duckdb.connect()
+        con.execute("INSTALL tpch")  # DuckDB 1.5 does not fetch an extension that LOAD finds missing
         con.execute("LOAD tpch")
         con.execute(f"CALL dbgen(sf={self.scale})")
 
