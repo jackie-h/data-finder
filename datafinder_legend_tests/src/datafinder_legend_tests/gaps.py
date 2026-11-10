@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -91,6 +91,14 @@ def _drop_float_cast_in_average(tree: exp.Expr) -> exp.Expr:
         arg = avg.this
         if isinstance(arg, exp.Mul) and isinstance(arg.left, exp.Literal) and arg.left.name == "1.0":
             arg.replace(arg.right.copy())
+    return tree
+
+
+def _drop_decimal_literal_cast(tree: exp.Expr) -> exp.Expr:
+    """``cast(1.0 as Decimal(32,16))`` is the literal ``1.0``."""
+    for cast in list(tree.find_all(exp.Cast)):
+        if isinstance(cast.this, exp.Literal) and cast.to.this == exp.DataType.Type.DECIMAL:
+            cast.replace(cast.this.copy())
     return tree
 
 
@@ -231,6 +239,7 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     CONCAT_FUNCTION: [_concat_function_to_pipes],
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
+    DECIMAL_LITERAL_CAST: [_drop_decimal_literal_cast],
 }
 
 
