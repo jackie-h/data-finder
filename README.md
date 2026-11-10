@@ -518,6 +518,11 @@ top.order_by(top["account"].ascending())
   `select("a", "b")` keeps columns by name; `extend(name=lambda r: ...)` adds columns, including a window
   (`.over(partition_by=[...])`, or `.over()` for all the rows). To rename a column, `extend` it and `select`.
 - `concatenate(other)` is `UNION` (`all=True` for `UNION ALL`).
+- `group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count(), avg=lambda r: r.salary.average())` groups the rows
+  and gives the key columns and an aggregate of each group, as Legend's `groupBy`. Several keys are a tuple
+  (`lambda r: (r.dept, r.title)`), and a key that is worked out is named with `alias`. `aggregate(...)` alone is one row for the
+  whole result, as Legend's `aggregate`. Each column is an aggregate of the rows (`sum`, `count`, `average`, `min`, `max`, or
+  arithmetic of them such as `r.price.sum() / 7.0`), not a window.
 - A step can be ordered, limited, grouped and aggregated like any result, by its own columns:
   `step.order_by(step["price"].descending())`.
 

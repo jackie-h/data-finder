@@ -1030,7 +1030,12 @@ class TestArithmetic:
     def test_aggregates_and_functions_are_operands(self):
         a, b = self._ab()
         assert self._sql(a.sum() * 2, a.abs() + b) == \
-            'SELECT SUM(t0.a) * 2 AS "Expression",ABS(t0.a) + t0.b AS "Expression" FROM t AS t0'
+            'SELECT SUM(t0.a) * 2 AS "Expression",ABS(t0.a) + t0.b AS "Expression" FROM t AS t0 GROUP BY ABS(t0.a) + t0.b'
+
+    def test_an_aggregate_in_arithmetic_is_not_a_grouping_column(self):
+        a, _ = self._ab()
+        assert self._sql(a.sum() * 2, a.average() / 7.0) == \
+            'SELECT SUM(t0.a) * 2 AS "Expression",AVG(t0.a) / 7.0 AS "Expression" FROM t AS t0'
 
     def test_a_string_is_not_a_number(self):
         a, _ = self._ab()
