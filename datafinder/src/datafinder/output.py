@@ -1,3 +1,5 @@
+import datetime
+
 import numpy as np
 import pandas as pd
 
@@ -14,13 +16,28 @@ class DataFrame(ToNumpy):
         raise NotImplementedError()
 
 
+def _intervals_as_durations(table):
+    """A column of intervals as one of durations, which is what a ``timedelta`` is. A database gives an interval as months,
+    days and nanoseconds, and pandas has no dtype for that; months have no fixed length, so an interval of months is refused."""
+    import pyarrow as pa
+    for i, field in enumerate(table.schema):
+        if pa.types.is_interval(field.type):
+            values = []
+            for value in table.column(i).to_pylist():
+                if value is not None and value.months:
+                    raise ValueError(f"An interval of months ({value.months}) is not a length of time: it has no fixed number of days")
+                values.append(None if value is None else datetime.timedelta(days=value.days, microseconds=value.nanoseconds // 1000))
+            table = table.set_column(i, pa.field(field.name, pa.duration("us")), pa.array(values, pa.duration("us")))
+    return table
+
+
 def arrow_table_to_pandas(table) -> pd.DataFrame:
     """Convert a PyArrow Table to a pandas DataFrame using Arrow-backed nullable dtypes
     (pandas.ArrowDtype), so a NULL doesn't silently upcast e.g. an integer column to
     float64 or a boolean column to object the way plain pandas inference would — the
     schema-derived type (Int64, boolean, string, ...) is preserved either way, with
     ``pd.NA`` uniformly representing a missing value."""
-    return table.to_pandas(types_mapper=pd.ArrowDtype)
+    return _intervals_as_durations(table).to_pandas(types_mapper=pd.ArrowDtype)
 
 
 def arrow_table_to_numpy(table) -> np.ndarray:
@@ -28,6 +45,7 @@ def arrow_table_to_numpy(table) -> np.ndarray:
     semantics as arrow_table_to_pandas() — without allocating a full pandas DataFrame, since
     each column only goes through a lightweight pandas.Series, never a joint multi-column
     frame with its own index/block-manager overhead."""
+    table = _intervals_as_durations(table)
     if table.num_rows == 0:
         return np.empty((0, table.num_columns), dtype=object)
     columns = [

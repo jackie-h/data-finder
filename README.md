@@ -362,6 +362,17 @@ TradeFinder.symbol().ne("AAPL")      # or TradeFinder.symbol() != "AAPL"
 A date difference takes a column too: `OrderFinder.ship_date().diff_days(OrderFinder.receipt_date())` is the number of
 days from the ship date to the receipt date.
 
+The time between two datetimes is an interval, as Python's `datetime - datetime` is a `timedelta`, and it is read, compared
+and ordered as one:
+
+```python
+length = TradeFinder.valid_to() - TradeFinder.valid_from()          # an interval; a datetime minus a timedelta is a datetime
+TradeFinder.find_all(None, now, [TradeFinder.symbol(), length.alias("length")], length > datetime.timedelta(days=30))
+length.min()                                                        # the shortest interval, also .max()
+```
+
+An interval is not a number, so it has no sum or average; `diff_seconds` and `diff_days` give whole numbers of a unit.
+
 ### Aggregates
 
 A query that selects aggregates is grouped by its other columns, so you do not have to repeat them in `group_by`:

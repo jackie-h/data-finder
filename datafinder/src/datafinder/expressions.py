@@ -6,7 +6,7 @@ from typing import overload
 from model.relational import (
     CountAllOperation,
     BooleanConstantOperation, ConstantOperation, DateConstantOperation, DateTimeConstantOperation,
-    DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation, StringConstantOperation,
+    DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, StringConstantOperation,
 )
 
 
@@ -24,7 +24,10 @@ def constant(value: str) -> StringConstantOperation: ...
 def constant(value: datetime.datetime) -> DateTimeConstantOperation: ...  # pyright: ignore[reportOverlappingOverload]  # a datetime is a date
 @overload
 def constant(value: datetime.date) -> DateConstantOperation: ...
-def constant(value: bool | int | float | decimal.Decimal | str | datetime.date | datetime.datetime) -> ConstantOperation:
+@overload
+def constant(value: datetime.timedelta) -> IntervalConstantOperation: ...
+def constant(value: bool | int | float | decimal.Decimal | str | datetime.date | datetime.datetime
+             | datetime.timedelta) -> ConstantOperation:
     """A fixed value as a column: ``f.find_all([f.name(), constant("EU").alias("Region")])``.
 
     It is named "Constant" unless ``alias`` gives it a name."""
@@ -42,7 +45,9 @@ def constant(value: bool | int | float | decimal.Decimal | str | datetime.date |
         return DateTimeConstantOperation(value)
     if isinstance(value, datetime.date):
         return DateConstantOperation(value)
-    raise TypeError(f"A constant column holds a bool, number, string, date or datetime, not {type(value).__name__}")
+    if isinstance(value, datetime.timedelta):
+        return IntervalConstantOperation(value)
+    raise TypeError(f"A constant column holds a bool, number, string, date, datetime or timedelta, not {type(value).__name__}")
 
 
 def count_all() -> CountAllOperation:
