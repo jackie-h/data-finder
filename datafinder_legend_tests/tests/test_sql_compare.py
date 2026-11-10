@@ -170,3 +170,13 @@ def test_the_unit_of_a_date_difference_may_be_a_keyword_or_a_string():
     assert sql_equivalent(ours, 'select datediff(day, "root".a, "root".b) from t as "root"')
     assert not sql_equivalent(ours, 'select datediff(hour, "root".a, "root".b) from t as "root"')
     assert not sql_equivalent(ours, 'select datediff(day, "root".b, "root".a) from t as "root"')
+
+
+def test_a_pipe_concatenation_is_concat():
+    assert sql_equivalent("SELECT t0.a || '_0' FROM t AS t0", "select concat(\"root\".a, '_0') from t as \"root\"")
+    assert not sql_equivalent("SELECT t0.a || '_1' FROM t AS t0", "select concat(\"root\".a, '_0') from t as \"root\"")
+
+
+def test_a_subquery_in_from_is_named_by_position():
+    assert sql_equivalent("SELECT x.a FROM (SELECT a FROM t) AS x", 'select "u0"."a" from (select a from t) as "u0"')
+    assert not sql_equivalent("SELECT x.a FROM (SELECT a FROM t) AS x", 'select "u0"."b" from (select a from t) as "u0"')
