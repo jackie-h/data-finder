@@ -43,15 +43,27 @@ def _scope_tables(select: exp.Select) -> list[exp.Table]:
     return sorted(tables, key=lambda t: order[id(t)])
 
 
+def order_in_select(select: exp.Select, node: exp.Expr) -> int:
+    for i, n in enumerate(select.find_all(type(node))):
+        if n is node:
+            return i
+    return 0
+
+
 def _canonical_aliases(tree: exp.Expr) -> None:
     """Rename the table aliases of each SELECT to t0, t1, ... in order of appearance."""
     for select in tree.find_all(exp.Select):
         mapping: dict[str, str] = {}
         tables = _scope_tables(select)
-        for table in tables:
-            mapping.setdefault(table.alias_or_name.lower(), f"t{len(mapping)}")
+        # a subquery used as a source (FROM (...) AS x) is named by position too, among the tables
+        derived = [q for q in select.find_all(exp.Subquery)
+                   if _own(select, q) and q.alias and isinstance(q.parent, exp.From | exp.Join)]
+        for source in sorted(tables + derived, key=lambda n: order_in_select(select, n)):
+            mapping.setdefault(source.alias_or_name.lower(), f"t{len(mapping)}")
         for table in tables:
             table.set("alias", exp.TableAlias(this=exp.to_identifier(mapping[table.alias_or_name.lower()])))
+        for query in derived:
+            query.set("alias", exp.TableAlias(this=exp.to_identifier(mapping[query.alias.lower()])))
         for column in select.find_all(exp.Column):
             if _own(select, column) and column.table:
                 column.set("table", exp.to_identifier(mapping.get(column.table.lower(), column.table.lower())))
@@ -149,6 +161,9 @@ def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
     for call in list(tree.find_all(exp.Anonymous)):
         if call.name.lower() == "listagg" and len(call.expressions) == 2:
             call.replace(exp.GroupConcat(this=call.expressions[0].copy(), separator=call.expressions[1].copy()))
+    # ``a || b`` is ``CONCAT(a, b)``
+    for pipe in list(tree.find_all(exp.DPipe)):
+        pipe.replace(exp.Concat(expressions=[pipe.this.copy(), pipe.expression.copy()], safe=True, coalesce=False))
     # ``FETCH NEXT n ROWS ONLY`` is ``LIMIT n``
     for fetch in list(tree.find_all(exp.Fetch)):
         if fetch.args.get("count") is not None:
