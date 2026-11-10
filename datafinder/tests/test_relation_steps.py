@@ -89,3 +89,91 @@ def test_a_condition_is_a_function_of_a_row():
 def test_select_of_a_name_that_is_not_there_says_which_are():
     with pytest.raises(KeyError, match="account"):
         _trades().select("nope")
+
+
+# --- group_by and aggregate ---------------------------------------------------------------------------------------------
+
+def test_group_by_a_column_and_aggregate_the_rows_of_each_group():
+    trades = _trades()
+    sql = trades.group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum(), n=lambda r: r.price.count()).to_sql()
+    assert sql.startswith('SELECT t0.account AS "account",SUM(t0.price) AS "total",COUNT(t0.price) AS "n" FROM (SELECT ')
+    assert sql.endswith("GROUP BY t0.account")
+
+
+def test_group_by_several_columns_by_a_tuple():
+    trades = _trades()
+    sql = trades.group_by(lambda r: (r.account, r.sym)).aggregate(total=lambda r: r.price.sum()).to_sql()
+    assert sql.endswith("GROUP BY t0.account, t0.sym") and 't0.account AS "account",t0.sym AS "sym"' in sql
+
+
+def test_group_by_an_expression_that_is_named():
+    trades = _trades()
+    sql = trades.group_by(lambda r: r.sym.upper().alias("symbol")).aggregate(n=lambda r: r.price.count()).to_sql()
+    assert 'UPPER(t0.sym) AS "symbol"' in sql and sql.endswith("GROUP BY UPPER(t0.sym)")
+
+
+def test_a_group_by_key_that_is_an_expression_needs_a_name():
+    with pytest.raises(ValueError, match="alias"):
+        _trades().group_by(lambda r: r.sym.upper())
+
+
+def test_aggregate_with_no_group_by_is_one_row_for_the_whole_result():
+    trades = _trades()
+    sql = trades.aggregate(total=lambda r: r.price.sum(), highest=lambda r: r.price.max()).to_sql()
+    assert sql.startswith('SELECT SUM(t0.price) AS "total",MAX(t0.price) AS "highest" FROM (SELECT ')
+    assert "GROUP BY" not in sql
+
+
+def test_an_aggregate_can_be_worked_on():
+    trades = _trades()
+    sql = trades.aggregate(per_unit=lambda r: r.price.sum() / 7.0).to_sql()
+    assert 'SUM(t0.price) / 7.0 AS "per_unit"' in sql and "GROUP BY" not in sql
+
+
+def test_an_aggregated_step_can_be_filtered_and_ordered_like_any_other():
+    trades = _trades()
+    totals = trades.group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum())
+    big = totals.filter(lambda r: r.total > 100.0)
+    sql = big.order_by(big["total"].descending()).to_sql()
+    assert "WHERE t0.total > 100.0" in sql and sql.endswith("ORDER BY t0.total DESC")
+
+
+def test_the_columns_of_an_aggregated_step_are_the_keys_then_the_aggregates():
+    trades = _trades()
+    assert trades.group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum()).columns() == ["account", "total"]
+    assert trades.aggregate(total=lambda r: r.price.sum()).columns() == ["total"]
+
+
+def test_a_column_that_is_not_an_aggregate_is_refused():
+    with pytest.raises(TypeError, match="not an aggregate"):
+        _trades().aggregate(price=lambda r: r.price)
+    with pytest.raises(TypeError, match="not an aggregate"):
+        _trades().aggregate(top=lambda r: r.price.max().over())  # a window keeps every row
+
+
+def test_aggregate_needs_a_column_and_each_named_once():
+    trades = _trades()
+    with pytest.raises(ValueError, match="at least one"):
+        trades.aggregate()
+    with pytest.raises(ValueError, match="twice"):
+        trades.group_by(lambda r: r.account).aggregate(account=lambda r: r.price.count())
+
+
+def test_a_group_by_key_is_read_from_the_row_so_a_missing_column_says_which_are():
+    with pytest.raises(AttributeError, match="account"):
+        _trades().group_by(lambda r: r.acount)
+
+
+def test_group_by_takes_functions_or_finder_attributes_but_not_both():
+    trades = _trades()
+    table = trades._table
+    with pytest.raises(TypeError, match="not both"):
+        trades.group_by(lambda r: r.account, StringAttribute("Sym", "SYM", "VARCHAR", table))
+
+
+def test_group_by_of_finder_attributes_is_the_result_as_before():
+    trades = _trades()
+    table = trades._table
+    account = StringAttribute("Account", "ACCOUNT", "VARCHAR", table)
+    grouped = FinderResult(None, None, [account, DoubleAttribute("Price", "PRICE", "DOUBLE", table).sum()], table, NoOperation())
+    assert grouped.group_by(account) is grouped

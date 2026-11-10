@@ -183,6 +183,18 @@ def _minimum_cost_supplier(ps, p):
                              cheapest["s_name"].ascending(), cheapest["p_partkey"].ascending()).limit(100)
 
 
+def _small_quantity_order_revenue(lines, p):
+    """l_quantity < (SELECT 0.2 * avg(l_quantity) ... for the same part): the average is a window over the lines of the part,
+    a filter keeps the small orders, and the revenue is an aggregate of those rows."""
+    rows = lines.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [lines.part().part_key().alias("partkey"), lines.quantity().alias("quantity"), lines.extended_price().alias("price")],
+        lines.part().brand().eq(p.BRAND).and_(lines.part().container().eq(p.CONTAINER)))
+    with_average = rows.extend(average=lambda r: r.quantity.average().over(partition_by=[r.partkey]))
+    small = with_average.filter(lambda r: r.quantity < r.average * 0.2)
+    return small.aggregate(avg_yearly=lambda r: r.price.sum() / 7.0)
+
+
 TPCH = {
     "Q2": FinderQuery(
         ["s_acctbal", "s_name", "n_name", "p_partkey", "p_mfgr", "s_address", "s_phone", "s_comment"],
@@ -284,7 +296,7 @@ TPCH = {
     "Q15": Unsupported("A derived table of revenue by supplier, and total_revenue = (select max(total_revenue) from it)"),
     # NOT IN (the suppliers with complaints) is the supplier's own comment not being a complaint: the supplier is a navigation
     "Q16": FinderQuery(["p_brand", "p_type", "p_size", "supplier_cnt"], lambda q, p: _parts_supplier_relationship(q.partsupp, p)),
-    "Q17": Unsupported("A correlated scalar subquery: l_quantity < (select 0.2 * avg(l_quantity) ... for the same part)"),
+    "Q17": FinderQuery(["avg_yearly"], lambda q, p: _small_quantity_order_revenue(q.lineitem, p)),
     "Q18": Unsupported("o_orderkey in (select l_orderkey from lineitem group by l_orderkey having sum(l_quantity) > [QUANTITY]): "
                        "an IN subquery with GROUP BY and HAVING"),
 

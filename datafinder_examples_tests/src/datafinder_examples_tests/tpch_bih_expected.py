@@ -1712,7 +1712,7 @@ ROWS = {
         ('Brand#53', 'LARGE BURNISHED NICKEL', 23, 1), ('Brand#54', 'ECONOMY ANODIZED BRASS', 9, 1),
     ),
     'Q17': (
-        (None,),
+        (130.85857142857142,),
     ),
     'Q18': (
         ('Customer#000000242', 242, 6160, datetime.date(2005, 4, 19), 273519.29, 268.0),

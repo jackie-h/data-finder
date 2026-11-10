@@ -52,6 +52,18 @@ def _price_as_a_multiple(f):
     return doubled.order_by(doubled["double"].descending()).limit(2)
 
 
+def _totals_per_account(f):
+    """The rows of a relation grouped by one of its columns, and an aggregate of each group: Legend's groupBy."""
+    totals = _trades(f).group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum(), trades=lambda r: r.price.count())
+    return totals.order_by(totals["account"].ascending())
+
+
+def _accounts_with_a_large_total(f):
+    totals = _trades(f).group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum())
+    large = totals.filter(lambda r: r.total > 400.0)
+    return large.order_by(large["total"].descending())
+
+
 TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
@@ -138,6 +150,29 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
             query=_price_as_a_multiple,
             expected_columns=["sym", "double"],
             expected_result=np.array([["GS", 1000.0], ["TSLA", 800.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="chain_group_by_a_column_and_aggregate",
+            skip_backends=_NO_CHAIN,
+            query=_totals_per_account,
+            expected_columns=["account", "total", "trades"],
+            expected_result=np.array(
+                [["Alpha Fund", 300.0, 2], ["Beta Fund", 700.0, 2], ["Gamma Fund", 500.0, 1]], dtype=object),
+        ),
+        TestExpectation(
+            name="chain_filter_the_groups",
+            skip_backends=_NO_CHAIN,
+            query=_accounts_with_a_large_total,
+            expected_columns=["account", "total"],
+            expected_result=np.array([["Beta Fund", 700.0], ["Gamma Fund", 500.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="chain_aggregate_the_whole_relation",
+            skip_backends=_NO_CHAIN,
+            query=lambda f: _trades(f).aggregate(total=lambda r: r.price.sum(), highest=lambda r: r.price.max(),
+                                                 average_of_five=lambda r: r.price.sum() / 5.0),
+            expected_columns=["total", "highest", "average_of_five"],
+            expected_result=np.array([[1500.0, 500.0, 300.0]], dtype=object),
         ),
     ],
 )

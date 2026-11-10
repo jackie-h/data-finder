@@ -4,7 +4,7 @@ from typing import Sequence
 from model.milestoning import MilestonedTable
 from model.relational import QuerySpecification, NamedRelation, Alias, Table, Column, Operation, NoOperation, \
     LogicalOperation, ComparisonOperation, UnaryOperation, AggregateOperation, WindowFunctionOperation, \
-    CountAllOperation
+    CountAllOperation, ArithmeticOperation
 
 _IDENTIFIER = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
@@ -22,7 +22,7 @@ def contains_aggregate_or_window(op) -> bool:
     """True when ``op`` holds an aggregate, window function or count."""
     if isinstance(op, (AggregateOperation, WindowFunctionOperation, CountAllOperation)):
         return True
-    if isinstance(op, (LogicalOperation, ComparisonOperation)):
+    if isinstance(op, (LogicalOperation, ComparisonOperation, ArithmeticOperation)):
         return contains_aggregate_or_window(op.left) or contains_aggregate_or_window(op.right)
     if isinstance(op, (UnaryOperation, Alias)):
         return contains_aggregate_or_window(op.element)
@@ -36,7 +36,7 @@ def contains_aggregate(op) -> bool:
         return op.window is None
     if isinstance(op, CountAllOperation):
         return True
-    if isinstance(op, (LogicalOperation, ComparisonOperation)):
+    if isinstance(op, (LogicalOperation, ComparisonOperation, ArithmeticOperation)):  # sum(price) / 7.0 collapses the rows
         return contains_aggregate(op.left) or contains_aggregate(op.right)
     if isinstance(op, (UnaryOperation, Alias)):
         return contains_aggregate(op.element)

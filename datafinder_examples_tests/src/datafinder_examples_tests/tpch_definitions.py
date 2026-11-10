@@ -460,15 +460,15 @@ ORDER BY
 FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]', part FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
 WHERE
     p_partkey = l_partkey
-    AND p_brand = 'Brand#23'
-    AND p_container = 'MED BOX'
+    AND p_brand = '[BRAND]'
+    AND p_container = '[CONTAINER]'
     AND l_quantity < (
         SELECT
             0.2 * avg(l_quantity)
         FROM lineitem FOR SYSTEM_TIME AS OF TIMESTAMP '[SYS_TIME]' FOR BUSINESS_TIME AS OF '[APP_TIME]'
         WHERE
             l_partkey = p_partkey)""",
-        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(1996, 1, 1)},
+        parameters={'SYS_TIME': CURRENT_SYS, 'APP_TIME': datetime.date(2009, 1, 1), 'BRAND': 'Brand#32', 'CONTAINER': 'MED PACK'},
         select=('avg_yearly',), ),
 
     BenchmarkCase(

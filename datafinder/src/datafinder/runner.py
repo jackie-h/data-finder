@@ -1,7 +1,7 @@
 import datetime
 import decimal
 import itertools
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union, overload
 
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
@@ -16,7 +16,7 @@ from model.relational import (
     ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
     UnionOperation,
     WindowFunctionOperation)
-from model.view import View, ViewDefinitionError
+from model.view import View, ViewDefinitionError, contains_aggregate
 
 
 #TODO revisit this, don't want this to be static per class as need to be able to switch them
@@ -183,6 +183,50 @@ class Row:
         raise AttributeError("A row is read, not changed: use extend() to add a column")
 
 
+class GroupedRows:
+    """The rows of a result grouped by keys: what ``group_by(lambda r: r.dept)`` gives, which can only be aggregated."""
+
+    def __init__(self, result: 'FinderResult', keys: Sequence[Callable[['Row'], Any]]):
+        self._result = result
+        row = result._row()
+        self._keys: list = []
+        for key in keys:
+            found = key(row)
+            self._keys.extend(found if isinstance(found, (tuple, list)) else [found])
+        for key in self._keys:
+            if isinstance(key, Attribute):
+                continue
+            if isinstance(key, Alias) and not isinstance(key.element, Alias):
+                continue
+            raise ValueError("A group_by key is a column, or an expression named with alias(): "
+                             "group_by(lambda r: r.ship_date.year().alias(\"year\"))")
+
+    def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
+        """The keys, and a column for each keyword that is an aggregate of the rows of its group, as Legend's
+        ``groupBy(~dept, ~headcount : x | $x.id : y | $y->count())``::
+
+            rows.group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count(),
+                                                      avg_salary=lambda r: r.salary.average())
+        """
+        if not columns:
+            raise ValueError("aggregate needs at least one column: aggregate(total=lambda r: r.price.sum())")
+        row = self._result._row()
+        shown = [key.name if isinstance(key, Alias) else key.display_name() for key in self._keys]
+        aggregates: list = []
+        for name, function in columns.items():
+            if not callable(function):
+                raise TypeError(f"The column '{name}' is a function of a row: aggregate({name}=lambda r: r.price.sum())")
+            expression = function(row)
+            if not contains_aggregate(expression):
+                raise TypeError(f"The column '{name}' is not an aggregate of the rows of a group (sum, count, average, min, "
+                                "max, ...), so it has no one value for the group")
+            if name in shown or any(name == existing.name for existing in aggregates):
+                raise ValueError(f"The column '{name}' is named twice in this aggregate")
+            aggregates.append(Alias(expression, name))
+        keys = [key.element if isinstance(key, Alias) else key for key in self._keys]
+        return self._result._next([*self._keys, *aggregates], group_by=keys)
+
+
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
@@ -253,10 +297,12 @@ class FinderResult(DataFrame):
                          or self._limit is not None or self._offset is not None))
         return source.relation if bare else as_relation.relation  # type: ignore[union-attr,return-value]
 
-    def _next(self, display: Sequence, op: Operation | None = None) -> 'FinderResult':
+    def _next(self, display: Sequence, op: Operation | None = None, group_by: Sequence = ()) -> 'FinderResult':
         """A result that reads from this one: a query over this result's query, as Legend's relation functions are."""
         alias, _ = self._relation()
-        return FinderResult(None, None, display, alias, NoOperation() if op is None else op)
+        step = FinderResult(None, None, display, alias, NoOperation() if op is None else op)
+        step._group_by = list(group_by)
+        return step
 
     def _row(self) -> 'Row':
         return Row(self._relation()[1])
@@ -299,9 +345,31 @@ class FinderResult(DataFrame):
             raise KeyError(f"No column {missing} in this result: its columns are {list(attributes)}")
         return self._next([attributes[n] for n in names])
 
-    def group_by(self, *attrs) -> 'FinderResult':
-        self._group_by = list(attrs)
+    @overload
+    def group_by(self, *keys: Callable[['Row'], Any]) -> 'GroupedRows': ...  # pyright: ignore[reportOverlappingOverload]
+    @overload
+    def group_by(self, *keys: Any) -> 'FinderResult': ...
+    def group_by(self, *keys) -> 'GroupedRows | FinderResult':
+        """Group the rows. Given finder attributes, the aggregates selected next to them are grouped by them, and the result
+        is this one. Given a function of a row, as Legend's ``groupBy(~dept, ...)``, the rows of this result are grouped by
+        the key it returns (a column, or a tuple of them; an expression is named with ``alias``), and the result of
+        ``aggregate`` on that is a step over this one::
+
+            rows.group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count())
+            rows.group_by(lambda r: (r.dept, r.title)).aggregate(total=lambda r: r.salary.sum())
+        """
+        functions = [callable(key) for key in keys]
+        if keys and all(functions):
+            return GroupedRows(self, keys)
+        if any(functions):
+            raise TypeError("group_by takes finder attributes, or functions of a row (lambda r: r.dept), not both")
+        self._group_by = list(keys)
         return self
+
+    def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
+        """One row for the whole of this result, each column named by its keyword and an aggregate of the rows, as Legend's
+        ``aggregate(~total : x | $x.salary : y | $y->plus())``: ``rows.aggregate(total=lambda r: r.salary.sum())``."""
+        return GroupedRows(self, ()).aggregate(**columns)
 
     def _own(self, element):
         """A column of this result, as ``result["name"]`` gives it, is what this result shows under that name: so
