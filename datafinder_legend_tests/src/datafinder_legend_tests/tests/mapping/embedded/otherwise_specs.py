@@ -47,7 +47,7 @@ OTHERWISE_SPECS = FinderSpec(
                     'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where "bond_detail_0".TYPE like \'5%\'',
                     'no qualified (derived) properties'),
         unsupported("otherwiseTestQualifierPropertyExpressionWithEmbeddedProperty", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithEmbeddedProperty",
-                    'select "root".PRODUCT_NAME as "name", concat(\'la\', "root".BOND_DETAILS) as "description" from PRODUCT_DENORM as "root" where concat(\'\', "root".BOND_DETAILS) <> \'2\' or concat(\'\', "root".BOND_DETAILS) is null',
+                    'select "root".PRODUCT_NAME as "name", concat(\'la\', "root".BOND_DETAILS) as "description" from PRODUCT_DENORM as "root" where concat(\'\', "root".BOND_DETAILS) is distinct from \'2\'',
                     'no qualified (derived) properties'),
         unsupported("otherwiseTestQualifierPropertyExpressionWithEmbeddedPropertyandJoinProperty", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithEmbeddedPropertyandJoinProperty",
                     'select concat("bond_detail_0".TYPE, \' \', "root".BOND_DETAILS) as "fullName" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID)',

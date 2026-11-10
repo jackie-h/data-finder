@@ -180,3 +180,17 @@ def test_a_pipe_concatenation_is_concat():
 def test_a_subquery_in_from_is_named_by_position():
     assert sql_equivalent("SELECT x.a FROM (SELECT a FROM t) AS x", 'select "u0"."a" from (select a from t) as "u0"')
     assert not sql_equivalent("SELECT x.a FROM (SELECT a FROM t) AS x", 'select "u0"."b" from (select a from t) as "u0"')
+
+
+def test_is_distinct_from_is_not_equal_or_null():
+    ours = "SELECT t0.a FROM t AS t0 WHERE t0.a <> 'x' OR t0.a IS NULL"
+    assert sql_equivalent(ours, 'select "root".a from t as "root" where "root".a is distinct from \'x\'')
+    assert sql_equivalent(ours, 'select "root".a from t as "root" where ("root".a <> \'x\' or "root".a is null)')
+    assert not sql_equivalent(ours, 'select "root".a from t as "root" where "root".a is distinct from \'y\'')
+    assert not sql_equivalent("SELECT t0.a FROM t AS t0 WHERE t0.a <> 'x'", 'select "root".a from t as "root" where "root".a is distinct from \'x\'')
+
+
+def test_is_not_distinct_from_is_equal_or_both_null():
+    ours = "SELECT t0.a FROM t AS t0 JOIN u AS t1 ON t0.a = t1.b OR (t0.a IS NULL AND t1.b IS NULL)"
+    assert sql_equivalent(ours, 'select "r".a from t as "r" join u as "u" on "r".a is not distinct from "u".b')
+    assert not sql_equivalent("SELECT t0.a FROM t AS t0 JOIN u AS t1 ON t0.a = t1.b", 'select "r".a from t as "r" join u as "u" on "r".a is not distinct from "u".b')

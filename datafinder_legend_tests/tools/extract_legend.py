@@ -1,6 +1,6 @@
 """Dev-time tool: catalogue the SQL-asserting projection tests in legend-engine's core_relational tests.
 
-Usage: uv run datafinder_legend_tests/tools/extract_legend.py [legend_dir ...] > catalogue.json
+Usage: [LEGEND_ENGINE=<checkout>] uv run datafinder_legend_tests/tools/extract_legend.py [legend_dir ...] > catalogue.json
 
 For every ``<<test.Test>>`` function it records the query, the mapping and each expected SQL string, and
 classifies the test (``project`` / ``object`` / ``other``) so we know what is in scope. It does not run
@@ -9,11 +9,12 @@ Legend; the expected SQL is taken verbatim from the assertions.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
 
-LEGEND_ROOT = Path.home() / "projects/legend-engine/legend-engine-xts-relationalStore/legend-engine-xt-relationalStore-generation/legend-engine-xt-relationalStore-pure/legend-engine-xt-relationalStore-core-pure/src/main/resources/core_relational/relational"
+LEGEND_ROOT = Path(os.environ.get("LEGEND_ENGINE", str(Path.home() / "projects/legend-engine"))) / "legend-engine-xts-relationalStore/legend-engine-xt-relationalStore-generation/legend-engine-xt-relationalStore-pure/legend-engine-xt-relationalStore-core-pure/src/main/resources/core_relational/relational"
 
 _FUNC_RE = re.compile(r"^[ \t]*function\s+<<([^>]*test\.[^>]*)>>\s+([\w:]+)\s*\(", re.M)
 _ANY_FUNC_RE = re.compile(r"^[ \t]*function\s", re.M)

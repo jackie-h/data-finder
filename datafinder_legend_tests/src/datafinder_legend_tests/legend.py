@@ -34,6 +34,9 @@ FLOAT_DIVISION = (
     "Legend writes x / y as (1.0 * x) / y so integer columns divide as floats; the column is already a float, so the "
     "finder writes x / y"
 )
+DECIMAL_LITERAL_CAST = (
+    "Legend casts a decimal literal, cast(1.0 as Decimal(32,16)); the finder writes the literal"
+)
 DATETIME_MILESTONING_DATE = (
     "a DateTime given as a milestoning date is written by Legend as `cast(truncate('2015-08-26 02:00:00') as date)`; the "
     "finder works out the date itself and writes `'2015-08-26'`, which is the same date"

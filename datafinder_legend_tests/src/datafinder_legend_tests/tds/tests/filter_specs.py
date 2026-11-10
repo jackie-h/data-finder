@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DECIMAL_LITERAL_CAST
 
 _SRC = "tds/tests/testTDSFilter.pure"
 
@@ -56,7 +56,7 @@ TDS_FILTER_SPECS = FinderSpec(
                lambda f: f.find_all([f.first_name(), f.last_name()],
                                     f.last_name().eq('Johnson').or_(f.last_name().eq('Hill')))),
         unsupported("testFirstNotNullFunction", f"{_SRC}::testFirstNotNullFunction",
-                    'select "root".FIRSTNAME as "firstName" from personTable as "root" where coalesce("root".FIRSTNAME, \'N/A\') <> \'N/A\' or coalesce("root".FIRSTNAME, \'N/A\') is null',
+                    'select "root".FIRSTNAME as "firstName" from personTable as "root" where coalesce("root".FIRSTNAME, \'N/A\') is distinct from \'N/A\'',
                     "Legend writes `!=` as `<> x or expr is null`; the finder's `!=` is just `<> x`"),
         ported("testFilterOnDynaFunctionColumn", f"{_SRC}::testFilterOnDynaFunctionColumn",
                'select "root".FIRSTNAME as "first", "root".LASTNAME like \'J%\' as "J" from personTable as "root" where "root".LASTNAME like \'J%\'',
@@ -71,10 +71,11 @@ TDS_FILTER_SPECS = FinderSpec(
                     'select "root".NAME as "name", "root".TYPE as "type" from addressTable as "root" where "root".TYPE = 1',
                     'no enumeration properties'),
         ported("testFilterOnDecimal", f"{_SRC}::testFilterOnDecimal",
-               'select 1.0 as "decimal" from personTable as "root" where 1.0 = 2.0',
-               lambda f: f.find_all([constant(1.0)], constant(1.0).eq(2.0))),
+               'select cast(1.0 as Decimal(32,16)) as "decimal" from personTable as "root" where cast(1.0 as Decimal(32,16)) = cast(2.0 as Decimal(32,16))',
+               lambda f: f.find_all([constant(1.0)], constant(1.0).eq(2.0)),
+               known_gaps={BACKEND: DECIMAL_LITERAL_CAST}),
         unsupported("testInOnColumnInSubselect", f"{_SRC}::testInOnColumnInSubselect",
-                    'select "subselect"."name" as "name", "subselect"."age" as "age", "subselect"."rank" as "rank" from (select "root".FIRSTNAME as "name", "root".AGE as "age", rank() over (partition by "root".FIRSTNAME order by "root".AGE desc nulls first) as "rank" from personTable as "root") as "subselect" where "subselect"."name" in (\'John\', \'Peter\')',
+                    'select "subselect"."name" as "name", "subselect"."age" as "age", "subselect"."rank" as "rank" from (select "root".FIRSTNAME as "name", "root".AGE as "age", rank() over (partition by "root".FIRSTNAME order by "root".AGE desc) as "rank" from personTable as "root") as "subselect" where "subselect"."name" in (\'John\', \'Peter\')',
                     'a filter on a window function column is nested in a subselect'),
         ported("testFilterOnRootClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupBy",
                'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',

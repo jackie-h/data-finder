@@ -15,10 +15,10 @@ WITH_FUNCTION_SPECS = FinderSpec(
     mapping_file="tests/simple_mapping.md",
     expectations=[
         unsupported("testDayOfWeekFunction", f"{_SRC}::testDayOfWeekFunction",
-                    'select formatdatetime("root".tradeDate, \'EEEE\') as "Day Of Week Name" from tradeTable as "root" where formatdatetime("root".tradeDate, \'EEEE\') <> \'Monday\' or formatdatetime("root".tradeDate, \'EEEE\') is null',
+                    'select formatdatetime("root".tradeDate, \'EEEE\') as "Day Of Week Name" from tradeTable as "root" where formatdatetime("root".tradeDate, \'EEEE\') is distinct from \'Monday\'',
                     'no adjust, day-of-week names, or dates relative to now'),
         unsupported("testDayOfWeekNumberFunction", f"{_SRC}::testDayOfWeekNumberFunction",
-                    'select extract(dow from "root".tradeDate) as "Day Of Week Number" from tradeTable as "root" where extract(isodow from "root".tradeDate) <> \'2\' or extract(isodow from "root".tradeDate) is null',
+                    'select extract(dow from "root".tradeDate) as "Day Of Week Number" from tradeTable as "root" where extract(isodow from "root".tradeDate) is distinct from \'2\'',
                     'no adjust, day-of-week names, or dates relative to now'),
     ],
 )

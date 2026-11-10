@@ -63,3 +63,11 @@ def test_independent_left_joins_in_another_order_are_covered_but_a_changed_condi
     swapped = "SELECT 1 FROM a AS t0 LEFT OUTER JOIN c AS t1 ON (t0.y = t1.y) LEFT OUTER JOIN b AS t2 ON (t0.x = t2.x)"
     assert gap_is_only(LEFT_JOIN_ORDER, swapped, legend)
     assert not gap_is_only(LEFT_JOIN_ORDER, swapped.replace("t0.y = t1.y", "t0.z = t1.y"), legend)
+
+
+def test_a_decimal_literal_cast_is_covered_only_by_its_gap():
+    from datafinder_legend_tests.legend import DECIMAL_LITERAL_CAST
+    actual = "SELECT 1.0 FROM p AS t0 WHERE 1.0 = 2.0"
+    expected = "SELECT CAST(1.0 AS DECIMAL(32, 16)) FROM p AS t0 WHERE CAST(1.0 AS DECIMAL(32, 16)) = CAST(2.0 AS DECIMAL(32, 16))"
+    assert gap_is_only(DECIMAL_LITERAL_CAST, actual, expected)
+    assert not gap_is_only(DECIMAL_LITERAL_CAST, "SELECT 1.5 FROM p AS t0 WHERE 1.0 = 2.0", expected)
