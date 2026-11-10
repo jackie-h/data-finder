@@ -1615,7 +1615,11 @@ ROWS = {
         (195, datetime.date(1992, 2, 12), datetime.date(9999, 12, 31), datetime.datetime(2003, 5, 30, 7, 58, 4), datetime.datetime(9999, 12, 31, 23, 59, 59)),
     ),
     'Q2': (
-
+        (4680.24, 'Supplier#000000004', 'MOROCCO', 123, 'Manufacturer#1', 'qGTQJXogS83a7MBnEweGHKevK', '25-843-787-7479', 'al braids affix through the regular'),
+        (3880.74, 'Supplier#000000002', 'ETHIOPIA', 49, 'Manufacturer#2', 'TRMhVHz3XiFuhapxucPo1', '15-679-861-2259', ' the pending packages. furiously expres'),
+        (3880.74, 'Supplier#000000002', 'ETHIOPIA', 67, 'Manufacturer#2', 'TRMhVHz3XiFuhapxucPo1', '15-679-861-2259', ' the pending packages. furiously expres'),
+        (3880.74, 'Supplier#000000002', 'ETHIOPIA', 118, 'Manufacturer#2', 'TRMhVHz3XiFuhapxucPo1', '15-679-861-2259', ' the pending packages. furiously expres'),
+        (1304.82, 'Supplier#000000006', 'KENYA', 21, 'Manufacturer#3', 'zaux5FTzToEg', '24-696-997-4969', ' sleep fluffily against the blithely special dugouts. furiously express th'),
     ),
     'Q3': (
         (1637, 98279.8272, datetime.date(1995, 2, 8), 0), (742, 43728.048, datetime.date(1994, 12, 23), 0),

@@ -45,7 +45,6 @@ _JOINED_AGGREGATES = (
 _TEMPORAL_AGGREGATION = (
     "Temporal aggregation groups by the points where the data changed (an interval join on the period boundaries) and "
     "aggregates over those groups: the finders aggregate over the versions a date selects")
-_SCALAR_SUBQUERY = "A scalar subquery, max(...) of the versions before this time, which the finders cannot express"
 
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -154,8 +153,40 @@ def _parts_supplier_relationship(ps, p):
         part.size().ascending())
 
 
+def _important_stock(ps, p):
+    """HAVING sum(ps_supplycost * ps_availqty) > (SELECT sum(...) * FRACTION ...): the total over all the groups is a window
+    over the grouped rows, which a filter then compares each group's value with."""
+    value = (ps.supply_cost() * ps.avail_qty()).sum()
+    parts = ps.find_all(
+        p.APP_TIME, p.SYS_TIME, [ps.part().part_key().alias("ps_partkey"), value.alias("value")],
+        ps.supplier().nation().name().eq(p.NATION)).group_by(ps.part().part_key())
+    with_total = parts.extend(total=lambda r: r.value.sum().over())
+    important = with_total.filter(lambda r: r.value > r.total * p.FRACTION).select("ps_partkey", "value")
+    return important.order_by(important["value"].descending())
+
+
+def _minimum_cost_supplier(ps, p):
+    """ps_supplycost = (SELECT min(ps_supplycost) ... for the same part): the cheapest supply of a part among the suppliers in
+    the region is a window over those supplies, partitioned by part."""
+    supplier = ps.supplier()
+    rows = ps.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [supplier.acct_bal().alias("s_acctbal"), supplier.name().alias("s_name"), supplier.nation().name().alias("n_name"),
+         ps.part().part_key().alias("p_partkey"), ps.part().mfgr().alias("p_mfgr"), supplier.address().alias("s_address"),
+         supplier.phone().alias("s_phone"), supplier.comment().alias("s_comment"), ps.supply_cost().alias("cost")],
+        ps.part().size().eq(p.SIZE).and_(ps.part().type_().ends_with(p.TYPE.removeprefix("%")))
+        .and_(supplier.nation().region().name().eq(p.REGION)))
+    with_cheapest = rows.extend(cheapest=lambda r: r.cost.min().over(partition_by=[r.p_partkey]))
+    cheapest = with_cheapest.filter(lambda r: r.cost == r.cheapest).select(
+        "s_acctbal", "s_name", "n_name", "p_partkey", "p_mfgr", "s_address", "s_phone", "s_comment")
+    return cheapest.order_by(cheapest["s_acctbal"].descending(), cheapest["n_name"].ascending(),
+                             cheapest["s_name"].ascending(), cheapest["p_partkey"].ascending()).limit(100)
+
+
 TPCH = {
-    "Q2": Unsupported("A correlated scalar subquery: ps_supplycost = (select min(ps_supplycost) ... for the same part)"),
+    "Q2": FinderQuery(
+        ["s_acctbal", "s_name", "n_name", "p_partkey", "p_mfgr", "s_address", "s_phone", "s_comment"],
+        lambda q, p: _minimum_cost_supplier(q.partsupp, p)),
 
     "Q3": FinderQuery(["l_orderkey", "revenue", "o_orderdate", "o_shippriority"], lambda q, p: q.lineitem.find_all(
         p.APP_TIME, p.SYS_TIME,
@@ -225,7 +256,7 @@ TPCH = {
         .order_by((q.customer.orders().line_items().extended_price()
                    * (constant(1) - q.customer.orders().line_items().discount())).sum().descending()).limit(20)),
 
-    "Q11": Unsupported("A scalar subquery in HAVING: sum(ps_supplycost * ps_availqty) > (select sum(...) * FRACTION ...)"),
+    "Q11": FinderQuery(["ps_partkey", "value"], lambda q, p: _important_stock(q.partsupp, p)),
 
     "Q12": FinderQuery(["l_shipmode", "high_line_count", "low_line_count"], lambda q, p: q.lineitem.find_all(
         p.APP_TIME, p.SYS_TIME,
@@ -288,6 +319,13 @@ def _customer(c):
     return [c.customer_key(), c.name(), c.address(), c.phone(), c.acct_bal()]
 
 
+def _latest_before(rows, columns):
+    """The rows whose ``end`` is the greatest of all the rows: ``WHERE end = (SELECT max(end) ...)``, the scalar subquery as a
+    window over the rows it ranges over, and the row at that maximum is the one kept."""
+    with_latest = rows.extend(latest=lambda r: r.end.max().over())
+    return with_latest.filter(lambda r: r.end == r.latest).select(*columns)
+
+
 B3 = {
     "K1_sys": FinderQuery([*_ORDER_COLUMNS, "Sys Time Begin"], lambda q, p: q.order.find_all(
         p.APP_TIME, None, [*_order(q.order), q.order.sys_time_begin()], q.order.order_key().eq(p.ORDER_KEY),
@@ -330,8 +368,21 @@ B3 = {
         q.customer.customer_key().eq(p.CUST_KEY),
     ).order_by(q.customer.visible_time_begin().ascending()).limit(p.HSIZE)),
 
-    "K5_sys": Unsupported(_SCALAR_SUBQUERY),
-    "K5_app": Unsupported(_SCALAR_SUBQUERY),
+    "K5_sys": FinderQuery(["c_custkey", "c_acctbal", "sys_time_begin"], lambda q, p: _latest_before(
+        q.customer.find_all(
+            p.APP_TIME, None,
+            [q.customer.customer_key().alias("c_custkey"), q.customer.acct_bal().alias("c_acctbal"),
+             q.customer.sys_time_begin().alias("sys_time_begin"), q.customer.sys_time_end().alias("end")],
+            q.customer.customer_key().eq(p.CUSTOMER_KEY).and_(q.customer.sys_time_end() <= p.SYS_TIME)),
+        ["c_custkey", "c_acctbal", "sys_time_begin"])),
+
+    "K5_app": FinderQuery(["c_custkey", "c_acctbal", "visible_time_begin"], lambda q, p: _latest_before(
+        q.customer.find_all(
+            None, _NOW,
+            [q.customer.customer_key().alias("c_custkey"), q.customer.acct_bal().alias("c_acctbal"),
+             q.customer.visible_time_begin().alias("visible_time_begin"), q.customer.visible_time_end().alias("end")],
+            q.customer.customer_key().eq(p.CUSTOMER_KEY).and_(q.customer.visible_time_end() <= p.APP_TIME)),
+        ["c_custkey", "c_acctbal", "visible_time_begin"])),
 
     "K6_sys": FinderQuery(["Customer Key", "Acct Bal", "Sys Time Begin"], lambda q, p: q.customer.find_all(
         p.APP_TIME, None, [q.customer.customer_key(), q.customer.acct_bal(), q.customer.sys_time_begin()],
