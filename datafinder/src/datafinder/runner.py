@@ -1,7 +1,7 @@
 import datetime
 import decimal
 import itertools
-from typing import Any, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union
 
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
@@ -164,6 +164,23 @@ def _attributes(alias: TableAlias) -> dict[str, Attribute]:
     return {name: typed_attribute(name, _column_type(element), alias) for name, element in zip(names, alias.columns)}
 
 
+class Row:
+    """A row of a result as a function of it reads it: its columns are attributes, ``r.price``, as Legend's ``$r.price``. The
+    columns are known when the query is built, so a name that is not one is refused then, with the columns there are."""
+
+    def __init__(self, attributes: dict[str, Attribute]):
+        object.__setattr__(self, "_columns", attributes)
+
+    def __getattr__(self, name: str) -> Any:
+        columns = object.__getattribute__(self, "_columns")
+        if name not in columns:
+            raise AttributeError(f"No column '{name}' in this result: its columns are {list(columns)}")
+        return columns[name]
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("A row is read, not changed: use extend() to add a column")
+
+
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
@@ -228,26 +245,46 @@ class FinderResult(DataFrame):
         alias, _ = self._relation()
         return FinderResult(None, None, display, alias, NoOperation() if op is None else op)
 
-    def filter(self, *conditions: Operation) -> 'FinderResult':
-        """The rows of this result for which every condition holds, as Legend's ``filter``. A condition reads this result's
-        columns (``rows["name"]``), including one that a window function, an aggregate or ``extend`` made, which a
-        ``WHERE`` over the rows themselves cannot do."""
-        _, attributes = self._relation()
+    def _row(self) -> 'Row':
+        return Row(self._relation()[1])
+
+    def filter(self, *conditions: Callable[['Row'], Operation]) -> 'FinderResult':
+        """The rows of this result for which every condition holds, as Legend's ``filter(r | $r.price > 250)``: each
+        condition is a function of a row that reads its columns as attributes, including one that a window function, an
+        aggregate or ``extend`` made, which a ``WHERE`` over the rows themselves cannot do::
+
+            rows.filter(lambda r: r.price > 250.0)
+        """
+        row = self._row()
         op: Operation | None = None
         for condition in conditions:
-            op = condition if op is None else op.and_(condition)
-        return self._next(list(attributes.values()), op)
+            if not callable(condition):
+                raise TypeError("A filter condition is a function of a row: filter(lambda r: r.price > 250.0)")
+            op = condition(row) if op is None else op.and_(condition(row))
+        return self._next(list(self._relation()[1].values()), op)
 
-    def extend(self, **columns) -> 'FinderResult':
-        """This result with more columns, each named by its keyword and worked out from the columns it has, as Legend's
-        ``extend``: ``rows.extend(latest=rows["end"].max().over(partition_by=[rows["key"]]))``."""
-        _, attributes = self._relation()
-        return self._next([*attributes.values(), *(Alias(expression, name) for name, expression in columns.items())])
+    def extend(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
+        """This result with more columns, each named by its keyword and worked out from a row, as Legend's
+        ``extend(~top : r | ...)``. A window adds an aggregate over the rows to each row::
 
-    def select(self, *columns) -> 'FinderResult':
-        """Only some of this result's columns, by name or as the attribute or expression itself, as Legend's ``select``."""
+            rows.extend(double=lambda r: r.price * 2.0,
+                        top=lambda r: r.price.max().over(partition_by=[r.account]))
+        """
+        row = self._row()
+        for name, expression in columns.items():
+            if not callable(expression):
+                raise TypeError(f"The column '{name}' is a function of a row: extend({name}=lambda r: ...)")
+        return self._next([*self._relation()[1].values(),
+                           *(Alias(expression(row), name) for name, expression in columns.items())])
+
+    def select(self, *names: str) -> 'FinderResult':
+        """Only some of this result's columns, by name, as Legend's ``select(~[sym, price])``. To rename or work out a
+        column use ``extend`` first."""
         _, attributes = self._relation()
-        return self._next([attributes[c] if isinstance(c, str) else c for c in columns])
+        missing = [n for n in names if n not in attributes]
+        if missing:
+            raise KeyError(f"No column {missing} in this result: its columns are {list(attributes)}")
+        return self._next([attributes[n] for n in names])
 
     def group_by(self, *attrs) -> 'FinderResult':
         self._group_by = list(attrs)

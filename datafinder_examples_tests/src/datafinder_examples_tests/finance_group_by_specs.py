@@ -27,28 +27,28 @@ def _trades(f):
 
 def _expensive_trades(f):
     trades = _trades(f)
-    expensive = trades.filter(trades["price"] > 250.0)
+    expensive = trades.filter(lambda r: r.price > 250.0)
     return expensive.order_by(expensive["price"].ascending())
 
 
 def _top_trade_per_account(f):
     """A window function adds the highest price of the account to each trade, and a filter keeps the trade at that price."""
     trades = _trades(f)
-    with_top = trades.extend(top=trades["price"].max().over(partition_by=[trades["account"]]))
-    top = with_top.filter(with_top["price"] == with_top["top"]).select("account", "sym", "price")
+    with_top = trades.extend(top=lambda r: r.price.max().over(partition_by=[r.account]))
+    top = with_top.filter(lambda r: r.price == r.top).select("account", "sym", "price")
     return top.order_by(top["account"].ascending())
 
 
 def _most_expensive_trade(f):
     """A window over all the rows (an aggregate for the whole relation, as a scalar subquery would give) compared with each row."""
     trades = _trades(f)
-    with_top = trades.extend(top=trades["price"].max().over())
-    return with_top.filter(with_top["price"] == with_top["top"]).select("account", "sym", "price")
+    with_top = trades.extend(top=lambda r: r.price.max().over())
+    return with_top.filter(lambda r: r.price == r.top).select("account", "sym", "price")
 
 
 def _price_as_a_multiple(f):
     trades = _trades(f)
-    doubled = trades.extend(double=trades["price"] * 2.0).select("sym", "double")
+    doubled = trades.extend(double=lambda r: r.price * 2.0).select("sym", "double")
     return doubled.order_by(doubled["double"].descending()).limit(2)
 
 

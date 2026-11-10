@@ -490,7 +490,7 @@ that is missing for a row (a comparison with NULL) is not true, so that row take
 What `find_all(...)` returns is a relation: its columns have names (the alias you gave a column, else its display name in
 snake_case), and the step after it reads them as it reads a table's. As in Legend, where `filter`, `extend`, `select`
 and `concatenate` each take a relation and return one, each step is a query over the query before it. A column of
-a result is `result["name"]`.
+a result is `result["name"]`, and a function of a row reads it as `r.name`, as Legend's `$r.name`.
 
 ```python
 trades = TradeFinder.find_all(None, now, [TradeFinder.account().name().alias("account"),
@@ -498,13 +498,14 @@ trades = TradeFinder.find_all(None, now, [TradeFinder.account().name().alias("ac
 
 # the trade at the highest price of its account: a window function adds the highest price to each row,
 # and a filter keeps the rows at it (a window cannot be tested in WHERE, so the filter is a step of its own)
-with_top = trades.extend(top=trades["price"].max().over(partition_by=[trades["account"]]))
-top = with_top.filter(with_top["price"] == with_top["top"]).select("account", "sym", "price")
+with_top = trades.extend(top=lambda r: r.price.max().over(partition_by=[r.account]))
+top = with_top.filter(lambda r: r.price == r.top).select("account", "sym", "price")
 top.order_by(top["account"].ascending())
 ```
 
-- `filter(*conditions)` keeps the rows for which every condition holds; `select(*columns)` keeps or renames columns;
-  `extend(name=expression)` adds columns, including a window (`.over(partition_by=[...])`, or `.over()` for all the rows).
+- `filter(lambda r: ...)` keeps the rows for which every condition holds (several functions are all required);
+  `select("a", "b")` keeps columns by name; `extend(name=lambda r: ...)` adds columns, including a window
+  (`.over(partition_by=[...])`, or `.over()` for all the rows). To rename a column, `extend` it and `select`.
 - `concatenate(other)` is `UNION` (`all=True` for `UNION ALL`).
 - A step can be ordered, limited, grouped and aggregated like any result, by its own columns:
   `step.order_by(step["price"].descending())`.
