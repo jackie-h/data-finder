@@ -18,7 +18,8 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation
+    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation, \
+    JoinedTable, JoinKind
 
 class TableAliasColumn(RelationalOperationElement):
     def __init__(self, column: Column, table_alias: TableAlias):
@@ -769,6 +770,7 @@ class SQLQueryGenerator:
         self.__elidable_ids: set = set()
         self._sub_selects: dict = {}
         self._root_table = None
+        self._joined: JoinedTable | None = None
         self._join_filters: dict = {}
 
     def __compute_elidable_ids(self, query: QuerySpecification) -> set:
@@ -1012,7 +1014,12 @@ class SQLQueryGenerator:
 
     def select(self, cols: Sequence[RelationalOperationElement]):
         required_joins: dict = {}
-        if self._root_table is not None:
+        if isinstance(self._root_table, JoinedTable):
+            # what is read is two relations joined: both are named first, so they read t0 and t1 in the order they are joined
+            self._joined = self._root_table
+            self.__table_alias_for_table(self._joined.left)  # type: ignore[arg-type]
+            self.__table_alias_for_table(self._joined.right)  # type: ignore[arg-type]
+        elif self._root_table is not None:
             self._from.add(self.__table_alias_for_table(self._root_table))
 
         for col in cols:
@@ -1165,6 +1172,25 @@ class SQLQueryGenerator:
             return '(' + sql + ')'
         return sql
 
+    def __joined_sql(self, joined: JoinedTable) -> tuple[str, str]:
+        """What a joined table reads, and the condition of a semi or anti join: the two relations, each as it is named in FROM,
+        joined as ANSI SQL joins them. A semi or anti join reads only the left, and tests for the right in EXISTS."""
+        left = self.__table_alias_for_table(joined.left)  # type: ignore[arg-type]
+        right = self.__table_alias_for_table(joined.right)  # type: ignore[arg-type]
+
+        def source(alias: TableAlias) -> str:
+            return self.__relation_sql(alias) + ' AS ' + alias.name
+
+        condition = '' if joined.condition is None else self.build_filter(joined.condition)
+        if joined.kind in (JoinKind.SEMI, JoinKind.ANTI):
+            test = 'EXISTS (SELECT 1 FROM ' + source(right) + ' WHERE ' + condition + ')'
+            return source(left), ('NOT ' if joined.kind is JoinKind.ANTI else '') + test
+        if joined.kind is JoinKind.CROSS:
+            return source(left) + ' CROSS JOIN ' + source(right), ''
+        word = {JoinKind.INNER: 'INNER', JoinKind.LEFT: 'LEFT OUTER', JoinKind.RIGHT: 'RIGHT OUTER',
+                JoinKind.FULL: 'FULL OUTER'}[joined.kind]
+        return source(left) + ' ' + word + ' JOIN ' + source(right) + ' ON (' + condition + ')', ''
+
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:
             alias = j.target.table_alias
@@ -1172,21 +1198,28 @@ class SQLQueryGenerator:
                 + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
 
         joins = map(join_sql, self._join)
+        existence = ''
+        if self._joined is not None:
+            from_sql, existence = self.__joined_sql(self._joined)
+        else:
+            from_sql = ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from))
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
-            + ' FROM ' + ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from)) \
+            + ' FROM ' + from_sql \
             + ''.join(joins) \
-            + self.__build_where() \
+            + self.__build_where(existence) \
             + self.__build_group_by() \
             + self.__build_having() \
             + self.__build_order_by() \
             + self.__build_limit() \
             + self.__build_offset()
 
-    def __build_where(self) -> str:
-        if len(self._where) > 0:
-            return ' WHERE ' + ''.join(self._where)
-        else:
-            return ''
+    def __build_where(self, existence: str = '') -> str:
+        where = ''.join(self._where)
+        if where and existence:
+            return ' WHERE (' + where + ') AND ' + existence
+        if existence:
+            return ' WHERE ' + existence
+        return ' WHERE ' + where if where else ''
 
     def __build_group_by(self) -> str:
         if not self._group_by_parts:

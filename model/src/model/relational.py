@@ -426,6 +426,15 @@ class Operation(RelationalOperationElement, Aliasable):
     def or_(self, other) -> 'LogicalOperation':
         return LogicalOperation(self, LogicalOperator.OR, other)
 
+    def __and__(self, other: 'Operation') -> 'LogicalOperation':
+        """``a & b``, as ``and_``: Python's ``and`` cannot be overloaded, and gives only ``b``. Bracket each side, as ``&``
+        binds more tightly than ``==``: ``(a == b) & (c != d)``."""
+        return LogicalOperation(self, LogicalOperator.AND, other)
+
+    def __or__(self, other: 'Operation') -> 'LogicalOperation':
+        """``a | b``, as ``or_``."""
+        return LogicalOperation(self, LogicalOperator.OR, other)
+
 class NoOperation(Operation):
     def __init__(self):
         super().__init__()
@@ -1751,6 +1760,39 @@ class Table(NamedRelation):
         if self.schema.datastore is None:
             return f"{self.schema.name}.{self.name}"
         return f"{self.schema.datastore.namespace(self.schema.name)}.{self.name}"
+
+
+class JoinKind(Enum):
+    """How the rows of two relations are put together. The rows of ``semi`` and ``anti`` are those of the left relation that
+    have, or have no, row of the right one that meets the condition: the right relation's columns are not in the result."""
+    INNER = 'inner'
+    LEFT = 'left'
+    RIGHT = 'right'
+    FULL = 'full'
+    CROSS = 'cross'
+    SEMI = 'semi'
+    ANTI = 'anti'
+
+
+class JoinedTable(Relation):
+    """Two relations joined, as ANSI SQL's ``<joined table>``: ``<table reference> <join type> JOIN <table reference> ON
+    <condition>``. It is itself something to read from, with the columns of the two (the left's, for a semi or anti join).
+    A cross join has no condition, and every other join has."""
+    left: Relation
+    right: Relation
+    kind: JoinKind
+    condition: 'RelationalOperationElement | None'
+
+    def __init__(self, left: Relation, right: Relation, kind: JoinKind, condition: 'RelationalOperationElement | None' = None):
+        if kind is JoinKind.CROSS and condition is not None:
+            raise ValueError("A cross join pairs every row with every row: it has no condition")
+        if kind is not JoinKind.CROSS and condition is None:
+            raise ValueError(f"A {kind.value} join needs a condition")
+        super().__init__(left.columns if kind in (JoinKind.SEMI, JoinKind.ANTI) else [*left.columns, *right.columns])
+        self.left = left
+        self.right = right
+        self.kind = kind
+        self.condition = condition
 
 
 class JoinOperation:
