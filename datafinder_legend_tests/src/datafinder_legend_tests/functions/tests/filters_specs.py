@@ -16,10 +16,10 @@ FILTERS_SPECS = FinderSpec(
     mapping_file="tests/simple_mapping.md",
     expectations=[
         unsupported("testFilterBeforeAndAfterGroupBy", f"{_SRC}::testFilterBeforeAndAfterGroupBy",
-                    'select "root".FIRSTNAME as "name", sum("root".AGE) as "age" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "firmtable_0".ADDRESSID) where "firmtable_0".LEGALNAME = \'Firm X\' and "addresstable_0".NAME = \'New York\' group by "name" having "root".FIRSTNAME <> \'Hello\' or "root".FIRSTNAME is null',
+                    'select "root".FIRSTNAME as "name", sum("root".AGE) as "age" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "firmtable_0".ADDRESSID) where "firmtable_0".LEGALNAME = \'Firm X\' and "addresstable_0".NAME = \'New York\' group by "name" having "root".FIRSTNAME is distinct from \'Hello\'',
                     'filters in the class mapping'),
         unsupported("testFilterBeforeAndAfterProject", f"{_SRC}::testFilterBeforeAndAfterProject",
-                    'select "root".FIRSTNAME as "name" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "firmtable_0".ADDRESSID) where "firmtable_0".LEGALNAME = \'Firm X\' and "addresstable_0".NAME = \'New York\' and ("root".FIRSTNAME <> \'Hello\' or "root".FIRSTNAME is null)',
+                    'select "root".FIRSTNAME as "name" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "firmtable_0".ADDRESSID) where "firmtable_0".LEGALNAME = \'Firm X\' and "addresstable_0".NAME = \'New York\' and "root".FIRSTNAME is distinct from \'Hello\'',
                     'filters in the class mapping'),
     ],
 )

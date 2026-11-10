@@ -161,6 +161,17 @@ def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
     for call in list(tree.find_all(exp.Anonymous)):
         if call.name.lower() == "listagg" and len(call.expressions) == 2:
             call.replace(exp.GroupConcat(this=call.expressions[0].copy(), separator=call.expressions[1].copy()))
+    # ``a IS DISTINCT FROM b`` is ``a <> b OR a IS NULL``, and ``a IS NOT DISTINCT FROM b`` is ``a = b OR (a IS NULL AND
+    # b IS NULL)``: the null-safe forms of a comparison and the expansion of one, which a database without the
+    # predicate needs
+    for node in list(tree.find_all(exp.NullSafeNEQ)):
+        node.replace(exp.Paren(this=exp.Or(this=exp.NEQ(this=node.this.copy(), expression=node.expression.copy()),
+                                           expression=exp.Is(this=node.this.copy(), expression=exp.Null()))))
+    for node in list(tree.find_all(exp.NullSafeEQ)):
+        node.replace(exp.Paren(this=exp.Or(
+            this=exp.EQ(this=node.this.copy(), expression=node.expression.copy()),
+            expression=exp.Paren(this=exp.And(this=exp.Is(this=node.this.copy(), expression=exp.Null()),
+                                              expression=exp.Is(this=node.expression.copy(), expression=exp.Null()))))))
     # ``a || b`` is ``CONCAT(a, b)``
     for pipe in list(tree.find_all(exp.DPipe)):
         pipe.replace(exp.Concat(expressions=[pipe.this.copy(), pipe.expression.copy()], safe=True, coalesce=False))
