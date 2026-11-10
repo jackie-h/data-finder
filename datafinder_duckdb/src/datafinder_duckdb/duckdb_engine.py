@@ -1,9 +1,8 @@
 import datetime
-import threading
 from typing import Sequence
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
-from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
+from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy, interrupt_after
 
 import duckdb
 import numpy as np
@@ -47,14 +46,11 @@ class DuckDbOutput(DataFrame):
     def __materialize(self) -> pa.Table:
         arrow = self.__arrow
         if arrow is None:
-            timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.interrupt)
-            timer.start()
             try:
-                arrow = self.__relation.to_arrow_table()
+                with interrupt_after(self.__timeout_ms, self.__conn.interrupt):
+                    arrow = self.__relation.to_arrow_table()
             except duckdb.InterruptException:
                 raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
-            finally:
-                timer.cancel()
             self.__arrow = arrow
         return arrow
 

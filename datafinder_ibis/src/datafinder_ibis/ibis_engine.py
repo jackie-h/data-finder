@@ -1,10 +1,9 @@
 import datetime
-import threading
 from typing import Sequence
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
 from datafinder.sql_generator import view_sql_to_string
-from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
+from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy, interrupt_after
 
 import duckdb
 import ibis
@@ -82,18 +81,15 @@ class IbisOutput(DataFrame):
     def __materialize(self) -> pa.Table:
         arrow = self.__arrow
         if arrow is None:
-            timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.con.interrupt)
-            timer.start()
             try:
-                try:
-                    arrow = self.__expr.to_pyarrow()
-                except pa.ArrowNotImplementedError:
-                    # ibis types an interval as a duration, which Arrow cannot cast DuckDB's interval to: read it as DuckDB gives it
-                    arrow = self.__conn.con.sql(self.__query).to_arrow_table()
+                with interrupt_after(self.__timeout_ms, self.__conn.con.interrupt):
+                    try:
+                        arrow = self.__expr.to_pyarrow()
+                    except pa.ArrowNotImplementedError:
+                        # ibis types an interval as a duration, which Arrow cannot cast DuckDB's interval to: read it as DuckDB gives it
+                        arrow = self.__conn.con.sql(self.__query).to_arrow_table()
             except duckdb.InterruptException:
                 raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
-            finally:
-                timer.cancel()
             self.__arrow = arrow
         return arrow
 
