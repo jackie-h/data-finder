@@ -223,6 +223,32 @@ class FinderResult(DataFrame):
         alias = TableAlias(UnionOperation(left_alias.relation, right_alias.relation, all), f"relation{next(_relation_numbers)}")  # type: ignore[arg-type]
         return FinderResult(None, None, list(_attributes(alias).values()), alias, NoOperation())
 
+    def _next(self, display: Sequence, op: Operation | None = None) -> 'FinderResult':
+        """A result that reads from this one: a query over this result's query, as Legend's relation functions are."""
+        alias, _ = self._relation()
+        return FinderResult(None, None, display, alias, NoOperation() if op is None else op)
+
+    def filter(self, *conditions: Operation) -> 'FinderResult':
+        """The rows of this result for which every condition holds, as Legend's ``filter``. A condition reads this result's
+        columns (``rows["name"]``), including one that a window function, an aggregate or ``extend`` made, which a
+        ``WHERE`` over the rows themselves cannot do."""
+        _, attributes = self._relation()
+        op: Operation | None = None
+        for condition in conditions:
+            op = condition if op is None else op.and_(condition)
+        return self._next(list(attributes.values()), op)
+
+    def extend(self, **columns) -> 'FinderResult':
+        """This result with more columns, each named by its keyword and worked out from the columns it has, as Legend's
+        ``extend``: ``rows.extend(latest=rows["end"].max().over(partition_by=[rows["key"]]))``."""
+        _, attributes = self._relation()
+        return self._next([*attributes.values(), *(Alias(expression, name) for name, expression in columns.items())])
+
+    def select(self, *columns) -> 'FinderResult':
+        """Only some of this result's columns, by name or as the attribute or expression itself, as Legend's ``select``."""
+        _, attributes = self._relation()
+        return self._next([attributes[c] if isinstance(c, str) else c for c in columns])
+
     def group_by(self, *attrs) -> 'FinderResult':
         self._group_by = list(attrs)
         return self
