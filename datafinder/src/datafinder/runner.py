@@ -12,7 +12,7 @@ from model.relational import (
     AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
     DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
-    FloatConstantOperation, IntegerConstantOperation, NoOperation, Relation, RelationalOperationElement,
+    FloatConstantOperation, IntegerConstantOperation, NoOperation, QueryExpression, Relation, RelationalOperationElement,
     ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
     UnionOperation,
     WindowFunctionOperation)
@@ -220,8 +220,19 @@ class FinderResult(DataFrame):
         right_alias, right = other._relation()
         if list(left) != list(right):
             raise ValueError(f"Concatenated results need the same columns: {list(left)} and {list(right)} differ")
-        alias = TableAlias(UnionOperation(left_alias.relation, right_alias.relation, all), f"relation{next(_relation_numbers)}")  # type: ignore[arg-type]
-        return FinderResult(None, None, list(_attributes(alias).values()), alias, NoOperation())
+        alias = TableAlias(UnionOperation(self._union_side(left_alias, all), other._union_side(right_alias, all), all),  # type: ignore[arg-type]
+                           f"relation{next(_relation_numbers)}")
+        return FinderResult(None, None, [Alias(a, n) for n, a in _attributes(alias).items()], alias, NoOperation())
+
+    def _union_side(self, as_relation: TableAlias, all: bool) -> QueryExpression:
+        """This result as one side of a union. A result that is only the union of two more with the same operator is
+        that union itself, not a SELECT over it, so ``a.concatenate(b).concatenate(c)`` is one flat chain of unions."""
+        source = self._table
+        bare = (isinstance(source, TableAlias) and isinstance(source.relation, UnionOperation)
+                and source.relation.all == all and isinstance(self._op, NoOperation)
+                and not (self._order_by or self._group_by or self._distinct or self._having
+                         or self._limit is not None or self._offset is not None))
+        return source.relation if bare else as_relation.relation  # type: ignore[union-attr,return-value]
 
     def group_by(self, *attrs) -> 'FinderResult':
         self._group_by = list(attrs)
