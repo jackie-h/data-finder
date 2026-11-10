@@ -50,7 +50,7 @@ class DuckDbOutput(DataFrame):
             timer = threading.Timer(self.__timeout_ms / 1000, self.__conn.interrupt)
             timer.start()
             try:
-                arrow = self.__relation.arrow()
+                arrow = self.__relation.to_arrow_table()
             except duckdb.InterruptException:
                 raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
             finally:

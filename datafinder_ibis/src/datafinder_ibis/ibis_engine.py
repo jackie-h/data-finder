@@ -89,7 +89,7 @@ class IbisOutput(DataFrame):
                     arrow = self.__expr.to_pyarrow()
                 except pa.ArrowNotImplementedError:
                     # ibis types an interval as a duration, which Arrow cannot cast DuckDB's interval to: read it as DuckDB gives it
-                    arrow = self.__conn.con.sql(self.__query).arrow()
+                    arrow = self.__conn.con.sql(self.__query).to_arrow_table()
             except duckdb.InterruptException:
                 raise TimeoutError(f"Query exceeded {self.__timeout_ms}ms timeout")
             finally:
