@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import Any, Callable
 
+from datafinder import exists
 from datafinder.conditional import when
 from datafinder.expressions import constant, count_all
 from datafinder_examples_tests.tpch_bih_data import CURRENT_SYS
@@ -266,6 +267,75 @@ def _large_volume_customer(lines, p):
     return result.order_by(result["o_totalprice"].descending(), result["o_orderdate"].ascending()).limit(100)
 
 
+def _potential_part_promotion(q, p):
+    """s_suppkey IN (SELECT ps_suppkey ... ps_availqty > (SELECT 0.5 * sum(l_quantity) ... for the same part and supplier)): the
+    supplies of the parts joined to the quantity sold of each, those with more than half of it in stock, and the suppliers that
+    have one of them."""
+    supplies, lines = q.partsupp, q.lineitem
+    sold = lines.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [lines.part().part_key().alias("l_partkey"), lines.supplier().supplier_key().alias("l_suppkey"),
+         lines.quantity().sum().alias("sold")],
+        (lines.ship_date() >= datetime.date(1994, 1, 1)).and_(lines.ship_date() < datetime.date(1995, 1, 1)),
+    ).group_by(lines.part().part_key(), lines.supplier().supplier_key())
+    in_stock = supplies.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [supplies.part().part_key().alias("ps_partkey"), supplies.supplier().supplier_key().alias("ps_suppkey"),
+         supplies.avail_qty().alias("avail")],
+        supplies.part().name().starts_with("forest"))
+    plenty = in_stock.join(sold, lambda s, l: (s.ps_partkey == l.l_partkey) & (s.ps_suppkey == l.l_suppkey), how="inner") \
+        .filter(lambda r: r.avail > r.sold * 0.5)
+    suppliers = q.supplier.find_all(
+        None, p.SYS_TIME,
+        [q.supplier.name().alias("s_name"), q.supplier.address().alias("s_address"), q.supplier.supplier_key().alias("s_suppkey")],
+        q.supplier.nation().name().eq(p.NATION))
+    kept = suppliers.filter(lambda r: exists(plenty, lambda x: x.ps_suppkey == r.s_suppkey)).select("s_name", "s_address")
+    return kept.order_by(kept["s_name"].ascending())
+
+
+def _suppliers_who_kept_orders_waiting(lines, p):
+    """EXISTS another supplier's line of the order, and NOT EXISTS another supplier's late line of it: the late lines of finished
+    orders are asked of the other lines of their order."""
+    def rows(*columns, condition=None):
+        return lines.find_all(p.APP_TIME, p.SYS_TIME, [*columns]) if condition is None \
+            else lines.find_all(p.APP_TIME, p.SYS_TIME, [*columns], condition)
+
+    waiting = rows(
+        lines.supplier().name().alias("s_name"), lines.order().order_key().alias("l_orderkey"),
+        lines.supplier().supplier_key().alias("l_suppkey"),
+        condition=lines.order().order_status().eq("F").and_(lines.receipt_date() > lines.commit_date())
+        .and_(lines.supplier().nation().name().eq(p.NATION)))
+    every = rows(lines.order().order_key().alias("o_orderkey"), lines.supplier().supplier_key().alias("o_suppkey"))
+    late = rows(lines.order().order_key().alias("o_orderkey"), lines.supplier().supplier_key().alias("o_suppkey"),
+                condition=lines.receipt_date() > lines.commit_date())
+    kept = waiting.filter(
+        lambda r: exists(every, lambda o: (o.o_orderkey == r.l_orderkey) & (o.o_suppkey != r.l_suppkey))
+        & ~exists(late, lambda o: (o.o_orderkey == r.l_orderkey) & (o.o_suppkey != r.l_suppkey)))
+    waits = kept.group_by(lambda r: r.s_name).aggregate(numwait=lambda r: r.l_orderkey.count())
+    return waits.order_by(waits["numwait"].descending(), waits["s_name"].ascending()).limit(100)
+
+
+def _global_sales_opportunity(q, p):
+    """c_acctbal > (SELECT avg(c_acctbal) ... where positive) is a window over the customers of those countries, and NOT EXISTS
+    an order of the customer is a condition on the other result."""
+    country = q.customer.phone().substring(0, 2)
+    customers = q.customer.find_all(
+        p.APP_TIME, p.SYS_TIME,
+        [country.alias("cntrycode"), q.customer.customer_key().alias("c_custkey"), q.customer.acct_bal().alias("c_acctbal")],
+        country.is_in(["13", "31", "23", "29", "30", "18", "17"]))
+    orders = q.order.find_all(p.APP_TIME, p.SYS_TIME, [q.order.customer().customer_key().alias("o_custkey")])
+    # the average of the positive balances, as their sum over their count
+    with_average = customers.extend(
+        positive_sum=lambda r: when(r.c_acctbal > 0.0).then(r.c_acctbal).otherwise(0.0).sum().over(),
+        positive_count=lambda r: when(r.c_acctbal > 0.0).then(1).otherwise(0).sum().over(),
+    ).extend(average=lambda r: r.positive_sum / r.positive_count)
+    wanted = with_average.filter(
+        lambda r: (r.c_acctbal > r.average) & ~exists(orders, lambda o: o.o_custkey == r.c_custkey))
+    by_country = wanted.group_by(lambda r: r.cntrycode).aggregate(
+        numcust=lambda r: r.c_custkey.count(), totacctbal=lambda r: r.c_acctbal.sum())
+    return by_country.order_by(by_country["cntrycode"].ascending())
+
+
 def _small_quantity_order_revenue(lines, p):
     """l_quantity < (SELECT 0.2 * avg(l_quantity) ... for the same part): the average is a window over the lines of the part,
     a filter keeps the small orders, and the revenue is an aggregate of those rows."""
@@ -386,11 +456,9 @@ TPCH = {
         .or_(_q19_branch(q.lineitem, "Brand#23", ["MED BAG", "MED BOX", "MED PKG", "MED PACK"], 10.0, 10))
         .or_(_q19_branch(q.lineitem, "Brand#34", ["LG CASE", "LG BOX", "LG PACK", "LG PKG"], 20.0, 15)))),
 
-    "Q20": Unsupported("Nested IN subqueries and a correlated scalar subquery: ps_availqty > (select 0.5 * sum(l_quantity) ...)"),
-    "Q21": Unsupported(
-        "EXISTS and NOT EXISTS with conditions on the other lines of the order (l2.l_suppkey <> l1.l_suppkey, "
-        "l3.l_receiptdate > l3.l_commitdate): exists() takes no condition"),
-    "Q22": Unsupported("substring(c_phone from 1 for 2) in a list, a scalar subquery average, and NOT EXISTS"),
+    "Q20": FinderQuery(["s_name", "s_address"], lambda q, p: _potential_part_promotion(q, p)),
+    "Q21": FinderQuery(["s_name", "numwait"], lambda q, p: _suppliers_who_kept_orders_waiting(q.lineitem, p)),
+    "Q22": FinderQuery(["cntrycode", "numcust", "totacctbal"], lambda q, p: _global_sales_opportunity(q, p)),
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
