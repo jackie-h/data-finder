@@ -162,6 +162,21 @@ class Store:
         rows = [self._version(table, old, at, changes) for old in self.rows(table, key)]
         return self._set(table, key, rows)
 
+    def start_no_earlier(self, table: str, key: tuple, at: datetime.datetime, begin: datetime.date) -> None:
+        """Make application time of every version of a key start no earlier than ``begin``. A version that ended by
+        then has no day left, so it is ended in system time instead of being kept."""
+        prefix = APPLICATION_TIME[table]
+        b, e = f"{prefix}_begin", f"{prefix}_end"
+        rows = []
+        for old in self.rows(table, key):
+            if old[e] <= begin:
+                self._supersede(table, old, at)
+            elif old[b] < begin:
+                rows.append(self._version(table, old, at, {b: begin}))
+            else:
+                rows.append(old)
+        self._set(table, key, rows)
+
     def milestone(self, table: str, key: tuple, at: datetime.datetime, begin: datetime.date, **changes: Any) -> dict:
         """Bitemporal milestoning of a change that is valid from ``begin``: the latest version has its application time end set
         to ``begin``, and a new version with the changed values runs from ``begin`` to the end of application time. A change
@@ -444,8 +459,11 @@ class Generator:
         part = self.pick(list(self.cur("part").values()))
         if part is None:
             return False
-        self.store.update("part", (part["p_partkey"],), at, availability_time_begin=today + self.uniform_days(1, 14),
-                          availability_time_end=INF_D)
+        begin = today + self.uniform_days(1, 14)
+        self.store.update("part", (part["p_partkey"],), at, availability_time_begin=begin, availability_time_end=INF_D)
+        # A supply cannot start before the part it supplies is available; it may start later.
+        for (partkey, suppkey) in [k for k in self.cur("partsupp") if k[0] == part["p_partkey"]]:
+            self.store.start_no_earlier("partsupp", (partkey, suppkey), at, begin)
         return True
 
     def change_price(self, at: datetime.datetime, today: datetime.date) -> bool:  # A.2.7

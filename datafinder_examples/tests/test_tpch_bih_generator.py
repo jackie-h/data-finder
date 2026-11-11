@@ -172,6 +172,11 @@ class TestHistory:
                 assert 1 <= ahead <= 14 and after["availability_time_end"] == INF_D
         assert delays > 5
 
+    def test_a_supply_never_starts_before_its_part_is_available(self, data):
+        for (partkey, suppkey), supply in data.store.current["partsupp"].items():
+            for version in data.store.rows("partsupp", (partkey, suppkey)):
+                assert version["validity_time_begin"] >= data.store.current["part"][(partkey,)]["availability_time_begin"]
+
     def test_a_price_change_keeps_the_cost_positive_and_splits_the_validity(self, data):
         """A.2.7 is bitemporal milestoning: the old cost stays before the date the change is valid from, the new cost starts there."""
         by_key = defaultdict(list)
