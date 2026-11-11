@@ -1,23 +1,42 @@
 from model.m3 import Property, Class
 from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
-from model.relational import RelationalOperationElement, Column
+from model.relational import Operation, RelationalOperationElement, Column
 
 
 class Join(RelationalOperationElement):
     """The join a navigation property follows: from ``lhs`` to ``rhs``.
 
     A property mapped through several tables has the hops before the last one in ``via``, each a (from, to) pair of
-    columns, in order; ``lhs`` and ``rhs`` are then the last hop, the one that reaches the target class's table."""
+    columns, in order; ``lhs`` and ``rhs`` are then the last hop, the one that reaches the target class's table.
+
+    A hop can also have a condition besides its key columns, as Legend's join ``firmTable.ID = personTable.FIRMID and
+    firmTable.FLAG is null``. ``conditions`` has one for each hop, the ``via`` ones and then the last, or ``None`` for a hop
+    with only its keys. It is a condition over the columns of the two tables of that hop, so it reads the same from either
+    end of the join; ``condition_texts`` is how it was written."""
 
     def __init__(self, lhs: Column, rhs: Column, embedded: 'EmbeddedSetMapping | None' = None,
-                 via: 'list[tuple[Column, Column]] | None' = None):
+                 via: 'list[tuple[Column, Column]] | None' = None,
+                 conditions: 'list[Operation | None] | None' = None, condition_texts: 'list[str | None] | None' = None):
         super().__init__()
         self.lhs = lhs
         self.rhs = rhs
         self.embedded = embedded
         self.via: list[tuple[Column, Column]] = via or []
+        hops = len(self.via) + 1
+        self.conditions: list[Operation | None] = list(conditions or [])[:hops] + [None] * (hops - len(conditions or []))
+        self.condition_texts: list[str | None] = list(condition_texts or [])[:hops] + [None] * (hops - len(condition_texts or []))
         # False while the join stands in for one whose columns a later part of the mapping gives
         self.resolved = True
+
+    @property
+    def condition(self) -> Operation | None:
+        """The condition of the last hop, the one that reaches the target class's table."""
+        return self.conditions[-1]
+
+    @property
+    def via_conditions(self) -> list[Operation | None]:
+        """The conditions of the hops before the last."""
+        return self.conditions[:-1]
 
 
 class EmbeddedSetMapping(RelationalOperationElement):

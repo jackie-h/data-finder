@@ -1,4 +1,19 @@
-from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind
+from model.relational import (
+    ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind, LogicalOperation,
+    LogicalOperator, Operation,
+)
+
+
+def keys_join(name: str, table, source, target, kind: JoinKind, condition: Operation | None = None) -> JoinOperation:
+    """``table`` joined where its ``target`` column equals the ``source`` column of what is joined from, and where
+    ``condition`` holds besides, as Legend's join ``firmTable.ID = personTable.FIRMID and firmTable.FLAG is null``. The
+    condition reads the columns of the two tables, which say which side they are on."""
+    join = JoinOperation.on_keys(name, table, source, target, kind)
+    if condition is None:
+        return join
+    if join.target is not table:
+        raise ValueError(f"Join '{name}' joins {table.name} to itself: a condition on that is not supported yet")
+    return JoinOperation(name, join.target, LogicalOperation(join.operation, LogicalOperator.AND, condition), kind)
 
 
 def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=None,
@@ -7,8 +22,10 @@ def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=No
     (from column, table, to column) triple, in order. The tables carry no class, so the steps have no name. The dates
     the property was given are those of each step through a table on the way, as they are of the step that follows."""
     node = parent
-    for source, table, target in hops:
-        node = JoinTreeNodeOperation(JoinOperation.on_keys('', table, source, target, JoinKind.LEFT), node, optional=True,
+    for hop in hops:
+        source, table, target = hop[:3]
+        condition = hop[3] if len(hop) > 3 else None
+        node = JoinTreeNodeOperation(keys_join('', table, source, target, JoinKind.LEFT, condition), node, optional=True,
                                      business_date=business_date, processing_datetime=processing_datetime)
     return node
 

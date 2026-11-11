@@ -10,7 +10,10 @@ from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMiles
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping, BusinessDateRangeMilestonePropertyMapping, \
     SingleProcessingDatetimeMilestonePropertyMapping
-from model.relational import Column, Table
+from model.relational import (
+    Column, ComparisonOperation, DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation,
+    IsNotNullOperation, IsNullOperation, LogicalOperation, NotOperation, StringConstantOperation, Table,
+)
 from model.relational_mapping import Join, EmbeddedSetMapping
 
 
@@ -183,6 +186,28 @@ def table_code(table: Table) -> str:
     return f"Table('{table_qualified_name(table)}', [{columns}]{key})"
 
 
+def condition_code(op) -> str:
+    """Python source that builds the condition ``op`` of a join in a generated finder."""
+    if isinstance(op, Column):
+        return column_code(op)
+    if isinstance(op, ComparisonOperation):
+        return f"ComparisonOperation({condition_code(op.left)}, ComparisonOperator.{op.operator.name}, {condition_code(op.right)})"
+    if isinstance(op, LogicalOperation):
+        return f"LogicalOperation({condition_code(op.left)}, LogicalOperator.{op.operator.name}, {condition_code(op.right)})"
+    if isinstance(op, (IsNullOperation, IsNotNullOperation, NotOperation)):
+        return f"{type(op).__name__}({condition_code(op.element)})"
+    if isinstance(op, DecimalConstantOperation):
+        return f"DecimalConstantOperation(Decimal('{op.value}'))"
+    if isinstance(op, (StringConstantOperation, IntegerConstantOperation, FloatConstantOperation)):
+        return f"{type(op).__name__}({op.value!r})"
+    raise ValueError(f"A join condition cannot be generated from {op!r}")
+
+
+def condition_kw(join: Join) -> str:
+    """The ``condition=`` argument that gives a finder the condition of the join it follows, or nothing."""
+    return f", condition={condition_code(join.condition)}" if join.condition is not None else ""
+
+
 def _table_of(column: Column) -> Table:
     assert column.table is not None, f"column '{column.name}' belongs to no table"
     return column.table
@@ -194,7 +219,10 @@ def parent_expr(join: Join, parent: str, with_dates: bool = False) -> str:
     ``business_date`` and ``processing_time`` the property was asked for with."""
     if not join.via:
         return parent
-    hops = ", ".join(f"({column_code(lhs)}, {table_code(_table_of(rhs))}, {column_code(rhs)})" for lhs, rhs in join.via)
+    hops = ", ".join(
+        f"({column_code(lhs)}, {table_code(_table_of(rhs))}, {column_code(rhs)}"
+        + (f", {condition_code(condition)}" if condition is not None else "") + ")"
+        for (lhs, rhs), condition in zip(join.via, join.via_conditions))
     dates = (", business_date=None if business_date is None else convert_date(business_date), "
              "processing_datetime=None if processing_time is None else convert_date_time(processing_time)") if with_dates else ""
     return f"via_joins({parent}, [{hops}]{dates})"
@@ -307,6 +335,7 @@ def generate(mapping: Mapping, output_directory):
         embedded_optional=embedded_optional,
         embedded_classes=embedded_classes,
         parent_expr=parent_expr,
+        condition_kw=condition_kw,
         column_code=column_code,
         owner_code=owner_code,
     )
