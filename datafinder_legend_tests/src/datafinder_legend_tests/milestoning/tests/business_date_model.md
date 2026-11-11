@@ -60,6 +60,22 @@ association, apart from Order and Product, which Legend relates both ways (`orde
 |----------|------|--------|--------------|-----|-------------|
 | Name     | name | String | 1            | Y   |             |
 
+### Class: OrderDescription
+
+| Name             | Description |
+|------------------|-------------|
+| OrderDescription |             |
+
+| Property    | Id          | Type   | Multiplicity | Key | Description |
+|-------------|-------------|--------|--------------|-----|-------------|
+| Description | description | String | 1            | Y   |             |
+
+### Association: OrderDescriptionLink
+
+| Name                 | Source | Source Property Name | Source Property ID | Source Multiplicity | Target           | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|----------------------|--------|----------------------|--------------------|---------------------|------------------|----------------------|--------------------|---------------------|-------------|
+| OrderDescriptionLink | Order  | Description          | description        | 1                   | OrderDescription |                      |                    | *                   |             |
+
 ### Association: OrderProduct
 
 | Name         | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |

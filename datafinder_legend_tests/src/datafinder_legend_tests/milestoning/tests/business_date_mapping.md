@@ -27,6 +27,19 @@ but not including `thru_z`, and the infinity date is 9999-12-31. Order has no mi
 |---------------|--------------|---------------|
 | prodFk        | ProductTable | id            |
 
+#### Association: OrderDescriptionLink
+
+| Source Column | Target Table          | Target Column |
+|---------------|-----------------------|---------------|
+| id            | OrderDescriptionTable | id            |
+
+#### Table: OrderDescriptionTable → OrderDescription
+
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| id | INT | PK | N |  |
+| description | VARCHAR |  | Y | description |
+
 #### Table: ProductTable → Product (milestoning: business_date_range)
 
 | Column | Type | Key | Nullable | Property ID |
