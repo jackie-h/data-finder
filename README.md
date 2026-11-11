@@ -213,8 +213,21 @@ the `ON` of the left outer join, so a row it rejects leaves the joined columns N
 row has its own condition, on the hop it belongs to. A blank cell is a hop with only its keys.
 
 A condition can use `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=`, `IS [NOT] NULL`, `AND`, `OR`, `NOT`, parentheses and string and number
-literals. A function (`now()`), anything else, a column with no table, and a condition on a join of a table to itself are refused
-when the mapping is loaded.
+literals. A function (`now()`), anything else, and a column with no table are refused when the mapping is loaded.
+
+When a table is joined to itself its name is both sides, so the side the join reaches is written `{target}`, as in Legend's
+`Join Person_Manager(personTable.MANAGERID = {target}.ID)`: the table's own name is the row the join starts from.
+
+```
+#### Association: EmployeeManager
+
+| Source Column | Target Table | Target Column | Condition                                |
+|---------------|--------------|---------------|------------------------------------------|
+| manager_id    | staff        | id            | staff.active = 1 AND {target}.active = 1 |
+```
+
+Followed from the other end, as `employee.reports()` is from `employee.manager()`, the sides trade places: `{target}` is then the
+employee you started from. `{target}` can also be written in a join to another table, where it is that table.
 
 ### Embedded properties
 

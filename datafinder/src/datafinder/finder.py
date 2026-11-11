@@ -1,19 +1,46 @@
+from typing import Callable
+
 from model.relational import (
-    ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind, LogicalOperation,
-    LogicalOperator, Operation,
+    Column, ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind, LogicalOperation,
+    LogicalOperator, Operation, TableAlias,
 )
 
 
-def keys_join(name: str, table, source, target, kind: JoinKind, condition: Operation | None = None) -> JoinOperation:
+class _Side:
+    """One side of a join of a table to itself, to say which of its columns a condition reads."""
+
+    def __init__(self, relation):
+        self.relation = relation
+
+    def column(self, name: str, type: str) -> Column:
+        if isinstance(self.relation, TableAlias):
+            return self.relation.column(name, type)
+        return Column(name, type, self.relation)
+
+
+def keys_join(name: str, table, source, target, kind: JoinKind, condition: Operation | Callable | None = None,
+              reverse: bool = False) -> JoinOperation:
     """``table`` joined where its ``target`` column equals the ``source`` column of what is joined from, and where
     ``condition`` holds besides, as Legend's join ``firmTable.ID = personTable.FIRMID and firmTable.FLAG is null``. The
-    condition reads the columns of the two tables, which say which side they are on."""
+    condition reads the columns of the two tables, which say which side they are on.
+
+    A join of a table to itself has the same table on both sides, so its condition is a function of the two sides,
+    ``lambda plain, target: ...``, as Legend's ``personTable.MANAGERID = {target}.ID``: ``plain`` makes the columns of the
+    table the join starts from, and ``target`` those of the one it reaches. ``reverse`` is that the join is followed from
+    the other end, so the sides trade places."""
     join = JoinOperation.on_keys(name, table, source, target, kind)
     if condition is None:
         return join
-    if join.target is not table:
-        raise ValueError(f"Join '{name}' joins {table.name} to itself: a condition on that is not supported yet")
-    return JoinOperation(name, join.target, LogicalOperation(join.operation, LogicalOperator.AND, condition), kind)
+    if callable(condition):
+        if not isinstance(join.target, TableAlias):
+            raise ValueError(f"Join '{name}' joins {table.name} to another table: its condition is not one of a self join")
+        parent, joined = _Side(source.owner_relation), _Side(join.target)
+        resolved = condition(joined, parent) if reverse else condition(parent, joined)
+    elif join.target is not table:
+        raise ValueError(f"Join '{name}' joins {table.name} to itself: its condition needs to say which side each column is on")
+    else:
+        resolved = condition
+    return JoinOperation(name, join.target, LogicalOperation(join.operation, LogicalOperator.AND, resolved), kind)
 
 
 def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=None,

@@ -4,7 +4,8 @@
 
 It is read into the same condition objects a query is made of, so the generated finders put it into the ``ON`` of the join
 beside its key columns. Columns are written ``table.column`` (or ``schema.table.column``) and say which side they are on by
-their table, so the condition reads the same from either end of the join. Comparisons, ``IS [NOT] NULL``, ``AND``, ``OR``,
+their table, so the condition reads the same from either end of the join. When a table is joined to itself its name is
+both sides, so the joined side is written ``{target}``, as Legend writes it: ``personTable.MANAGERID = {target}.ID``. Comparisons, ``IS [NOT] NULL``, ``AND``, ``OR``,
 ``NOT``, parentheses and string and number literals are read; a function, or anything else, is refused."""
 from __future__ import annotations
 
@@ -17,8 +18,11 @@ from sqlglot.errors import SqlglotError
 from model.relational import (
     ComparisonOperation, ComparisonOperator, Column, DecimalConstantOperation, FloatConstantOperation,
     IntegerConstantOperation, IsNotNullOperation, IsNullOperation, LogicalOperation, LogicalOperator, NotOperation,
-    Operation, RelationalOperationElement, StringConstantOperation, Table,
+    Operation, RelationalOperationElement, StringConstantOperation, Table, TableAlias,
 )
+
+TARGET = "{target}"
+_TARGET_NAME = "__target__"  # SQL has no {target}, so it is read as a name
 
 _COMPARISONS: dict[type, ComparisonOperator] = {
     exp.EQ: ComparisonOperator.EQUAL, exp.NEQ: ComparisonOperator.NOT_EQUAL, exp.LT: ComparisonOperator.LESS_THAN,
@@ -28,15 +32,29 @@ _COMPARISONS: dict[type, ComparisonOperator] = {
 
 
 def parse_condition(text: str, tables: list[Table], where: str) -> Operation:
-    """``text`` as a condition over the columns of ``tables``, the two a join joins. ``where`` names the join for the
-    error message."""
+    """``text`` as a condition over the columns of ``tables``, the two a join joins (the same table twice for a join of a
+    table to itself). ``where`` names the join for the error message.
+
+    ``{target}`` is the table the join reaches. When that is another table it is that table; when it is the table the
+    join starts from, the joined side's columns belong to an alias of the table, that tells them from the starting
+    side's, which the table's own name is."""
+    self_join = len(tables) == 2 and (tables[0] is tables[1] or tables[0].qualified_name == tables[1].qualified_name)
+    target_alias = TableAlias(tables[-1], TARGET) if self_join else None
     try:
-        tree = sqlglot.parse_one(text, read="")
+        tree = sqlglot.parse_one(text.replace(TARGET, _TARGET_NAME), read="")
     except SqlglotError as error:
         raise ValueError(f"{where}: cannot read the condition {text!r}: {error}") from error
 
     def column(node: exp.Column) -> Column:
         table_name, column_name = node.table, node.name
+        if table_name == _TARGET_NAME:
+            target = tables[-1]
+            match = next((c for c in target.columns if c.name.lower() == column_name.lower()), None)
+            if match is None:
+                raise ValueError(f"{where}: table '{target.name}' has no column '{column_name}' (in {text!r})")
+            if target_alias is None:
+                return match
+            return target_alias.column(match.name, match.type)
         if not table_name:
             raise ValueError(f"{where}: the column {column_name!r} in {text!r} needs its table: write table.{column_name}")
         schema = node.args.get("db")

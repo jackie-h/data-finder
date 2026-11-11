@@ -19,6 +19,24 @@ and the person's `flag` is not.
 | legal_name | VARCHAR |     | Y        | legalName   |
 | flag       | INT     |     | Y        |             |
 
+#### Table: staff → Employee
+
+| Column     | Type    | Key | Nullable | Property ID |
+|------------|---------|-----|----------|-------------|
+| id         | INT     | PK  | N        | id          |
+| name       | VARCHAR |     | Y        | name        |
+| manager_id | INT     | FK  | Y        |             |
+| active     | INT     |     | Y        |             |
+
+An employee is joined to itself, so `staff` is both sides of the condition: its own name is the employee the join starts from and
+`{target}` the one it reaches, as in Legend's `personTable.MANAGERID = {target}.ID`. Both have to be active.
+
+#### Association: EmployeeManager
+
+| Source Column | Target Table | Target Column | Condition                                  |
+|---------------|--------------|---------------|--------------------------------------------|
+| manager_id    | staff        | id            | staff.active = 1 AND {target}.active = 1 |
+
 #### Table: persons → Person
 
 | Column     | Type    | Key | Nullable | Property ID |

@@ -396,9 +396,6 @@ def _association_hops(assoc_name: str, rows: list[dict], first_columns: dict, ta
         if text is not None:
             source_table = lhs.table
             assert source_table is not None
-            if source_table is tgt_table or source_table.qualified_name == tgt_table.qualified_name:
-                raise ValueError(f"Association '{assoc_name}': a condition on a join of '{tgt_table.name}' to itself is "
-                                 f"not supported yet")
             condition = parse_condition(text, [source_table, tgt_table], f"Association '{assoc_name}'")
         hops.append((lhs, rhs))
         conditions.append(condition)

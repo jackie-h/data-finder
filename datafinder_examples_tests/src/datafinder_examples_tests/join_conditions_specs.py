@@ -78,3 +78,34 @@ JOIN_CONDITIONS_PERSON_FINDER_SPECS = FinderSpec(
         ),
     ],
 )
+
+JOIN_CONDITIONS_EMPLOYEE_FINDER_SPECS = FinderSpec(
+    finder_name="EmployeeFinder",
+    mapping_file=JOIN_CONDITIONS_MAPPING,
+    expectations=[
+        TestExpectation(
+            name="a_condition_on_a_table_joined_to_itself_says_which_side_each_column_is_on",
+            skip_backends=_NO_CONDITIONS,
+            query=lambda f: f.find_all([f.id_(), f.manager().name()]).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Manager Name"],
+            # Cy is not active, and neither is Di's manager Ed: either side's condition drops the manager, not the employee
+            expected_result=np.array([
+                [1, None], [2, "Ann"], [3, None], [4, None], [5, None], [6, "Bob"],
+            ], dtype=object),
+            expected_sql={"duckdb": "ON (t0.manager_id = t1.id AND t0.active = 1 AND t1.active = 1)"},
+        ),
+        TestExpectation(
+            name="the_join_followed_from_the_other_end_swaps_the_sides",
+            skip_backends=_NO_CONDITIONS,
+            query=lambda f: f.find_all([f.id_(), f.reports().name()])
+                             .order_by(f.id_().ascending(), f.reports().name().ascending()),
+            expected_columns=["Id", "Reports Name"],
+            # an employee's reports are those that are active, under an active manager: Ann has Bob, Bob has Flo,
+            # and Ed, who is not active, has none
+            expected_result=np.array([
+                [1, "Bob"], [2, "Flo"], [3, None], [4, None], [5, None], [6, None],
+            ], dtype=object),
+            expected_sql={"duckdb": "ON (t0.id = t1.manager_id AND t1.active = 1 AND t0.active = 1)"},
+        ),
+    ],
+)
