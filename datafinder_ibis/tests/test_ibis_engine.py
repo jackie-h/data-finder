@@ -11,7 +11,7 @@ from datafinder.typed_attributes import StringAttribute, IntegerAttribute, Doubl
 from datafinder_examples_tests.spec import TestExpectation
 from datafinder_ibis.ibis_engine import IbisConnect, sql_for_backend
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns
-from model.relational import Alias, Column, JoinOperation, JoinTreeNodeOperation, NoOperation, Table
+from model.relational import Alias, Column, JoinOperation, JoinTreeNodeOperation, NoOperation, Table, JoinKind
 from model.view import View
 from model.relational import Table as _OwnerTable
 _OWNER_VT_ACCOUNT = _OwnerTable('vt.account', [])
@@ -158,8 +158,8 @@ class TestIbisSelectView:
         def milestoning():
             return ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"))
 
-        join = JoinOperation("Account", MilestonedTable("vt.account", [], milestoning()),
-                             Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", _OWNER_VT_ACCOUNT))
+        join = JoinOperation.on_keys("Account", MilestonedTable("vt.account", [], milestoning()),
+                             Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", _OWNER_VT_ACCOUNT), JoinKind.LEFT)
         node = JoinTreeNodeOperation(join)
         return View("trade_account", "reporting", MilestonedTable("vt.trades", [], milestoning()),
                     [Alias(StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_VT_TRADES), "symbol"),

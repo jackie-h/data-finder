@@ -11,7 +11,7 @@ from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, Sin
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
-from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
+from model.relational import LIKE_ESCAPE, JoinKind, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
@@ -19,6 +19,13 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation
+
+_JOIN_WORDS = {JoinKind.INNER: 'INNER', JoinKind.LEFT: 'LEFT OUTER', JoinKind.RIGHT: 'RIGHT OUTER', JoinKind.FULL: 'FULL OUTER'}
+
+
+def _join_word(kind: JoinKind) -> str:
+    return ' ' + _JOIN_WORDS[kind] + ' JOIN '
+
 
 class TableAliasColumn(RelationalOperationElement):
     def __init__(self, column: Column, table_alias: TableAlias):
@@ -28,18 +35,12 @@ class TableAliasColumn(RelationalOperationElement):
 
 
 class Join:
-    def __init__(self, source: TableAliasColumn, target: TableAliasColumn, filter_op: RelationalOperationElement | None = None):
-        self.source = source
+    """A join as the query writes it: what is joined, how, and the condition and filter in ON."""
+    def __init__(self, kind: JoinKind, target: TableAlias, condition: str, filter_op: RelationalOperationElement | None = None):
+        self.kind = kind
         self.target = target
+        self.condition = condition
         self.filter_op = filter_op
-
-    def condition(self) -> str:
-        """``source = target``, written with the key column first as Legend writes a join defined as key = foreign key."""
-        first, second = self.source, self.target
-        if second.column.primary_key and not first.column.primary_key:
-            first, second = second, first
-        return (first.table_alias.name + '.' + first.column.name + ' = ' +
-                second.table_alias.name + '.' + second.column.name)
 
 def _open_end_clause(end_attr, value, infinite_datetime: str | None) -> Operation:
     """Returns `end > value` normally, or `(end > value OR end IS NULL)` when infinite_datetime is None."""
@@ -382,13 +383,14 @@ def _apply_sub_selects(query: QuerySpecification, business_date: datetime.date |
     query, on the table's own columns."""
     query.sub_selects = {}
     for node in _exists_only_nodes(query):
-        right = node.join.right
+        key = node.join.keys()[1]
+        right = Column(key.name, key.type, node.join.table, primary_key=key.primary_key)  # of the table, not of an alias of it
         bd, bd_to, pdt, pdt_to = _dates_for_node(node, business_date, business_date_to, processing_datetime,
                                                  processing_datetime_to)
         values = node.join.filter_kwargs
         condition = _build_join_kwargs_filter(None, values, node.join.filter_column_map) if values else NoOperation()
         query.sub_selects[id(node)] = build_query_specification(
-            bd, pdt, [Alias(right, right.name)], node.join.target, condition, business_date_to=bd_to, distinct=True,
+            bd, pdt, [Alias(right, right.name)], node.join.table, condition, business_date_to=bd_to, distinct=True,
             processing_datetime_to=pdt_to)
 
 
@@ -436,14 +438,14 @@ def build_query_specification(business_date: datetime.date | None, processing_da
     query = OrderedQuerySpecification(columns, op, order_by or [], group_by or [], limit, table, distinct, offset, having)
 
     def milestoning_condition(node):
-        if not isinstance(node.join.target, MilestonedTable):
+        if not isinstance(node.join.table, MilestonedTable):
             return None
         bd, bd_to, pdt, pdt_to = _dates_for_node(node, business_date, business_date_to, processing_datetime,
                                                  processing_datetime_to)
         if bd_to is not None or pdt_to is not None:
-            return build_milestoning_filter_operation_for_date_range(bd, bd_to, pdt, node.join.target, node,
+            return build_milestoning_filter_operation_for_date_range(bd, bd_to, pdt, node.join.table, node,
                                                                      processing_datetime_to=pdt_to)
-        return build_milestoning_filter_operation(bd, pdt, node.join.target, node)
+        return build_milestoning_filter_operation(bd, pdt, node.join.table, node)
 
     _apply_join_filters(query, milestoning_condition)
     _apply_sub_selects(query, business_date, business_date_to, processing_datetime, processing_datetime_to)
@@ -882,10 +884,6 @@ class SQLQueryGenerator:
         ta = self.__table_alias_for_table(column.owner_relation, key=self.__join_target_key(parent) if parent is not None else None)
         return ta.name + '.' + column.name
 
-    @staticmethod
-    def __is_self_join(parent: JoinTreeNodeOperation) -> bool:
-        return parent.join.left.owner_name == parent.join.right.owner_name
-
     def __join_target_key(self, parent: JoinTreeNodeOperation):
         """Cache key for the join target alias. Always keyed by node identity so the
         alias in SELECT matches the alias registered in __add_join."""
@@ -1039,26 +1037,48 @@ class SQLQueryGenerator:
             self.__add_join(node.parent)
         self.__added_join_ids.add(id(node))
         join = node.join
-        left = join.left
-        src_key = node.parent if node.parent is not None else None
-        src_ta = self.__table_alias_for_table(left.owner_relation, key=src_key)
         if node.parent is None:
-            self._from.add(src_ta)
-        sc = TableAliasColumn(left, src_ta)
-        right = join.right
-        tc = TableAliasColumn(right, self.__table_alias_for_table(right.owner_relation, key=node))
+            source = next((c for c in join.columns() if not join.is_target(c)), None)
+            assert source is not None, f"Join '{join.name}' reads nothing of what it is joined from"
+            self._from.add(self.__table_alias_for_table(source.owner_relation))
+        target_alias = self.__table_alias_for_table(join.target, key=node)
         # a sub-select carries the step's filter itself, so it is not repeated in the ON clause
-        on_filter = None if isinstance(tc.table_alias.relation, OrderedQuerySpecification) else self._join_filters.get(id(node))
-        self._join.append(Join(sc, tc, on_filter))
+        on_filter = None if isinstance(target_alias.relation, OrderedQuerySpecification) else self._join_filters.get(id(node))
+        self._join.append(Join(join.kind, target_alias, self.build_filter(self.__sided(join.operation, node)), on_filter))
+
+    def __sided(self, op: RelationalOperationElement, node: JoinTreeNodeOperation) -> RelationalOperationElement:
+        """A join's condition with each column under the alias of its side: the joined table's under the step's, any
+        other under the one it is joined from. An equality of two columns has the key first, as Legend writes a join
+        defined as key = foreign key."""
+        def alias_of(column: Column) -> TableAliasColumn:
+            key = node if node.join.is_target(column) else node.parent
+            return TableAliasColumn(column, self.__table_alias_for_table(column.owner_relation, key=key))
+
+        def side(op: RelationalOperationElement) -> RelationalOperationElement:
+            if isinstance(op, Column):
+                return alias_of(op)
+            if isinstance(op, ComparisonOperation):
+                return ComparisonOperation(side(op.left), op.operator, side(op.right))
+            if isinstance(op, LogicalOperation):
+                return LogicalOperation(side(op.left), op.operator, side(op.right))
+            if isinstance(op, (NotOperation, IsNullOperation, IsNotNullOperation)):
+                return type(op)(side(op.element))
+            return op
+
+        if isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.EQUAL \
+                and isinstance(op.left, Column) and isinstance(op.right, Column) \
+                and op.right.primary_key and not op.left.primary_key:
+            op = ComparisonOperation(op.right, op.operator, op.left)
+        return side(op)
 
     def build_filter(self, op:RelationalOperationElement) -> str:
         if isinstance(op, NoOperation):
             return ''
         elif isinstance(op, ExistsOperation):
-            col = op.node.join.right
+            col = op.node.join.keys()[1]
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NOT NULL'
         elif isinstance(op, NotExistsOperation):
-            col = op.node.join.right
+            col = op.node.join.keys()[1]
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NULL'
         elif isinstance(op, InOperation):
             return self.build_filter(op.element) + ' IN (' + ', '.join(constant_value_string(v) for v in op.values) + ')'
@@ -1093,6 +1113,8 @@ class SQLQueryGenerator:
             return sql
         elif isinstance(op, ConstantOperation):
             return constant_value_string(op)
+        elif isinstance(op, TableAliasColumn):
+            return table_alias_column_string(op)
         elif isinstance(op, ColumnWithJoin):
             column, node = self.__resolve(op)
             if node is not None:
@@ -1167,8 +1189,7 @@ class SQLQueryGenerator:
 
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:
-            alias = j.target.table_alias
-            return ' LEFT OUTER JOIN ' + self.__relation_sql(alias) + ' AS ' + alias.name + ' ON (' + j.condition() \
+            return _join_word(j.kind) + self.__relation_sql(j.target) + ' AS ' + j.target.name + ' ON (' + j.condition \
                 + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
 
         joins = map(join_sql, self._join)
@@ -1287,7 +1308,7 @@ def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -
     and for the root row's business date (business axis), so later changes to the child never alter
     rows already in the view. Raises ViewDefinitionError when the root has no corresponding axis.
     """
-    child_table = node.join.target
+    child_table = node.join.table
     if not isinstance(child_table, MilestonedTable):
         return None
     child = child_table.milestoning_columns

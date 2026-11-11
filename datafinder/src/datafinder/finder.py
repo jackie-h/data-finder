@@ -1,4 +1,4 @@
-from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation
+from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind
 
 
 def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=None,
@@ -8,7 +8,7 @@ def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=No
     the property was given are those of each step through a table on the way, as they are of the step that follows."""
     node = parent
     for source, table, target in hops:
-        node = JoinTreeNodeOperation(JoinOperation('', table, source, target), node, optional=True,
+        node = JoinTreeNodeOperation(JoinOperation.on_keys('', table, source, target, JoinKind.LEFT), node, optional=True,
                                      business_date=business_date, processing_datetime=processing_datetime)
     return node
 

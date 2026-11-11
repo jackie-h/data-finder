@@ -5,7 +5,7 @@ from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_a
 from datafinder.attribute import Attribute
 from datafinder.finder import RelatedFinder, display_prefix, via_joins
 from datafinder.runner import convert_date, convert_date_time
-from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, CountAllOperation, Operation
+from model.relational import Column, Table, NoOperation, JoinOperation, JoinKind, JoinTreeNodeOperation, CountAllOperation, Operation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, SingleProcessingDatetimeColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase, {{rcm.clazz.name}}RelatedFinderBase
 
@@ -112,7 +112,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
                  embedded: dict | None = None, many: bool = False, optional: bool = False,
                  business_date: Union[datetime.date, str, None] = None,
                  processing_time: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs):
-        join = JoinOperation(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target)
+        join = JoinOperation.on_keys(relation_name, {{rcm.clazz.name}}RelatedFinder.__table, source, target, JoinKind.LEFT)
         self.__node = JoinTreeNodeOperation(
             join, parent_join, many=many, optional=optional,
             business_date=None if business_date is None else convert_date(business_date),

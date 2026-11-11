@@ -9,7 +9,7 @@ from numpy.testing import assert_array_equal
 
 from datafinder import to_sql
 from datafinder.typed_attributes import StringAttribute, IntegerAttribute, FloatAttribute
-from model.relational import Column, Table, JoinOperation, JoinTreeNodeOperation, NoOperation
+from model.relational import Column, Table, JoinOperation, JoinTreeNodeOperation, NoOperation, JoinKind
 from model.milestoning import ProcessingTemporalColumns, MilestonedTable
 from model.relational import Table as _OwnerTable
 _OWNER_REF_DATA_ACCOUNT_MASTER = _OwnerTable('ref_data.account_master', [])
@@ -52,12 +52,11 @@ def _build_finder():
 
     account_table = Table("ref_data.account_master", [])
 
-    account_join = JoinOperation(
+    account_join = JoinOperation.on_keys(
         "Account",
         account_table,
         Column("account_id", "INT", _OWNER_TRADING_TRADES),
-        Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER),
-    )
+        Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER), JoinKind.LEFT)
     account_node = JoinTreeNodeOperation(account_join)
 
     sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADING_TRADES)

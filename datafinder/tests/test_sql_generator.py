@@ -1,3 +1,4 @@
+from model.relational import JoinKind
 import datetime
 
 import pytest
@@ -6,8 +7,8 @@ from datafinder import StringAttribute, to_sql
 from datafinder import IntegerAttribute
 from datafinder.sql_generator import SQLQueryGenerator, check_view_joins, needs_parentheses
 from datafinder.typed_attributes import DoubleAttribute, DateAttribute, DateTimeAttribute
-from model.relational import Alias, Table, Column, NoOperation, CountAllOperation, JoinOperation, JoinTreeNodeOperation, \
-    LogicalOperation, LogicalOperator
+from model.relational import Alias, Table, Column, NoOperation, CountAllOperation, JoinKind, JoinOperation, JoinTreeNodeOperation, \
+    ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator
 from model.relational import Table as _OwnerTable
 _OWNER_A = _OwnerTable('a', [])
 _OWNER_ACCOUNTS = _OwnerTable('accounts', [])
@@ -840,7 +841,7 @@ class TestImplicitGroupBy:
         id_col = Column("ID", "INT", _OWNER_FIRM, primary_key=root_key)
         root = Table("firm", [id_col, Column("LEGALNAME", "VARCHAR", _OWNER_FIRM)])
         employees = Table("person", [])
-        join = JoinOperation("Employees", employees, Column("ID", "INT", _OWNER_FIRM), Column("FIRMID", "INT", _OWNER_PERSON))
+        join = JoinOperation.on_keys("Employees", employees, Column("ID", "INT", _OWNER_FIRM), Column("FIRMID", "INT", _OWNER_PERSON), JoinKind.LEFT)
         node = JoinTreeNodeOperation(join, many=many)
         name = StringAttribute("Legal Name", "LEGALNAME", "VARCHAR", _OWNER_FIRM)
         age = IntegerAttribute("Employees Age", "AGE", "INT", _OWNER_PERSON, node)
@@ -1474,7 +1475,7 @@ class TestMilestoningFilterShape:
 
     def _joined(self, target):
         root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
-        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", target))
+        join = JoinOperation.on_keys("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", target), JoinKind.LEFT)
         return root, StringAttribute("Child Id", "id", "VARCHAR", target, JoinTreeNodeOperation(join))
 
     def test_bitemporal_where_is_one_flat_and_with_processing_first(self):
@@ -1508,7 +1509,7 @@ class TestMilestoningFilterShape:
         which version of a milestoned table a join reads."""
         target = self._bitemporal("child")
         root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
-        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        join = JoinOperation.on_keys("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD), JoinKind.LEFT)
         attr = IntegerAttribute("Child Id", "id", "INT", _OWNER_CHILD, JoinTreeNodeOperation(join, optional=True))
         sql = to_sql(self._B, self._P, [attr], root, attr > 5)
         assert " ON (t0.id = t1.fk AND t1.in_z <= '2017-06-11 00:00:00' AND t1.out_z > '2017-06-11 00:00:00' " \
@@ -1611,7 +1612,7 @@ class TestMilestoningOnJoinedTable:
         trade_table = MilestonedTable("trades", [sym_col, fk_col, in_z, out_z], mc)
 
         # Reverse join: account_master.ID → trades.account_id
-        join = JoinOperation("Trade", trade_table, account_id_col, fk_col)
+        join = JoinOperation.on_keys("Trade", trade_table, account_id_col, fk_col, JoinKind.LEFT)
         node = JoinTreeNodeOperation(join)
         sym_attr = StringAttribute("Trade Symbol", "sym", "VARCHAR", _OWNER_TRADES, node)
         return account_table, sym_attr
@@ -1669,7 +1670,7 @@ class TestMilestoningOnJoinedTable:
         price_table = MilestonedTable("price", [price_col, in_z_price, out_z_price], mc_price)
         sym_fk = Column("sym", "VARCHAR", _OWNER_TRADES)
         sym_pk = Column("SYM", "VARCHAR", _OWNER_PRICE)
-        join = JoinOperation("Instrument", price_table, sym_fk, sym_pk)
+        join = JoinOperation.on_keys("Instrument", price_table, sym_fk, sym_pk, JoinKind.LEFT)
         price_attr = StringAttribute("Price", "PRICE", "DOUBLE", _OWNER_PRICE, JoinTreeNodeOperation(join))
 
         dt = datetime.datetime(2023, 1, 1, 12, 0, 0)
@@ -1697,12 +1698,12 @@ class TestJoinOrdering:
 
         acct_id = Column("ID", "INT", _OWNER_ACCOUNTS)
         acct_table = Table("accounts", [acct_id])
-        acct_join = JoinOperation("account", acct_table, account_id_col, acct_id)
+        acct_join = JoinOperation.on_keys("account", acct_table, account_id_col, acct_id, JoinKind.LEFT)
         acct_node = JoinTreeNodeOperation(acct_join)
 
         inst_sym = Column("SYM", "VARCHAR", _OWNER_INSTRUMENTS)
         inst_table = Table("instruments", [inst_sym])
-        inst_join = JoinOperation("instrument", inst_table, sym_col, inst_sym)
+        inst_join = JoinOperation.on_keys("instrument", inst_table, sym_col, inst_sym, JoinKind.LEFT)
         inst_node = JoinTreeNodeOperation(inst_join)
 
         acct_name = StringAttribute("Account Id", "ID", "INT", _OWNER_ACCOUNTS, acct_node)
@@ -1739,11 +1740,11 @@ class TestMultiHopJoins:
         trade_table = Table("trades", [trade_sym, trade_emp_fk])
 
         # Hop 1: org → employees
-        emp_join = JoinOperation("employees", emp_table, org_id, emp_org_fk)
+        emp_join = JoinOperation.on_keys("employees", emp_table, org_id, emp_org_fk, JoinKind.LEFT)
         emp_node = JoinTreeNodeOperation(emp_join)
 
         # Hop 2: employees → trades (parent = emp_node)
-        trade_join = JoinOperation("trades", trade_table, emp_id, trade_emp_fk)
+        trade_join = JoinOperation.on_keys("trades", trade_table, emp_id, trade_emp_fk, JoinKind.LEFT)
         trade_node = JoinTreeNodeOperation(trade_join, parent=emp_node)
 
         trade_sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADES, trade_node)
@@ -1782,11 +1783,11 @@ class TestMultiHopJoins:
         d_fk = Column("c_id", "INT", _OWNER_D)
         d_table = Table("d", [d_val, d_fk])
 
-        b_join = JoinOperation("b", b_table, a_id, b_fk)
+        b_join = JoinOperation.on_keys("b", b_table, a_id, b_fk, JoinKind.LEFT)
         b_node = JoinTreeNodeOperation(b_join)
-        c_join = JoinOperation("c", c_table, b_id, c_fk)
+        c_join = JoinOperation.on_keys("c", c_table, b_id, c_fk, JoinKind.LEFT)
         c_node = JoinTreeNodeOperation(c_join, parent=b_node)
-        d_join = JoinOperation("d", d_table, c_id, d_fk)
+        d_join = JoinOperation.on_keys("d", d_table, c_id, d_fk, JoinKind.LEFT)
         d_node = JoinTreeNodeOperation(d_join, parent=c_node)
 
         d_attr = StringAttribute("Val", "val", "VARCHAR", _OWNER_D, d_node)
@@ -1863,11 +1864,10 @@ class TestExistsNotExists:
         trade_table = Table("trading.trades", [Column("sym", "VARCHAR", _OWNER_TRADING_TRADES),
                                                Column("account_id", "INT", _OWNER_TRADING_TRADES)])
         account_table = Table("ref_data.account_master", [])
-        account_join = JoinOperation(
+        account_join = JoinOperation.on_keys(
             "Account", account_table,
             Column("account_id", "INT", _OWNER_TRADING_TRADES),
-            Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER),
-        )
+            Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER), JoinKind.LEFT)
         account_node = JoinTreeNodeOperation(account_join)
         account_finder = RelatedFinder(account_node)
         sym_attr = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_TRADING_TRADES)
@@ -2024,10 +2024,9 @@ class TestEmbeddedJoinElision:
     def _make_trades_with_account_join(self):
         trades = Table("trading.trades", [])
         account_master = Table("ref_data.account_master", [])
-        join = JoinOperation(
+        join = JoinOperation.on_keys(
             "account", account_master,
-            Column("account_id", "INT", _OWNER_TRADING_TRADES), Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER),
-        )
+            Column("account_id", "INT", _OWNER_TRADING_TRADES), Column("ID", "INT", _OWNER_REF_DATA_ACCOUNT_MASTER), JoinKind.LEFT)
         node = JoinTreeNodeOperation(join, None)
         embedded_name = StringAttribute("Account Name", "acct_name", "VARCHAR", _OWNER_TRADING_TRADES, None)
         name_attr = StringAttribute(
@@ -2089,8 +2088,8 @@ class TestJoinConditionOrder:
     def _sql(key_on_target: bool):
         person = Table("person", [])
         firm = Table("firm", [])
-        join = JoinOperation("Firm", firm, Column("FIRMID", "INT", _OWNER_PERSON),
-                             Column("ID", "INT", _OWNER_FIRM, primary_key=key_on_target))
+        join = JoinOperation.on_keys("Firm", firm, Column("FIRMID", "INT", _OWNER_PERSON),
+                             Column("ID", "INT", _OWNER_FIRM, primary_key=key_on_target), JoinKind.LEFT)
         name = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_FIRM, JoinTreeNodeOperation(join))
         return to_sql(None, None, [name], person, NoOperation())
 
@@ -2269,15 +2268,15 @@ class TestOptionalPropertyGuard:
         assert self._where(sql) == " WHERE t0.AGE = 1 AND t0.NAME IS NOT NULL AND t0.NAME LIKE 'x%'"
 
     def test_a_value_reached_through_an_optional_navigation_is_guarded(self):
-        join = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_PERSON), Column("ID", "INT", _OWNER_BOSS))
+        join = JoinOperation.on_keys("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_PERSON), Column("ID", "INT", _OWNER_BOSS), JoinKind.LEFT)
         for optional, guarded in ((True, True), (False, False)):
             node = JoinTreeNodeOperation(join, optional=optional)
             table, age, _ = self._age(optional=False, node=node)
             assert ("IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)) is guarded
 
     def test_an_optional_step_anywhere_on_the_way_counts(self):
-        first = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_PERSON), Column("ID", "INT", _OWNER_BOSS))
-        second = JoinOperation("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_BOSS), Column("ID", "INT", _OWNER_BOSS))
+        first = JoinOperation.on_keys("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_PERSON), Column("ID", "INT", _OWNER_BOSS), JoinKind.LEFT)
+        second = JoinOperation.on_keys("Boss", Table("boss", []), Column("BOSS_ID", "INT", _OWNER_BOSS), Column("ID", "INT", _OWNER_BOSS), JoinKind.LEFT)
         parent = JoinTreeNodeOperation(first, optional=True)
         child = JoinTreeNodeOperation(second, parent, optional=False)
         table, age, _ = self._age(optional=False, node=child)
@@ -2339,7 +2338,7 @@ class TestPerNavigationDates:
 
     def _step(self, target, parent=None, **dates):
         parent_table = Table("parent", []) if parent is None else parent.join.target
-        join = JoinOperation(target.name.title(), target, Column("id", "INT", parent_table), Column("fk", "INT", target))
+        join = JoinOperation.on_keys(target.name.title(), target, Column("id", "INT", parent_table), Column("fk", "INT", target), JoinKind.LEFT)
         return JoinTreeNodeOperation(join, parent, **dates)
 
     @staticmethod
@@ -2451,7 +2450,7 @@ class TestBusinessDateRangeOnly:
     def test_a_joined_table_with_a_range_uses_the_query_date(self):
         root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
         target = self._ranged("child")
-        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        join = JoinOperation.on_keys("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD), JoinKind.LEFT)
         attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join))
         sql = to_sql(self._B, None, [attr], root, NoOperation())
         assert "t1.from_z <= '2017-06-10' AND (t1.thru_z > '2017-06-10' OR t1.thru_z IS NULL)" in sql
@@ -2460,7 +2459,7 @@ class TestBusinessDateRangeOnly:
         from model.view import View
         parent = self._ranged("parent")
         target = self._ranged("child")
-        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        join = JoinOperation.on_keys("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD), JoinKind.LEFT)
         attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join))
         view = View("v", "main", parent, [Alias(attr, "value")], NoOperation(), [])
         check_view_joins(view)
@@ -2469,7 +2468,7 @@ class TestBusinessDateRangeOnly:
         from model.view import View, ViewDefinitionError
         parent = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
         target = self._ranged("child")
-        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        join = JoinOperation.on_keys("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD), JoinKind.LEFT)
         attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join))
         view = View("v", "main", parent, [Alias(attr, "value")], NoOperation(), [])
         with pytest.raises(ViewDefinitionError, match="no business date to anchor"):
@@ -2521,7 +2520,7 @@ class TestProcessingSnapshot:
     @staticmethod
     def _joined(target):
         root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
-        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", target))
+        join = JoinOperation.on_keys("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", target), JoinKind.LEFT)
         return root, StringAttribute("Child Id", "id", "VARCHAR", target, JoinTreeNodeOperation(join))
 
     def test_the_processing_time_must_equal_the_snapshot_time(self):
@@ -2561,7 +2560,7 @@ class TestProcessingSnapshot:
     def test_a_time_given_to_a_step_is_a_point_and_ends_the_range(self):
         from model.relational import JoinTreeNodeOperation as Node
         target = self._snapshot("child")
-        join = JoinOperation("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        join = JoinOperation.on_keys("Child", target, Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD), JoinKind.LEFT)
         own = datetime.datetime(2024, 1, 5, 9, 0, 0)
         attr = StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, Node(join, processing_datetime=own))
         sql = to_sql(None, self._P, [attr], Table("parent", [Column("id", "INT", _OWNER_PARENT)]), NoOperation(),
@@ -2571,14 +2570,49 @@ class TestProcessingSnapshot:
     def test_a_view_pins_a_joined_snapshot_to_the_root_rows_own_snapshot_time(self):
         from model.view import View
         parent = self._snapshot("parent")
-        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        join = JoinOperation.on_keys("Child", self._snapshot("child"), Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD), JoinKind.LEFT)
         view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
         check_view_joins(view)
 
     def test_a_view_refuses_a_joined_snapshot_when_the_root_has_no_processing_time(self):
         from model.view import View, ViewDefinitionError
         parent = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
-        join = JoinOperation("Child", self._snapshot("child"), Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD))
+        join = JoinOperation.on_keys("Child", self._snapshot("child"), Column("id", "INT", _OWNER_PARENT), Column("fk", "INT", _OWNER_CHILD), JoinKind.LEFT)
         view = View("v", "main", parent, [Alias(StringAttribute("Child Id", "id", "VARCHAR", _OWNER_CHILD, JoinTreeNodeOperation(join)), "value")], NoOperation(), [])
         with pytest.raises(ViewDefinitionError, match="no processing time to anchor"):
             check_view_joins(view)
+
+
+class TestJoinOperationCondition:
+    """A join is a target, a condition and an ANSI join type; the columns' owners say which side each is on."""
+
+    _FIRMS = Table("firms", [Column("id", "INT"), Column("region", "VARCHAR")])
+    _PEOPLE = Table("people", [Column("id", "INT"), Column("firm_id", "INT"), Column("manager_id", "INT"),
+                               Column("name", "VARCHAR")])
+
+    def _name_through(self, join: JoinOperation, source_table: Table):
+        node = JoinTreeNodeOperation(join)
+        return source_table, StringAttribute("Name", "name", "VARCHAR", join.table, node)
+
+    def test_the_kind_of_the_join_is_the_one_written(self):
+        for kind, word in ((JoinKind.INNER, "INNER JOIN"), (JoinKind.LEFT, "LEFT OUTER JOIN"),
+                           (JoinKind.RIGHT, "RIGHT OUTER JOIN"), (JoinKind.FULL, "FULL OUTER JOIN")):
+            join = JoinOperation.on_keys("people", self._PEOPLE, self._FIRMS.columns[0], self._PEOPLE.columns[1], kind)
+            table, name = self._name_through(join, self._FIRMS)
+            assert f" {word} people AS t1 ON (t0.id = t1.firm_id)" in to_sql(None, None, [name], table, NoOperation())
+
+    def test_a_condition_can_be_more_than_one_equality(self):
+        condition = LogicalOperation(
+            ComparisonOperation(self._FIRMS.columns[0], ComparisonOperator.EQUAL, self._PEOPLE.columns[1]),
+            LogicalOperator.AND,
+            ComparisonOperation(self._FIRMS.columns[1], ComparisonOperator.NOT_EQUAL, self._PEOPLE.columns[3]))
+        join = JoinOperation("people", self._PEOPLE, condition, JoinKind.INNER)
+        table, name = self._name_through(join, self._FIRMS)
+        sql = to_sql(None, None, [name], table, NoOperation())
+        assert "INNER JOIN people AS t1 ON (t0.id = t1.firm_id AND t0.region <> t1.name)" in sql
+
+    def test_a_table_joined_to_itself_reads_through_an_alias_of_it(self):
+        join = JoinOperation.on_keys("manager", self._PEOPLE, self._PEOPLE.columns[2], self._PEOPLE.columns[0], JoinKind.LEFT)
+        table, name = self._name_through(join, self._PEOPLE)
+        sql = to_sql(None, None, [name], table, NoOperation())
+        assert "FROM people AS t0 LEFT OUTER JOIN people AS t1 ON (t0.manager_id = t1.id)" in sql

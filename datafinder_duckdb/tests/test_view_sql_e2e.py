@@ -1,3 +1,4 @@
+from model.relational import JoinKind
 """A View rendered as CREATE VIEW DDL and created in DuckDB.
 
 Trade (milestoned) -> Account (milestoned) -> Branch (not milestoned), built by hand the way the generated
@@ -50,11 +51,11 @@ class _Model:
 
     def __init__(self):
         self.trades = MilestonedTable("vt.trades", [], _milestoning())
-        account_join = JoinOperation("Account", MilestonedTable("vt.account", [], _milestoning()),
-                                     Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", _OWNER_VT_ACCOUNT))
+        account_join = JoinOperation.on_keys("Account", MilestonedTable("vt.account", [], _milestoning()),
+                                     Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", _OWNER_VT_ACCOUNT), JoinKind.LEFT)
         account_node = JoinTreeNodeOperation(account_join)
-        branch_join = JoinOperation("Branch", Table("vt.branch", []), Column("branch_id", "INT", _OWNER_VT_ACCOUNT),
-                                    Column("id", "INT", _OWNER_VT_BRANCH))
+        branch_join = JoinOperation.on_keys("Branch", Table("vt.branch", []), Column("branch_id", "INT", _OWNER_VT_ACCOUNT),
+                                    Column("id", "INT", _OWNER_VT_BRANCH), JoinKind.LEFT)
         branch_node = JoinTreeNodeOperation(branch_join, account_node)
         self.symbol = StringAttribute("Symbol", "sym", "VARCHAR", _OWNER_VT_TRADES)
         self.price = FloatAttribute("Price", "price", "DOUBLE", _OWNER_VT_TRADES)
