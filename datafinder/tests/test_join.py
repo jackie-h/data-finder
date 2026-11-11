@@ -36,37 +36,11 @@ def test_inner_is_the_default():
     assert " INNER JOIN " in trades.join(accounts, lambda t, a: t.account == a.id).to_sql()
 
 
-def test_a_cross_join_has_no_condition_and_no_on():
-    trades, accounts = _results()
-    sql = trades.join(accounts, how="cross").to_sql()
-    assert ") AS t0 CROSS JOIN (SELECT " in sql and " ON " not in sql and "WHERE" not in sql
-
-
-def test_a_semi_join_keeps_the_rows_that_have_a_match_and_only_the_left_columns():
-    trades, accounts = _results()
-    sql = trades.join(accounts, lambda t, a: t.account == a.id, how="semi").to_sql()
-    assert sql.startswith('SELECT t0.account AS "account",t0.sym AS "sym",t0.price AS "price" FROM (SELECT ')
-    assert " WHERE EXISTS (SELECT 1 FROM (SELECT " in sql and sql.endswith("WHERE t0.account = t1.id)")
-    assert " JOIN " not in sql
-
-
-def test_an_anti_join_keeps_the_rows_that_have_none():
-    trades, accounts = _results()
-    sql = trades.join(accounts, lambda t, a: t.account == a.id, how="anti").to_sql()
-    assert " WHERE NOT EXISTS (SELECT 1 FROM (SELECT " in sql
-
-
 def test_a_condition_of_several_comparisons_is_joined_with_and_or_or():
     trades, accounts = _results()
     sql = trades.join(accounts, lambda t, a: ((t.account == a.id) & (t.sym != a.name)) | (t.price > 5.0)).to_sql()
     assert sql.endswith("ON (t0.account = t1.id AND t0.sym <> t1.name OR t0.price > 5.0)") \
         or sql.endswith("ON ((t0.account = t1.id AND t0.sym <> t1.name) OR t0.price > 5.0)")
-
-
-def test_a_filtered_left_result_is_filtered_inside_it_and_the_existence_test_is_the_outer_where():
-    trades, accounts = _results()
-    sql = trades.filter(lambda r: r.price > 1.0).join(accounts, lambda t, a: t.account == a.id, how="semi").to_sql()
-    assert "WHERE t3.price > 1.0" in sql and " WHERE EXISTS (SELECT 1 FROM " in sql
 
 
 def test_a_joined_result_can_be_filtered_extended_ordered_and_aggregated_like_any_other():
@@ -86,10 +60,9 @@ def test_a_join_can_be_joined_again():
     assert twice.to_sql().count("JOIN") == 2
 
 
-def test_the_columns_of_a_join_are_the_columns_of_both_or_the_left_for_semi_and_anti():
+def test_the_columns_of_a_join_are_the_columns_of_both():
     trades, accounts = _results()
-    assert trades.join(accounts, how="cross").columns() == ["account", "sym", "price", "id", "name"]
-    assert trades.join(accounts, lambda t, a: t.account == a.id, how="anti").columns() == ["account", "sym", "price"]
+    assert trades.join(accounts, lambda t, a: t.account == a.id).columns() == ["account", "sym", "price", "id", "name"]
 
 
 def test_the_model_of_a_join_is_a_joined_table_of_two_relations():
@@ -97,30 +70,21 @@ def test_the_model_of_a_join_is_a_joined_table_of_two_relations():
     joined = trades.join(accounts, lambda t, a: t.account == a.id, how="left")._table
     assert isinstance(joined, JoinedTable) and joined.kind is JoinKind.LEFT
     assert isinstance(joined.condition, ComparisonOperation)
+    assert joined.join.kind is JoinKind.LEFT and joined.right is joined.join.target
     assert len(joined.columns) == len(joined.left.columns) + len(joined.right.columns) == 5
 
 
-def test_the_two_sides_columns_must_be_named_differently_for_a_join_that_shows_both():
+def test_the_two_sides_columns_must_be_named_differently():
     trades, _ = _results()
     with pytest.raises(ValueError, match="account"):
         trades.join(trades, lambda a, b: a.price == b.price)
-    trades.join(trades, lambda a, b: a.price == b.price, how="semi")  # only the left's columns are shown: no clash
 
 
-def test_a_join_that_is_not_a_cross_join_needs_a_condition_and_a_cross_join_has_none():
+def test_how_is_one_of_the_ansi_join_types():
     trades, accounts = _results()
-    with pytest.raises(ValueError, match="needs a condition"):
-        trades.join(accounts)
-    with pytest.raises(ValueError, match="needs a condition"):
-        trades.join(accounts, how="left")
-    with pytest.raises(ValueError, match="no condition"):
-        trades.join(accounts, lambda t, a: t.account == a.id, how="cross")
-
-
-def test_how_is_one_of_the_kinds():
-    trades, accounts = _results()
-    with pytest.raises(ValueError, match="one of"):
-        trades.join(accounts, lambda t, a: t.account == a.id, how="outer")  # type: ignore[arg-type]
+    for how in ("outer", "cross", "semi", "anti"):
+        with pytest.raises(ValueError, match="one of"):
+            trades.join(accounts, lambda t, a: t.account == a.id, how=how)  # type: ignore[arg-type]
 
 
 def test_a_condition_is_a_function_that_gives_a_comparison():

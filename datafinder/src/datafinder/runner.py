@@ -12,7 +12,7 @@ from model.relational import (
     AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
     DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
-    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, JoinedTable, JoinKind, NoOperation, Operation,
+    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, JoinedTable, JoinKind, JoinOperation, NoOperation, Operation,
     QueryExpression, Relation, RelationalOperationElement,
     ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
     UnionOperation,
@@ -346,49 +346,39 @@ class FinderResult(DataFrame):
             raise KeyError(f"No column {missing} in this result: its columns are {list(attributes)}")
         return self._next([attributes[n] for n in names])
 
-    def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation] | None = None,
-             how: Literal["inner", "left", "right", "full", "cross", "semi", "anti"] = "inner") -> 'FinderResult':
+    def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation],
+             how: Literal["inner", "left", "right", "full"] = "inner") -> 'FinderResult':
         """The rows of this result put together with the rows of ``other``, as Legend's ``join``. The condition is a function
         of a row of each (bracket each comparison, and join them with ``&`` or ``|``: ``and`` and ``or`` would drop one)::
 
             orders.join(customers, lambda o, c: o.customer_id == c.id)                  # inner, the default
             orders.join(customers, lambda o, c: o.customer_id == c.id, how="left")      # every order, with a customer or NULL
-            totals.join(rows, how="cross")                                               # every row with every row: no condition
-            lines.join(others, lambda a, b: (a.order == b.order) & (a.supplier != b.supplier), how="semi")
+            lines.join(others, lambda a, b: (a.order == b.order) & (a.supplier != b.supplier))
 
-        ``how`` is ``inner``, ``left``, ``right``, ``full`` (outer joins keep the rows that find no match, with NULL for the
-        other side's columns), ``cross``, or ``semi`` and ``anti``: the rows of this result that have, or have no, row of
-        ``other`` meeting the condition, as SQL's ``EXISTS`` and ``NOT EXISTS``, with this result's columns only.
+        ``how`` is one of ANSI SQL's join types: ``inner``, or ``left``, ``right`` or ``full``, the outer joins that keep the
+        rows that find no match, with NULL for the other side's columns.
 
         The columns of the two must be named differently, as Legend requires: name them with ``alias()``, or ``extend`` then
-        ``select``. (A semi or anti join has only this result's columns, so the names of the other's do not matter.)"""
+        ``select``."""
         try:
             kind = JoinKind(how)
         except ValueError:
             raise ValueError(f"A join is one of {[k.value for k in JoinKind]}, not '{how}'") from None
-        if kind is JoinKind.CROSS:
-            if condition is not None:
-                raise ValueError("A cross join pairs every row with every row: it has no condition (join(other, how=\"cross\"))")
-        elif condition is None:
-            raise ValueError(f"A {how} join needs a condition: join(other, lambda a, b: a.key == b.key), or how=\"cross\" "
-                             "to pair every row with every row")
-        elif not callable(condition):
+        if not callable(condition):
             raise TypeError("A join condition is a function of a row of each: join(other, lambda a, b: a.key == b.key)")
         left_alias, left = self._relation()
         right_alias, right = other._relation()
-        if kind not in (JoinKind.SEMI, JoinKind.ANTI):
-            repeated = sorted(set(left) & set(right))
-            if repeated:
-                raise ValueError(f"A join needs the columns of its two sides named differently, but {repeated} are on both: "
-                                 "name them with alias(), or extend() then select()")
-        test = None
-        if condition is not None:
-            test = condition(Row(left), Row(right))
-            if not isinstance(test, Operation):
-                raise TypeError("A join condition gives a comparison, such as a.key == b.key, not "
-                                f"{type(test).__name__} (combine comparisons with & and |, each in brackets)")
-        shown = list(left.values()) if kind in (JoinKind.SEMI, JoinKind.ANTI) else [*left.values(), *right.values()]
-        return FinderResult(None, None, shown, JoinedTable(left_alias, right_alias, kind, test), NoOperation())
+        repeated = sorted(set(left) & set(right))
+        if repeated:
+            raise ValueError(f"A join needs the columns of its two sides named differently, but {repeated} are on both: "
+                             "name them with alias(), or extend() then select()")
+        test = condition(Row(left), Row(right))
+        if not isinstance(test, Operation):
+            raise TypeError("A join condition gives a comparison, such as a.key == b.key, not "
+                            f"{type(test).__name__} (combine comparisons with & and |, each in brackets)")
+        shown = [*left.values(), *right.values()]
+        return FinderResult(None, None, shown, JoinedTable(left_alias, JoinOperation('', right_alias, test, kind)),
+                            NoOperation())
 
     @overload
     def group_by(self, *keys: Callable[['Row'], Any]) -> 'GroupedRows': ...  # pyright: ignore[reportOverlappingOverload]

@@ -122,3 +122,65 @@ class TestColumnNullable:
 
     def test_primary_key_is_not_nullable(self):
         assert Column("id", "INTEGER", primary_key=True).nullable is False
+
+
+# --- JoinOperation: a relation joined on a condition, of an ANSI join type ---------------------------------------------
+
+import pytest
+from model.relational import (ComparisonOperation, ComparisonOperator, JoinKind, JoinOperation, LogicalOperation,
+                              LogicalOperator, Table as _JoinTable, TableAlias as _JoinAlias, Column as _JoinColumn)
+
+_FIRMS = _JoinTable("firms", [("ID", "INT")], primary_key=["ID"])
+_PEOPLE = _JoinTable("people", [("ID", "INT"), ("FIRMID", "INT"), ("MANAGERID", "INT")], primary_key=["ID"])
+
+
+def _equal(left, right):
+    return ComparisonOperation(left, ComparisonOperator.EQUAL, right)
+
+
+def test_the_join_types_are_ansi_sqls():
+    assert [k.name for k in JoinKind] == ["INNER", "LEFT", "RIGHT", "FULL"]
+
+
+def test_a_join_is_a_target_a_condition_and_a_kind():
+    condition = _equal(_FIRMS.columns[0], _PEOPLE.columns[1])
+    join = JoinOperation("People", _PEOPLE, condition, JoinKind.LEFT)
+    assert join.target is _PEOPLE and join.operation is condition and join.kind is JoinKind.LEFT
+    assert join.table is _PEOPLE
+
+
+def test_the_owner_of_a_column_says_which_side_it_is_on():
+    join = JoinOperation("People", _PEOPLE, _equal(_FIRMS.columns[0], _PEOPLE.columns[1]), JoinKind.INNER)
+    assert [join.is_target(c) for c in join.columns()] == [False, True]
+    assert join.keys() == (_FIRMS.columns[0], _PEOPLE.columns[1])
+    # the written order does not matter: the key still reads (from what is joined from, of the target)
+    reversed_join = JoinOperation("People", _PEOPLE, _equal(_PEOPLE.columns[1], _FIRMS.columns[0]), JoinKind.INNER)
+    assert reversed_join.keys() == (_FIRMS.columns[0], _PEOPLE.columns[1])
+
+
+def test_a_condition_can_be_more_than_one_column_equal_to_another():
+    condition = LogicalOperation(_equal(_FIRMS.columns[0], _PEOPLE.columns[1]), LogicalOperator.AND,
+                                 ComparisonOperation(_PEOPLE.columns[0], ComparisonOperator.GREATER_THAN, _FIRMS.columns[0]))
+    join = JoinOperation("People", _PEOPLE, condition, JoinKind.INNER)
+    assert len(join.columns()) == 4
+    with pytest.raises(ValueError, match="no key"):
+        join.keys()
+
+
+def test_a_column_with_no_owner_is_refused_when_the_join_is_made():
+    with pytest.raises(ValueError, match="no owner"):
+        JoinOperation("People", _PEOPLE, _equal(_JoinColumn("ID", "INT"), _PEOPLE.columns[1]), JoinKind.INNER)
+
+
+def test_one_table_on_both_sides_is_joined_to_an_alias_of_it_that_owns_its_columns():
+    manager_id = _PEOPLE.columns[2]
+    join = JoinOperation.on_keys("manager", _PEOPLE, manager_id, _PEOPLE.columns[0], JoinKind.LEFT)
+    assert isinstance(join.target, _JoinAlias) and join.target.name == "manager" and join.table is _PEOPLE
+    source, target = join.keys()
+    assert source is manager_id and target.owner is join.target and target.name == "ID"
+    assert [join.is_target(c) for c in (source, target)] == [False, True]
+
+
+def test_a_different_table_is_joined_as_it_is():
+    join = JoinOperation.on_keys("firm", _FIRMS, _PEOPLE.columns[1], _FIRMS.columns[0], JoinKind.LEFT)
+    assert join.target is _FIRMS

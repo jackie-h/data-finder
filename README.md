@@ -521,9 +521,8 @@ top.order_by(top["account"].ascending())
 - `join(other, lambda a, b: a.key == b.key, how="inner")` puts the rows of two results together, as Legend's `join` and as pandas,
   polars and ibis do. The condition is a function of a row of each, so it can be more than equality, and several comparisons
   are combined with `&` and `|` (each in brackets: Python's `and` would keep only one). `how` is `inner` (the default), `left`,
-  `right` or `full`, `cross` (no condition: every row with every row, which pairs a result with a one-row aggregate), or `semi`
-  and `anti`: the rows of this result that have, or have no, match in `other`, as `EXISTS` and `NOT EXISTS`, with only this
-  result's columns. The two sides' columns must be named differently (`alias()`, or `extend` then `select`), as Legend requires.
+  `right` or `full`: ANSI SQL's join types, the outer ones keeping the rows that find no match, with NULL for the other side's
+  columns. The two sides' columns must be named differently (`alias()`, or `extend` then `select`), as Legend requires.
 - `group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count(), avg=lambda r: r.salary.average())` groups the rows
   and gives the key columns and an aggregate of each group, as Legend's `groupBy`. Several keys are a tuple
   (`lambda r: (r.dept, r.title)`), and a key that is worked out is named with `alias`. `aggregate(...)` alone is one row for the

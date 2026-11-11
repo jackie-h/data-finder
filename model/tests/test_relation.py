@@ -43,8 +43,16 @@ def test_a_table_alias_is_a_named_relation_with_the_columns_of_what_it_names():
     alias = TableAlias(query, "relation1")
     assert isinstance(alias, NamedRelation) and alias.name == "relation1" and alias.relation is query
     assert list(alias.columns) == [_NAME]
-    # a table can be read under a name too
-    assert list(TableAlias(_TABLE, "a").columns) == [_ID, _NAME]
+
+
+def test_an_alias_of_a_table_has_columns_of_its_own_that_it_owns():
+    alias = TableAlias(_TABLE, "a")
+    columns = [c for c in alias.columns if isinstance(c, Column)]
+    assert [(c.name, c.type) for c in columns] == [("ID", "INT"), ("NAME", "VARCHAR")]
+    assert all(c.owner is alias and c is not original for c, original in zip(columns, _TABLE.columns))
+    assert alias.column("ID", "INT") is alias.columns[0]
+    made = alias.column("EXTRA", "DATE")  # a table in a finder lists only the columns it reads: the alias makes the rest
+    assert made.owner is alias and alias.columns[-1] is made
 
 
 def test_the_same_relation_can_be_read_under_two_names():

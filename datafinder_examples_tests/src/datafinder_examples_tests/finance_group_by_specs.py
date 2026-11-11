@@ -86,15 +86,8 @@ def _each_trade_with_its_account_total(f):
 def _accounts_with_the_trades_over_350(f, how):
     accounts = _account_totals(f).select("total_account")
     joined = accounts.join(_dearer_trades(f), lambda a, t: a.total_account == t.dear_account, how=how)
-    result = joined.select("total_account", "dear_sym") if how in ("left", "inner") else joined
+    result = joined.select("total_account", "dear_sym")
     return result.order_by(result["total_account"].ascending())
-
-
-def _trades_at_the_highest_price_by_a_cross_join(f):
-    """Every trade paired with the one-row relation of the highest price: a scalar subquery as a join."""
-    highest = _trades(f).aggregate(highest=lambda r: r.price.max())
-    joined = _trades(f).join(highest, how="cross")
-    return joined.filter(lambda r: r.price == r.highest).select("account", "sym", "price")
 
 
 def _right_join_of_the_trades_over_350_to_the_accounts(f):
@@ -238,27 +231,6 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
             query=lambda f: _accounts_with_the_trades_over_350(f, "left"),
             expected_columns=["total_account", "dear_sym"],
             expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], ["Gamma Fund", "GS"]], dtype=object),
-        ),
-        TestExpectation(
-            name="join_cross_pairs_every_row_with_a_one_row_aggregate",
-            skip_backends=_NO_CHAIN,
-            query=_trades_at_the_highest_price_by_a_cross_join,
-            expected_columns=["account", "sym", "price"],
-            expected_result=np.array([["Gamma Fund", "GS", 500.0]], dtype=object),
-        ),
-        TestExpectation(
-            name="join_semi_keeps_the_rows_that_have_a_match",
-            skip_backends=_NO_CHAIN,
-            query=lambda f: _accounts_with_the_trades_over_350(f, "semi"),
-            expected_columns=["total_account"],
-            expected_result=np.array([["Beta Fund"], ["Gamma Fund"]], dtype=object),
-        ),
-        TestExpectation(
-            name="join_anti_keeps_the_rows_that_have_none",
-            skip_backends=_NO_CHAIN,
-            query=lambda f: _accounts_with_the_trades_over_350(f, "anti"),
-            expected_columns=["total_account"],
-            expected_result=np.array([["Alpha Fund"]], dtype=object),
         ),
         TestExpectation(
             name="join_right_keeps_every_row_of_the_right",
