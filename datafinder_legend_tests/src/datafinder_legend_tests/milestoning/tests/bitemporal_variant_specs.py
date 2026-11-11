@@ -20,6 +20,10 @@ BITEMPORAL_ON_NO_MILESTONING_SPECS = FinderSpec(
         ported("testMultipleBiTemporalPropertyUsageInProjectWithMilestoningInfinityNotSpecifiedInDB", "milestoning/tests/testBiTemporalDateMilestoning.pure::testMultipleBiTemporalPropertyUsageInProjectWithMilestoningInfinityNotSpecifiedInDB",
                'select "productclassificationtablenomilestoning_0".type as "type" from OrderTable as "root" left outer join ProductTableNoMilestoning as "producttablenomilestoning_0" on ("root".prodFk = "producttablenomilestoning_0".id) left outer join ProductClassificationTableNoMilestoning as "productclassificationtablenomilestoning_0" on ("producttablenomilestoning_0".type = "productclassificationtablenomilestoning_0".type)',
                lambda f: f.find_all([f.bi_temporal_product().bi_temporal_classification().type_()])),
+        ported("testLatestIgnoredForNonMilestonedMappedBiTemporalClassesWithProject",
+               "milestoning/tests/testLatestDateMilestoning.pure::testLatestIgnoredForNonMilestonedMappedBiTemporalClassesWithProject",
+               'select "producttablenomilestoning_0".type as "productType" from OrderTable as "root" left outer join ProductTableNoMilestoning as "producttablenomilestoning_0" on ("root".prodFk = "producttablenomilestoning_0".id)',
+               lambda f: f.find_all([f.bi_temporal_product().type_()])),
     ],
 )
 
