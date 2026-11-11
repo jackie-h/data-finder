@@ -76,7 +76,7 @@ def _processing_predicate(mc: MilestoningColumns, processing_datetime: datetime.
         return None
     start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, _table_of(mc.start_at_column), join_node)
     end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, _table_of(mc.end_at_column), join_node)
-    return LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime))
+    return LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.processing_infinite_datetime))
 
 
 def _processing_range_predicate(mc: MilestoningColumns, processing_from: datetime.datetime | datetime.date,
@@ -90,7 +90,7 @@ def _processing_range_predicate(mc: MilestoningColumns, processing_from: datetim
         return None
     start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, _table_of(mc.start_at_column), join_node)
     end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, _table_of(mc.end_at_column), join_node)
-    return LogicalOperation(start_at <= processing_to, LogicalOperator.AND, _open_end_clause(end_at, processing_from, mc.infinite_datetime))
+    return LogicalOperation(start_at <= processing_to, LogicalOperator.AND, _open_end_clause(end_at, processing_from, mc.processing_infinite_datetime))
 
 
 def _business_predicate(mc: MilestoningColumns, business_date: datetime.date | None,
@@ -101,7 +101,7 @@ def _business_predicate(mc: MilestoningColumns, business_date: datetime.date | N
     if isinstance(mc, BusinessDateRangeColumns):
         date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, _table_of(mc.business_date_from_column), join_node)
         date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, _table_of(mc.business_date_to_column), join_node)
-        return LogicalOperation(date_from <= business_date, LogicalOperator.AND, _open_end_clause(date_to, business_date, mc.infinite_datetime))
+        return LogicalOperation(date_from <= business_date, LogicalOperator.AND, _open_end_clause(date_to, business_date, mc.business_infinite_datetime))
     if isinstance(mc, SingleBusinessDateColumn):
         business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, _table_of(mc.business_date_column), join_node)
         return business_att == business_date
@@ -117,7 +117,7 @@ def _business_range_predicate(mc: MilestoningColumns, business_date_from: dateti
     if isinstance(mc, BusinessDateRangeColumns):
         date_from = DateAttribute('business_date_from', mc.business_date_from_column.name, mc.business_date_from_column.type, _table_of(mc.business_date_from_column), join_node)
         date_to = DateAttribute('business_date_to', mc.business_date_to_column.name, mc.business_date_to_column.type, _table_of(mc.business_date_to_column), join_node)
-        return LogicalOperation(date_from <= business_date_to, LogicalOperator.AND, _open_end_clause(date_to, business_date_from, mc.infinite_datetime))
+        return LogicalOperation(date_from <= business_date_to, LogicalOperator.AND, _open_end_clause(date_to, business_date_from, mc.business_infinite_datetime))
     if isinstance(mc, SingleBusinessDateColumn):
         business_att = DateAttribute('business_date', mc.business_date_column.name, mc.business_date_column.type, _table_of(mc.business_date_column), join_node)
         return LogicalOperation(business_att >= business_date_from, LogicalOperator.AND, business_att <= business_date_to)
@@ -1326,7 +1326,7 @@ def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -
                                                   ComparisonOperator.EQUAL, _as_of_root_column(processing_point)))
         else:
             conditions.append(_as_of_interval_contains(child.start_at_column, child.end_at_column,
-                                                       _as_of_root_column(processing_point), child.infinite_datetime,
+                                                       _as_of_root_column(processing_point), child.processing_infinite_datetime,
                                                        node))
 
     if isinstance(child, (SingleBusinessDateColumn, BusinessDateRangeColumns)):
@@ -1339,7 +1339,7 @@ def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -
                                                   ComparisonOperator.EQUAL, _as_of_root_column(point)))
         else:
             conditions.append(_as_of_interval_contains(child.business_date_from_column, child.business_date_to_column,
-                                                       _as_of_root_column(point), child.infinite_datetime, node))
+                                                       _as_of_root_column(point), child.business_infinite_datetime, node))
     return _as_of_and(conditions) if conditions else None
 
 

@@ -152,19 +152,22 @@ def _scheme_columns_code(table: Table) -> str:
             raise ValueError(f"Table '{table.name}': milestoning column '{name}' of scheme '{scheme.name}' is not a column")
         return f"Column('{column.name}', '{column.type}')"
 
-    infinite = f", infinite_datetime='{scheme.infinite_datetime}'" if scheme.infinite_datetime else ""
+    processing_infinite = (f", processing_infinite_datetime='{scheme.processing_infinite_datetime}'"
+                           if scheme.processing_infinite_datetime else "")
+    business_infinite = (f", business_infinite_datetime='{scheme.business_infinite_datetime}'"
+                         if scheme.business_infinite_datetime else "")
     if scheme.processing_datetime:
         return f"SingleProcessingDatetimeColumn({col(scheme.processing_datetime)})"
     if scheme.processing_start and (scheme.business_date_from or scheme.business_date_to):
         return (f"BiTemporalColumns({col(scheme.business_date_from)}, {col(scheme.business_date_to)}, "
-                f"{col(scheme.processing_start)}, {col(scheme.processing_end)}{infinite})")
+                f"{col(scheme.processing_start)}, {col(scheme.processing_end)}{processing_infinite}{business_infinite})")
     if scheme.processing_start and scheme.business_date:
         return (f"BusinessDateAndProcessingTemporalColumns({col(scheme.business_date)}, {col(scheme.processing_start)}, "
-                f"{col(scheme.processing_end)}{infinite})")
+                f"{col(scheme.processing_end)}{processing_infinite})")
     if scheme.processing_start:
-        return f"ProcessingTemporalColumns({col(scheme.processing_start)}, {col(scheme.processing_end)}{infinite})"
+        return f"ProcessingTemporalColumns({col(scheme.processing_start)}, {col(scheme.processing_end)}{processing_infinite})"
     if scheme.business_date_from or scheme.business_date_to:
-        return f"BusinessDateRangeColumns({col(scheme.business_date_from)}, {col(scheme.business_date_to)}{infinite})"
+        return f"BusinessDateRangeColumns({col(scheme.business_date_from)}, {col(scheme.business_date_to)}{business_infinite})"
     if scheme.business_date:
         return f"SingleBusinessDateColumn({col(scheme.business_date)})"
     raise ValueError(f"Milestoning scheme '{scheme.name}' has no columns")

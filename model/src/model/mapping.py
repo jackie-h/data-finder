@@ -13,10 +13,10 @@ class MilestonePropertyMapping:
         pass
 
 class ProcessingDateMilestonesPropertyMapping(MilestonePropertyMapping):
-    def __init__(self, _in: PropertyMapping, _out: PropertyMapping, infinite_datetime: str | None = None):
+    def __init__(self, _in: PropertyMapping, _out: PropertyMapping, processing_infinite_datetime: str | None = None):
         self._in = _in
         self._out = _out
-        self.infinite_datetime = infinite_datetime
+        self.processing_infinite_datetime = processing_infinite_datetime
 
 class SingleProcessingDatetimeMilestonePropertyMapping(MilestonePropertyMapping):
     def __init__(self, _datetime: PropertyMapping):
@@ -31,24 +31,26 @@ class SingleBusinessDateMilestonePropertyMapping(MilestonePropertyMapping):
 class BusinessDateAndProcessingMilestonePropertyMapping(SingleBusinessDateMilestonePropertyMapping,
                                                         ProcessingDateMilestonesPropertyMapping):
     def __init__(self, _date: PropertyMapping, _in: PropertyMapping, _out: PropertyMapping,
-                 infinite_datetime: str | None = None):
+                 processing_infinite_datetime: str | None = None):
         SingleBusinessDateMilestonePropertyMapping.__init__(self, _date)
-        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, infinite_datetime)
+        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, processing_infinite_datetime)
 
 
 class BusinessDateRangeMilestonePropertyMapping(MilestonePropertyMapping):
-    def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping, infinite_datetime: str | None = None):
+    def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping,
+                 business_infinite_datetime: str | None = None):
         self._date_from = _date_from
         self._date_to = _date_to
-        self.infinite_datetime = infinite_datetime
+        self.business_infinite_datetime = business_infinite_datetime
 
 
 class BiTemporalMilestonePropertyMapping(BusinessDateRangeMilestonePropertyMapping,
                                          ProcessingDateMilestonesPropertyMapping):
     def __init__(self, _date_from: PropertyMapping, _date_to: PropertyMapping,
-                 _in: PropertyMapping, _out: PropertyMapping, infinite_datetime: str | None = None):
-        BusinessDateRangeMilestonePropertyMapping.__init__(self, _date_from, _date_to, infinite_datetime)
-        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, infinite_datetime)
+                 _in: PropertyMapping, _out: PropertyMapping, processing_infinite_datetime: str | None = None,
+                 business_infinite_datetime: str | None = None):
+        BusinessDateRangeMilestonePropertyMapping.__init__(self, _date_from, _date_to, business_infinite_datetime)
+        ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, processing_infinite_datetime)
 
 class ClassMapping:
     def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):

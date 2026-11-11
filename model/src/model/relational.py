@@ -1585,15 +1585,17 @@ class NamedRelation(Relation):
 class MilestoningScheme:
     def __init__(self, name: str, processing_start: str | None = None, processing_end: str | None = None,
                  business_date: str | None = None, business_date_from: str | None = None,
-                 business_date_to: str | None = None, infinite_datetime: str | None = None,
-                 processing_datetime: str | None = None):
+                 business_date_to: str | None = None, processing_infinite_datetime: str | None = None,
+                 processing_datetime: str | None = None, business_infinite_datetime: str | None = None):
         self.name = name
         self.processing_start = processing_start
         self.processing_end = processing_end
         self.business_date = business_date
         self.business_date_from = business_date_from
         self.business_date_to = business_date_to
-        self.infinite_datetime = infinite_datetime
+        # what the end of a row that has not ended holds on each axis: a datetime or a date, or ``None`` for NULL
+        self.processing_infinite_datetime = processing_infinite_datetime
+        self.business_infinite_datetime = business_infinite_datetime
         # a single datetime column that holds the processing time a row was taken at (a processing snapshot)
         self.processing_datetime = processing_datetime
 

@@ -740,7 +740,7 @@ class TestNullEndMilestoning:
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
         start_col = Column("in_z", "TIMESTAMP")
         end_col = Column("out_z", "TIMESTAMP")
-        mc = ProcessingTemporalColumns(start_col, end_col, infinite_datetime=infinite_datetime)
+        mc = ProcessingTemporalColumns(start_col, end_col, processing_infinite_datetime=infinite_datetime)
         table = MilestonedTable("trades", [], mc)
         return table
 
@@ -795,7 +795,7 @@ class TestProcessingDateRendering:
     def _table(self):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
         mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
-                                       infinite_datetime="9999-12-31 23:59:59")
+                                       processing_infinite_datetime="9999-12-31 23:59:59")
         return MilestonedTable("trades", [], mc)
 
     def _sql(self, processing):
@@ -1445,7 +1445,7 @@ class TestOrFilter:
     def test_or_is_combined_with_milestoning_as_a_group(self):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
         mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP", _OWNER_T), Column("out_z", "TIMESTAMP", _OWNER_T),
-                                       infinite_datetime="9999-12-31 23:59:59")
+                                       processing_infinite_datetime="9999-12-31 23:59:59")
         table = MilestonedTable("t", [Column("id", "INT", _OWNER_T)], mc)
         attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         sql = to_sql(None, datetime.datetime(2024, 1, 1), [attr], table, attr.eq(1).or_(attr.eq(2)))
@@ -1464,13 +1464,13 @@ class TestMilestoningFilterShape:
         from model.milestoning import BiTemporalColumns, MilestonedTable
         mc = BiTemporalColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
                                Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
-                               infinite_datetime=infinite_datetime)
+                               processing_infinite_datetime=infinite_datetime, business_infinite_datetime=infinite_datetime)
         return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _processing_only(self, name="trades"):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
         mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
-                                       infinite_datetime="9999-12-31 23:59:59")
+                                       processing_infinite_datetime="9999-12-31 23:59:59")
         return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _joined(self, target):
@@ -1910,7 +1910,7 @@ class TestFindForDateRange:
         biz_to = Column("biz_to", "DATE")
         in_z = Column("in_z", "TIMESTAMP")
         out_z = Column("out_z", "TIMESTAMP")
-        mc = BiTemporalColumns(biz_from, biz_to, in_z, out_z, infinite_datetime="9999-12-31 23:59:59")
+        mc = BiTemporalColumns(biz_from, biz_to, in_z, out_z, processing_infinite_datetime="9999-12-31 23:59:59", business_infinite_datetime="9999-12-31 23:59:59")
         return MilestonedTable("trades", [], mc)
 
     def _make_single_biz_date_table(self):
@@ -1924,7 +1924,7 @@ class TestFindForDateRange:
         biz_date = Column("biz_date", "DATE")
         in_z = Column("in_z", "TIMESTAMP")
         out_z = Column("out_z", "TIMESTAMP")
-        mc = BusinessDateAndProcessingTemporalColumns(biz_date, in_z, out_z, infinite_datetime="9999-12-31 23:59:59")
+        mc = BusinessDateAndProcessingTemporalColumns(biz_date, in_z, out_z, processing_infinite_datetime="9999-12-31 23:59:59")
         return MilestonedTable("positions", [], mc)
 
     def test_bitemporal_range_uses_overlap_semantics(self):
@@ -2326,14 +2326,14 @@ class TestPerNavigationDates:
         from model.milestoning import MilestonedTable, ProcessingTemporalColumns
         return MilestonedTable(name, [("id", "INT"), ("fk", "INT")],
                                ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
-                                                         infinite_datetime="9999-12-31 23:59:59"))
+                                                         processing_infinite_datetime="9999-12-31 23:59:59"))
 
     @staticmethod
     def _bitemporal_table(name):
         from model.milestoning import BiTemporalColumns, MilestonedTable
         mc = BiTemporalColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
                                Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
-                               infinite_datetime="9999-12-31 23:59:59")
+                               processing_infinite_datetime="9999-12-31 23:59:59", business_infinite_datetime="9999-12-31 23:59:59")
         return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _step(self, target, parent=None, **dates):
@@ -2424,7 +2424,7 @@ class TestBusinessDateRangeOnly:
     def _ranged(name="rates", infinite_datetime: str | None = None):
         from model.milestoning import BusinessDateRangeColumns, MilestonedTable
         mc = BusinessDateRangeColumns(Column("from_z", "DATE"), Column("thru_z", "DATE"),
-                                      infinite_datetime=infinite_datetime)
+                                      business_infinite_datetime=infinite_datetime)
         return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _id(self):
@@ -2511,7 +2511,7 @@ class TestProcessingSnapshot:
     def _in_out(name="quotes"):
         from model.milestoning import ProcessingTemporalColumns, MilestonedTable
         mc = ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP"),
-                                       infinite_datetime="9999-12-31 23:59:59")
+                                       processing_infinite_datetime="9999-12-31 23:59:59")
         return MilestonedTable(name, [("id", "INT"), ("fk", "INT")], mc)
 
     def _id(self, table="quotes"):
