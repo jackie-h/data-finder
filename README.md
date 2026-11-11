@@ -256,7 +256,9 @@ A row that has not ended holds an infinity in its end column, which the scheme g
 with none has a NULL end, which a query accepts. A bitemporal table can end its two axes differently, a datetime on one and a
 date on the other, or an infinity on one and NULL on the other. Its scheme then gives each axis its own, in
 `processing_infinite_datetime` and `business_infinite_datetime` columns instead of `infinite_datetime`, and a column
-left blank is an axis with no infinity.
+left blank is an axis with no infinity. An infinity is a datetime (`9999-12-31 00:00:00`) or a date with no time
+(`9999-12-31`), whichever the end column holds; a business range, which has no processing axis, gives its date as
+`business_infinite_datetime` alone.
 
 `processing_snapshot` is a single `processing_datetime` column holding the processing time each row was taken at, as a
 `TIMESTAMP`. The query's processing time must equal it, and is compared whole: it is never cut back to its date, so
