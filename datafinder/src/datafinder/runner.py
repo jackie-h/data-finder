@@ -12,8 +12,8 @@ from model.relational import (
     AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
     DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
-    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, JoinedTable, JoinKind, JoinOperation, NoOperation, Operation,
-    QueryExpression, Relation, RelationalOperationElement,
+    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, JoinKind, JoinOperation, NoOperation, Operation,
+    QueryExpression, QuerySpecification, Relation, RelationalOperationElement,
     ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
     UnionOperation,
     WindowFunctionOperation)
@@ -376,9 +376,10 @@ class FinderResult(DataFrame):
         if not isinstance(test, Operation):
             raise TypeError("A join condition gives a comparison, such as a.key == b.key, not "
                             f"{type(test).__name__} (combine comparisons with & and |, each in brackets)")
-        shown = [*left.values(), *right.values()]
-        return FinderResult(None, None, shown, JoinedTable(left_alias, JoinOperation('', right_alias, test, kind)),
-                            NoOperation())
+        columns = [Alias(a, n) for n, a in (*left.items(), *right.items())]
+        joined = QuerySpecification(columns, NoOperation(), table=left_alias, joins=[JoinOperation('', right_alias, test, kind)])
+        alias = TableAlias(joined, f"relation{next(_relation_numbers)}")
+        return FinderResult(None, None, [Alias(a, n) for n, a in _attributes(alias).items()], alias, NoOperation())
 
     @overload
     def group_by(self, *keys: Callable[['Row'], Any]) -> 'GroupedRows': ...  # pyright: ignore[reportOverlappingOverload]

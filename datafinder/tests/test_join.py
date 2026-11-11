@@ -4,7 +4,8 @@ import pytest
 
 from datafinder import DoubleAttribute, StringAttribute
 from datafinder.runner import FinderResult
-from model.relational import ComparisonOperation, JoinedTable, JoinKind, NoOperation, Table
+from model.relational import (ComparisonOperation, JoinKind, JoinOperation, NoOperation, QuerySpecification, Table,
+                              TableAlias)
 
 
 def _results() -> tuple[FinderResult, FinderResult]:
@@ -27,8 +28,9 @@ def _from(sql: str) -> str:
 def test_a_join_is_written_as_the_join_of_the_two_queries(how, word):
     trades, accounts = _results()
     sql = trades.join(accounts, lambda t, a: t.account == a.id, how=how).to_sql()
-    assert sql.startswith('SELECT t0.account AS "account",t0.sym AS "sym",t0.price AS "price",t1.id AS "id",t1.name AS "name" FROM (SELECT ')
-    assert f") AS t0 {word} (SELECT " in sql and sql.endswith(") AS t1 ON (t0.account = t1.id)")
+    # the join is a query of its own, which the result reads from, as Legend wraps a joined relation
+    assert sql.startswith('SELECT t0.account AS "account",t0.sym AS "sym",t0.price AS "price",t0.id AS "id",t0.name AS "name" FROM (SELECT t1.account AS "account",')
+    assert f") AS t1 {word} (SELECT " in sql and sql.endswith(") AS t2 ON (t1.account = t2.id)) AS t0")
 
 
 def test_inner_is_the_default():
@@ -39,8 +41,7 @@ def test_inner_is_the_default():
 def test_a_condition_of_several_comparisons_is_joined_with_and_or_or():
     trades, accounts = _results()
     sql = trades.join(accounts, lambda t, a: ((t.account == a.id) & (t.sym != a.name)) | (t.price > 5.0)).to_sql()
-    assert sql.endswith("ON (t0.account = t1.id AND t0.sym <> t1.name OR t0.price > 5.0)") \
-        or sql.endswith("ON ((t0.account = t1.id AND t0.sym <> t1.name) OR t0.price > 5.0)")
+    assert "ON ((t1.account = t2.id AND t1.sym <> t2.name) OR t1.price > 5.0)) AS t0" in sql
 
 
 def test_a_joined_result_can_be_filtered_extended_ordered_and_aggregated_like_any_other():
@@ -65,13 +66,15 @@ def test_the_columns_of_a_join_are_the_columns_of_both():
     assert trades.join(accounts, lambda t, a: t.account == a.id).columns() == ["account", "sym", "price", "id", "name"]
 
 
-def test_the_model_of_a_join_is_a_joined_table_of_two_relations():
+def test_the_model_of_a_join_is_a_query_of_the_left_with_a_join_to_the_right():
     trades, accounts = _results()
-    joined = trades.join(accounts, lambda t, a: t.account == a.id, how="left")._table
-    assert isinstance(joined, JoinedTable) and joined.kind is JoinKind.LEFT
-    assert isinstance(joined.condition, ComparisonOperation)
-    assert joined.join.kind is JoinKind.LEFT and joined.right is joined.join.target
-    assert len(joined.columns) == len(joined.left.columns) + len(joined.right.columns) == 5
+    alias = trades.join(accounts, lambda t, a: t.account == a.id, how="left")._table
+    assert isinstance(alias, TableAlias) and isinstance(alias.relation, QuerySpecification)
+    query = alias.relation
+    (join,) = query.joins
+    assert isinstance(join, JoinOperation) and join.kind is JoinKind.LEFT and isinstance(join.operation, ComparisonOperation)
+    assert isinstance(query.table, TableAlias) and isinstance(join.target, TableAlias)
+    assert len(query.columns) == len(query.table.columns) + len(join.target.columns) == 5
 
 
 def test_the_two_sides_columns_must_be_named_differently():

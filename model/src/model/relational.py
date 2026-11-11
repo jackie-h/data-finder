@@ -1867,30 +1867,6 @@ class JoinOperation:
         raise ValueError(f"Join '{self.name}' is not one column equal to another: it has no key to read")
 
 
-class JoinedTable(Relation):
-    """Two relations joined, as ANSI SQL's ``<joined table>``: ``<table reference> <join type> JOIN <table reference> ON
-    <condition>``. It is itself something to read from, with the columns of the two."""
-    left: Relation
-    join: JoinOperation
-
-    def __init__(self, left: Relation, join: JoinOperation):
-        super().__init__([*left.columns, *join.target.columns])
-        self.left = left
-        self.join = join
-
-    @property
-    def right(self) -> Relation:
-        return self.join.target
-
-    @property
-    def kind(self) -> JoinKind:
-        return self.join.kind
-
-    @property
-    def condition(self) -> RelationalOperationElement:
-        return self.join.operation
-
-
 class JoinTreeNodeOperation:
     """Wraps a JoinOperation and links it to its parent node in the join tree.
 
@@ -2011,9 +1987,12 @@ class QuerySpecification(QueryExpression):
 
     def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
                  group_by: list | None = None, table: 'Relation | None' = None, distinct: bool = False,
-                 having: Operation | None = None):
+                 having: Operation | None = None, joins: 'Sequence[JoinOperation] | None' = None):
         Relation.__init__(self, columns)  # not super(): a View is also a NamedRelation
         self.filter = filter
+        # Relations joined to the table, as Legend's root join tree node has its children: each is always joined, in this order.
+        # (The joins a navigation through a property needs are not these: they are worked out from the columns the query reads.)
+        self.joins: list[JoinOperation] = list(joins or [])
         self.group_by = group_by or []
         self.table = table
         self.distinct = distinct

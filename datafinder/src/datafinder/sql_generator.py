@@ -19,7 +19,7 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation, \
-    JoinedTable, JoinKind
+    JoinKind
 
 _JOIN_WORDS = {JoinKind.INNER: 'INNER', JoinKind.LEFT: 'LEFT OUTER', JoinKind.RIGHT: 'RIGHT OUTER', JoinKind.FULL: 'FULL OUTER'}
 
@@ -772,7 +772,7 @@ class SQLQueryGenerator:
         self.__elidable_ids: set = set()
         self._sub_selects: dict = {}
         self._root_table = None
-        self._joined: JoinedTable | None = None
+        self._query_joins: list[JoinOperation] = []
         self._join_filters: dict = {}
 
     def __compute_elidable_ids(self, query: QuerySpecification) -> set:
@@ -821,6 +821,7 @@ class SQLQueryGenerator:
 
     def generate(self, query: QuerySpecification):
         self._root_table = query.table
+        self._query_joins = query.joins
         self._join_filters = query.join_filters
         self.__elidable_ids = self.__compute_elidable_ids(query)
         self._sub_selects = query.sub_selects
@@ -1012,13 +1013,11 @@ class SQLQueryGenerator:
 
     def select(self, cols: Sequence[RelationalOperationElement]):
         required_joins: dict = {}
-        if isinstance(self._root_table, JoinedTable):
-            # what is read is two relations joined: both are named first, so they read t0 and t1 in the order they are joined
-            self._joined = self._root_table
-            self.__table_alias_for_table(self._joined.left)  # type: ignore[arg-type]
-            self.__table_alias_for_table(self._joined.right)  # type: ignore[arg-type]
-        elif self._root_table is not None:
+        if self._root_table is not None:
             self._from.add(self.__table_alias_for_table(self._root_table))
+        for join in self._query_joins:  # the query's own joins, always written: the relations are named in the order they are joined
+            target = self.__table_alias_for_table(join.target)
+            self._join.append(Join(join.kind, target, self.build_filter(join.operation)))
 
         for col in cols:
             self.__collect_required_joins(col, required_joins)
@@ -1194,26 +1193,13 @@ class SQLQueryGenerator:
             return '(' + sql + ')'
         return sql
 
-    def __joined_sql(self, joined: JoinedTable) -> str:
-        """What a joined table reads: the two relations, each as it is named in FROM, joined as ANSI SQL joins them."""
-        left = self.__table_alias_for_table(joined.left)  # type: ignore[arg-type]
-        right = self.__table_alias_for_table(joined.right)  # type: ignore[arg-type]
-
-        def source(alias: TableAlias) -> str:
-            return self.__relation_sql(alias) + ' AS ' + alias.name
-
-        return source(left) + _join_word(joined.kind) + source(right) + ' ON (' + self.build_filter(joined.condition) + ')'
-
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:
             return _join_word(j.kind) + self.__relation_sql(j.target) + ' AS ' + j.target.name + ' ON (' + j.condition \
                 + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
 
         joins = map(join_sql, self._join)
-        if self._joined is not None:
-            from_sql = self.__joined_sql(self._joined)
-        else:
-            from_sql = ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from))
+        from_sql = ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from))
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
             + ' FROM ' + from_sql \
             + ''.join(joins) \
