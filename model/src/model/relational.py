@@ -426,6 +426,15 @@ class Operation(RelationalOperationElement, Aliasable):
     def or_(self, other) -> 'LogicalOperation':
         return LogicalOperation(self, LogicalOperator.OR, other)
 
+    def __and__(self, other: 'Operation') -> 'LogicalOperation':
+        """``a & b``, as ``and_``: Python's ``and`` cannot be overloaded, and gives only ``b``. Bracket each side, as ``&``
+        binds more tightly than ``==``: ``(a == b) & (c != d)``."""
+        return LogicalOperation(self, LogicalOperator.AND, other)
+
+    def __or__(self, other: 'Operation') -> 'LogicalOperation':
+        """``a | b``, as ``or_``."""
+        return LogicalOperation(self, LogicalOperator.OR, other)
+
 class NoOperation(Operation):
     def __init__(self):
         super().__init__()
@@ -1980,9 +1989,12 @@ class QuerySpecification(QueryExpression):
 
     def __init__(self, columns: Sequence[RelationalOperationElement], filter: Operation,
                  group_by: list | None = None, table: 'Relation | None' = None, distinct: bool = False,
-                 having: Operation | None = None):
+                 having: Operation | None = None, joins: 'Sequence[JoinOperation] | None' = None):
         Relation.__init__(self, columns)  # not super(): a View is also a NamedRelation
         self.filter = filter
+        # Relations joined to the table, as Legend's root join tree node has its children: each is always joined, in this order.
+        # (The joins a navigation through a property needs are not these: they are worked out from the columns the query reads.)
+        self.joins: list[JoinOperation] = list(joins or [])
         self.group_by = group_by or []
         self.table = table
         self.distinct = distinct

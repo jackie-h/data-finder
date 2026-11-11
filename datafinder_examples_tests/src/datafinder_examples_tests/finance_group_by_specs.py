@@ -64,6 +64,48 @@ def _accounts_with_a_large_total(f):
     return large.order_by(large["total"].descending())
 
 
+def _account_totals(f):
+    """One row for each account: ``total_account`` and ``total``."""
+    return _trades(f).group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum()).extend(
+        total_account=lambda r: r.account).select("total_account", "total")
+
+
+def _dearer_trades(f):
+    """The trades over 350, as a relation of their own: ``dear_account``, ``dear_sym``."""
+    dear = _trades(f).filter(lambda r: r.price > 350.0)
+    return dear.extend(dear_account=lambda r: r.account, dear_sym=lambda r: r.sym).select("dear_account", "dear_sym")
+
+
+def _each_trade_with_its_account_total(f):
+    trades = _trades(f)
+    joined = trades.join(_account_totals(f), lambda t, a: t.account == a.total_account, how="inner")
+    result = joined.select("sym", "price", "total")
+    return result.order_by(result["price"].ascending())
+
+
+def _accounts_with_the_trades_over_350(f, how):
+    accounts = _account_totals(f).select("total_account")
+    joined = accounts.join(_dearer_trades(f), lambda a, t: a.total_account == t.dear_account, how=how)
+    result = joined.select("total_account", "dear_sym")
+    return result.order_by(result["total_account"].ascending())
+
+
+def _right_join_of_the_trades_over_350_to_the_accounts(f):
+    """The accounts are the right side: every account is kept, with NULL where it has no trade over 350."""
+    joined = _dearer_trades(f).join(_account_totals(f).select("total_account"),
+                                    lambda t, a: t.dear_account == a.total_account, how="right")
+    result = joined.select("total_account", "dear_sym")
+    return result.order_by(result["total_account"].ascending())
+
+
+def _full_join_of_two_accounts_to_the_trades_over_350(f):
+    """Alpha and Beta, with the trades over 350 (Beta's and Gamma's): Alpha has none, and Gamma's is of an account not listed."""
+    accounts = _account_totals(f).filter(lambda r: r.total_account != "Gamma Fund").select("total_account")
+    joined = accounts.join(_dearer_trades(f), lambda a, t: a.total_account == t.dear_account, how="full")
+    result = joined.select("total_account", "dear_sym")
+    return result.order_by(result["total_account"].ascending(), result["dear_sym"].ascending())
+
+
 TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
@@ -173,6 +215,36 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
                                                  average_of_five=lambda r: r.price.sum() / 5.0),
             expected_columns=["total", "highest", "average_of_five"],
             expected_result=np.array([[1500.0, 500.0, 300.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="join_inner_on_a_column_of_each",
+            skip_backends=_NO_CHAIN,
+            query=_each_trade_with_its_account_total,
+            expected_columns=["sym", "price", "total"],
+            expected_result=np.array(
+                [["AAPL", 100.0, 300.0], ["GOOG", 200.0, 300.0], ["MSFT", 300.0, 700.0], ["TSLA", 400.0, 700.0],
+                 ["GS", 500.0, 500.0]], dtype=object),
+        ),
+        TestExpectation(
+            name="join_left_keeps_the_rows_that_find_no_match",
+            skip_backends=_NO_CHAIN,
+            query=lambda f: _accounts_with_the_trades_over_350(f, "left"),
+            expected_columns=["total_account", "dear_sym"],
+            expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], ["Gamma Fund", "GS"]], dtype=object),
+        ),
+        TestExpectation(
+            name="join_right_keeps_every_row_of_the_right",
+            skip_backends=_NO_CHAIN,
+            query=_right_join_of_the_trades_over_350_to_the_accounts,
+            expected_columns=["total_account", "dear_sym"],
+            expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], ["Gamma Fund", "GS"]], dtype=object),
+        ),
+        TestExpectation(
+            name="join_full_keeps_the_rows_of_both_that_find_no_match",
+            skip_backends=_NO_CHAIN,
+            query=_full_join_of_two_accounts_to_the_trades_over_350,
+            expected_columns=["total_account", "dear_sym"],
+            expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], [None, "GS"]], dtype=object),
         ),
     ],
 )

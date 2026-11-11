@@ -1,7 +1,7 @@
 import datetime
 import decimal
 import itertools
-from typing import Any, Callable, Optional, Sequence, Union, overload
+from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
 
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
@@ -12,7 +12,8 @@ from model.relational import (
     AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
     DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
-    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, NoOperation, QueryExpression, Relation, RelationalOperationElement,
+    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, JoinKind, JoinOperation, NoOperation, Operation,
+    QueryExpression, QuerySpecification, Relation, RelationalOperationElement,
     ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
     UnionOperation,
     WindowFunctionOperation)
@@ -344,6 +345,41 @@ class FinderResult(DataFrame):
         if missing:
             raise KeyError(f"No column {missing} in this result: its columns are {list(attributes)}")
         return self._next([attributes[n] for n in names])
+
+    def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation],
+             how: Literal["inner", "left", "right", "full"]) -> 'FinderResult':
+        """The rows of this result put together with the rows of ``other``, as Legend's ``join``. The condition is a function
+        of a row of each (bracket each comparison, and join them with ``&`` or ``|``: ``and`` and ``or`` would drop one)::
+
+            orders.join(customers, lambda o, c: o.customer_id == c.id, how="inner")     # only orders that have a customer
+            orders.join(customers, lambda o, c: o.customer_id == c.id, how="left")      # every order, with a customer or NULL
+            lines.join(others, lambda a, b: (a.order == b.order) & (a.supplier != b.supplier), how="inner")
+
+        ``how`` is one of ANSI SQL's join types: ``inner``, or ``left``, ``right`` or ``full``, the outer joins that keep the
+        rows that find no match, with NULL for the other side's columns.
+
+        The columns of the two must be named differently, as Legend requires: name them with ``alias()``, or ``extend`` then
+        ``select``."""
+        try:
+            kind = JoinKind(how)
+        except ValueError:
+            raise ValueError(f"A join is one of {[k.value for k in JoinKind]}, not '{how}'") from None
+        if not callable(condition):
+            raise TypeError("A join condition is a function of a row of each: join(other, lambda a, b: a.key == b.key)")
+        left_alias, left = self._relation()
+        right_alias, right = other._relation()
+        repeated = sorted(set(left) & set(right))
+        if repeated:
+            raise ValueError(f"A join needs the columns of its two sides named differently, but {repeated} are on both: "
+                             "name them with alias(), or extend() then select()")
+        test = condition(Row(left), Row(right))
+        if not isinstance(test, Operation):
+            raise TypeError("A join condition gives a comparison, such as a.key == b.key, not "
+                            f"{type(test).__name__} (combine comparisons with & and |, each in brackets)")
+        columns = [Alias(a, n) for n, a in (*left.items(), *right.items())]
+        joined = QuerySpecification(columns, NoOperation(), table=left_alias, joins=[JoinOperation('', right_alias, test, kind)])
+        alias = TableAlias(joined, f"relation{next(_relation_numbers)}")
+        return FinderResult(None, None, [Alias(a, n) for n, a in _attributes(alias).items()], alias, NoOperation())
 
     @overload
     def group_by(self, *keys: Callable[['Row'], Any]) -> 'GroupedRows': ...  # pyright: ignore[reportOverlappingOverload]

@@ -11,14 +11,15 @@ from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, Sin
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
-from model.relational import LIKE_ESCAPE, JoinKind, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
+from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
-    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation
+    OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation, \
+    JoinKind
 
 _JOIN_WORDS = {JoinKind.INNER: 'INNER', JoinKind.LEFT: 'LEFT OUTER', JoinKind.RIGHT: 'RIGHT OUTER', JoinKind.FULL: 'FULL OUTER'}
 
@@ -771,6 +772,7 @@ class SQLQueryGenerator:
         self.__elidable_ids: set = set()
         self._sub_selects: dict = {}
         self._root_table = None
+        self._query_joins: list[JoinOperation] = []
         self._join_filters: dict = {}
 
     def __compute_elidable_ids(self, query: QuerySpecification) -> set:
@@ -819,6 +821,7 @@ class SQLQueryGenerator:
 
     def generate(self, query: QuerySpecification):
         self._root_table = query.table
+        self._query_joins = query.joins
         self._join_filters = query.join_filters
         self.__elidable_ids = self.__compute_elidable_ids(query)
         self._sub_selects = query.sub_selects
@@ -1012,6 +1015,9 @@ class SQLQueryGenerator:
         required_joins: dict = {}
         if self._root_table is not None:
             self._from.add(self.__table_alias_for_table(self._root_table))
+        for join in self._query_joins:  # the query's own joins, always written: the relations are named in the order they are joined
+            target = self.__table_alias_for_table(join.target)
+            self._join.append(Join(join.kind, target, self.build_filter(join.operation)))
 
         for col in cols:
             self.__collect_required_joins(col, required_joins)
@@ -1193,8 +1199,9 @@ class SQLQueryGenerator:
                 + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
 
         joins = map(join_sql, self._join)
+        from_sql = ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from))
         return ('SELECT DISTINCT ' if self._distinct else 'SELECT ') + ','.join(map(lambda ca: sql_operation_to_string(ca), self._select)) \
-            + ' FROM ' + ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from)) \
+            + ' FROM ' + from_sql \
             + ''.join(joins) \
             + self.__build_where() \
             + self.__build_group_by() \
@@ -1204,10 +1211,8 @@ class SQLQueryGenerator:
             + self.__build_offset()
 
     def __build_where(self) -> str:
-        if len(self._where) > 0:
-            return ' WHERE ' + ''.join(self._where)
-        else:
-            return ''
+        where = ''.join(self._where)
+        return ' WHERE ' + where if where else ''
 
     def __build_group_by(self) -> str:
         if not self._group_by_parts:
