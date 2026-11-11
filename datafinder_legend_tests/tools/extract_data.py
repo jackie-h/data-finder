@@ -22,9 +22,14 @@ _TABLE = re.compile(r"^\s*(?:drop\s+table\s+if\s+exists|create\s+table|insert\s+
 _SCHEMA = re.compile(r"^\s*(?:drop\s+schema\s+if\s+exists|create\s+schema)\s+(\w+)", re.I)
 
 
-def _function_bodies(root: Path) -> dict[str, str]:
+def _function_bodies(root: Path, prefer: Path | None = None) -> dict[str, str]:
+    """The body of each function by its last name. Several files can have a function of the same name (each test set has its
+    own ``createTablesAndFillDb``), so the ``prefer`` file, the one the data is wanted from, is read first and wins."""
     bodies: dict[str, str] = {}
-    for path in root.rglob("*.pure"):
+    paths = sorted(root.rglob("*.pure"))
+    if prefer is not None:
+        paths = [prefer.resolve()] + [p for p in paths if p.resolve() != prefer.resolve()]
+    for path in paths:
         text = _strip_comments(path.read_text())
         starts = [m for m in re.finditer(r"^function\s", text, re.M)]
         for i, m in enumerate(starts):
@@ -35,10 +40,13 @@ def _function_bodies(root: Path) -> dict[str, str]:
     return bodies
 
 
-def _database_tables(root: Path) -> dict[str, str]:
-    """Table name -> column list, from the single-line ``Table name(...)`` definitions of the Legend database."""
-    text = (root / "tests" / "relationalSetUp.pure").read_text()
-    return {m.group(1).lower(): m.group(2) for m in _DB_TABLE.finditer(text)}
+def _database_tables(root: Path, prefer: Path | None = None) -> dict[str, str]:
+    """Table name -> column list, from the single-line ``Table name(...)`` definitions of the Legend database, and of the
+    ``prefer`` file, the one the data is wanted from, which can define a database of its own."""
+    tables: dict[str, str] = {}
+    for path in [root / "tests" / "relationalSetUp.pure", *([prefer] if prefer is not None else [])]:
+        tables.update({m.group(1).lower(): m.group(2) for m in _DB_TABLE.finditer(path.read_text())})
+    return tables
 
 
 def statements(function: str, bodies: dict[str, str], tables: dict[str, str],
@@ -65,10 +73,10 @@ def statements(function: str, bodies: dict[str, str], tables: dict[str, str],
 def main(argv: list[str]) -> None:
     pure_file, function, *tables = argv
     wanted = {t.lower() for t in tables}
-    bodies = _function_bodies(LEGEND_ROOT)
+    bodies = _function_bodies(LEGEND_ROOT, Path(pure_file))
     print(f"-- Test data from legend-engine core_relational {Path(pure_file).name}::{function}")
     print(f"-- Tables: {', '.join(tables)}")
-    for sql in statements(function, bodies, _database_tables(LEGEND_ROOT)):
+    for sql in statements(function, bodies, _database_tables(LEGEND_ROOT, Path(pure_file))):
         table, schema = _TABLE.match(sql), _SCHEMA.match(sql)
         if table and table.group(1).lower() in wanted:
             print(sql + ";")
