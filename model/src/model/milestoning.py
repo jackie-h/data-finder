@@ -1,5 +1,5 @@
 from typing import Sequence
-from model.relational import Column, SAME_INFINITY, Table, _SameInfinity
+from model.relational import Column, Table
 
 
 class MilestoningColumns:
@@ -10,11 +10,13 @@ class MilestoningColumns:
         raise NotImplementedError()
 
 class ProcessingTemporalColumns(MilestoningColumns):
-    def __init__(self, start_at_column: Column, end_at_column: Column, infinite_datetime: str | None = None):
+    """A processing range. ``processing_infinite_datetime`` is what its end holds in a row that has not ended, or ``None``
+    when that end is NULL."""
+    def __init__(self, start_at_column: Column, end_at_column: Column, processing_infinite_datetime: str | None = None):
         super().__init__()
         self.start_at_column = start_at_column
         self.end_at_column = end_at_column
-        self.infinite_datetime = infinite_datetime
+        self.processing_infinite_datetime = processing_infinite_datetime
 
     def columns(self) -> list[Column]:
         return [self.start_at_column, self.end_at_column]
@@ -41,23 +43,23 @@ class SingleProcessingDatetimeColumn(MilestoningColumns):
 
 class BusinessDateAndProcessingTemporalColumns(SingleBusinessDateColumn, ProcessingTemporalColumns):
     def __init__(self, business_date_column: Column, start_at_column: Column, end_at_column: Column,
-                 infinite_datetime: str | None = None):
+                 processing_infinite_datetime: str | None = None):
         SingleBusinessDateColumn.__init__(self, business_date_column)
-        ProcessingTemporalColumns.__init__(self, start_at_column, end_at_column, infinite_datetime)
+        ProcessingTemporalColumns.__init__(self, start_at_column, end_at_column, processing_infinite_datetime)
 
     def columns(self) -> list[Column]:
         return SingleBusinessDateColumn.columns(self) + ProcessingTemporalColumns.columns(self)
 
 
 class BusinessDateRangeColumns(MilestoningColumns):
-    """A business date range: a row applies from ``business_date_from`` up to, but not including, ``business_date_to``."""
+    """A business date range: a row applies from ``business_date_from`` up to, but not including, ``business_date_to``.
+    ``business_infinite_datetime`` is what the end holds in a row that has not ended, or ``None`` when that end is NULL."""
     def __init__(self, business_date_from_column: Column, business_date_to_column: Column,
-                 infinite_datetime: str | None = None):
+                 business_infinite_datetime: str | None = None):
         MilestoningColumns.__init__(self)
         self.business_date_from_column = business_date_from_column
         self.business_date_to_column = business_date_to_column
-        self.infinite_datetime = infinite_datetime
-        self.business_infinite_datetime = infinite_datetime  # a bitemporal table can end its business axis another way
+        self.business_infinite_datetime = business_infinite_datetime
 
     def columns(self) -> list[Column]:
         return [self.business_date_from_column, self.business_date_to_column]
@@ -65,15 +67,13 @@ class BusinessDateRangeColumns(MilestoningColumns):
 
 class BiTemporalColumns(BusinessDateRangeColumns, ProcessingTemporalColumns):
     def __init__(self, business_date_from_column: Column, business_date_to_column: Column,
-                 start_at_column: Column, end_at_column: Column, infinite_datetime: str | None = None,
-                 business_infinite_datetime: 'str | None | _SameInfinity' = SAME_INFINITY):
-        """``infinite_datetime`` is what the end of a row that has not ended holds on the processing axis, and
-        ``business_infinite_datetime`` on the business axis, the same unless it is given. A Legend table can end one
-        axis in a datetime and the other in a date, or one in an infinity and the other in NULL (``None``)."""
-        BusinessDateRangeColumns.__init__(self, business_date_from_column, business_date_to_column, infinite_datetime)
-        ProcessingTemporalColumns.__init__(self, start_at_column, end_at_column, infinite_datetime)
-        if not isinstance(business_infinite_datetime, _SameInfinity):
-            self.business_infinite_datetime = business_infinite_datetime
+                 start_at_column: Column, end_at_column: Column, processing_infinite_datetime: str | None = None,
+                 business_infinite_datetime: str | None = None):
+        """Each axis has its own infinity: a Legend table can end one in a datetime and the other in a date, or one in
+        an infinity and the other in NULL (``None``)."""
+        BusinessDateRangeColumns.__init__(self, business_date_from_column, business_date_to_column,
+                                          business_infinite_datetime)
+        ProcessingTemporalColumns.__init__(self, start_at_column, end_at_column, processing_infinite_datetime)
 
     def columns(self) -> list[Column]:
         return BusinessDateRangeColumns.columns(self) + ProcessingTemporalColumns.columns(self)

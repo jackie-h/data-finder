@@ -54,7 +54,7 @@ def _build_finder():
     milestoning = ProcessingTemporalColumns(
         Column("start_at", "TIMESTAMP"),
         Column("end_at", "TIMESTAMP"),
-        infinite_datetime=INFINITE,
+        processing_infinite_datetime=INFINITE,
     )
     trade_table = MilestonedTable("trading.trades", [], milestoning)
     account_table = Table("ref_data.account_master", [])

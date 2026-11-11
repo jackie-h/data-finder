@@ -252,13 +252,14 @@ Tag a table with the scheme name in parentheses:
 
 `business_date_range` is `bitemporal` without the processing columns: a row applies from `business_date_from` up to, but not including, `business_date_to`, and a NULL end (or `infinite_datetime`) is open-ended. Any processing time passed to it is ignored, though one still reaches tables it joins to that have processing columns.
 
-A row that has not ended holds an infinity in its end column, which the scheme gives as `infinite_datetime`; a scheme
-with none has a NULL end, which a query accepts. A bitemporal table can end its two axes differently, a datetime on one and a
-date on the other, or an infinity on one and NULL on the other. Its scheme then gives each axis its own, in
-`processing_infinite_datetime` and `business_infinite_datetime` columns instead of `infinite_datetime`, and a column
-left blank is an axis with no infinity. An infinity is a datetime (`9999-12-31 00:00:00`) or a date with no time
-(`9999-12-31`), whichever the end column holds; a business range, which has no processing axis, gives its date as
-`business_infinite_datetime` alone.
+A row that has not ended holds an infinity in its end column. A scheme has one for each axis, a processing and a business
+infinite datetime, and a scheme with none has a NULL end, which a query accepts. The `infinite_datetime` column of the
+scheme table gives the same infinity to both axes. A bitemporal table can end its two axes differently, a datetime on one
+and a date on the other, or an infinity on one and NULL on the other, and its scheme then gives each its own, in
+`processing_infinite_datetime` and `business_infinite_datetime` columns instead of `infinite_datetime`. A column left blank
+is an axis with no infinity. An infinity is a datetime (`9999-12-31 00:00:00`) or a date with no time (`9999-12-31`),
+whichever the end column holds; a business range, which has no processing axis, gives its date as
+`business_infinite_datetime`.
 
 `processing_snapshot` is a single `processing_datetime` column holding the processing time each row was taken at, as a
 `TIMESTAMP`. The query's processing time must equal it, and is compared whole: it is never cut back to its date, so

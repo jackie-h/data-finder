@@ -1582,40 +1582,22 @@ class NamedRelation(Relation):
         return self.name
 
 
-class _SameInfinity:
-    """The default of an axis's infinity: the same as the other axis's. ``None`` is not that, it is no infinity: the end
-    of a row that has not ended is NULL."""
-    def __repr__(self) -> str:
-        return "SAME_INFINITY"
-
-
-SAME_INFINITY = _SameInfinity()
-
-
 class MilestoningScheme:
     def __init__(self, name: str, processing_start: str | None = None, processing_end: str | None = None,
                  business_date: str | None = None, business_date_from: str | None = None,
-                 business_date_to: str | None = None, infinite_datetime: str | None = None,
-                 processing_datetime: str | None = None,
-                 business_infinite_datetime: 'str | None | _SameInfinity' = SAME_INFINITY):
+                 business_date_to: str | None = None, processing_infinite_datetime: str | None = None,
+                 processing_datetime: str | None = None, business_infinite_datetime: str | None = None):
         self.name = name
         self.processing_start = processing_start
         self.processing_end = processing_end
         self.business_date = business_date
         self.business_date_from = business_date_from
         self.business_date_to = business_date_to
-        # what the end of a row that has not ended holds: ``infinite_datetime`` on the processing axis and, unless
-        # ``business_infinite_datetime`` gives another (a date, say, or ``None`` for NULL), on the business axis too
-        self.infinite_datetime = infinite_datetime
+        # what the end of a row that has not ended holds on each axis: a datetime or a date, or ``None`` for NULL
+        self.processing_infinite_datetime = processing_infinite_datetime
         self.business_infinite_datetime = business_infinite_datetime
         # a single datetime column that holds the processing time a row was taken at (a processing snapshot)
         self.processing_datetime = processing_datetime
-
-    @property
-    def business_infinity(self) -> str | None:
-        """What the end of a row that has not ended holds on the business axis."""
-        return self.infinite_datetime if isinstance(self.business_infinite_datetime, _SameInfinity) \
-            else self.business_infinite_datetime
 
 
 from abc import ABC, abstractmethod

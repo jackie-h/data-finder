@@ -459,10 +459,10 @@ class TestInfiniteDatetimeMarkdownParsing:
         self.schemes = {s.name: s for s in self.repo.milestoning_schemes}
 
     def test_infinite_datetime_parsed_when_set(self):
-        assert self.schemes["processing_only"].infinite_datetime == "9999-12-31 23:59:59"
+        assert self.schemes["processing_only"].processing_infinite_datetime == "9999-12-31 23:59:59"
 
     def test_infinite_datetime_is_none_when_blank(self):
-        assert self.schemes["open_ended"].infinite_datetime is None
+        assert self.schemes["open_ended"].processing_infinite_datetime is None
 
     def test_infinite_datetime_flows_to_milestone_mapping(self):
         from mapping_markdown.markdown_mapping import _md_parser, _build_repository_from_content, _loads_from_nodes
@@ -474,8 +474,11 @@ class TestInfiniteDatetimeMarkdownParsing:
         assert repo is not None
         mapping = _loads_from_nodes(nodes, packages=[], repository=repo)
         schemes = {s.name: s for s in repo.milestoning_schemes}
-        assert schemes["processing_only"].infinite_datetime == "9999-12-31 23:59:59"
-        assert schemes["open_ended"].infinite_datetime is None
+        assert schemes["processing_only"].processing_infinite_datetime == "9999-12-31 23:59:59"
+        assert schemes["open_ended"].processing_infinite_datetime is None
+        # one infinite_datetime column gives the same infinity to both axes of a scheme
+        assert schemes["processing_only"].business_infinite_datetime == "9999-12-31 23:59:59"
+        assert schemes["open_ended"].business_infinite_datetime is None
 
 
 class TestDuplicateClassMappingValidation:
@@ -1232,7 +1235,7 @@ class TestInfinityOfEachAxis:
     def test_the_scheme_reads_an_infinity_for_each_axis(self):
         milestone = load(str(self._mapping())).mappings[0].milestone_mapping
         assert isinstance(milestone, BiTemporalMilestonePropertyMapping)
-        assert milestone.infinite_datetime == "9999-12-31 00:00:00"
+        assert milestone.processing_infinite_datetime == "9999-12-31 00:00:00"
         assert milestone.business_infinite_datetime is None  # the business end is NULL: no infinity
 
     def test_each_axis_survives_writing(self, tmp_path):
@@ -1242,4 +1245,4 @@ class TestInfinityOfEachAxis:
         save(str(path), "Bitemporal Infinity Mapping", mapping, [str(model)])
         again = load(str(path)).mappings[0].milestone_mapping
         assert isinstance(again, BiTemporalMilestonePropertyMapping)
-        assert (again.infinite_datetime, again.business_infinite_datetime) == ("9999-12-31 00:00:00", None)
+        assert (again.processing_infinite_datetime, again.business_infinite_datetime) == ("9999-12-31 00:00:00", None)

@@ -10,8 +10,7 @@ from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping, \
     BusinessDateRangeMilestonePropertyMapping, SingleProcessingDatetimeMilestonePropertyMapping
-from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey, \
-    SAME_INFINITY
+from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
 
 _md_parser = MarkdownIt().enable("table")
@@ -140,14 +139,14 @@ def _build_assoc_nav_lookup(packages: list) -> dict:
 
 
 def _infinities(row: dict) -> dict:
-    """What the end of a row that has not ended holds on each axis, from a scheme row. ``infinite_datetime`` gives both
-    axes, and ``processing_infinite_datetime`` and ``business_infinite_datetime`` each its own, which a table needs that
-    ends one axis in a datetime and the other in a date, or one in an infinity and the other in NULL. A column left blank
-    gives its axis no infinity, unless ``infinite_datetime`` gives one."""
+    """What the end of a row that has not ended holds on each axis, from a scheme row. A scheme has one for each axis. The
+    ``infinite_datetime`` column gives one value to both, and ``processing_infinite_datetime`` and
+    ``business_infinite_datetime`` each its own, which a table needs that ends one axis in a datetime and the other in a
+    date, or one in an infinity and the other in NULL. A column left blank gives its axis no infinity, unless
+    ``infinite_datetime`` gives one."""
     shared = row.get("infinite_datetime", "").strip() or None
-    processing = row.get("processing_infinite_datetime", "").strip() or shared
-    business = row.get("business_infinite_datetime", "").strip() or shared
-    return {"infinite_datetime": processing, "business_infinite_datetime": SAME_INFINITY if business == processing else business}
+    return {"processing_infinite_datetime": row.get("processing_infinite_datetime", "").strip() or shared,
+            "business_infinite_datetime": row.get("business_infinite_datetime", "").strip() or shared}
 
 
 def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Mapping:
@@ -591,7 +590,8 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
     } - {None}
     if col_name in milestoning_cols:
         # An end column holds NULL, rather than an infinity date, when its axis has no infinity in the scheme.
-        infinity = scheme.business_infinity if col_name == scheme.business_date_to else scheme.infinite_datetime
+        infinity = scheme.business_infinite_datetime if col_name == scheme.business_date_to \
+            else scheme.processing_infinite_datetime
         open_ended = infinity is None and col_name in (scheme.processing_end, scheme.business_date_to)
         return Property(_camel_to_display_name(prop_name), prop_name, DateTime,
                         ZERO_TO_ONE if open_ended else ONE_TO_ONE)
@@ -637,26 +637,26 @@ def _build_milestone_mapping(scheme_name, property_mappings, repository, table_n
         return BiTemporalMilestonePropertyMapping(
             _require(scheme.business_date_from), _require(scheme.business_date_to),
             _require(scheme.processing_start), _require(scheme.processing_end),
-            infinite_datetime=scheme.infinite_datetime,
+            processing_infinite_datetime=scheme.processing_infinite_datetime,
             business_infinite_datetime=scheme.business_infinite_datetime,
         )
     elif has_single_date and has_processing:
         return BusinessDateAndProcessingMilestonePropertyMapping(
             _require(scheme.business_date),
             _require(scheme.processing_start), _require(scheme.processing_end),
-            infinite_datetime=scheme.infinite_datetime,
+            processing_infinite_datetime=scheme.processing_infinite_datetime,
         )
     elif has_processing:
         return ProcessingDateMilestonesPropertyMapping(
             _require(scheme.processing_start), _require(scheme.processing_end),
-            infinite_datetime=scheme.infinite_datetime,
+            processing_infinite_datetime=scheme.processing_infinite_datetime,
         )
     elif has_single_date:
         return SingleBusinessDateMilestonePropertyMapping(_require(scheme.business_date))
     elif has_range_date:
         return BusinessDateRangeMilestonePropertyMapping(
             _require(scheme.business_date_from), _require(scheme.business_date_to),
-            infinite_datetime=scheme.business_infinity,
+            business_infinite_datetime=scheme.business_infinite_datetime,
         )
     return None
 
@@ -731,14 +731,14 @@ def _scheme_table(schemes: list) -> str:
     """The DataStore's milestoning schemes as a table. The ``processing_datetime`` column is written only when a scheme
     uses it, so mappings without a processing snapshot are written as they always were."""
     snapshot = any(s.processing_datetime for s in schemes)
-    # an infinity for each axis is written only when a scheme ends its axes differently, as infinite_datetime always was
-    per_axis = any(s.business_infinity != s.infinite_datetime for s in schemes)
+    # one infinite_datetime column when no scheme ends its axes differently, as it always was; else one for each axis
+    per_axis = any(s.processing_infinite_datetime != s.business_infinite_datetime for s in schemes)
     infinity_headers = ["processing_infinite_datetime", "business_infinite_datetime"] if per_axis else ["infinite_datetime"]
     headers = ["Scheme", "processing_start", "processing_end"] + (["processing_datetime"] if snapshot else []) + [
         "business_date", "business_date_from", "business_date_to"] + infinity_headers
     rows = [[s.name, s.processing_start or "", s.processing_end or ""] + ([s.processing_datetime or ""] if snapshot else []) + [
-        s.business_date or "", s.business_date_from or "", s.business_date_to or "", s.infinite_datetime or ""] + (
-        [s.business_infinity or ""] if per_axis else [])
+        s.business_date or "", s.business_date_from or "", s.business_date_to or "", s.processing_infinite_datetime or ""] + (
+        [s.business_infinite_datetime or ""] if per_axis else [])
         for s in schemes]
     return _md_table(headers, rows)
 

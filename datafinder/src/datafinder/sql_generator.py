@@ -75,7 +75,7 @@ def _processing_predicate(mc: MilestoningColumns, processing_datetime: datetime.
         return None
     start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, _table_of(mc.start_at_column), join_node)
     end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, _table_of(mc.end_at_column), join_node)
-    return LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.infinite_datetime))
+    return LogicalOperation(start_at <= processing_datetime, LogicalOperator.AND, _open_end_clause(end_at, processing_datetime, mc.processing_infinite_datetime))
 
 
 def _processing_range_predicate(mc: MilestoningColumns, processing_from: datetime.datetime | datetime.date,
@@ -89,7 +89,7 @@ def _processing_range_predicate(mc: MilestoningColumns, processing_from: datetim
         return None
     start_at = DateTimeAttribute('start_at', mc.start_at_column.name, mc.start_at_column.type, _table_of(mc.start_at_column), join_node)
     end_at = DateTimeAttribute('end_at', mc.end_at_column.name, mc.end_at_column.type, _table_of(mc.end_at_column), join_node)
-    return LogicalOperation(start_at <= processing_to, LogicalOperator.AND, _open_end_clause(end_at, processing_from, mc.infinite_datetime))
+    return LogicalOperation(start_at <= processing_to, LogicalOperator.AND, _open_end_clause(end_at, processing_from, mc.processing_infinite_datetime))
 
 
 def _business_predicate(mc: MilestoningColumns, business_date: datetime.date | None,
@@ -1305,7 +1305,7 @@ def build_as_of_join_condition(root_table: Table, node: JoinTreeNodeOperation) -
                                                   ComparisonOperator.EQUAL, _as_of_root_column(processing_point)))
         else:
             conditions.append(_as_of_interval_contains(child.start_at_column, child.end_at_column,
-                                                       _as_of_root_column(processing_point), child.infinite_datetime,
+                                                       _as_of_root_column(processing_point), child.processing_infinite_datetime,
                                                        node))
 
     if isinstance(child, (SingleBusinessDateColumn, BusinessDateRangeColumns)):
