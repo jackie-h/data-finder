@@ -549,29 +549,6 @@ def _busiest_time(current, times, total):
     return totals.aggregate(max_total=lambda r: r.total.max())
 
 
-def _high_risk_orders(q, p):
-    """A temporal aggregation over a temporal join: the periods in which an open order and a low-balance customer overlap are the
-    later of the two begins to the earlier of the two ends, and the value at risk is totalled at each time one begins or ends."""
-    in_range = lambda finder: (finder.sys_time_begin() < p.SYS_TIME_END).and_(finder.sys_time_end() > p.SYS_TIME_BEGIN)
-    customers = q.customer.find_all(
-        None, None, [q.customer.customer_key().alias("c_custkey"), q.customer.sys_time_begin().alias("c_begin"),
-                     q.customer.sys_time_end().alias("c_end")],
-        in_range(q.customer).and_(q.customer.acct_bal() < 100))
-    orders = q.order.find_all(
-        None, None, [q.order.customer().customer_key().alias("o_custkey"), q.order.order_key().alias("o_orderkey"),
-                     q.order.total_price().alias("price"), q.order.sys_time_begin().alias("t_begin"),
-                     q.order.sys_time_end().alias("t_end")],
-        in_range(q.order).and_(q.order.order_status().eq("O"))).distinct()  # a row for each version of the customer: once is enough
-    overlap = customers.join(
-        orders, lambda c, o: (c.c_custkey == o.o_custkey) & (c.c_end > o.t_begin) & (o.t_end > c.c_begin), how="inner")
-    high_risk = overlap.extend(
-        o_begin=lambda r: when(r.c_begin > r.t_begin).then(r.c_begin).otherwise(r.t_begin),
-        o_end=lambda r: when(r.c_end < r.t_end).then(r.c_end).otherwise(r.t_end)).select("price", "o_begin", "o_end")
-    times = high_risk.extend(event_time=lambda r: r.o_begin).select("event_time").concatenate(
-        high_risk.extend(event_time=lambda r: r.o_end).select("event_time"))
-    return _busiest_time(high_risk, times, lambda r: r.price.sum()).select("max_total")
-
-
 def _extreme_stock_levels(supplies, p):
     """Every version of a supply at its lowest stock and at its highest, joined to the lowest and highest the supply ever had: the
     time between the two periods, whichever came first, as the difference of timestamps (an interval), and the smallest of them for
@@ -638,7 +615,7 @@ B4 = {
     "R3b": FinderQuery(["max_total"], lambda q, p: _time_slider(q.order, p, "O")),
     "R4": FinderQuery(["min_diff", "ps_partkey", "ps_suppkey"], lambda q, p: _extreme_stock_levels(q.partsupp, p)),
     "R5": FinderQuery(["orders"], lambda q, p: _temporal_join(q, p)),
-    "R6": FinderQuery(["aggr_result"], lambda q, p: _high_risk_orders(q, p).extend(aggr_result=lambda r: r.max_total).select("aggr_result")),
+    "R6": Unsupported(_FOREIGN_KEY),
 
     "R7": FinderQuery(
         ["Part Part Key", "Supplier Supplier Key", "Supply Cost", "Validity Time Begin", "Validity Time End",
