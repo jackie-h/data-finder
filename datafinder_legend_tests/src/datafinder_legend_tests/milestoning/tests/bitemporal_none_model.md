@@ -27,6 +27,7 @@ the dates a query gives are ignored.
 |----------|------|---------|--------------|-----|-------------|
 | Id       | id   | Integer | 1            | Y   |             |
 | Name     | name | String  | 1            |     |             |
+| Type     | type | String  | 1            |     |             |
 
 ### Class: BiTemporalProductClassification
 

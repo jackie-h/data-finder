@@ -30,7 +30,7 @@ query gives them are ignored and nothing filters the tables.
 |--------|------|-----|----------|-------------|
 | id | INT | PK | N | id |
 | name | VARCHAR |  | Y | name |
-| type | VARCHAR | FK | Y | biTemporalClassification |
+| type | VARCHAR |  | Y | type |
 
 #### Association: BiTemporalProductClassificationLink
 
