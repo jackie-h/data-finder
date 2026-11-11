@@ -1969,6 +1969,20 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
         return LogicalOperation(self, LogicalOperator.OR, other)
 
 
+class RelationExistsOperation(Operation, BooleanAggregates):
+    """There is a row of ``relation`` for which ``condition`` holds: ANSI SQL's ``EXISTS (SELECT 1 FROM <relation> WHERE
+    <condition>)``. The condition reads the columns of the relation and of the row it is asked of (a correlated subquery). It is a
+    condition like any other, so it is combined with ``&`` and ``|`` and negated with ``~``, as Legend's ``exists`` is in a
+    ``filter``. (An ExistsOperation asks if a property of the class has a value.)"""
+    relation: Relation
+    condition: RelationalOperationElement
+
+    def __init__(self, relation: Relation, condition: RelationalOperationElement):
+        super().__init__()
+        self.relation = relation
+        self.condition = condition
+
+
 class QueryExpression(Relation):
     """What ANSI SQL calls a ``<query expression>``: a query that returns rows and can be used where a table is, as a
     view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT, or a

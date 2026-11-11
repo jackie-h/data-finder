@@ -11,6 +11,7 @@ to exercise group_by with average().
 """
 import numpy as np
 
+from datafinder import exists
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 FINANCE_MAPPING = "finance_mapping.md"
@@ -88,6 +89,15 @@ def _accounts_with_the_trades_over_350(f, how):
     joined = accounts.join(_dearer_trades(f), lambda a, t: a.total_account == t.dear_account, how=how)
     result = joined.select("total_account", "dear_sym")
     return result.order_by(result["total_account"].ascending())
+
+
+def _accounts_that_have_a_trade_over_350(f, has):
+    """EXISTS (or NOT EXISTS) a trade over 350 of the account: the other result's rows are tested, and none of its columns are shown."""
+    accounts = _account_totals(f).select("total_account")
+    dearer = _dearer_trades(f)
+    kept = accounts.filter(lambda r: exists(dearer, lambda t: t.dear_account == r.total_account) if has
+                           else ~exists(dearer, lambda t: t.dear_account == r.total_account))
+    return kept.order_by(kept["total_account"].ascending())
 
 
 def _right_join_of_the_trades_over_350_to_the_accounts(f):
@@ -231,6 +241,20 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
             query=lambda f: _accounts_with_the_trades_over_350(f, "left"),
             expected_columns=["total_account", "dear_sym"],
             expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], ["Gamma Fund", "GS"]], dtype=object),
+        ),
+        TestExpectation(
+            name="exists_keeps_the_rows_that_have_a_match",
+            skip_backends=_NO_CHAIN,
+            query=lambda f: _accounts_that_have_a_trade_over_350(f, True),
+            expected_columns=["total_account"],
+            expected_result=np.array([["Beta Fund"], ["Gamma Fund"]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_exists_keeps_the_rows_that_have_none",
+            skip_backends=_NO_CHAIN,
+            query=lambda f: _accounts_that_have_a_trade_over_350(f, False),
+            expected_columns=["total_account"],
+            expected_result=np.array([["Alpha Fund"]], dtype=object),
         ),
         TestExpectation(
             name="join_right_keeps_every_row_of_the_right",

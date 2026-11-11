@@ -17,7 +17,7 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
-    WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, \
+    WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, RelationExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation, \
     JoinKind
 
@@ -626,7 +626,7 @@ class _RenderedSql(RelationalOperationElement):
 
 def _is_condition(op: RelationalOperationElement) -> bool:
     return isinstance(op, (ComparisonOperation, LogicalOperation, IsNullOperation, IsNotNullOperation, InOperation,
-                           NotInOperation, ExistsOperation, NotExistsOperation, NotOperation))
+                           NotInOperation, ExistsOperation, NotExistsOperation, RelationExistsOperation, NotOperation))
 
 
 def sql_operation_to_string(operation: RelationalOperationElement) -> str:
@@ -1083,6 +1083,10 @@ class SQLQueryGenerator:
         elif isinstance(op, ExistsOperation):
             col = op.node.join.keys()[1]
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NOT NULL'
+        elif isinstance(op, RelationExistsOperation):
+            inner = self.__table_alias_for_table(op.relation)
+            return 'EXISTS (SELECT 1 FROM ' + self.__relation_sql(inner) + ' AS ' + inner.name + ' WHERE ' \
+                + self.build_filter(op.condition) + ')'
         elif isinstance(op, NotExistsOperation):
             col = op.node.join.keys()[1]
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NULL'
