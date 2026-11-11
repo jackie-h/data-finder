@@ -1,4 +1,46 @@
-from model.relational import ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind
+from typing import Callable
+
+from model.relational import (
+    Column, ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind, LogicalOperation,
+    LogicalOperator, Operation, TableAlias,
+)
+
+
+class _Side:
+    """One side of a join of a table to itself, to say which of its columns a condition reads."""
+
+    def __init__(self, relation):
+        self.relation = relation
+
+    def column(self, name: str, type: str) -> Column:
+        if isinstance(self.relation, TableAlias):
+            return self.relation.column(name, type)
+        return Column(name, type, self.relation)
+
+
+def keys_join(name: str, table, source, target, kind: JoinKind, condition: Operation | Callable | None = None,
+              reverse: bool = False) -> JoinOperation:
+    """``table`` joined where its ``target`` column equals the ``source`` column of what is joined from, and where
+    ``condition`` holds besides, as Legend's join ``firmTable.ID = personTable.FIRMID and firmTable.FLAG is null``. The
+    condition reads the columns of the two tables, which say which side they are on.
+
+    A join of a table to itself has the same table on both sides, so its condition is a function of the two sides,
+    ``lambda plain, target: ...``, as Legend's ``personTable.MANAGERID = {target}.ID``: ``plain`` makes the columns of the
+    table the join starts from, and ``target`` those of the one it reaches. ``reverse`` is that the join is followed from
+    the other end, so the sides trade places."""
+    join = JoinOperation.on_keys(name, table, source, target, kind)
+    if condition is None:
+        return join
+    if callable(condition):
+        if not isinstance(join.target, TableAlias):
+            raise ValueError(f"Join '{name}' joins {table.name} to another table: its condition is not one of a self join")
+        parent, joined = _Side(source.owner_relation), _Side(join.target)
+        resolved = condition(joined, parent) if reverse else condition(parent, joined)
+    elif join.target is not table:
+        raise ValueError(f"Join '{name}' joins {table.name} to itself: its condition needs to say which side each column is on")
+    else:
+        resolved = condition
+    return JoinOperation(name, join.target, LogicalOperation(join.operation, LogicalOperator.AND, resolved), kind)
 
 
 def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=None,
@@ -7,8 +49,10 @@ def via_joins(parent: JoinTreeNodeOperation | None, hops: list, business_date=No
     (from column, table, to column) triple, in order. The tables carry no class, so the steps have no name. The dates
     the property was given are those of each step through a table on the way, as they are of the step that follows."""
     node = parent
-    for source, table, target in hops:
-        node = JoinTreeNodeOperation(JoinOperation.on_keys('', table, source, target, JoinKind.LEFT), node, optional=True,
+    for hop in hops:
+        source, table, target = hop[:3]
+        condition = hop[3] if len(hop) > 3 else None
+        node = JoinTreeNodeOperation(keys_join('', table, source, target, JoinKind.LEFT, condition), node, optional=True,
                                      business_date=business_date, processing_datetime=processing_datetime)
     return node
 

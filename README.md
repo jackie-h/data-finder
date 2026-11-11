@@ -193,6 +193,42 @@ An Association table with more than one row is a path through several tables. Ea
 | code          | countries    | code          |
 ```
 
+#### Join conditions
+
+A join can have a condition besides its key columns, as Legend's `Join Firm_Person(firm.ID = person.FIRMID and firm.FLAG is null
+and person.FLAG is not null)`. Add a `Condition` column to the Association table and write the condition for each row over the two
+tables that row joins:
+
+```
+#### Association: FirmPerson
+
+| Source Column | Target Table | Target Column | Condition                                         |
+|---------------|--------------|---------------|---------------------------------------------------|
+| firm_id       | firms        | id            | firms.flag IS NULL AND persons.flag IS NOT NULL |
+```
+
+A column is written `table.column` (or `schema.table.column`) and says which side of the join it is on by its table, so the condition
+reads the same from either end: `person.firm().legal_name()` and `firm.employees().first_name()` use it alike. It is ANDed into
+the `ON` of the left outer join, so a row it rejects leaves the joined columns NULL and drops no row. In a path of several rows, each
+row has its own condition, on the hop it belongs to. A blank cell is a hop with only its keys.
+
+A condition can use `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=`, `IS [NOT] NULL`, `AND`, `OR`, `NOT`, parentheses and string and number
+literals. A function (`now()`), anything else, and a column with no table are refused when the mapping is loaded.
+
+When a table is joined to itself its name is both sides, so the side the join reaches is written `{target}`, as in Legend's
+`Join Person_Manager(personTable.MANAGERID = {target}.ID)`: the table's own name is the row the join starts from.
+
+```
+#### Association: EmployeeManager
+
+| Source Column | Target Table | Target Column | Condition                                |
+|---------------|--------------|---------------|------------------------------------------|
+| manager_id    | staff        | id            | staff.active = 1 AND {target}.active = 1 |
+```
+
+Followed from the other end, as `employee.reports()` is from `employee.manager()`, the sides trade places: `{target}` is then the
+employee you started from. `{target}` can also be written in a join to another table, where it is that table.
+
 ### Embedded properties
 
 A table can hold the columns of a related object. Give those columns a dotted `Property ID` that follows the associations, such as `firm.legalName` or `firm.address.name`. If the table has no `#### Association:` block for that navigation, nothing is joined: the properties are read straight from the row.

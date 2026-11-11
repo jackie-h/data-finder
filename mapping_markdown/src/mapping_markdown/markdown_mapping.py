@@ -10,7 +10,9 @@ from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping, \
     BusinessDateRangeMilestonePropertyMapping, SingleProcessingDatetimeMilestonePropertyMapping
-from model.relational import DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, ForeignKey
+from mapping_markdown.join_condition import parse_condition
+from model.relational import BinaryOperation, DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, \
+    ForeignKey, Operation, UnaryOperation
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
 
 _md_parser = MarkdownIt().enable("table")
@@ -317,15 +319,16 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     )
 
                 if i < len(nodes) and nodes[i].type == "table":
-                    hops = _association_hops(assoc_name, _parse_ast_table(nodes[i], _ASSOCIATION_HEADERS),
-                                             cols_by_name, tables_by_name)
+                    hops, conditions, condition_texts = _association_hops(
+                        assoc_name, _parse_ast_table(nodes[i], _ASSOCIATION_HEADERS, _ASSOCIATION_OPTIONAL_HEADERS),
+                        cols_by_name, tables_by_name)
                     if hops and target_cls is not None:
                         first_lhs = hops[0][0]
                         last_lhs, last_rhs = hops[-1]
                         via = hops[:-1]
                         if embedded_in is not None:
                             _resolve_embedded_join(assoc_name, embedded_by_nav, embedded_in.group(2).split("."),
-                                                   nav_prop_id, last_lhs, last_rhs, via)
+                                                   nav_prop_id, last_lhs, last_rhs, via, conditions, condition_texts)
                         elif any(pm.property.id == nav_prop_id for pm in pm_list):
                             raise ValueError(
                                 f"Association '{assoc_name}': navigation property '{nav_prop_id}' "
@@ -335,7 +338,9 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             prop = Property(assoc_def.source_property.name, nav_prop_id, target_cls, assoc_def.source_multiplicity)
                             embedded_entry = embedded_by_nav.pop(nav_prop_id, None)
                             embedded = embedded_entry[1] if embedded_entry is not None else None
-                            pm_list.append(RelationalPropertyMapping(prop, Join(last_lhs, last_rhs, embedded=embedded, via=via)))
+                            pm_list.append(RelationalPropertyMapping(prop, Join(
+                                last_lhs, last_rhs, embedded=embedded, via=via, conditions=conditions,
+                                condition_texts=condition_texts)))
                         for lhs, rhs in hops:
                             if lhs.table is not None:
                                 lhs.table.foreign_keys.append(ForeignKey(lhs, rhs))
@@ -360,10 +365,14 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     return Mapping(title, class_mappings)
 
 
-def _association_hops(assoc_name: str, rows: list[dict], first_columns: dict, tables_by_name: dict) -> list[tuple[Column, Column]]:
-    """The (from, to) columns of each row of an Association table, in order. A row after the first starts from a
-    column of the table the row before it reaches, so several rows are a path through several tables."""
+def _association_hops(assoc_name: str, rows: list[dict], first_columns: dict, tables_by_name: dict) \
+        -> tuple[list[tuple[Column, Column]], list[Operation | None], list[str | None]]:
+    """The (from, to) columns of each row of an Association table, in order, and the condition of each row, read, and as
+    it was written. A row after the first starts from a column of the table the row before it reaches, so several rows
+    are a path through several tables. A row can have a ``Condition`` of its two tables besides its key columns."""
     hops: list[tuple[Column, Column]] = []
+    conditions: list[Operation | None] = []
+    texts: list[str | None] = []
     source_columns = first_columns
     for row in rows:
         src_col = row.get("Source Column", "").strip()
@@ -373,18 +382,26 @@ def _association_hops(assoc_name: str, rows: list[dict], first_columns: dict, ta
         tgt_table = tables_by_name.get(tgt_table_name)
         if lhs is None:
             _log.warning("Association '%s': source column '%s' not found in table for class", assoc_name, src_col)
-            return []
+            return [], [], []
         if tgt_table is None:
             _log.warning("Association '%s': target table '%s' not found", assoc_name, tgt_table_name)
-            return []
+            return [], [], []
         rhs = next((c for c in tgt_table.columns if c.name == tgt_col_name), None)
         if rhs is None:
             _log.warning("Association '%s': target column '%s' not found in table '%s'", assoc_name, tgt_col_name,
                          tgt_table_name)
-            return []
+            return [], [], []
+        text = row.get("Condition", "").strip() or None
+        condition = None
+        if text is not None:
+            source_table = lhs.table
+            assert source_table is not None
+            condition = parse_condition(text, [source_table, tgt_table], f"Association '{assoc_name}'")
         hops.append((lhs, rhs))
+        conditions.append(condition)
+        texts.append(text)
         source_columns = {c.name: c for c in tgt_table.columns}
-    return hops
+    return hops, conditions, texts
 
 
 def _check_embedded_joins(path: str, esm: EmbeddedSetMapping) -> None:
@@ -399,7 +416,8 @@ def _check_embedded_joins(path: str, esm: EmbeddedSetMapping) -> None:
 
 
 def _resolve_embedded_join(assoc_name: str, embedded_by_nav: dict, path: list[str], nav_prop_id: str,
-                           lhs: Column, rhs: Column, via: list[tuple[Column, Column]]) -> None:
+                           lhs: Column, rhs: Column, via: list[tuple[Column, Column]],
+                           conditions: list[Operation | None], condition_texts: list[str | None]) -> None:
     """Point the pending join of the embedded object at ``path`` (e.g. classification), named ``nav_prop_id``, at its
     columns."""
     entry = embedded_by_nav.get(path[0])
@@ -414,6 +432,7 @@ def _resolve_embedded_join(assoc_name: str, embedded_by_nav: dict, path: list[st
             f"Association '{assoc_name}': no property '{'.'.join(path)}.{nav_prop_id}' is mapped on a column of the "
             f"table; give the foreign key column that Property ID")
     pending.lhs, pending.rhs, pending.via = lhs, rhs, via
+    pending.conditions, pending.condition_texts = list(conditions), list(condition_texts)
     pending.resolved = True
 
 
@@ -526,8 +545,40 @@ def _first_column(join: Join) -> Column:
 
 
 def _association_rows(join: Join) -> list[list[str]]:
-    """The rows of an Association table: a row for each table the join passes through, then the one it ends at."""
-    return [[lhs.name, rhs.table.name if rhs.table else "", rhs.name] for lhs, rhs in join.via + [(join.lhs, join.rhs)]]
+    """The rows of an Association table: a row for each table the join passes through, then the one it ends at. A
+    Condition column follows when some hop has one."""
+    rows = [[lhs.name, rhs.table.name if rhs.table else "", rhs.name] for lhs, rhs in join.via + [(join.lhs, join.rhs)]]
+    if any(join.condition_texts):
+        rows = [row + [text or ""] for row, text in zip(rows, join.condition_texts)]
+    return rows
+
+
+def _association_headers(join: Join) -> list[str]:
+    return _ASSOCIATION_HEADERS + (_ASSOCIATION_OPTIONAL_HEADERS if any(join.condition_texts) else [])
+
+
+def _condition_columns(mapping: Mapping) -> set[tuple[str, str]]:
+    """The (table, column) of each column a join condition reads, which the table section has to name for the condition
+    to be read back, whether or not a property is mapped to the column."""
+    found: set[tuple[str, str]] = set()
+
+    def walk(op) -> None:
+        if isinstance(op, Column):
+            if op.table is not None:
+                found.add((op.table.qualified_name, op.name))
+        elif isinstance(op, (BinaryOperation, UnaryOperation)):
+            for child in ((op.left, op.right) if isinstance(op, BinaryOperation) else (op.element,)):
+                walk(child)
+
+    for rcm in mapping.mappings:
+        joins = [pm.target for pm in rcm.property_mappings if isinstance(pm.target, Join)]
+        for pm in rcm.property_mappings:
+            if isinstance(pm.target, EmbeddedSetMapping):
+                joins.extend(j for _, _, j, _ in _embedded_joins(pm.target, [pm.property.id]))
+        for join in joins:
+            for condition in join.conditions:
+                walk(condition)
+    return found
 
 
 def _link_tables(rcm: RelationalClassMapping) -> list[Table]:
@@ -542,6 +593,7 @@ def _link_tables(rcm: RelationalClassMapping) -> list[Table]:
 _COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Nullable", "Property ID"]
 _EMBEDDED_IN_RE = re.compile(r'\(\s*embedded in\s+(\w+)\.([\w.]+)\s*\)\s*$')
 _ASSOCIATION_HEADERS = ["Source Column", "Target Table", "Target Column"]
+_ASSOCIATION_OPTIONAL_HEADERS = ["Condition"]
 
 
 def _parse_nullable(row: dict, col_name: str) -> bool:
@@ -556,10 +608,13 @@ def _nullable_cell(col: Column) -> str:
     return "Y" if col.nullable else "N"
 
 
-def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str] | None = None) -> list[dict]:
+def _parse_ast_table(node: SyntaxTreeNode, expected_headers: list[str] | None = None,
+                     optional_headers: list[str] | None = None) -> list[dict]:
+    """The rows of a table. ``expected_headers`` are its columns, and ``optional_headers`` may follow them."""
     thead, tbody = node.children[0], node.children[1]
     headers = [c.children[0].content for c in thead.children[0].children]
-    if expected_headers is not None and headers != expected_headers:
+    if expected_headers is not None and headers != expected_headers \
+            and headers != expected_headers + (optional_headers or []):
         raise ValueError(
             f"Mapping table has unexpected headers {headers!r} — expected {expected_headers!r}"
         )
@@ -780,6 +835,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
             link_tables.setdefault((repo_name, link_schema), {})[link.name] = link
             repo_schema_map[repo_name].setdefault(link_schema, [])
 
+    condition_columns = _condition_columns(mapping)
     for repo_name in repos_seen:
         repo = repo_objs[repo_name]
         if isinstance(repo, DataCatalog):
@@ -823,10 +879,16 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                             continue
                         key = "FK" if lhs.name in fk_cols else ""
                         col_rows.append([lhs.name, lhs.type or "", key, _nullable_cell(lhs), pm.property.id])
+                        mapped_cols.add(lhs.name)  # a column is one row, whatever joins start from it
                         if pm.target.embedded is not None:
                             col_rows.extend(_flatten_embedded_rows(pm.target.embedded, pm.property.id))
                     elif isinstance(pm.target, EmbeddedSetMapping):
                         col_rows.extend(_flatten_embedded_rows(pm.target, pm.property.id))
+                written = {row[0] for row in col_rows}
+                for column in table.columns:
+                    if (table.qualified_name, column.name) in condition_columns and column.name not in written:
+                        col_rows.append([column.name, column.type or "", "PK" if column.primary_key else "",
+                                         _nullable_cell(column), ""])
                 lines.append(_md_table(_COLUMN_MAPPING_HEADERS, col_rows))
                 lines.append("")
 
@@ -846,8 +908,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                         assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
                         lines.append(f"#### Association: {assoc_name}")
                         lines.append("")
-                        lines.append(_md_table(["Source Column", "Target Table", "Target Column"],
-                                               _association_rows(pm.target)))
+                        lines.append(_md_table(_association_headers(pm.target), _association_rows(pm.target)))
                         lines.append("")
                     elif isinstance(pm.target, EmbeddedSetMapping):
                         for holder, prop, join, path in _embedded_joins(pm.target, [pm.property.id]):
@@ -855,8 +916,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                             assoc_name = _find_association_name(holder.clazz, prop.type, prop.id)
                             lines.append(f"#### Association: {assoc_name} (embedded in {rcm.clazz.name}.{'.'.join(path)})")
                             lines.append("")
-                            lines.append(_md_table(["Source Column", "Target Table", "Target Column"],
-                                                   _association_rows(join)))
+                            lines.append(_md_table(_association_headers(join), _association_rows(join)))
                             lines.append("")
 
     return "\n".join(lines)

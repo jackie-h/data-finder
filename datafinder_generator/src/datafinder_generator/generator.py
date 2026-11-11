@@ -10,7 +10,10 @@ from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMiles
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping, BusinessDateRangeMilestonePropertyMapping, \
     SingleProcessingDatetimeMilestonePropertyMapping
-from model.relational import Column, Table
+from model.relational import (
+    Column, ComparisonOperation, DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation,
+    IsNotNullOperation, IsNullOperation, LogicalOperation, NotOperation, StringConstantOperation, Table, TableAlias,
+)
 from model.relational_mapping import Join, EmbeddedSetMapping
 
 
@@ -183,6 +186,45 @@ def table_code(table: Table) -> str:
     return f"Table('{table_qualified_name(table)}', [{columns}]{key})"
 
 
+def _is_self_join(lhs: Column, rhs: Column) -> bool:
+    """Whether a hop joins a table to itself, so a condition on it needs to say which side each column is on."""
+    return lhs.table is not None and rhs.table is not None and lhs.table.qualified_name == rhs.table.qualified_name
+
+
+def condition_code(op, self_join: bool = False) -> str:
+    """Python source that builds the condition ``op`` of a join in a generated finder. For a join of a table to itself it
+    is a function of the two sides, ``lambda plain, target: ...``, which tell the columns of the two ends apart."""
+    def code(node) -> str:
+        if isinstance(node, Column):
+            if not self_join:
+                return column_code(node)
+            side = "target" if isinstance(node.owner, TableAlias) else "plain"
+            return f"{side}.column('{node.name}', '{node.type}')"
+        if isinstance(node, ComparisonOperation):
+            return f"ComparisonOperation({code(node.left)}, ComparisonOperator.{node.operator.name}, {code(node.right)})"
+        if isinstance(node, LogicalOperation):
+            return f"LogicalOperation({code(node.left)}, LogicalOperator.{node.operator.name}, {code(node.right)})"
+        if isinstance(node, (IsNullOperation, IsNotNullOperation, NotOperation)):
+            return f"{type(node).__name__}({code(node.element)})"
+        if isinstance(node, DecimalConstantOperation):
+            return f"DecimalConstantOperation(Decimal('{node.value}'))"
+        if isinstance(node, (StringConstantOperation, IntegerConstantOperation, FloatConstantOperation)):
+            return f"{type(node).__name__}({node.value!r})"
+        raise ValueError(f"A join condition cannot be generated from {node!r}")
+
+    return ("lambda plain, target: " if self_join else "") + code(op)
+
+
+def condition_kw(join: Join, reverse: bool = False) -> str:
+    """The ``condition=`` argument that gives a finder the condition of the join it follows, or nothing. ``reverse`` is that
+    the finder is the one the join is followed to from its other end, which matters only to a join of a table to itself."""
+    if join.condition is None:
+        return ""
+    self_join = _is_self_join(join.lhs, join.rhs)
+    return (f", condition={condition_code(join.condition, self_join)}"
+            + (", condition_reverse=True" if reverse and self_join else ""))
+
+
 def _table_of(column: Column) -> Table:
     assert column.table is not None, f"column '{column.name}' belongs to no table"
     return column.table
@@ -194,7 +236,10 @@ def parent_expr(join: Join, parent: str, with_dates: bool = False) -> str:
     ``business_date`` and ``processing_time`` the property was asked for with."""
     if not join.via:
         return parent
-    hops = ", ".join(f"({column_code(lhs)}, {table_code(_table_of(rhs))}, {column_code(rhs)})" for lhs, rhs in join.via)
+    hops = ", ".join(
+        f"({column_code(lhs)}, {table_code(_table_of(rhs))}, {column_code(rhs)}"
+        + (f", {condition_code(condition, _is_self_join(lhs, rhs))}" if condition is not None else "") + ")"
+        for (lhs, rhs), condition in zip(join.via, join.via_conditions))
     dates = (", business_date=None if business_date is None else convert_date(business_date), "
              "processing_datetime=None if processing_time is None else convert_date_time(processing_time)") if with_dates else ""
     return f"via_joins({parent}, [{hops}]{dates})"
@@ -307,6 +352,7 @@ def generate(mapping: Mapping, output_directory):
         embedded_optional=embedded_optional,
         embedded_classes=embedded_classes,
         parent_expr=parent_expr,
+        condition_kw=condition_kw,
         column_code=column_code,
         owner_code=owner_code,
     )
