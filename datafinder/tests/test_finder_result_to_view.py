@@ -6,7 +6,7 @@ import pytest
 from datafinder import FinderResult, ViewDefinition, ViewDefinitionError, ViewResult
 from datafinder.typed_attributes import StringAttribute, FloatAttribute
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns, SingleBusinessDateColumn
-from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation
+from model.relational import Column, Table, NoOperation, JoinOperation, JoinTreeNodeOperation, JoinKind
 from model.relational import Table as _OwnerTable
 _OWNER_VT_PLAIN = _OwnerTable('vt.plain', [])
 _OWNER_VT_TRADES = _OwnerTable('vt.trades', [])
@@ -26,7 +26,7 @@ def _price():
 
 def _account_name(child=None):
     child = child if child is not None else _processing("vt.account")
-    join = JoinOperation("Account", child, Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", child))
+    join = JoinOperation.on_keys("Account", child, Column("account_id", "INT", _OWNER_VT_TRADES), Column("id", "INT", child), JoinKind.LEFT)
     return StringAttribute("Account Name", "name", "VARCHAR", child, JoinTreeNodeOperation(join))
 
 

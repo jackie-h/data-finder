@@ -1,3 +1,4 @@
+from model.relational import JoinKind
 """Join checks and rendering for views: anchoring to the root row, and the DDL."""
 import datetime
 import pytest
@@ -29,7 +30,7 @@ def _bitemporal(name):
 
 
 def _node(child, name="Child"):
-    join = JoinOperation(name, child, Column("fk", "INT", _OWNER_ROOT), Column("id", "INT", child))
+    join = JoinOperation.on_keys(name, child, Column("fk", "INT", _OWNER_ROOT), Column("id", "INT", child), JoinKind.LEFT)
     return JoinTreeNodeOperation(join, None)
 
 
@@ -79,7 +80,7 @@ def test_non_milestoned_child_needs_no_condition():
 
 def test_an_ancestor_that_cannot_be_anchored_is_rejected_too():
     parent = _node(_business("mid"), name="Mid")
-    leaf_join = JoinOperation("Leaf", Table("leaf", []), Column("fk", "INT", _OWNER_MID), Column("id", "INT", _OWNER_LEAF))
+    leaf_join = JoinOperation.on_keys("Leaf", Table("leaf", []), Column("fk", "INT", _OWNER_MID), Column("id", "INT", _OWNER_LEAF), JoinKind.LEFT)
     view = View("v", "s", _processing("root"), [_alias("y", "leaf", JoinTreeNodeOperation(leaf_join, parent))])
     with pytest.raises(ViewDefinitionError, match="'Mid'"):
         check_view_joins(view)

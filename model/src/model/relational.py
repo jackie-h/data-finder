@@ -1686,14 +1686,35 @@ class ForeignKey:
 
 class TableAlias(NamedRelation):
     """A relation under a name where it is used, as in Legend and as ANSI SQL's ``<table reference>`` with its
-    ``<correlation name>``: ``(query) AS relation1``. It has the columns of the relation it names, and what reads those
-    columns says which alias they belong to by its name. A table is already named, so this is for a relation that is not:
-    a query."""
+    ``<correlation name>``: ``(query) AS relation1``, ``employee AS manager``. What reads its columns says which alias
+    they belong to by the column's owner.
+
+    An alias of a table has columns of its own, with the same names and types and the alias as their owner: that is what
+    tells ``employee.manager_id`` from ``manager.id`` when one table is on both sides of a join. An alias of a query has
+    the query's columns, which are expressions and have no owner to change."""
     relation: Relation
 
     def __init__(self, relation: Relation, name: str):
-        super().__init__(name, relation.columns)
+        if isinstance(relation, Table):
+            super().__init__(name, [])
+            self.columns = [Column(c.name, c.type, self, primary_key=c.primary_key, nullable=c.nullable)
+                            for c in relation.columns]
+            for column in self.columns:
+                column.table = relation
+        else:
+            super().__init__(name, relation.columns)
         self.relation = relation
+
+    def column(self, name: str, type: str) -> 'Column':
+        """The alias's own column of that name. A table in a finder lists only the columns the finder reads, so one that
+        the alias has not got yet is made, owned by the alias."""
+        for column in self.columns:
+            if isinstance(column, Column) and column.name == name:
+                return column
+        column = Column(name, type, self)
+        column.table = self.relation  # type: ignore[assignment]
+        self.columns = [*self.columns, column]
+        return column
 
 
 class Table(NamedRelation):
@@ -1753,15 +1774,88 @@ class Table(NamedRelation):
         return f"{self.schema.datastore.namespace(self.schema.name)}.{self.name}"
 
 
+class JoinKind(Enum):
+    """ANSI SQL's join types: ``INNER``, and the outer joins ``LEFT``, ``RIGHT`` and ``FULL``."""
+    INNER = 'inner'
+    LEFT = 'left'
+    RIGHT = 'right'
+    FULL = 'full'
+
+
+def same_relation(a: 'Relation | None', b: 'Relation | None') -> bool:
+    """Whether two relations are the same one: the same object, or tables or aliases that go by the same name."""
+    if a is b:
+        return True
+    return isinstance(a, NamedRelation) and isinstance(b, NamedRelation) and a.qualified_name == b.qualified_name
+
+
 class JoinOperation:
-    def __init__(self, name: str, target:Table, lhs:Column, rhs:Column, _filter:RelationalOperationElement | None = None):
+    """A relation joined on a condition, as Legend's ``Join`` and ANSI SQL's ``<join type> JOIN <table reference> ON
+    <search condition>``: its ``target``, the kind of join and the condition ``operation``.
+
+    Every column in the condition is owned by a relation, and that says which side of the join it is on: a column of the
+    ``target`` belongs to the target and any other to what is joined from. When one table is both, the target is a
+    TableAlias of it (``TableAlias(employee, "manager")``) and the condition uses that alias's columns."""
+
+    def __init__(self, name: str, target: Relation, operation: RelationalOperationElement, kind: JoinKind,
+                 _filter: RelationalOperationElement | None = None):
         self.name = name
         self.target = target
-        self.left = lhs
-        self.right = rhs
+        self.operation = operation
+        self.kind = kind
         self.filter = _filter
         self.filter_kwargs: dict = {}
         self.filter_column_map: dict = {}
+        for column in self.columns():
+            column.owner_relation  # a column that belongs to no relation can't say which side it is on
+
+    @staticmethod
+    def on_keys(name: str, table: 'Table', source: 'Column', target: 'Column', kind: JoinKind) -> 'JoinOperation':
+        """``table`` joined where its ``target`` column equals the ``source`` column of what is joined from. When that is
+        the same table, the target is an alias of it named ``name``, so the two sides can be told apart."""
+        if same_relation(source.owner_relation, table):
+            alias = TableAlias(table, name or table.name + '_joined')
+            return JoinOperation(name, alias, ComparisonOperation(source, ComparisonOperator.EQUAL,
+                                                                  alias.column(target.name, target.type)), kind)
+        return JoinOperation(name, table, ComparisonOperation(source, ComparisonOperator.EQUAL, target), kind)
+
+    @property
+    def table(self) -> 'Table':
+        """The table that is joined: the target, or what the target is an alias of."""
+        target = self.target
+        if isinstance(target, TableAlias):
+            target = target.relation
+        assert isinstance(target, Table), f"Not a table: {target!r}"
+        return target
+
+    def columns(self) -> 'list[Column]':
+        """The columns the condition reads."""
+        found: list[Column] = []
+
+        def walk(op) -> None:
+            if isinstance(op, Column):
+                found.append(op)
+            elif isinstance(op, BinaryOperation):
+                walk(op.left)
+                walk(op.right)
+            elif isinstance(op, (UnaryOperation, Alias)):
+                walk(op.element)
+        walk(self.operation)
+        return found
+
+    def is_target(self, column: 'Column') -> bool:
+        """Whether the column is on the joined side."""
+        return same_relation(column.owner_relation, self.target)
+
+    def keys(self) -> 'tuple[Column, Column]':
+        """The (source, target) columns of a join that is one column equal to another: what a step that only asks if a row
+        exists reads. Any other condition has no such pair."""
+        op = self.operation
+        if isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.EQUAL \
+                and isinstance(op.left, Column) and isinstance(op.right, Column) \
+                and self.is_target(op.left) != self.is_target(op.right):
+            return (op.right, op.left) if self.is_target(op.left) else (op.left, op.right)
+        raise ValueError(f"Join '{self.name}' is not one column equal to another: it has no key to read")
 
 
 class JoinTreeNodeOperation:

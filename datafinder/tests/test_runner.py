@@ -9,7 +9,7 @@ from datafinder.runner import FinderResult, ViewResult, _DEFAULT_TIMEOUT_MS, con
     convert_inputs_and_select, convert_inputs_and_select_for_date_range
 from datafinder import IntegerAttribute, StringAttribute
 from model.milestoning import MilestonedTable, ProcessingTemporalColumns, SingleBusinessDateColumn
-from model.relational import Alias, Column, ColumnWithJoin, JoinOperation, JoinTreeNodeOperation, NoOperation, SortDirection, Table
+from model.relational import Alias, Column, ColumnWithJoin, JoinOperation, JoinTreeNodeOperation, NoOperation, SortDirection, Table, JoinKind
 from model.view import View
 from model.relational import Table as _OwnerTable
 _OWNER_OTHER = _OwnerTable('other', [])
@@ -168,7 +168,7 @@ class TestOrderByAccumulates:
         assert self._columns(result) == [("a", SortDirection.DESC), ("b", SortDirection.ASC)]
 
     def test_the_same_column_reached_through_a_join_is_a_different_sort(self):
-        join = JoinOperation("Other", Table("other", []), Column("fk", "INT", _OWNER_T), Column("id", "INT", _OWNER_OTHER))
+        join = JoinOperation.on_keys("Other", Table("other", []), Column("fk", "INT", _OWNER_T), Column("id", "INT", _OWNER_OTHER), JoinKind.LEFT)
         own = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
         joined = StringAttribute("Other Name", "name", "VARCHAR", _OWNER_OTHER, JoinTreeNodeOperation(join))
         result = self._result().order_by(own.ascending()).order_by(joined.ascending())
