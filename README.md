@@ -520,7 +520,7 @@ top.order_by(top["account"].ascending())
 - `concatenate(other)` is `UNION` (`all=True` for `UNION ALL`).
 - `join(other, lambda a, b: a.key == b.key, how="inner")` puts the rows of two results together, as Legend's `join` and as pandas,
   polars and ibis do. The condition is a function of a row of each, so it can be more than equality, and several comparisons
-  are combined with `&` and `|` (each in brackets: Python's `and` would keep only one). `how` is `inner` (the default), `left`,
+  are combined with `&` and `|` (each in brackets: Python's `and` would keep only one). `how` is required, as Legend's join kind is, and is `inner`, `left`,
   `right` or `full`: ANSI SQL's join types, the outer ones keeping the rows that find no match, with NULL for the other side's
   columns. The two sides' columns must be named differently (`alias()`, or `extend` then `select`), as Legend requires.
 - `group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count(), avg=lambda r: r.salary.average())` groups the rows

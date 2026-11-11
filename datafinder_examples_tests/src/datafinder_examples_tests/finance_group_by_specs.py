@@ -78,7 +78,7 @@ def _dearer_trades(f):
 
 def _each_trade_with_its_account_total(f):
     trades = _trades(f)
-    joined = trades.join(_account_totals(f), lambda t, a: t.account == a.total_account)
+    joined = trades.join(_account_totals(f), lambda t, a: t.account == a.total_account, how="inner")
     result = joined.select("sym", "price", "total")
     return result.order_by(result["price"].ascending())
 

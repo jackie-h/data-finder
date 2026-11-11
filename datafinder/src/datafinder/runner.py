@@ -347,13 +347,13 @@ class FinderResult(DataFrame):
         return self._next([attributes[n] for n in names])
 
     def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation],
-             how: Literal["inner", "left", "right", "full"] = "inner") -> 'FinderResult':
+             how: Literal["inner", "left", "right", "full"]) -> 'FinderResult':
         """The rows of this result put together with the rows of ``other``, as Legend's ``join``. The condition is a function
         of a row of each (bracket each comparison, and join them with ``&`` or ``|``: ``and`` and ``or`` would drop one)::
 
-            orders.join(customers, lambda o, c: o.customer_id == c.id)                  # inner, the default
+            orders.join(customers, lambda o, c: o.customer_id == c.id, how="inner")     # only orders that have a customer
             orders.join(customers, lambda o, c: o.customer_id == c.id, how="left")      # every order, with a customer or NULL
-            lines.join(others, lambda a, b: (a.order == b.order) & (a.supplier != b.supplier))
+            lines.join(others, lambda a, b: (a.order == b.order) & (a.supplier != b.supplier), how="inner")
 
         ``how`` is one of ANSI SQL's join types: ``inner``, or ``left``, ``right`` or ``full``, the outer joins that keep the
         rows that find no match, with NULL for the other side's columns.

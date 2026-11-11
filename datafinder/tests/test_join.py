@@ -33,20 +33,21 @@ def test_a_join_is_written_as_the_join_of_the_two_queries(how, word):
     assert f") AS t1 {word} (SELECT " in sql and sql.endswith(") AS t2 ON (t1.account = t2.id)) AS t0")
 
 
-def test_inner_is_the_default():
+def test_how_is_required_as_legends_join_has_no_default_kind():
     trades, accounts = _results()
-    assert " INNER JOIN " in trades.join(accounts, lambda t, a: t.account == a.id).to_sql()
+    with pytest.raises(TypeError, match="how"):
+        trades.join(accounts, lambda t, a: t.account == a.id)  # type: ignore[call-arg]
 
 
 def test_a_condition_of_several_comparisons_is_joined_with_and_or_or():
     trades, accounts = _results()
-    sql = trades.join(accounts, lambda t, a: ((t.account == a.id) & (t.sym != a.name)) | (t.price > 5.0)).to_sql()
+    sql = trades.join(accounts, lambda t, a: ((t.account == a.id) & (t.sym != a.name)) | (t.price > 5.0), how="inner").to_sql()
     assert "ON ((t1.account = t2.id AND t1.sym <> t2.name) OR t1.price > 5.0)) AS t0" in sql
 
 
 def test_a_joined_result_can_be_filtered_extended_ordered_and_aggregated_like_any_other():
     trades, accounts = _results()
-    joined = trades.join(accounts, lambda t, a: t.account == a.id)
+    joined = trades.join(accounts, lambda t, a: t.account == a.id, how="inner")
     totals = joined.filter(lambda r: r.price > 1.0).group_by(lambda r: r.name).aggregate(total=lambda r: r.price.sum())
     sql = totals.order_by(totals["total"].descending()).to_sql()
     assert "INNER JOIN" in sql and "GROUP BY t0.name" in sql and sql.endswith("ORDER BY SUM(t0.price) DESC")
@@ -56,14 +57,14 @@ def test_a_join_can_be_joined_again():
     trades, accounts = _results()
     other = FinderResult(None, None, [StringAttribute("Region", "REGION", "VARCHAR", Table("regions", [("REGION", "VARCHAR")]))
                                       .alias("region")], Table("regions", [("REGION", "VARCHAR")]), NoOperation())
-    twice = trades.join(accounts, lambda t, a: t.account == a.id).join(other, lambda j, r: j.name == r.region, how="left")
+    twice = trades.join(accounts, lambda t, a: t.account == a.id, how="inner").join(other, lambda j, r: j.name == r.region, how="left")
     assert twice.columns() == ["account", "sym", "price", "id", "name", "region"]
     assert twice.to_sql().count("JOIN") == 2
 
 
 def test_the_columns_of_a_join_are_the_columns_of_both():
     trades, accounts = _results()
-    assert trades.join(accounts, lambda t, a: t.account == a.id).columns() == ["account", "sym", "price", "id", "name"]
+    assert trades.join(accounts, lambda t, a: t.account == a.id, how="inner").columns() == ["account", "sym", "price", "id", "name"]
 
 
 def test_the_model_of_a_join_is_a_query_of_the_left_with_a_join_to_the_right():
@@ -80,7 +81,7 @@ def test_the_model_of_a_join_is_a_query_of_the_left_with_a_join_to_the_right():
 def test_the_two_sides_columns_must_be_named_differently():
     trades, _ = _results()
     with pytest.raises(ValueError, match="account"):
-        trades.join(trades, lambda a, b: a.price == b.price)
+        trades.join(trades, lambda a, b: a.price == b.price, how="inner")
 
 
 def test_how_is_one_of_the_ansi_join_types():
@@ -93,12 +94,12 @@ def test_how_is_one_of_the_ansi_join_types():
 def test_a_condition_is_a_function_that_gives_a_comparison():
     trades, accounts = _results()
     with pytest.raises(TypeError, match="function of a row"):
-        trades.join(accounts, trades["account"] == accounts["id"])  # type: ignore[arg-type]
+        trades.join(accounts, trades["account"] == accounts["id"], how="inner")  # type: ignore[arg-type]
     with pytest.raises(TypeError, match="comparison"):
-        trades.join(accounts, lambda t, a: t.account)
+        trades.join(accounts, lambda t, a: t.account, how="inner")
 
 
 def test_a_column_of_a_row_that_is_not_there_says_which_are():
     trades, accounts = _results()
     with pytest.raises(AttributeError, match="id"):
-        trades.join(accounts, lambda t, a: t.account == a.account)
+        trades.join(accounts, lambda t, a: t.account == a.account, how="inner")
