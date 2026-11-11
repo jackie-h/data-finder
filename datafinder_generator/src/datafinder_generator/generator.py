@@ -153,17 +153,20 @@ def _scheme_columns_code(table: Table) -> str:
         return f"Column('{column.name}', '{column.type}')"
 
     infinite = f", infinite_datetime='{scheme.infinite_datetime}'" if scheme.infinite_datetime else ""
+    business = scheme.business_infinity
+    business_infinite = f", business_infinite_datetime={business!r}" if business != scheme.infinite_datetime else ""
     if scheme.processing_datetime:
         return f"SingleProcessingDatetimeColumn({col(scheme.processing_datetime)})"
     if scheme.processing_start and (scheme.business_date_from or scheme.business_date_to):
         return (f"BiTemporalColumns({col(scheme.business_date_from)}, {col(scheme.business_date_to)}, "
-                f"{col(scheme.processing_start)}, {col(scheme.processing_end)}{infinite})")
+                f"{col(scheme.processing_start)}, {col(scheme.processing_end)}{infinite}{business_infinite})")
     if scheme.processing_start and scheme.business_date:
         return (f"BusinessDateAndProcessingTemporalColumns({col(scheme.business_date)}, {col(scheme.processing_start)}, "
                 f"{col(scheme.processing_end)}{infinite})")
     if scheme.processing_start:
         return f"ProcessingTemporalColumns({col(scheme.processing_start)}, {col(scheme.processing_end)}{infinite})"
     if scheme.business_date_from or scheme.business_date_to:
+        infinite = f", infinite_datetime='{business}'" if business else ""
         return f"BusinessDateRangeColumns({col(scheme.business_date_from)}, {col(scheme.business_date_to)}{infinite})"
     if scheme.business_date:
         return f"SingleBusinessDateColumn({col(scheme.business_date)})"

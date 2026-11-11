@@ -1220,3 +1220,26 @@ class TestJoinsThroughTables:
         path = self._with(tmp_path, "(milestoning: business_date_range)\n", "(milestoning: nosuch)\n")
         with pytest.raises(ValueError, match="'nosuch' is not defined"):
             load(path)
+
+
+class TestInfinityOfEachAxis:
+    """A bitemporal scheme can end its processing and business axes differently."""
+
+    def _mapping(self):
+        from datafinder_examples import example_path
+        return example_path("bitemporal_infinity_mapping.md")
+
+    def test_the_scheme_reads_an_infinity_for_each_axis(self):
+        milestone = load(str(self._mapping())).mappings[0].milestone_mapping
+        assert isinstance(milestone, BiTemporalMilestonePropertyMapping)
+        assert milestone.infinite_datetime == "9999-12-31 00:00:00"
+        assert milestone.business_infinite_datetime is None  # the business end is NULL: no infinity
+
+    def test_each_axis_survives_writing(self, tmp_path):
+        mapping = load(str(self._mapping()))
+        path = tmp_path / "mapping.md"
+        model = self._mapping().parent / "bitemporal_infinity_model.md"
+        save(str(path), "Bitemporal Infinity Mapping", mapping, [str(model)])
+        again = load(str(path)).mappings[0].milestone_mapping
+        assert isinstance(again, BiTemporalMilestonePropertyMapping)
+        assert (again.infinite_datetime, again.business_infinite_datetime) == ("9999-12-31 00:00:00", None)
