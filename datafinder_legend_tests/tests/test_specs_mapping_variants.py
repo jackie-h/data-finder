@@ -1,6 +1,6 @@
 """
-Runs the specs for bitemporal types mapped to tables that are milestoned less than the types are, against the generated
-finders: the SQL they generate is compared with Legend's, and the rows they return with the rows Legend's SQL returns on
+Runs the specs of the mappings that each have a few tests (bitemporal types on tables milestoned less than the types
+are, joins with conditions and chains) against the generated finders: the SQL they generate is compared with Legend's, and the rows they return with the rows Legend's SQL returns on
 Legend's test data.
 """
 import importlib
@@ -18,6 +18,8 @@ from datafinder_legend_tests.results import assert_same_rows
 _VARIANTS = {
     "milestoning/tests/bitemporal_none_mapping.md": "milestoning/tests/bitemporal_none_data.sql",
     "milestoning/tests/bitemporal_single_mapping.md": "milestoning/tests/business_date_data.sql",
+    "tests/mapping/join/advanced_join_mapping.md": "tests/mapping/join/advanced_join_data.sql",
+    "tests/mapping/join/chained_joins_mapping.md": "tests/mapping/join/advanced_join_data.sql",
 }
 _ENTRIES = [(mapping, spec, e) for mapping in _VARIANTS for spec in discover_specs(mapping) for e in spec.expectations]
 _CASES = [pytest.param(mapping, spec, e, id=f"{spec.finder_name}-{e.name}") for mapping, spec, e in _ENTRIES]
@@ -30,13 +32,13 @@ def _finder(mapping: str, finder_name: str):
 
 
 @pytest.mark.parametrize("mapping,spec,expectation", _CASES)
-def test_bitemporal_variant(mapping, spec, expectation):
+def test_mapping_variant(mapping, spec, expectation):
     with generated_finders(legend_path(mapping)):
         expectation.run(_finder(mapping, spec.finder_name), backend=BACKEND)
 
 
 @pytest.mark.parametrize("mapping,spec,expectation", _CASES)
-def test_bitemporal_variant_rows(mapping, spec, expectation):
+def test_mapping_variant_rows(mapping, spec, expectation):
     with generated_finders(legend_path(mapping)), seeded_database(legend_path(_VARIANTS[mapping])) as database:
         assert_same_rows(database, _finder(mapping, spec.finder_name), expectation)
 
