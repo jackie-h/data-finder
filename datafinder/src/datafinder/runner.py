@@ -13,7 +13,7 @@ from model.relational import (
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
     DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
     FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, JoinKind, JoinOperation, NoOperation, Operation,
-    QueryExpression, QuerySpecification, Relation, RelationalOperationElement,
+    QueryExpression, QuerySpecification, Relation, RelationExistsOperation, RelationalOperationElement,
     ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
     UnionOperation,
     WindowFunctionOperation)
@@ -182,6 +182,26 @@ class Row:
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("A row is read, not changed: use extend() to add a column")
+
+
+def exists(other: 'FinderResult', condition: Callable[['Row'], Operation]) -> RelationExistsOperation:
+    """Whether ``other`` has a row for which ``condition`` holds, as Legend's ``exists(e | ...)``, and SQL's ``EXISTS``. It is a
+    condition, for the ``filter`` of a result: the function is of a row of ``other``, and it reads the row being filtered from
+    the function it is in. ``~exists(...)`` is ``NOT EXISTS``, and conditions are combined with ``&`` and ``|``::
+
+        late_lines.filter(lambda l1: exists(lines, lambda l2: (l2.order == l1.order) & (l2.supplier != l1.supplier))
+                                     & ~exists(late, lambda l3: (l3.order == l1.order) & (l3.supplier != l1.supplier)))
+    """
+    if not callable(condition):
+        raise TypeError("The condition of an exists is a function of a row of the other result: exists(other, lambda o: o.key == r.key)")
+    relation, _ = other._relation()
+    # a name of its own each time, so that a result tested against itself reads as two relations
+    inner = TableAlias(relation.relation, f"relation{next(_relation_numbers)}")
+    test = condition(Row(_attributes(inner)))
+    if not isinstance(test, Operation):
+        raise TypeError("The condition of an exists gives a comparison, such as o.key == r.key, not "
+                        f"{type(test).__name__} (combine comparisons with & and |, each in brackets)")
+    return RelationExistsOperation(inner, test)
 
 
 class GroupedRows:

@@ -532,6 +532,10 @@ top.order_by(top["account"].ascending())
   are combined with `&` and `|` (each in brackets: Python's `and` would keep only one). `how` is required, as Legend's join kind is, and is `inner`, `left`,
   `right` or `full`: ANSI SQL's join types, the outer ones keeping the rows that find no match, with NULL for the other side's
   columns. The two sides' columns must be named differently (`alias()`, or `extend` then `select`), as Legend requires.
+- `exists(other, lambda o: o.key == r.key)` is a condition for the `filter` of a result: it holds when `other` has a row meeting the
+  condition, as Legend's `exists` and SQL's `EXISTS`. The function is of a row of `other`, and it reads the row being filtered from
+  the function it is in: `rows.filter(lambda r: exists(other, lambda o: (o.key == r.key) & (o.n != r.n)))`. `~exists(...)` is `NOT EXISTS`,
+  and `exists` conditions combine with `&` and `|` like any other. None of `other`'s columns are in the result.
 - `group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count(), avg=lambda r: r.salary.average())` groups the rows
   and gives the key columns and an aggregate of each group, as Legend's `groupBy`. Several keys are a tuple
   (`lambda r: (r.dept, r.title)`), and a key that is worked out is named with `alias`. `aggregate(...)` alone is one row for the
