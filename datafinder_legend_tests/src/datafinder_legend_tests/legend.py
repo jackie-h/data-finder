@@ -22,6 +22,15 @@ TYPED_DATE_LITERAL = (
     "bare string literal, which comes back as text"
 )
 
+DISTINCT_QUERY_JOIN_INSIDE = (
+    "a property that a distinct mapping takes through a join is read from the join inside the distinct query, which holds it; "
+    "Legend joins to that table again outside the sub select, which gives the same value for each row the distinct keeps"
+)
+DISTINCT_QUERY_FILTER_ON_JOIN = (
+    "a filter on the joined side of a distinct mapping is a condition on the joined sub select, which a left outer join keeps "
+    "to the rows that match it; Legend writes it as an exists over a second copy of the sub select, which keeps the same rows"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"

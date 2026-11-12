@@ -6,3 +6,7 @@ insert into ACCOUNT_INFO (id, ACC_NUM, ACCT_NAME, IF_CODE, IF_NAME, IF_TYPE, DES
 insert into ACCOUNT_INFO (id, ACC_NUM, ACCT_NAME, IF_CODE, IF_NAME, IF_TYPE, DESKHEAD_ID, DESKHEAD_NAME) values (3, 7900003, 'Acct 3',1002, 'IF 2', 'Type 1', 11, 'Jack');
 insert into ACCOUNT_INFO (id, ACC_NUM, ACCT_NAME, IF_CODE, IF_NAME, IF_TYPE, DESKHEAD_ID, DESKHEAD_NAME) values (4, 7900004, 'Acct 4',1022, 'IF 2', 'Type 1', 11, 'Jack');
 insert into ACCOUNT_INFO (id, ACC_NUM, ACCT_NAME, IF_CODE, IF_NAME, IF_TYPE, DESKHEAD_ID, DESKHEAD_NAME) values (5, 7900005, 'Acct 5',1002, 'IF 2', 'Type 2', 11, 'Jack');
+Drop table if exists IF_OTHER_INFO;
+Create Table IF_OTHER_INFO(IF_CODE INT, IF_OTHER_NAME VARCHAR(20));
+insert into IF_OTHER_INFO (IF_CODE, IF_OTHER_NAME) values (1001, 'IfName1');
+insert into IF_OTHER_INFO (IF_CODE, IF_OTHER_NAME) values (1002, 'IfName2');
