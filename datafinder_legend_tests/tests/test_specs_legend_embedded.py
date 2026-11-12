@@ -19,6 +19,7 @@ from datafinder_legend_tests.results import assert_same_rows
 _MAPPINGS = {
     "tests/mapping/embedded/embedded_mapping.md": "tests/mapping/embedded/embedded_data.sql",
     "tests/mapping/embedded/denorm_mapping.md": "tests/mapping/embedded/denorm_data.sql",
+    "tests/mapping/embedded/denorm_firm_mapping.md": "tests/mapping/embedded/denorm_data.sql",
 }
 _SPECS = [spec for mapping in _MAPPINGS for spec in discover_specs(mapping)]
 _CASES = [pytest.param(spec, e, id=f"{spec.finder_name}-{e.name}") for spec in _SPECS for e in spec.expectations]
