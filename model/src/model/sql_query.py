@@ -183,7 +183,13 @@ def _relation(node: exp.Expr, tables: dict[str, NamedRelation], scope: _Scope, w
         if not any(r is table for r in reads):
             reads.append(table)
         read_as = node.alias or table.name
-        relation: Relation = table if not node.alias else TableAlias(table, node.alias)
+        if not node.alias:
+            relation: Relation = table
+        elif isinstance(table, TableAlias):
+            # another query read under a name of its own: the name is of the query, with columns it owns
+            relation = TableAlias(table.relation, node.alias, [(c.name, c.type) for c in table.columns if isinstance(c, Column)])
+        else:
+            relation = TableAlias(table, node.alias)
         scope.add(read_as, relation)
         return relation
     if isinstance(node, exp.Subquery):
