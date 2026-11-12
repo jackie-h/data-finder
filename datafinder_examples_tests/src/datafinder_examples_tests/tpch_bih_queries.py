@@ -31,9 +31,8 @@ class Unsupported:
 _NOW = CURRENT_SYS
 
 _PART_NAVIGATION = (
-    "The part key is read through the PART navigation, which joins PART as of the date: a supply whose part is not "
-    "available at that application time, as currently recorded (a delay moves the start of availability), is lost, where "
-    "the benchmark's SQL uses ps_partkey directly")
+    "ps_partkey is a foreign key, which the finders do not return as a value: the supply's part is a navigation that joins PART, "
+    "and with no date that repeats a supply for each version of its part (a delay adds one), which changes the average")
 _FOREIGN_KEY = (
     "o_custkey is a foreign key, which the finders do not return as a value: the order's customer is a navigation that joins "
     "CUSTOMER, and that repeats an order for each version of its customer")
@@ -726,8 +725,8 @@ def _other_parts(f, p, app, sys, application=False, system=None, anchor_app=None
 _PART_COLUMN = ["Part Part Key", "Validity Time Begin", "Validity Time End", "Sys Time Begin", "Sys Time End"]
 
 B5 = {
-    "B5_1": Unsupported(_PART_NAVIGATION),
-    "B5_2": Unsupported(_PART_NAVIGATION),
+    "B5_1": FinderQuery(_PART_COLUMN, lambda q, p: _other_parts(q.partsupp, p, p.APP_TIME, _NOW, anchor_app=p.APP_TIME)),
+    "B5_2": FinderQuery(_PART_COLUMN, lambda q, p: _other_parts(q.partsupp, p, p.APP_TIME2, p.SYS_TIME, anchor_app=p.APP_TIME1)),
     "B5_3": FinderQuery(_PART_COLUMN, lambda q, p: _other_parts(q.partsupp, p, None, _NOW, application=True)),
     "B5_4": FinderQuery(_PART_COLUMN, lambda q, p: _other_parts(q.partsupp, p, p.APP_TIME, None, system="overlap")),
     "B5_5": FinderQuery(_PART_COLUMN, lambda q, p: _other_parts(q.partsupp, p, None, None, application=True, system="overlap")),
