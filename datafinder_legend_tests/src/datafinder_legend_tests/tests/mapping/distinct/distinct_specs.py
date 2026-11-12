@@ -3,7 +3,7 @@ Ported from legend-engine core_relational ``tests/mapping/distinct/testDistinct.
 
 A class mapped with ``~distinct`` is a ``Query`` section here (``SELECT DISTINCT``). Legend writes the distinct into the root table when
 the whole class is fetched, and into a sub select when properties are projected; the finder always writes the sub select, so the ones
-that fetch the whole class, and the ones that join to or from a distinct mapping, are recorded as unsupported.
+that fetch the whole class are recorded as unsupported. The rest run on mappings in this folder, where each distinct class is a query.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
@@ -102,12 +102,12 @@ DISTINCT_CASE_SPECS = FinderSpec(
     ],
 )
 
-DISTINCT_UNSUPPORTED_SPECS = FinderSpec(
-    finder_name="PersonFinder",
-    mapping_file="tests/simple_mapping.md",
+DISTINCT_DUP_SPECS = FinderSpec(
+    finder_name="ClassificationFinder",
+    mapping_file="tests/mapping/distinct/distinct_dup_mapping.md",
     expectations=[
-        unsupported("testProjectDistinctMappingWithDistinctInJoinWithDup", f"{_SRC}::testProjectDistinctMappingWithDistinctInJoinWithDup",
-                    'select "root".IF_OTHER_NAME as "name", "account_info_0".IF_NAME as "incomeFunction" from IF_OTHER_INFO as "root" left outer join (select distinct "root".IF_NAME, "if_other_info_1".IF_OTHER_NAME, "root".IF_CODE from ACCOUNT_INFO as "root" left outer join IF_OTHER_INFO as "if_other_info_1" on ("root".IF_CODE = "if_other_info_1".IF_CODE and "root".IF_CODE is not null)) as "account_info_0" on ("account_info_0".IF_CODE = "root".IF_CODE and "account_info_0".IF_CODE is not null)',
-                    'a distinct mapping joined to, or from, other classes'),
+        ported("testProjectDistinctMappingWithDistinctInJoinWithDup", f"{_SRC}::testProjectDistinctMappingWithDistinctInJoinWithDup",
+               'select "root".IF_OTHER_NAME as "name", "account_info_0".IF_NAME as "incomeFunction" from IF_OTHER_INFO as "root" left outer join (select distinct "root".IF_NAME, "if_other_info_1".IF_OTHER_NAME, "root".IF_CODE from ACCOUNT_INFO as "root" left outer join IF_OTHER_INFO as "if_other_info_1" on ("root".IF_CODE = "if_other_info_1".IF_CODE and "root".IF_CODE is not null)) as "account_info_0" on ("account_info_0".IF_CODE = "root".IF_CODE and "account_info_0".IF_CODE is not null)',
+               lambda f: f.find_all([f.name(), f.income_functions().name().alias("incomeFunction")])),
     ],
 )
