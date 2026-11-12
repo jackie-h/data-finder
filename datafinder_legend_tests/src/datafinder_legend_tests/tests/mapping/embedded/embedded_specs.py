@@ -27,9 +27,6 @@ EMBEDDED_SPECS = FinderSpec(
         unsupported("testDenormMappingOneToManyProjectWithFilterOnEnumRight", f"{_SRC}::testDenormMappingOneToManyProjectWithFilterOnEnumRight",
                     'select "root".PERSON_FIRSTNAME as "firstName", "root".PERSON_ADDRESS_TYPE as "address" from PERSON_FIRM_DENORM as "root" where "root".PERSON_ADDRESS_TYPE = 1',
                     'enumeration mappings (`type` maps integer codes to an enumeration)'),
-        unsupported("testProjectToEmbedded", f"{_SRC}::testProjectToEmbedded",
-                    'select "root".FIRM_LEGALNAME as "legalName", "person_firm_denorm_2".PERSON_ADDRESS_NAME as "address" from (select distinct "person_firm_denorm_1".FIRM_LEGALNAME as FIRM_LEGALNAME, "person_firm_denorm_1".FIRM_ID as FIRM_ID from PERSON_FIRM_DENORM as "person_firm_denorm_1") as "root" left outer join PERSON_FIRM_DENORM as "person_firm_denorm_2" on ("root".FIRM_ID = "person_firm_denorm_2".FIRM_ID) order by "legalName" asc, "address" asc',
-                    "a mapping with a distinct firm view of the person table (the mapping's `~distinct`)"),
         unsupported("testDenormMappingOneToManyProjectEmbeddedQualifier", f"{_SRC}::testDenormMappingOneToManyProjectEmbeddedQualifier",
                     'select "root".PERSON_FIRSTNAME as "firstName", concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) as "nameAndAddress" from PERSON_FIRM_DENORM as "root"',
                     'qualified (derived) properties'),
@@ -74,5 +71,16 @@ DENORM_SPECS = FinderSpec(
         ported("testIsEmpty", f"{_SRC}::testIsEmpty",
                'select "root".PERSON_FIRSTNAME as "name", "root".FIRM_LEGALNAME as "firm" from PERSON_FIRM_DENORM as "root" where "root".FIRM_LEGALNAME is null',
                lambda f: f.find_all([f.first_name(), f.firm().legal_name()], f.firm().legal_name().is_none())),
+    ],
+)
+
+
+EMBEDDED_FIRM_DISTINCT_SPECS = FinderSpec(
+    finder_name="FirmFinder",
+    mapping_file="tests/mapping/embedded/denorm_firm_mapping.md",
+    expectations=[
+        ported("testProjectToEmbedded", f"{_SRC}::testProjectToEmbedded",
+               'select "root".FIRM_LEGALNAME as "legalName", "person_firm_denorm_2".PERSON_ADDRESS_NAME as "address" from (select distinct "person_firm_denorm_1".FIRM_LEGALNAME as FIRM_LEGALNAME, "person_firm_denorm_1".FIRM_ID as FIRM_ID from PERSON_FIRM_DENORM as "person_firm_denorm_1") as "root" left outer join PERSON_FIRM_DENORM as "person_firm_denorm_2" on ("root".FIRM_ID = "person_firm_denorm_2".FIRM_ID) order by "legalName" asc, "address" asc',
+               lambda f: f.find_all([f.legal_name(), f.employees().address().name().alias("address")]).order_by(f.legal_name().ascending(), f.employees().address().name().ascending())),
     ],
 )
