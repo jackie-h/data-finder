@@ -27,15 +27,6 @@ CLASS_MAPPING_FILTER_WITH_INNER_JOIN_SPECS = FinderSpec(
         unsupported("testSubTypeProjectionQueryWithInnerJoinClassMappingTableFilter", f"{_SRC}::testSubTypeProjectionQueryWithInnerJoinClassMappingTableFilter",
                     'select "root".ID as "id", "root".db_bic_wheelCount as "wheels", "root".b_Description as "description" from (select "root".ID as ID, "root".db_bic_wheelCount as db_bic_wheelCount, "root".b_Description as b_Description, "root".b_PersonID as b_PersonID from Bicycle as "root" inner join PersonMidTable as "personmidtable_0" on ("personmidtable_0".ID2 = "root".b_PersonID) inner join Person as "person_0" on ("person_0".ID = "personmidtable_0".ID1) where "person_0".ID = \'1\') as "root"',
                     'a class mapping filter (~filter) whose join is an inner join'),
-        unsupported("testSourceViewPropertyQueryWithInnerJoinClassMappingTableFilter", f"{_SRC}::testSourceViewPropertyQueryWithInnerJoinClassMappingTableFilter",
-                    'select "mypersonview_0".firstName as "pnl" from firmTable as "root" left outer join (select "root".PERSON_ID as PERSON_ID, "root".firstName as firstName, "root".lastName as lastName, "root".age as age, "root".firmID as firmID, "root".addressID as addressID from (select "root".ID as PERSON_ID, "root".FIRSTNAME as firstName, "root".LASTNAME as lastName, "root".AGE as age, "root".FIRMID as firmID, "root".ADDRESSID as addressID from personTable as "root") as "root" inner join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".addressID) where "addresstable_0".NAME = \'New York\') as "mypersonview_0" on ("root".ID = "mypersonview_0".firmID)',
-                    'a class mapping filter (~filter) whose join is an inner join'),
-        unsupported("testTargetViewPropertyQueryWithInnerJoinClassMappingViewFilter", f"{_SRC}::testTargetViewPropertyQueryWithInnerJoinClassMappingViewFilter",
-                    'select "persontable_0".FIRSTNAME as "pnl" from firmTable as "root" left outer join (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join (select "root".ID as id, max("root".AGE) as maxage from personTable as "root" group by "root".ID) as "personviewwithgroupby_0" on ("root".ID = "personviewwithgroupby_0".id and "root".AGE = "personviewwithgroupby_0".maxage) where "personviewwithgroupby_0".maxage < 30) as "persontable_0" on ("root".ID = "persontable_0".FIRMID)',
-                    'a class mapping filter (~filter) whose join is an inner join'),
-        unsupported("testSourceViewPropertyQueryWithInnerJoinClassMappingViewFilter", f"{_SRC}::testSourceViewPropertyQueryWithInnerJoinClassMappingViewFilter",
-                    'select "mypersonview_0".firstName as "pnl" from firmTable as "root" left outer join (select "root".PERSON_ID as PERSON_ID, "root".firstName as firstName, "root".lastName as lastName, "root".age as age, "root".firmID as firmID, "root".addressID as addressID from (select "root".ID as PERSON_ID, "root".FIRSTNAME as firstName, "root".LASTNAME as lastName, "root".AGE as age, "root".FIRMID as firmID, "root".ADDRESSID as addressID from personTable as "root") as "root" inner join (select "root".ID as FIRM_ID, "root".LEGALNAME as legalName, "root".CEOID as CEO_ID, "root".ADDRESSID as addressID from firmTable as "root") as "myfirmview_0" on ("myfirmview_0".FIRM_ID = "root".firmID) where "myfirmview_0".legalName = \'Firm C\') as "mypersonview_0" on ("root".ID = "mypersonview_0".firmID)',
-                    'a class mapping filter (~filter) whose join is an inner join'),
         unsupported("testInnerJoinClassMappingFilterProjectingPropertyUsingFilterJoin", f"{_SRC}::testInnerJoinClassMappingFilterProjectingPropertyUsingFilterJoin",
                     'select "persontable_1".LEGALNAME as "extraInfo" from (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) where "firmtable_0".LEGALNAME = \'Firm X\') as "root" left outer join firmTable as "firmtable_1" on ("firmtable_1".ID = "root".FIRMID) left outer join (select "persontable_2".FIRMID as FIRMID, "firmtable_2".LEGALNAME as LEGALNAME from personTable as "persontable_2" inner join firmTable as "firmtable_2" on ("firmtable_2".ID = "persontable_2".FIRMID)) as "persontable_1" on ("firmtable_1".ID = "persontable_1".FIRMID)',
                     'a class mapping filter (~filter) whose join is an inner join'),
@@ -82,6 +73,36 @@ INNER_JOIN_FILTER_FIRM_SPECS = FinderSpec(
     expectations=[
         ported("testPropertyProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable", f"{_SRC}::testPropertyProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable",
                'select "persontable_0".FIRSTNAME as "pnl" from firmTable as "root" left outer join (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_1" on ("firmtable_1".ID = "root".FIRMID) where "firmtable_1".LEGALNAME = \'Firm X\') as "persontable_0" on ("root".ID = "persontable_0".FIRMID)',
+               lambda f: f.find_all([f.employees().first_name().alias("pnl")])),
+    ],
+)
+
+INNER_JOIN_FILTER_SOURCE_VIEW_SPECS = FinderSpec(
+    finder_name="FirmFinder",
+    mapping_file="tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_source_view_mapping.md",
+    expectations=[
+        ported("testSourceViewPropertyQueryWithInnerJoinClassMappingTableFilter", f"{_SRC}::testSourceViewPropertyQueryWithInnerJoinClassMappingTableFilter",
+               'select "mypersonview_0".firstName as "pnl" from firmTable as "root" left outer join (select "root".PERSON_ID as PERSON_ID, "root".firstName as firstName, "root".lastName as lastName, "root".age as age, "root".firmID as firmID, "root".addressID as addressID from (select "root".ID as PERSON_ID, "root".FIRSTNAME as firstName, "root".LASTNAME as lastName, "root".AGE as age, "root".FIRMID as firmID, "root".ADDRESSID as addressID from personTable as "root") as "root" inner join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".addressID) where "addresstable_0".NAME = \'New York\') as "mypersonview_0" on ("root".ID = "mypersonview_0".firmID)',
+               lambda f: f.find_all([f.employees().first_name().alias("pnl")])),
+    ],
+)
+
+INNER_JOIN_FILTER_TARGET_VIEW_SPECS = FinderSpec(
+    finder_name="FirmFinder",
+    mapping_file="tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_target_view_mapping.md",
+    expectations=[
+        ported("testTargetViewPropertyQueryWithInnerJoinClassMappingViewFilter", f"{_SRC}::testTargetViewPropertyQueryWithInnerJoinClassMappingViewFilter",
+               'select "persontable_0".FIRSTNAME as "pnl" from firmTable as "root" left outer join (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join (select "root".ID as id, max("root".AGE) as maxage from personTable as "root" group by "root".ID) as "personviewwithgroupby_0" on ("root".ID = "personviewwithgroupby_0".id and "root".AGE = "personviewwithgroupby_0".maxage) where "personviewwithgroupby_0".maxage < 30) as "persontable_0" on ("root".ID = "persontable_0".FIRMID)',
+               lambda f: f.find_all([f.employees().first_name().alias("pnl")])),
+    ],
+)
+
+INNER_JOIN_FILTER_VIEW_TO_VIEW_SPECS = FinderSpec(
+    finder_name="FirmFinder",
+    mapping_file="tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_view_to_view_mapping.md",
+    expectations=[
+        ported("testSourceViewPropertyQueryWithInnerJoinClassMappingViewFilter", f"{_SRC}::testSourceViewPropertyQueryWithInnerJoinClassMappingViewFilter",
+               'select "mypersonview_0".firstName as "pnl" from firmTable as "root" left outer join (select "root".PERSON_ID as PERSON_ID, "root".firstName as firstName, "root".lastName as lastName, "root".age as age, "root".firmID as firmID, "root".addressID as addressID from (select "root".ID as PERSON_ID, "root".FIRSTNAME as firstName, "root".LASTNAME as lastName, "root".AGE as age, "root".FIRMID as firmID, "root".ADDRESSID as addressID from personTable as "root") as "root" inner join (select "root".ID as FIRM_ID, "root".LEGALNAME as legalName, "root".CEOID as CEO_ID, "root".ADDRESSID as addressID from firmTable as "root") as "myfirmview_0" on ("myfirmview_0".FIRM_ID = "root".firmID) where "myfirmview_0".legalName = \'Firm C\') as "mypersonview_0" on ("root".ID = "mypersonview_0".firmID)',
                lambda f: f.find_all([f.employees().first_name().alias("pnl")])),
     ],
 )
