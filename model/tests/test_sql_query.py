@@ -16,6 +16,16 @@ def _parse(sql):
     return parse_query(sql, _TABLES, "Query 'V'")
 
 
+def test_a_query_read_under_a_name_is_aliased_to_the_query_itself():
+    inner = _parse("SELECT ID, AGE FROM personTable")
+    view = TableAlias(inner, "ADULTS", [("ID", "INT"), ("AGE", "INT")])
+    query = parse_query("SELECT a.ID FROM ADULTS a WHERE a.AGE > 17", [*_TABLES, view], "Query 'V'")
+    assert isinstance(query, QuerySpecification) and isinstance(query.table, TableAlias)
+    # the alias is of the query, not of the other alias, so it is written as the query in brackets under that name
+    assert query.table.relation is inner and query.table.name == "a"
+    assert [c.name for c in query.table.columns] == ["ID", "AGE"] and all(c.owner is query.table for c in query.table.columns)
+
+
 def test_distinct_over_one_table():
     query = _parse("SELECT DISTINCT FIRMID, FIRSTNAME FROM personTable")
     assert isinstance(query, QuerySpecification) and query.distinct
