@@ -11,8 +11,9 @@ from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, Sing
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping, \
     BusinessDateRangeMilestonePropertyMapping, SingleProcessingDatetimeMilestonePropertyMapping
 from mapping_markdown.join_condition import parse_condition
-from model.relational import BinaryOperation, DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, \
-    ForeignKey, Operation, UnaryOperation
+from model.sql_query import output_names, parse_query_reads
+from model.relational import query_of, schema_of, tables_read_by, BinaryOperation, DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, \
+    ForeignKey, Operation, TableAlias, UnaryOperation
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
 
 _md_parser = MarkdownIt().enable("table")
@@ -79,12 +80,26 @@ def _load_model_reference(content: str, base_dir: str) -> list:
 def _build_repository_from_content(nodes: list) -> DataStore | None:
     repo = None
     current_schema = None
+    queries: list[tuple[str, str, list[dict]]] = []  # name, SQL and the rows of its column table
     i = 0
     while i < len(nodes):
         node = nodes[i]
         if node.type == "heading":
             text = node.children[0].content if node.children else ""
             level = node.tag
+            if level == "h4" and text.startswith("Query:") and repo is not None:
+                # ``#### Query: NAME → Class``: the SQL in a ``sql`` fence, then the columns it gives and what they map to
+                m = _TABLE_RE.match(text[len("Query:"):].strip())
+                query_name = m.group(1) if m else text[len("Query:"):].strip()
+                if i + 1 >= len(nodes) or nodes[i + 1].type != "fence":
+                    raise ValueError(f"Query '{query_name}' needs its SQL in a fenced ```sql block right after its heading")
+                rows: list[dict] = []
+                i += 2
+                if i < len(nodes) and nodes[i].type == "table":
+                    rows = _parse_ast_table(nodes[i], _COLUMN_MAPPING_HEADERS)
+                    i += 1
+                queries.append((query_name, nodes[i - (2 if rows else 1)].content.strip(), rows))
+                continue
             if level == "h2" and text.startswith("DataStore:"):
                 heading_text = text[len("DataStore:"):].strip()
                 catalog_match = re.match(r'^(.+?)\s*\(Catalog\)\s*$', heading_text)
@@ -116,7 +131,30 @@ def _build_repository_from_content(nodes: list) -> DataStore | None:
                                                  nullable=_parse_nullable(row, col_name))
                     continue
         i += 1
+    if repo is not None:
+        _attach_queries(repo, queries)
     return repo
+
+
+def _attach_queries(repo: DataStore, queries: list[tuple[str, str, list[dict]]]) -> None:
+    """Make each query a class is mapped to a ``TableAlias`` of the query, which has the columns its section lists, and put it with the
+    data store's queries. The SQL is checked against the tables there are, and the queries before it, and the columns it gives must be the
+    ones the section lists. Nothing is created in the database: the query is written into the SQL that runs, as a derived table."""
+    readable: list = [t for schema in repo.schemas for t in schema.tables]
+    for name, sql, rows in queries:
+        where = f"Query '{name}'"
+        query, reads = parse_query_reads(sql, readable, where)
+        columns = [Column(row["Column"].strip(), row.get("Type", "").strip(), primary_key=row.get("Key", "").strip().upper() == "PK",
+                          nullable=_parse_nullable(row, row["Column"].strip()))
+                   for row in rows if row.get("Column", "").strip()]
+        if columns:  # a query nothing is mapped to has the columns it gives
+            gives = output_names(query)
+            if sorted(n.lower() for n in gives) != sorted(c.name.lower() for c in columns):
+                raise ValueError(f"{where}: the SQL gives the columns {gives} but its section lists {[c.name for c in columns]}")
+        alias = TableAlias(query, name, columns or [Column(n, "") for n in output_names(query)])
+        alias.sql, alias.reads = sql, reads
+        repo.queries.append(alias)
+        readable.append(alias)
 
 
 def loads(content: str, packages: list, datastore: DataStore | None = None) -> Mapping:
@@ -159,11 +197,12 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
         for child in pkg.children
         if isinstance(child, Class)
     }
-    tables_by_name = {
+    tables_by_name: dict = {
         table.name: table
         for schema in repository.schemas
         for table in schema.tables
     }
+    tables_by_name.update({alias.name: alias for alias in repository.queries})
     # (source_class_name, source_property_id) -> (target class name, multiplicity)
     assoc_nav_lookup = _build_assoc_nav_lookup(packages)
 
@@ -204,13 +243,17 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     i += 1
                 continue
 
-            elif level == "h4" and text.startswith("Table:"):
-                m = _TABLE_RE.match(text[len("Table:"):].strip())
+            elif level == "h4" and (text.startswith("Table:") or text.startswith("Query:")):
+                is_query = text.startswith("Query:")  # its SQL fence follows the heading, then the columns as a table has them
+                m = _TABLE_RE.match(text[len("Query:" if is_query else "Table:"):].strip())
                 if m is None:
                     i += 1
                     continue
                 table_name, class_name, scheme_name = m.group(1), m.group(2), m.group(3)
 
+                if class_name is None and is_query:
+                    i += 2 + (1 if i + 2 < len(nodes) and nodes[i + 2].type == "table" else 0)  # heading, SQL, columns
+                    continue
                 if class_name is None:
                     # a table no class is mapped to: it is only reached by a join (a link table, say), and says how
                     # its rows are milestoned if they are
@@ -228,11 +271,18 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     i += 1
                     continue
 
-                cols_by_name = {col.name: col for col in table.columns}
+                if is_query and scheme_name and isinstance(table, TableAlias):
+                    # a query's rows are milestoned by the columns its SQL gives, as a table's by its own
+                    table.milestoning_scheme = next((sc for sc in repository.milestoning_schemes if sc.name == scheme_name), None)
+                    if table.milestoning_scheme is None:
+                        raise ValueError(f"Query '{table_name}': milestoning scheme '{scheme_name}' is not defined")
+                cols_by_name = {col.name: col for col in table.columns if isinstance(col, Column)}
                 all_props = cls.all_properties()
                 property_mappings: list[RelationalPropertyMapping] = []
                 embedded_rows: list[tuple[Column, list[str]]] = []
                 i += 1
+                if is_query:
+                    i += 1  # the SQL fence, which the repository was built with
 
                 if i < len(nodes) and nodes[i].type == "table":
                     for row in _parse_ast_table(nodes[i], _COLUMN_MAPPING_HEADERS):
@@ -342,7 +392,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                                 last_lhs, last_rhs, embedded=embedded, via=via, conditions=conditions,
                                 condition_texts=condition_texts)))
                         for lhs, rhs in hops:
-                            if lhs.table is not None:
+                            if isinstance(lhs.table, Table):
                                 lhs.table.foreign_keys.append(ForeignKey(lhs, rhs))
                     else:
                         _log.warning(
@@ -578,6 +628,9 @@ def _condition_columns(mapping: Mapping) -> set[tuple[str, str]]:
         for join in joins:
             for condition in join.conditions:
                 walk(condition)
+        table = _primary_table(rcm) if isinstance(rcm, RelationalClassMapping) else None
+        for read in tables_read_by(table):  # a query's SQL reads columns of its tables
+            found.update((read.qualified_name, column.name) for column in read.columns)
     return found
 
 
@@ -587,13 +640,14 @@ def _link_tables(rcm: RelationalClassMapping) -> list[Table]:
     for pm in rcm.property_mappings:
         if isinstance(pm.target, EmbeddedSetMapping):
             joins.extend(j for _, _, j, _ in _embedded_joins(pm.target, [pm.property.id]))
-    return [rhs.table for j in joins for _, rhs in j.via if rhs.table is not None]
+    return [rhs.table for j in joins for _, rhs in j.via if isinstance(rhs.table, Table)]
 
 
 _COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Nullable", "Property ID"]
 _EMBEDDED_IN_RE = re.compile(r'\(\s*embedded in\s+(\w+)\.([\w.]+)\s*\)\s*$')
 _ASSOCIATION_HEADERS = ["Source Column", "Target Table", "Target Column"]
 _ASSOCIATION_OPTIONAL_HEADERS = ["Condition"]
+_QUERIES = "(queries)"
 
 
 def _parse_nullable(row: dict, col_name: str) -> bool:
@@ -817,7 +871,8 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         table = _primary_table(rcm)
         if table is None:
             continue
-        schema = table.schema
+        reads = tables_read_by(table)
+        schema = schema_of(table)  # a table has its schema, and a query, which is in none, is in the data store of the tables it reads
         repo = schema.datastore if schema else None
         repo_name = repo.name if repo else "(none)"
 
@@ -826,14 +881,20 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
             repo_objs[repo_name] = repo
             repo_schema_map[repo_name] = {}
 
-        schema_name = schema.name if schema else "(none)"
+        schema_name = _QUERIES if query_of(table) else (schema.name if schema else "(none)")
         if schema_name not in repo_schema_map[repo_name]:
             repo_schema_map[repo_name][schema_name] = []
         repo_schema_map[repo_name][schema_name].append(rcm)
-        for link in _link_tables(rcm):
+        for link in _link_tables(rcm) + reads:
             link_schema = link.schema.name if link.schema else "(none)"
             link_tables.setdefault((repo_name, link_schema), {})[link.name] = link
             repo_schema_map[repo_name].setdefault(link_schema, [])
+
+    # a table a class is mapped to is written with that class, not as a table of its own
+    for tables in link_tables.values():
+        for name in [n for n, t in tables.items()
+                     if any(_primary_table(r) is t for r in mapping.mappings if isinstance(r, RelationalClassMapping))]:
+            del tables[name]
 
     condition_columns = _condition_columns(mapping)
     for repo_name in repos_seen:
@@ -848,22 +909,25 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
             lines.append(_scheme_table(repo.milestoning_schemes))
             lines.append("")
 
-        for schema_name, rcms in repo_schema_map[repo_name].items():
-            lines.append(f"### Schema: {schema_name}")
+        # the queries come after the schemas, whose tables they read
+        for schema_name, rcms in sorted(repo_schema_map[repo_name].items(), key=lambda item: item[0] == _QUERIES):
+            lines.append("### Queries" if schema_name == _QUERIES else f"### Schema: {schema_name}")
             lines.append("")
 
             for rcm in rcms:
                 table = _primary_table(rcm)
                 if table is None:
                     continue
-                heading = f"#### Table: {table.name} → {rcm.clazz.name}"
+                heading = f"#### {'Query' if query_of(table) else 'Table'}: {table.name} → {rcm.clazz.name}"
                 scheme_name = _milestone_scheme_name(rcm, repo)
                 if scheme_name:
                     heading += f" (milestoning: {scheme_name})"
                 lines.append(heading)
                 lines.append("")
+                if (query := query_of(table)) is not None:
+                    lines += ["```sql", query.sql or "", "```", ""]
 
-                fk_cols = {fk.column.name for fk in table.foreign_keys}
+                fk_cols = {fk.column.name for fk in table.foreign_keys} if isinstance(table, Table) else set()
                 col_rows = []
                 # A join's column may also be a property's column (a trade's symbol is also the key of its instrument)
                 mapped_cols = {pm.target.name for pm in rcm.property_mappings if isinstance(pm.target, Column)}
@@ -885,7 +949,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                     elif isinstance(pm.target, EmbeddedSetMapping):
                         col_rows.extend(_flatten_embedded_rows(pm.target, pm.property.id))
                 written = {row[0] for row in col_rows}
-                for column in table.columns:
+                for column in (c for c in table.columns if isinstance(c, Column)):
                     if (table.qualified_name, column.name) in condition_columns and column.name not in written:
                         col_rows.append([column.name, column.type or "", "PK" if column.primary_key else "",
                                          _nullable_cell(column), ""])
@@ -951,11 +1015,8 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
     return "\n".join(lines)
 
 
-def _primary_table(rcm: RelationalClassMapping) -> Optional[Table]:
-    for pm in rcm.property_mappings:
-        if isinstance(pm.target, Column) and pm.target.table is not None:
-            return pm.target.table
-    return None
+def _primary_table(rcm: RelationalClassMapping) -> Optional[Table | TableAlias]:
+    return rcm.main_relation
 
 
 def _md_table(headers: list[str], rows: list[list[str]]) -> str:

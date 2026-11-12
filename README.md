@@ -229,6 +229,39 @@ When a table is joined to itself its name is both sides, so the side the join re
 Followed from the other end, as `employee.reports()` is from `employee.manager()`, the sides trade places: `{target}` is then the
 employee you started from. `{target}` can also be written in a join to another table, where it is that table.
 
+### SQL queries
+
+A class can be mapped to a query as it is mapped to a table. Write the query as a `Query` section: its name and the class in the heading, its
+SQL in a `sql` block right after it, and then the columns the query gives and what they map to, as a Table section has them:
+
+````
+#### Query: FIRM_QUERY → Firm
+
+```sql
+SELECT DISTINCT firm_id, firm_name
+FROM people
+```
+
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| firm_id   | INT     | PK  | N        | id          |
+| firm_name | VARCHAR |     | Y        | legalName   |
+````
+
+This is not a database view: nothing is created in the database. The query is a statement that is run, written into the SQL of a query over the class as
+a derived table, `FROM (SELECT DISTINCT ...) AS t0`. It is read as PostgreSQL, the standard dialect here, and checked when the mapping is loaded: it is
+read into the same query objects a query is made of (a `TableAlias` of the query, which has the columns the section lists), the tables and columns it reads
+must exist, and the columns it gives must be the ones the section lists. A query can use `DISTINCT`, any join (`INNER`, `LEFT`, `RIGHT`, `FULL`, with an
+`ON`), `WHERE`, `GROUP BY` with `SUM`, `COUNT`, `MIN`, `MAX` and `AVG`, `HAVING`, `UNION [ALL]`, and named expressions (`'Mr ' || first_name AS text`,
+`CASE`, `UPPER`, `LOWER`, `TRIM`, `LENGTH`, `ABS`). It can read another query that comes before it.
+
+A query is milestoned as a table is, by the columns its SQL gives. Name the scheme in the heading, `#### Query: RATE_QUERY → Rate (milestoning: business_date_range)`, and map the scheme's
+columns to the `businessFrom`, `businessThru`, `validFrom` and `validTo` properties as a Table section does. A query over the class is then given the dates, `find_all("2021-06-01", None, ...)`,
+which are written over the query's columns, outside the query: `FROM (SELECT ...) AS t0 WHERE t0.from_z <= '2021-06-01' AND ...`. A join to the query, such as `holder.rate(business_date="2021-06-01")`,
+is given the date of its step in its `ON`, as a join to a milestoned table is. The query's own `WHERE` is its own: it decides which rows there are, and the milestoning chooses among them. A join, such as `Firm.employees`, can start from the
+query's columns, so the query lists the key it joins on. `ORDER BY` and `LIMIT` are not part of a query a class is mapped to, and anything it cannot read is
+refused with the part of the SQL it is.
+
 ### Embedded properties
 
 A table can hold the columns of a related object. Give those columns a dotted `Property ID` that follows the associations, such as `firm.legalName` or `firm.address.name`. If the table has no `#### Association:` block for that navigation, nothing is joined: the properties are read straight from the row.

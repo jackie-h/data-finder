@@ -7,7 +7,7 @@ from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
 from datafinder.typed_attributes import typed_attribute
 from model.naming import to_snake_case
-from model.milestoning import MilestonedTable, ProcessingTemporalColumns
+from model.milestoning import MilestonedTable, ProcessingTemporalColumns, milestoning_columns_of
 from model.relational import (
     AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
     ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
@@ -610,8 +610,7 @@ def convert_inputs_and_select_for_date_range(
         raise ValueError("business_date_from is required for find_for_date_range")
     if business_date_to is None:
         raise ValueError("business_date_to is required for find_for_date_range")
-    if processing_datetime is None and isinstance(table, MilestonedTable) \
-            and isinstance(table.milestoning_columns, ProcessingTemporalColumns):
+    if processing_datetime is None and isinstance(milestoning_columns_of(table), ProcessingTemporalColumns):
         raise ValueError("processing_time is required for find_for_date_range")
     # a table with no processing columns, such as a single business date, has no processing time to give
     bd_from = convert_date(business_date_from)

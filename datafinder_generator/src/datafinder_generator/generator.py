@@ -11,8 +11,8 @@ from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMiles
     BiTemporalMilestonePropertyMapping, BusinessDateRangeMilestonePropertyMapping, \
     SingleProcessingDatetimeMilestonePropertyMapping
 from model.relational import (
-    Column, ComparisonOperation, DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation,
-    IsNotNullOperation, IsNullOperation, LogicalOperation, NotOperation, StringConstantOperation, Table, TableAlias,
+    Column, ComparisonOperation, DecimalConstantOperation, query_of, FloatConstantOperation, IntegerConstantOperation,
+    IsNotNullOperation, IsNullOperation, LogicalOperation, NamedRelation, NotOperation, StringConstantOperation, Table, TableAlias,
 )
 from model.relational_mapping import Join, EmbeddedSetMapping
 
@@ -71,6 +71,7 @@ class _ClassView:
         self.milestone_mapping = rcm.milestone_mapping
         self.property_mappings = [pm for pm in rcm.property_mappings if not isinstance(pm.target, EmbeddedSetMapping)]
         self.embedded_mappings = [pm for pm in rcm.property_mappings if isinstance(pm.target, EmbeddedSetMapping)]
+        self.main_relation = rcm.main_relation
 
 
 class EmbeddedClass:
@@ -131,9 +132,16 @@ def has_business_date_range(mapping: MilestonePropertyMapping) -> bool:
 def has_processing_snapshot(mapping: MilestonePropertyMapping) -> bool:
     return isinstance(mapping, SingleProcessingDatetimeMilestonePropertyMapping)
 
+def _query_constant(alias: TableAlias) -> str:
+    """The name, in a generated finder module, of the query a class is mapped to."""
+    return "_QUERY_" + re.sub(r"\W", "_", alias.name).upper()
+
+
 def owner_code(table) -> str:
     """Python source for the relation a column or an attribute belongs to: a table of that name, whose columns this finder
-    does not need to know."""
+    does not need to know; or, for a query a class is mapped to, the query, which has to be known to be written."""
+    if (query := query_of(table)) is not None:
+        return _query_constant(query)
     return f"Table('{table_qualified_name(table)}', [])"
 
 
@@ -143,16 +151,19 @@ def column_code(column: Column) -> str:
     return f"Column('{column.name}', '{column.type}', {owner_code(column.table)}{key})"
 
 
-def _scheme_columns_code(table: Table) -> str:
-    """Python source for the milestoning columns of a table a join passes through, from its milestoning scheme."""
+def _scheme_columns_code(table: Table | TableAlias, owned_by: str | None = None) -> str:
+    """Python source for the milestoning columns of a table a join passes through, from its milestoning scheme. For a query that a class is
+    mapped to the columns are the query's own, which ``owned_by`` (a function of a name) gives."""
     scheme = table.milestoning_scheme
     assert scheme is not None
-    by_name = {c.name: c for c in table.columns}
+    by_name = {c.name: c for c in table.columns if isinstance(c, Column)}
 
     def col(name: str | None) -> str:
         column = by_name.get(name or "")
         if column is None:
             raise ValueError(f"Table '{table.name}': milestoning column '{name}' of scheme '{scheme.name}' is not a column")
+        if owned_by is not None:
+            return f"{owned_by}('{column.name}')"
         return f"Column('{column.name}', '{column.type}')"
 
     processing_infinite = (f", processing_infinite_datetime='{scheme.processing_infinite_datetime}'"
@@ -176,8 +187,11 @@ def _scheme_columns_code(table: Table) -> str:
     raise ValueError(f"Milestoning scheme '{scheme.name}' has no columns")
 
 
-def table_code(table: Table) -> str:
+def table_code(table: NamedRelation) -> str:
     """Python source that builds ``table`` in a generated finder."""
+    if isinstance(table, TableAlias):
+        return _query_constant(table)
+    assert isinstance(table, Table), f"Not a table or a query: {table!r}"
     columns = ", ".join(f"('{c.name}', '{c.type}')" for c in table.columns)
     keys = ", ".join(f"'{c.name}'" for c in table.columns if c.primary_key)
     key = f", primary_key=[{keys}]" if keys else ""
@@ -198,7 +212,7 @@ def condition_code(op, self_join: bool = False) -> str:
         if isinstance(node, Column):
             if not self_join:
                 return column_code(node)
-            side = "target" if isinstance(node.owner, TableAlias) else "plain"
+            side = "target" if isinstance(node.owner, TableAlias) and node.owner.name == "{target}" else "plain"
             return f"{side}.column('{node.name}', '{node.type}')"
         if isinstance(node, ComparisonOperation):
             return f"ComparisonOperation({code(node.left)}, ComparisonOperator.{node.operator.name}, {code(node.right)})"
@@ -215,6 +229,47 @@ def condition_code(op, self_join: bool = False) -> str:
     return ("lambda plain, target: " if self_join else "") + code(op)
 
 
+def query_assignment(rcm) -> str:
+    """The line, for a finder class body after its ``__table``, that makes the class's table the query it is mapped to, so that a query
+    over the class reads the SQL as a derived table."""
+    query = query_of(rcm.main_relation)
+    return f"    __table = {_query_constant(query)}" if query is not None else ""
+
+
+def _queries_of(mapping) -> list[TableAlias]:
+    """The queries classes of the mapping are mapped to, and those they read, each after the queries it reads."""
+    found: list[TableAlias] = []
+
+    def add(alias: TableAlias) -> None:
+        if any(alias is f for f in found):
+            return
+        for read in alias.reads:
+            if (read_query := query_of(read)) is not None:
+                add(read_query)
+        found.append(alias)
+
+    for rcm in mapping.mappings:
+        query = query_of(rcm.main_relation)
+        if query is not None:
+            add(query)
+    return found
+
+
+def query_definitions(mapping) -> str:
+    """Python source, for the top of a finder module, that makes each query of the mapping, so that the module can read its columns and
+    write it into a query. A query is built from its SQL where it is used, and not kept anywhere else."""
+    lines = []
+    for alias in _queries_of(mapping):
+        reads = ", ".join(table_code(t) for t in alias.reads)
+        columns = ", ".join(f"Column('{c.name}', '{c.type}'{', primary_key=True' if c.primary_key else ''}"
+                            f"{'' if c.nullable or c.primary_key else ', nullable=False'})"
+                            for c in alias.columns if isinstance(c, Column))
+        milestoning = f", milestoning=lambda c: {_scheme_columns_code(alias, 'c')}" if alias.milestoning_scheme else ""
+        lines.append(f"{_query_constant(alias)} = derived_table('{alias.name}', {alias.sql!r}, [{reads}], [{columns}], "
+                     f"\"Query '{alias.name}'\"{milestoning})")
+    return "\n".join(lines)
+
+
 def condition_kw(join: Join, reverse: bool = False) -> str:
     """The ``condition=`` argument that gives a finder the condition of the join it follows, or nothing. ``reverse`` is that
     the finder is the one the join is followed to from its other end, which matters only to a join of a table to itself."""
@@ -226,7 +281,7 @@ def condition_kw(join: Join, reverse: bool = False) -> str:
 
 
 def _table_of(column: Column) -> Table:
-    assert column.table is not None, f"column '{column.name}' belongs to no table"
+    assert isinstance(column.table, Table), f"column '{column.name}' belongs to no table"
     return column.table
 
 
@@ -335,6 +390,7 @@ def generate(mapping: Mapping, output_directory):
     reverse_assoc_map = _build_reverse_assoc_map(mapping, assoc_lookup)
 
     shared_context = dict(
+        query_definitions=query_definitions(mapping),
         class_module_map=class_module_map,
         class_module_map_base=class_module_map_base,
         is_primitive=is_primitive,
@@ -353,6 +409,7 @@ def generate(mapping: Mapping, output_directory):
         embedded_classes=embedded_classes,
         parent_expr=parent_expr,
         condition_kw=condition_kw,
+        query_assignment=query_assignment,
         column_code=column_code,
         owner_code=owner_code,
     )

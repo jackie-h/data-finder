@@ -10,7 +10,13 @@ ignored (the ER diagram viewer in data-finder-ts shares its config with this).
 
 The JSON is plain data about the model and the mapping: ``models`` (packages, classes with their own properties, multiplicities, keys,
 docs and superclasses, and associations) and ``mappings`` (data store, schemas, tables with the class each is mapped to, columns with
-the property each is mapped to, and the joins between tables with their association and multiplicities).
+the property each is mapped to, the queries classes are mapped to, written as SQL, with their columns, and the joins between tables and
+queries with their association and multiplicities).
+
+A query is a relation of the data store that is in no schema, so a mapping has ``queries`` beside its ``schemas``: each has its ``name``, the
+``class`` mapped to it, the ``sql`` it is written as, the relations it ``reads`` (a table by schema and name, or another query by name), the
+milestoning scheme it is given (``milestoning``, or null), and its columns as a table's are. A join that starts from or ends at a query has
+a null schema and the query's name for its table, and ``sourceIsQuery`` or ``targetIsQuery``.
 """
 import argparse
 import importlib
@@ -19,7 +25,7 @@ import os
 from typing import Any
 
 from model.m3 import Association, Class, PrimitiveType, TaggedValue
-from model.relational import Column, Table
+from model.relational import Column, Table, TableAlias, query_of
 from model.relational_mapping import EmbeddedSetMapping, Join
 from model_markdown import markdown_model
 
@@ -80,22 +86,46 @@ def export_model(path: str, name: str) -> dict[str, Any]:
     return {"file": name, "packages": export_model_packages(markdown_model.load(path))}
 
 
-def _located(column: Column) -> tuple[str, str, str]:
-    """(schema, table, column) names of a column that belongs to a table in a schema."""
+def _located(column: Column) -> tuple[str | None, str, str]:
+    """(schema, table, column) names of a column that belongs to a table in a schema; for a column of a query, which is in no schema, the
+    schema is none and the table is the query's name."""
     table = column.table
-    assert table is not None and table.schema is not None, f"column {column.name} is not in a schema"
+    if query_of(table) is not None:
+        assert isinstance(table, TableAlias)
+        return None, table.name, column.name
+    assert isinstance(table, Table) and table.schema is not None, f"column {column.name} is not in a schema"
     return table.schema.name, table.name, column.name
 
 
-def _mapped_table(class_mapping) -> Table | None:
-    """The table a class is mapped to, found through any property mapped to one of its columns (or joined from one)."""
+def _mapped_relation(class_mapping) -> Table | TableAlias | None:
+    """The table or the query a class is mapped to, found through any property mapped to one of its columns (or joined from one)."""
+    main = class_mapping.main_relation
+    if main is not None:
+        return main
     for pm in class_mapping.property_mappings:
-        target = pm.target
-        if isinstance(target, Column):
-            return target.table
-        if isinstance(target, Join):
-            return target.lhs.table
+        if isinstance(pm.target, Join):
+            return pm.target.lhs.table
     return None
+
+
+def _query_entry(query: TableAlias, class_name: str | None, column_property: dict[int, str]) -> dict[str, Any]:
+    """A query a class is mapped to, with the SQL it is written as and what it reads."""
+    reads = [{"query": r.name} if query_of(r) is not None else {"schema": r.schema.name if isinstance(r, Table) and r.schema else None, "table": r.name}
+             for r in query.reads]
+    return {
+        "name": query.name,
+        "class": class_name,
+        "sql": query.sql,
+        "reads": reads,
+        "milestoning": query.milestoning_scheme.name if query.milestoning_scheme is not None else None,
+        "columns": [{
+            "name": c.name,
+            "type": c.type,
+            "primaryKey": c.primary_key,
+            "nullable": c.nullable,
+            "property": column_property.get(id(c)),
+        } for c in query.columns if isinstance(c, Column)],
+    }
 
 
 def _join_entry(assoc: Association | None, source_class: str, join: Join) -> dict[str, Any]:
@@ -110,6 +140,8 @@ def _join_entry(assoc: Association | None, source_class: str, join: Join) -> dic
             "targetSchema": tgt_schema,
             "targetTable": tgt_table,
             "targetColumn": tgt_column,
+            "sourceIsQuery": src_schema is None,
+            "targetIsQuery": tgt_schema is None,
         })
     return {
         "name": assoc.name if assoc else None,
@@ -142,11 +174,11 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
         (a.source, a.source_property.id): a
         for pkg in packages for a in pkg.children if isinstance(a, Association)
     }
-    table_class: dict[int, str] = {}
+    table_class: dict[int, str] = {}  # by the table or the query
     column_property: dict[int, str] = {}
     joins = []
     for cm in mapping.mappings:
-        table = _mapped_table(cm)
+        table = _mapped_relation(cm)
         if table is not None:
             table_class[id(table)] = cm.clazz.name
         for pm in cm.property_mappings:
@@ -178,6 +210,7 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
                 } for c in table.columns],
             } for table in schema.tables],
         } for schema in datastore.schemas],
+        "queries": [_query_entry(q, table_class.get(id(q)), column_property) for q in datastore.queries],
         "associations": joins,
     }
 

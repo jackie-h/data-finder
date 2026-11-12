@@ -101,7 +101,8 @@ def parse_condition(text: str, tables: list[Table], where: str) -> Operation:
                 return IsNotNullOperation(operand(inner.this))
             return NotOperation(condition(inner))
         if isinstance(node, exp.Is) and isinstance(node.expression, exp.Null):
-            return IsNullOperation(operand(node.this))
+            element = operand(node.this)
+            return IsNotNullOperation(element) if node.args.get("negate") else IsNullOperation(element)
         if type(node) in _COMPARISONS:
             return ComparisonOperation(operand(node.this), _COMPARISONS[type(node)], operand(node.expression))
         if isinstance(node, exp.Func):

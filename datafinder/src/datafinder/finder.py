@@ -1,5 +1,8 @@
 from typing import Callable
 
+from model.milestoning import MilestoningColumns
+from model.sql_query import parse_query_reads
+
 from model.relational import (
     Column, ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind, LogicalOperation,
     LogicalOperator, Operation, TableAlias,
@@ -16,6 +19,20 @@ class _Side:
         if isinstance(self.relation, TableAlias):
             return self.relation.column(name, type)
         return Column(name, type, self.relation)
+
+
+def derived_table(name: str, sql: str, reads: list, columns: list, where: str,
+                  milestoning: 'Callable[[Callable[[str], Column]], MilestoningColumns] | None' = None) -> TableAlias:
+    """The query of ``sql``, which reads the relations ``reads``, as a table under ``name`` that has ``columns``: what a class is mapped
+    to when the mapping gives it a query. It is read into the query model each time a finder module is imported, and a query over it
+    writes it as a derived table (``FROM (SELECT ...) AS t0``); nothing is created in the database or kept between queries."""
+    query, used = parse_query_reads(sql, reads, where)
+    alias = TableAlias(query, name, columns)
+    alias.sql, alias.reads = sql, used
+    if milestoning is not None:  # the columns that milestone it are columns the query gives, which the alias owns
+        own = [c for c in alias.columns if isinstance(c, Column)]
+        alias.milestoning_columns = milestoning(lambda column_name: next(c for c in own if c.name == column_name))
+    return alias
 
 
 def keys_join(name: str, table, source, target, kind: JoinKind, condition: Operation | Callable | None = None,
