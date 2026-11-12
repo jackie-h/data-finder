@@ -31,6 +31,12 @@ DISTINCT_QUERY_FILTER_ON_JOIN = (
     "to the rows that match it; Legend writes it as an exists over a second copy of the sub select, which keeps the same rows"
 )
 
+QUERY_EXPRESSION_IN_DERIVED_TABLE = (
+    "a property that is an expression (a CASE) on a table that is joined to is a column of a query here, so the expression is "
+    "computed in a derived table before the join; Legend computes it in the outer select, after the left outer join, so for a row "
+    "with no match Legend's CASE gives its else value ('Unknown') where the query's column is NULL"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"

@@ -23,6 +23,8 @@ _VARIANTS = {
     "tests/mapping/distinct/distinct_mapping.md": "tests/mapping/distinct/distinct_data.sql",
     "tests/mapping/distinct/distinct_filter_mapping.md": "tests/mapping/distinct/distinct_data.sql",
     "tests/mapping/distinct/distinct_join_mapping.md": "tests/mapping/distinct/distinct_data.sql",
+    "tests/mapping/distinct/distinct_case_mapping.md": "tests/mapping/distinct/distinct_data.sql",
+    "tests/mapping/distinct/distinct_denorm_mapping.md": "tests/mapping/distinct/distinct_data.sql",
 }
 _ENTRIES = [(mapping, spec, e) for mapping in _VARIANTS for spec in discover_specs(mapping) for e in spec.expectations]
 _CASES = [pytest.param(mapping, spec, e, id=f"{spec.finder_name}-{e.name}") for mapping, spec, e in _ENTRIES]
