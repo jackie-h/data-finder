@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, FILTER_REPEATED_IN_CLASS_FILTER, ported, unsupported
 
 _SRC = "tests/mapping/classMappingFilterWithInnerJoin/testClassMappingFilterWithInnerJoin.pure"
 
@@ -15,17 +15,8 @@ CLASS_MAPPING_FILTER_WITH_INNER_JOIN_SPECS = FinderSpec(
     finder_name="PersonFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testRootFilterAndProjectionQueryWithInnerJoinClassMappingFilterAndPropertyMappedWithJoinToFilterTable", f"{_SRC}::testRootFilterAndProjectionQueryWithInnerJoinClassMappingFilterAndPropertyMappedWithJoinToFilterTable",
-                    'select "root".FIRSTNAME as "firstName" from (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) where "firmtable_0".LEGALNAME = \'Firm X\' and "root".AGE is not null and "root".AGE > 20 and "root".AGE is not null and "root".AGE > 20) as "root" where "root".AGE is not null and "root".AGE > 20',
-                    'a class mapping filter (~filter) whose join is an inner join'),
-        unsupported("testRootFilterAndProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable", f"{_SRC}::testRootFilterAndProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable",
-                    'select "firmtable_1".LEGALNAME as "firmName" from (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) where "firmtable_0".LEGALNAME = \'Firm X\' and "root".FIRSTNAME = \'John\') as "root" left outer join firmTable as "firmtable_1" on ("firmtable_1".ID = "root".FIRMID) where "root".FIRSTNAME = \'John\'',
-                    'a class mapping filter (~filter) whose join is an inner join'),
         unsupported("testDynafunctionMergeWithProjectionQueryWithInnerJoinTableFilter", f"{_SRC}::testDynafunctionMergeWithProjectionQueryWithInnerJoinTableFilter",
                     'select "root".lastName as "Employee Name", concat(\'Ayco Certified: \', case when \'Ayco\' = "organizationset_1".name and (\'30 Hudson\' = "addressset_0".name or \'200 W\' = "addressset_1".name or \'200 W\' = "addressset_0".name or \'30 Hudson\' = "addressset_1".name) then \'Yes\' else \'No\' end) as "Ayco Certified Americas?" from (select "root".ID as ID, "root".lastName as lastName, "root".firmId as firmId, "root".orgName as orgName from personSet as "root" inner join organizationSet as "organizationset_0" on ("organizationset_0".name = "root".orgName) where "organizationset_0".parentId = \'1\') as "root" left outer join organizationSet as "organizationset_1" on ("organizationset_1".name = "root".orgName) left outer join FirmSet1 as "firmset1_0" on ("organizationset_1".parentId = "firmset1_0".ID) left outer join addressSet as "addressset_0" on ("firmset1_0".LegalName = "addressset_0".ownerName) left outer join FirmSet2 as "firmset2_0" on ("organizationset_1".parentId = "firmset2_0".ID) left outer join addressSet as "addressset_1" on ("firmset2_0".LegalName = "addressset_1".ownerName)',
-                    'a class mapping filter (~filter) whose join is an inner join'),
-        unsupported("testPropertyProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable", f"{_SRC}::testPropertyProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable",
-                    'select "persontable_0".FIRSTNAME as "pnl" from firmTable as "root" left outer join (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_1" on ("firmtable_1".ID = "root".FIRMID) where "firmtable_1".LEGALNAME = \'Firm X\') as "persontable_0" on ("root".ID = "persontable_0".FIRMID)',
                     'a class mapping filter (~filter) whose join is an inner join'),
         unsupported("testPropertyProjectionQueryWithInnerJoinEmbeddedMappingTable", f"{_SRC}::testPropertyProjectionQueryWithInnerJoinEmbeddedMappingTable",
                     'select "person_firm_denorm_2".PERSON_ADDRESS_NAME as "address" from (select distinct "person_firm_denorm_1".FIRM_LEGALNAME as FIRM_LEGALNAME, "person_firm_denorm_1".FIRM_ID as FIRM_ID from PERSON_FIRM_DENORM as "person_firm_denorm_1") as "root" left outer join (select "root".PERSON_ID as PERSON_ID, "root".PERSON_FIRSTNAME as PERSON_FIRSTNAME, "root".PERSON_LASTNAME as PERSON_LASTNAME, "root".PERSON_ADDRESS_NAME as PERSON_ADDRESS_NAME, "root".PERSON_ADDRESS_TYPE as PERSON_ADDRESS_TYPE, "root".PERSON_AGE as PERSON_AGE, "root".FIRM_ID as FIRM_ID, "root".FIRM_LEGALNAME as FIRM_LEGALNAME, "root".FIRM_ADDRESS_NAME as FIRM_ADDRESS_NAME, "root".FIRM_ADDRESS_TYPE as FIRM_ADDRESS_TYPE from PERSON_FIRM_DENORM as "root" inner join ADDRESS_LOCATION as "address_location_0" on ("root".FIRM_ADDRESS_NAME = "address_location_0".ADDRESS_ID) where "address_location_0".ADDRESS_ID = \'200 west\') as "person_firm_denorm_2" on ("root".FIRM_ID = "person_firm_denorm_2".FIRM_ID) order by "address" asc',
@@ -66,5 +57,31 @@ CLASS_MAPPING_FILTER_WITH_INNER_JOIN_SPECS = FinderSpec(
         unsupported("TestClassMappingsWithInnerFilterJoinedWithMilestoningDepthTwoNestedGeneration", f"{_SRC}::TestClassMappingsWithInnerFilterJoinedWithMilestoningDepthTwoNestedGeneration",
                     'select cast("producttableviewnested_0".id as varchar) as "positionType" from tradeTable as "root" left outer join (select "root".id as id, "root".name as name, "root".type as type from (select "root".id as id, "root".name as name, "root".type as type, \'2015-10-26\' as "k_businessDate" from (select "root".id as id, "root".name as name, "root".type as type, \'2015-10-26\' as "k_businessDate" from ProductTable as "root" where "root".from_z <= DATE\'2015-10-26\' and "root".thru_z > DATE\'2015-10-26\' and "root".id <> 0) as "root" where "root".id <> 0) as "root" inner join tradeTable as "tradetable_1" on ("root".id = "tradetable_1".ID and "tradetable_1".ID <> 0) where "tradetable_1".ID <> 0 and "root".id <> 0) as "producttableviewnested_0" on ("producttableviewnested_0".id = "root".ID and "producttableviewnested_0".id <> 0) where "root".ID <> 0',
                     'a class mapping filter (~filter) whose join is an inner join'),
+    ],
+)
+
+
+INNER_JOIN_FILTER_PERSON_SPECS = FinderSpec(
+    finder_name="PersonFinder",
+    mapping_file="tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_mapping.md",
+    expectations=[
+        ported("testRootFilterAndProjectionQueryWithInnerJoinClassMappingFilterAndPropertyMappedWithJoinToFilterTable", f"{_SRC}::testRootFilterAndProjectionQueryWithInnerJoinClassMappingFilterAndPropertyMappedWithJoinToFilterTable",
+               'select "root".FIRSTNAME as "firstName" from (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) where "firmtable_0".LEGALNAME = \'Firm X\' and "root".AGE is not null and "root".AGE > 20 and "root".AGE is not null and "root".AGE > 20) as "root" where "root".AGE is not null and "root".AGE > 20',
+               lambda f: f.find_all([f.first_name()], f.age() > 20),
+               known_gaps={BACKEND: FILTER_REPEATED_IN_CLASS_FILTER}),
+        ported("testRootFilterAndProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable", f"{_SRC}::testRootFilterAndProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable",
+               'select "firmtable_1".LEGALNAME as "firmName" from (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) where "firmtable_0".LEGALNAME = \'Firm X\' and "root".FIRSTNAME = \'John\') as "root" left outer join firmTable as "firmtable_1" on ("firmtable_1".ID = "root".FIRMID) where "root".FIRSTNAME = \'John\'',
+               lambda f: f.find_all([f.firm().legal_name().alias("firmName")], f.first_name().eq("John")),
+               known_gaps={BACKEND: FILTER_REPEATED_IN_CLASS_FILTER}),
+    ],
+)
+
+INNER_JOIN_FILTER_FIRM_SPECS = FinderSpec(
+    finder_name="FirmFinder",
+    mapping_file="tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_mapping.md",
+    expectations=[
+        ported("testPropertyProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable", f"{_SRC}::testPropertyProjectionQueryWithInnerJoinClassOwnedPropertyMappingTable",
+               'select "persontable_0".FIRSTNAME as "pnl" from firmTable as "root" left outer join (select "root".ID as ID, "root".FIRSTNAME as FIRSTNAME, "root".LASTNAME as LASTNAME, "root".AGE as AGE, "root".ADDRESSID as ADDRESSID, "root".FIRMID as FIRMID, "root".MANAGERID as MANAGERID from personTable as "root" inner join firmTable as "firmtable_1" on ("firmtable_1".ID = "root".FIRMID) where "firmtable_1".LEGALNAME = \'Firm X\') as "persontable_0" on ("root".ID = "persontable_0".FIRMID)',
+               lambda f: f.find_all([f.employees().first_name().alias("pnl")])),
     ],
 )

@@ -37,6 +37,11 @@ QUERY_EXPRESSION_IN_DERIVED_TABLE = (
     "with no match Legend's CASE gives its else value ('Unknown') where the query's column is NULL"
 )
 
+FILTER_REPEATED_IN_CLASS_FILTER = (
+    "Legend writes a filter on the class both outside and inside the derived table that holds the class mapping's ~filter; the "
+    "finder writes it once, outside, which keeps the same rows"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"

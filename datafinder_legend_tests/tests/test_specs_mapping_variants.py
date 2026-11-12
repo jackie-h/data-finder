@@ -23,6 +23,7 @@ _VARIANTS = {
     "tests/mapping/distinct/distinct_mapping.md": "tests/mapping/distinct/distinct_data.sql",
     "tests/mapping/distinct/distinct_filter_mapping.md": "tests/mapping/distinct/distinct_data.sql",
     "tests/mapping/distinct/distinct_join_mapping.md": "tests/mapping/distinct/distinct_data.sql",
+    "tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_mapping.md": "tests/simple_data.sql",
     "tests/mapping/distinct/distinct_dup_mapping.md": "tests/mapping/distinct/distinct_data.sql",
     "tests/mapping/distinct/distinct_case_mapping.md": "tests/mapping/distinct/distinct_data.sql",
     "tests/mapping/distinct/distinct_denorm_mapping.md": "tests/mapping/distinct/distinct_data.sql",
