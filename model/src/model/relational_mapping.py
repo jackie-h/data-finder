@@ -1,6 +1,6 @@
 from model.m3 import Property, Class
 from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
-from model.relational import Operation, RelationalOperationElement, Column
+from model.relational import Operation, RelationalOperationElement, Column, Table, TableAlias
 
 
 class Join(RelationalOperationElement):
@@ -63,3 +63,17 @@ class RelationalPropertyMapping(PropertyMapping):
 class RelationalClassMapping(ClassMapping):
     def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):
         super().__init__(clazz, property_mappings, milestone_mapping)
+
+    @property
+    def main_relation(self) -> Table | TableAlias | None:
+        """What the class is mapped to: the table its properties are columns of, or the query that it is mapped to, whose columns they are."""
+        return next((pm.target.table for pm in self.property_mappings if isinstance(pm.target, Column) and pm.target.table is not None), None)
+
+    @property
+    def main_table_alias(self) -> TableAlias | None:
+        """What the class is mapped to, under a name, as Legend's ``mainTableAlias``: the query's own alias, or an alias of the table named
+        as the table is. Its ``relation`` is the table or the query."""
+        relation = self.main_relation
+        if relation is None or isinstance(relation, TableAlias):
+            return relation
+        return TableAlias(relation, relation.name)

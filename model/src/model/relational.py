@@ -5,6 +5,9 @@ import decimal
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Sequence, TypeVar, overload
 
+if TYPE_CHECKING:
+    from model.milestoning import MilestoningColumns
+
 
 T = TypeVar("T")
 K = TypeVar("K")  # the kind of number an expression holds: int, float or Decimal
@@ -1617,6 +1620,7 @@ class DataStore(ABC):
         self.name = name
         self.schemas: list = []
         self.milestoning_schemes: list = []
+        self.queries: list = []  # queries that classes are mapped to, which are not in a schema: each a TableAlias of a query
 
     @abstractmethod
     def namespace(self, schema_name: str) -> str:
@@ -1652,7 +1656,7 @@ class Schema:
 class Column(RelationalOperationElement):
     """A column of a relation. As in Legend its ``owner`` is the Relation it belongs to. A Table gives the columns it is
     made of their owner, so a column that is only in a table's list needs none."""
-    table: 'Table | None'
+    table: 'Table | TableAlias | None'
     owner: 'Relation | None'
 
     def __init__(self, name: str, _type: str, owner: 'Relation | None' = None, primary_key: bool = False,
@@ -1705,16 +1709,30 @@ class TableAlias(NamedRelation):
     the query's columns, which are expressions and have no owner to change."""
     relation: Relation
 
-    def __init__(self, relation: Relation, name: str):
+    def __init__(self, relation: Relation, name: str, columns: 'Sequence[Column | tuple[str, str]] | None' = None):
+        """``columns`` are the columns of an alias of a query that something is mapped to, which has a type for each, as a table has,
+        where the query's own are the expressions it shows."""
         if isinstance(relation, Table):
             super().__init__(name, [])
             self.columns = [Column(c.name, c.type, self, primary_key=c.primary_key, nullable=c.nullable)
                             for c in relation.columns]
             for column in self.columns:
                 column.table = relation
+        elif columns is not None:
+            super().__init__(name, [])
+            self.columns = [c if isinstance(c, Column) else Column(c[0], c[1]) for c in columns]
+            for column in self.columns:
+                column.owner = self
+                column.table = self
         else:
             super().__init__(name, relation.columns)
         self.relation = relation
+        # for a query that classes are mapped to: the SQL it was read from, the relations of the data store it reads, and how its
+        # rows are milestoned: the scheme that is named, and the columns of the query that scheme makes
+        self.sql: str | None = None
+        self.reads: list[NamedRelation] = []
+        self.milestoning_scheme: 'MilestoningScheme | None' = None
+        self.milestoning_columns: 'MilestoningColumns | None' = None
 
     def column(self, name: str, type: str) -> 'Column':
         """The alias's own column of that name. A table in a finder lists only the columns the finder reads, so one that
@@ -1723,9 +1741,34 @@ class TableAlias(NamedRelation):
             if isinstance(column, Column) and column.name == name:
                 return column
         column = Column(name, type, self)
-        column.table = self.relation  # type: ignore[assignment]
+        column.table = self.relation if isinstance(self.relation, Table) else self  # type: ignore[assignment]
         self.columns = [*self.columns, column]
         return column
+
+
+def query_of(relation: 'Relation | None') -> 'TableAlias | None':
+    """The relation as a query that a class is mapped to, or nothing if it is not one: a table, or an alias of one."""
+    return relation if isinstance(relation, TableAlias) and relation.sql else None
+
+
+def tables_read_by(relation: 'Relation | None') -> 'list[Table]':
+    """The tables a query that a class is mapped to reads, through the queries it reads; none for a table."""
+    alias = query_of(relation)
+    if alias is None:
+        return []
+    found: list[Table] = []
+    for read in alias.reads:
+        for table in [read] if isinstance(read, Table) else tables_read_by(read):
+            if not any(table is t for t in found):
+                found.append(table)
+    return found
+
+
+def schema_of(relation: 'Relation | None') -> 'Schema | None':
+    """The schema of a table, and of a query the schema of the first table it reads: where its data store is."""
+    if isinstance(relation, Table):
+        return relation.schema
+    return next((t.schema for t in tables_read_by(relation) if t.schema is not None), None)
 
 
 class Table(NamedRelation):
@@ -1831,12 +1874,12 @@ class JoinOperation:
         return JoinOperation(name, table, ComparisonOperation(source, ComparisonOperator.EQUAL, target), kind)
 
     @property
-    def table(self) -> 'Table':
-        """The table that is joined: the target, or what the target is an alias of."""
+    def table(self) -> 'Table | TableAlias':
+        """The table that is joined: the target, or what the target is an alias of; a query that is joined is itself."""
         target = self.target
-        if isinstance(target, TableAlias):
+        if isinstance(target, TableAlias) and isinstance(target.relation, Table):
             target = target.relation
-        assert isinstance(target, Table), f"Not a table: {target!r}"
+        assert isinstance(target, (Table, TableAlias)), f"Not a table: {target!r}"
         return target
 
     def columns(self) -> 'list[Column]':

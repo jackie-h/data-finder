@@ -75,11 +75,57 @@ def test_mapping_associations_carry_columns_and_multiplicities(finance):
     assert by_name["AccountBranch"]["rows"] == [{
         "sourceSchema": "ref_data", "sourceTable": "account_master", "sourceColumn": "BRANCH_ID",
         "targetSchema": "ref_data", "targetTable": "branch", "targetColumn": "ID",
+        "sourceIsQuery": False, "targetIsQuery": False,
     }]
     assert (by_name["AccountBranch"]["sourceMultiplicity"], by_name["AccountBranch"]["targetMultiplicity"]) == ("0..1", "*")
     assert by_name["TradeInstrument"]["targetMultiplicity"] == "*"             # one-way: the join is still mapped
     trade_account = by_name["TradeAccount"]["rows"][0]                      # a foreign key across schemas
     assert (trade_account["sourceSchema"], trade_account["targetSchema"]) == ("trading", "ref_data")
+
+
+@pytest.fixture(scope="module")
+def sql_queries():
+    return export_json.export_mapping(os.path.join(EXAMPLES, "sql_queries_mapping.md"), "sql_queries_mapping.md", EXAMPLES)
+
+
+def test_a_query_a_class_is_mapped_to_is_exported_with_its_sql_and_columns(sql_queries):
+    queries = {q["name"]: q for q in sql_queries["queries"]}
+    assert set(queries) == {"FIRM_VIEW", "POSITION_VIEW", "FIRM_X_PEOPLE", "TAG_VIEW", "SHOUT_VIEW", "RATE_QUERY", "QUOTE_QUERY"}
+    firm = queries["FIRM_VIEW"]
+    assert firm["class"] == "Firm"
+    assert firm["sql"] == "SELECT DISTINCT firm_id, firm_name\nFROM people"
+    assert firm["reads"] == [{"schema": "org", "table": "people"}]
+    assert firm["milestoning"] is None
+    assert firm["columns"] == [
+        {"name": "firm_id", "type": "INT", "primaryKey": True, "nullable": False, "property": "id"},
+        {"name": "firm_name", "type": "VARCHAR", "primaryKey": False, "nullable": True, "property": "legalName"},
+    ]
+
+
+def test_a_query_that_reads_a_query_names_it_and_a_milestoned_one_names_its_scheme(sql_queries):
+    queries = {q["name"]: q for q in sql_queries["queries"]}
+    assert queries["SHOUT_VIEW"]["reads"] == [{"query": "FIRM_VIEW"}]
+    assert queries["RATE_QUERY"]["milestoning"] == "business_date_range"
+    assert queries["QUOTE_QUERY"]["milestoning"] == "bitemporal"
+    properties = {c["name"]: c["property"] for c in queries["QUOTE_QUERY"]["columns"]}
+    assert properties["in_z"] == "validFrom" and properties["thru_z"] == "businessThru"
+
+
+def test_a_query_is_in_no_schema_and_a_class_mapped_to_one_is_not_lost(sql_queries):
+    tables = {t["name"]: t for s in sql_queries["schemas"] for t in s["tables"]}
+    assert "FIRM_VIEW" not in tables and tables["people"]["class"] == "Person"  # the table is still mapped to its own class
+    assert tables["rates"]["class"] is None  # read by a query only
+
+
+def test_a_join_that_starts_from_a_query_has_no_schema_and_says_so(sql_queries):
+    by_name = {a["name"]: a for a in sql_queries["associations"]}
+    assert by_name["FirmPerson"]["rows"] == [{
+        "sourceSchema": None, "sourceTable": "FIRM_VIEW", "sourceColumn": "firm_id",
+        "targetSchema": "org", "targetTable": "people", "targetColumn": "firm_id",
+        "sourceIsQuery": True, "targetIsQuery": False,
+    }]
+    assert by_name["HolderRate"]["rows"][0]["targetIsQuery"] is True        # a join that ends at a query
+    assert by_name["HolderRate"]["rows"][0]["targetTable"] == "RATE_QUERY"
 
 
 def test_dir_can_name_an_installed_package(tmp_path):

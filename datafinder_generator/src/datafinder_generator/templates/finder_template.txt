@@ -3,12 +3,14 @@ from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range, convert_inputs_and_select_for_processing_range
 from datafinder.attribute import Attribute
-from datafinder.finder import RelatedFinder, display_prefix, keys_join, via_joins
+from datafinder.finder import RelatedFinder, derived_table, display_prefix, keys_join, via_joins
 from decimal import Decimal
 from datafinder.runner import convert_date, convert_date_time
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinKind, JoinTreeNodeOperation, CountAllOperation, Operation, ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator, IsNullOperation, IsNotNullOperation, NotOperation, StringConstantOperation, IntegerConstantOperation, FloatConstantOperation, DecimalConstantOperation
 from model.milestoning import ProcessingTemporalColumns, SingleBusinessDateColumn, SingleProcessingDatetimeColumn, BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from {{class_module_map_base[rcm.clazz.name]}} import {{rcm.clazz.name}}FinderBase, {{rcm.clazz.name}}RelatedFinderBase
+
+{{query_definitions}}
 
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}from {{class_module_map[rpm.property.type.name]}} import {{rpm.property.type.name}}RelatedFinder
@@ -100,6 +102,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% else %}
     __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}('{{rpm.target.name}}', '{{rpm.target.type}}'), {% endif %}{% endfor %}], primary_key=[{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}'{{rpm.target.name}}', {% endif %}{% endfor %}])
 {% endif %}
+{{query_assignment(rcm)}}
 
     _column_map = {
 {% for rpm in rcm.property_mappings %}
@@ -220,6 +223,7 @@ class {{rcm.clazz.name}}Finder({{rcm.clazz.name}}FinderBase):
 {% else %}
     __table = Table('{{table_qualified_name(rcm.property_mappings[0].target.table)}}', [{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}('{{rpm.target.name}}', '{{rpm.target.type}}'), {% endif %}{% endfor %}], primary_key=[{% for rpm in rcm.property_mappings %}{% if is_primitive(rpm.property) and rpm.target.primary_key %}'{{rpm.target.name}}', {% endif %}{% endfor %}])
 {% endif %}
+{{query_assignment(rcm)}}
 
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}

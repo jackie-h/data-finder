@@ -12,6 +12,7 @@ from pyiceberg.types import (
 
 from datafinder_iceberg.iceberg_catalog_reader import read_repository_from_catalog
 from mapping_markdown.markdown_mapping import load
+from model.relational import Table
 from datafinder_generator.generator import generate
 
 _MAPPING_FILE = os.path.normpath(
@@ -204,7 +205,7 @@ class TestCatalogMappingFileSQL:
         rcm = mapping.mappings[0]
         assert isinstance(rcm, RelationalClassMapping)
         table = _primary_table(rcm)
-        assert table is not None
+        assert isinstance(table, Table)
         assert table.schema is not None
         assert isinstance(table.schema.datastore, DataCatalog)
         assert table.schema.datastore.name == "my_catalog"

@@ -1,5 +1,15 @@
 from typing import Sequence
-from model.relational import Column, Table
+from model.relational import Column, Relation, Table, TableAlias
+
+
+def milestoning_columns_of(relation: Relation | None) -> 'MilestoningColumns | None':
+    """The columns that milestone a relation's rows: a milestoned table's, or those of a query that a class is mapped to with a scheme;
+    none for a relation that is not milestoned."""
+    if isinstance(relation, MilestonedTable):
+        return relation.milestoning_columns
+    if isinstance(relation, TableAlias):
+        return relation.milestoning_columns
+    return None
 
 
 class MilestoningColumns:

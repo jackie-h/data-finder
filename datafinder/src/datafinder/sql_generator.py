@@ -10,6 +10,7 @@ from datafinder.attribute import Attribute
 from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
+from model.milestoning import milestoning_columns_of
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
@@ -59,9 +60,9 @@ def _and_all(ops: Iterable[Operation | None]) -> Operation | None:
                   present[1:], present[0]) if present else None
 
 
-def _table_of(column: Column) -> Table:
-    """The table a milestoning or view column is a column of."""
-    assert column.table is not None, f"Column {column.name} has no table"
+def _table_of(column: Column) -> Table | TableAlias:
+    """The table a milestoning or view column is a column of; for a query that a class is mapped to, the query."""
+    assert isinstance(column.table, (Table, TableAlias)), f"Column {column.name} has no table"
     return column.table
 
 
@@ -128,7 +129,7 @@ def _business_range_predicate(mc: MilestoningColumns, business_date_from: dateti
 def build_milestoning_filter_operation_for_date_range(
         business_date_from: datetime.date | None, business_date_to: datetime.date | None,
         processing_datetime: datetime.datetime | datetime.date | None,
-        table: MilestonedTable, join_node: 'JoinTreeNodeOperation | None' = None,
+        table: MilestonedTable | TableAlias, join_node: 'JoinTreeNodeOperation | None' = None,
         processing_datetime_to: datetime.datetime | datetime.date | None = None) -> 'Operation | None':
     """Like build_milestoning_filter_operation but applies a business-date range filter.
 
@@ -140,7 +141,8 @@ def build_milestoning_filter_operation_for_date_range(
     given: then ``processing_datetime`` to ``processing_datetime_to`` is a range, which a processing range overlaps and
     a processing snapshot column is within.
     """
-    mc = table.milestoning_columns
+    mc = milestoning_columns_of(table)
+    assert mc is not None, f"{table.name} is not milestoned"
     if processing_datetime is not None and processing_datetime_to is not None:
         processing = _processing_range_predicate(mc, processing_datetime, processing_datetime_to, join_node)
     else:
@@ -150,10 +152,13 @@ def build_milestoning_filter_operation_for_date_range(
 
 def build_milestoning_filter_operation(business_date: datetime.date | None,
                                        processing_datetime: datetime.datetime | datetime.date | None,
-                                       table:MilestonedTable, join_node:'JoinTreeNodeOperation | None' = None) -> 'Operation | None':
-    """The milestoning filter for a point in time: the processing range, then the business range, ANDed together."""
+                                       table: MilestonedTable | TableAlias,
+                                       join_node: 'JoinTreeNodeOperation | None' = None) -> 'Operation | None':
+    """The milestoning filter for a point in time: the processing range, then the business range, ANDed together. The relation is a
+    milestoned table, or a query that a class is mapped to with a milestoning scheme."""
     #TODO this should not reference attribute
-    mc = table.milestoning_columns
+    mc = milestoning_columns_of(table)
+    assert mc is not None, f"{table.name} is not milestoned"
     return _and_all([_processing_predicate(mc, processing_datetime, join_node),
                      _business_predicate(mc, business_date, join_node)])
 
@@ -426,7 +431,8 @@ def build_query_specification(business_date: datetime.date | None, processing_da
                          distinct: bool = False, offset: int | None = None,
                          having: Operation | None = None,
                          processing_datetime_to: datetime.datetime | datetime.date | None = None) -> OrderedQuerySpecification:
-    if isinstance(table, MilestonedTable):
+    if milestoning_columns_of(table) is not None:
+        assert isinstance(table, (MilestonedTable, TableAlias))
         if business_date_to is not None or processing_datetime_to is not None:
             milestoned_op = build_milestoning_filter_operation_for_date_range(
                 business_date, business_date_to, processing_datetime, table,
@@ -439,8 +445,9 @@ def build_query_specification(business_date: datetime.date | None, processing_da
     query = OrderedQuerySpecification(columns, op, order_by or [], group_by or [], limit, table, distinct, offset, having)
 
     def milestoning_condition(node):
-        if not isinstance(node.join.table, MilestonedTable):
+        if milestoning_columns_of(node.join.table) is None:
             return None
+        assert isinstance(node.join.table, (MilestonedTable, TableAlias))
         bd, bd_to, pdt, pdt_to = _dates_for_node(node, business_date, business_date_to, processing_datetime,
                                                  processing_datetime_to)
         if bd_to is not None or pdt_to is not None:
