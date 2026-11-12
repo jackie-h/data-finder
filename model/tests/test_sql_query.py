@@ -2,7 +2,7 @@
 import pytest
 
 from model.relational import (
-    Alias, AggregateOperation, AggregateOperator, CaseOperation, ComparisonOperation, ConcatOperation, JoinKind,
+    Alias, AggregateOperation, AggregateOperator, CaseOperation, Column, ComparisonOperation, ConcatOperation, JoinKind,
     LogicalOperation, QuerySpecification, Table, TableAlias, UnionOperation,
 )
 from model.sql_query import SqlQueryError, output_names, parse_query, parse_query_reads
@@ -23,7 +23,8 @@ def test_a_query_read_under_a_name_is_aliased_to_the_query_itself():
     assert isinstance(query, QuerySpecification) and isinstance(query.table, TableAlias)
     # the alias is of the query, not of the other alias, so it is written as the query in brackets under that name
     assert query.table.relation is inner and query.table.name == "a"
-    assert [c.name for c in query.table.columns] == ["ID", "AGE"] and all(c.owner is query.table for c in query.table.columns)
+    columns = [c for c in query.table.columns if isinstance(c, Column)]
+    assert [c.name for c in columns] == ["ID", "AGE"] and all(c.owner is query.table for c in columns)
 
 
 def test_distinct_over_one_table():
