@@ -566,7 +566,11 @@ in order.
 distinct query has to use a selected column.
 
 `offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
-first: without an order, which rows come first is not defined.
+first: without an order, which rows come first is not defined. The steps apply in the order they are written, as Legend's `take`,
+`drop` and `slice` do: `offset(1).limit(3)` skips one row and takes three, but `limit(4).offset(1)` takes four and skips one of them
+(three rows), and `limit(3)` then `order_by(...)` orders the three rows taken, where `order_by(...)` then `limit(3)` takes the first
+three of the order. A step after a limit or an offset is a query over the query before it, so it orders by the result's own columns
+(`rows["id"].ascending()`), and the same goes for a `concatenate`d result.
 
 `when(condition).then(value).otherwise(value)` chooses a value for each row, as in polars:
 `when(CompanyFinder.category().eq("Technology")).then("tech").otherwise("other")`. Python's own `if` cannot build a query

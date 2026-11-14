@@ -141,3 +141,39 @@ def test_a_different_set_operator_is_not_flattened():
     a, b, c = (_result([_NAME], _ID.eq(i)) for i in (1, 2, 3))
     sql = a.concatenate(b, all=True).concatenate(c).to_sql()
     assert "UNION ALL" in sql and sql.count("FROM (") == 2
+
+
+def test_ordering_rows_that_are_limited_orders_those_rows():
+    union = _result([_ID]).concatenate(_result([_ID]), all=True)
+    top = union.order_by(union["id"].descending()).limit(2)
+    ordered = top.order_by(top["id"].ascending())
+    assert ordered is not top
+    assert "ORDER BY t1.id DESC LIMIT 2) AS t0 ORDER BY t0.id ASC" in ordered.to_sql()   # the order is of the two rows taken
+    assert top.to_sql().endswith("ORDER BY t0.id DESC LIMIT 2")             # the limited rows are as they were
+
+
+def test_a_column_of_the_table_orders_the_rows_it_shows_after_a_limit():
+    rows = _result([_ID, _NAME]).limit(3)
+    ordered = rows.order_by(_NAME.ascending())
+    assert "LIMIT 3) AS" in ordered.to_sql() and ordered.to_sql().endswith("ORDER BY t0.name ASC")
+
+
+def test_ordering_after_a_limit_by_a_column_the_result_does_not_show_is_refused():
+    rows = _result([_ID]).limit(3)
+    with pytest.raises(ValueError, match="ordered by the columns of the result"):
+        rows.order_by(_NAME.ascending())
+
+
+def test_dropping_after_taking_is_a_step_over_the_rows_taken():
+    rows = _result([_ID]).limit(5).offset(2)
+    assert "LIMIT 5) AS" in rows.to_sql() and rows.to_sql().endswith("OFFSET 2")
+
+
+def test_taking_after_dropping_is_one_query():
+    rows = _result([_ID]).offset(2).limit(5)
+    assert rows.to_sql().endswith("LIMIT 5 OFFSET 2") and rows.to_sql().count("SELECT") == 1
+
+
+def test_taking_again_is_a_step_over_the_rows_taken():
+    rows = _result([_ID]).limit(2).limit(5)
+    assert "LIMIT 2) AS" in rows.to_sql() and rows.to_sql().endswith("LIMIT 5")
