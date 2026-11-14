@@ -207,3 +207,107 @@ def test_the_sets_survive_writing(tmp_path):
     assert "(set: big)" in text and "(set: small)" in text and "UNION" not in text
     again = _firm(load(str(path)))
     assert [s.set_name for s in again.sets] == ["big", "small"]
+
+
+# --- an association between classes that have sets says which sets it joins ------------------------------------------------------------------
+
+_PEOPLE_TABLES = """#### Table: people
+
+| Column  | Type | Key | Nullable | Property ID |
+|---------|------|-----|----------|-------------|
+| id      | INT  | PK  | N        | id          |
+| name    | VARCHAR |  | Y        | firstName   |
+| age     | INT  |     | Y        | age         |
+| firm_id | INT  |     | Y        |             |
+
+"""
+_PERSON_COLUMNS = """| Column  | Type    | Key | Nullable | Property ID |
+|---------|---------|-----|----------|-------------|
+| id      | INT     | PK  | N        | id          |
+| name    | VARCHAR |     | Y        | firstName   |
+| age     | INT     |     | Y        | age         |
+| firm_id | INT     |     | Y        |             |
+"""
+_PERSON_SETS = (_query("STAFF", " (set: staff)", "SELECT id, name, age, firm_id FROM staff", _PERSON_COLUMNS, "Person")
+                + _query("CONTRACTORS", " (set: contractors)", "SELECT id, name, age, firm_id FROM contractors", _PERSON_COLUMNS, "Person"))
+_PERSON_TABLES = "".join(f"""#### Table: {t}
+
+| Column  | Type | Key | Nullable | Property ID |
+|---------|------|-----|----------|-------------|
+| id      | INT  | PK  | N        |             |
+| name    | VARCHAR |  | Y        |             |
+| age     | INT  |     | Y        |             |
+| firm_id | INT  |     | Y        |             |
+
+""" for t in ("staff", "contractors"))
+
+
+def _assoc(options, source_column="id", target="people", target_column="firm_id"):
+    return f"""#### Association: FirmPerson{options}
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| {source_column} | {target} | {target_column} |
+
+"""
+
+
+def _employees(mapping):
+    return next(pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees")
+
+
+def test_an_association_from_a_class_of_sets_names_the_sets_it_joins_and_the_join_is_on_them(tmp_path):
+    from model.relational import ComparisonOperation, LogicalOperation
+    mapping = load(str(_mapping(tmp_path, _DEFAULT + _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person") + _assoc(" (source set: big)"))))
+    join = _employees(mapping).target
+    assert join.set_pairs == [("big", None)]  # type: ignore[attr-defined]
+    condition = join.condition  # type: ignore[attr-defined]
+    assert isinstance(condition, ComparisonOperation) and condition.left.name == "_set" and condition.right.value == "big"  # type: ignore[attr-defined]
+    assert not isinstance(condition, LogicalOperation)
+
+
+def test_an_association_between_classes_of_sets_pairs_the_sets_and_nothing_else(tmp_path):
+    from model.relational import LogicalOperation, LogicalOperator
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF") + \
+        _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS")
+    join = _employees(load(str(_mapping(tmp_path, text)))).target
+    assert join.set_pairs == [("big", "staff"), ("small", "contractors")]  # type: ignore[attr-defined]
+    assert isinstance(join.condition, LogicalOperation) and join.condition.operator == LogicalOperator.OR  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("assoc,message", [
+    (_assoc(""), "Firm has sets: the association FirmPerson must say its source set"),
+    (_assoc(" (source set: nope)"), "'nope' is not a set of Firm"),
+    (_assoc(" (source set: big, target set: staff)"), "Person has no sets: 'staff' is not one"),
+    (_assoc(" (source set: big)") + _assoc(" (source set: big)"), r"the sets \(big\) of FirmPerson are given twice"),
+    (_assoc(" (source set: big)") + _assoc(" (source set: small)", source_column="name"), "the sections of FirmPerson join on different columns"),
+    (_assoc(" (target set: big)"), "Firm has sets: the association FirmPerson must say its source set"),
+])
+def test_an_association_of_sets_is_refused_unless_it_names_real_sets_once_each(tmp_path, assoc, message):
+    text = _DEFAULT + _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person") + assoc
+    with pytest.raises(ValueError, match=message):
+        load(str(_mapping(tmp_path, text)))
+
+
+def test_an_association_that_joins_to_the_set_of_a_class_must_name_the_sets(tmp_path):
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big)", target="STAFF")
+    with pytest.raises(ValueError, match="Person has sets: the association FirmPerson must say its target set"):
+        load(str(_mapping(tmp_path, text)))
+
+
+def test_the_target_table_of_a_set_is_the_query_of_that_set(tmp_path):
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="CONTRACTORS")
+    with pytest.raises(ValueError, match="the target set 'staff' of FirmPerson is the query STAFF, not CONTRACTORS"):
+        load(str(_mapping(tmp_path, text)))
+
+
+def test_the_sets_of_an_association_survive_writing(tmp_path):
+    from datafinder_examples import example_path
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF") + \
+        _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS")
+    path = tmp_path / "written.md"
+    save(str(path), "Sets", load(str(_mapping(tmp_path, text))), [str(example_path(_MODEL))])
+    written = path.read_text()
+    assert "#### Association: FirmPerson (source set: big, target set: staff)" in written
+    assert "#### Association: FirmPerson (source set: small, target set: contractors)" in written
+    assert _employees(load(str(path))).target.set_pairs == [("big", "staff"), ("small", "contractors")]  # type: ignore[attr-defined]
