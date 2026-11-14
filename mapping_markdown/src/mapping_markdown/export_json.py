@@ -216,9 +216,10 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
     column_property: dict[int, str] = {}
     joins = []
     # the property mappings of a union are those of its sets, and the navigations between them are only there
+    set_ids = {id(each): each.id for union in mapping.mappings if isinstance(union, UnionMapping) for each in union.sets}
     for cm in [*markdown_mapping._sections(mapping), *(m for m in mapping.mappings if isinstance(m, UnionMapping))]:
-        if cm.id:
-            set_of[id(cm.main_relation)] = cm.id
+        if id(cm) in set_ids:
+            set_of[id(cm.main_relation)] = set_ids[id(cm)]
         table = _mapped_relation(cm)
         if table is not None:
             table_class[id(table)] = cm.clazz.name

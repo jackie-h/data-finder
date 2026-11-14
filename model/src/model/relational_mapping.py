@@ -49,14 +49,19 @@ class EmbeddedSetMapping(RelationalOperationElement):
     or a Join, for a property of the embedded class that reaches another table (e.g.
     classification.system), whose first column is a column of the root table.
     """
-    def __init__(self, clazz: Class, property_mappings: list['RelationalPropertyMapping']):
+    def __init__(self, clazz: Class, property_mappings: list['RelationalPropertyMapping'], id: str):
         super().__init__()
         self.clazz = clazz
         self.property_mappings = property_mappings
+        # The id the property mappings in it start from: that of the class mapping that holds it, and the path to it, ``Trade_account``.
+        self.id = id
+        for pm in property_mappings:
+            if pm.source_set_id != id:
+                raise ValueError(f"the property {pm.property.id} of {clazz.name} embedded as {id} has the source set id '{pm.source_set_id}', not '{id}'")
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str | None = None, target_set_id: str | None = None):
+    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str, target_set_id: str | None = None):
         super().__init__(property, target, source_set_id, target_set_id)
 
 

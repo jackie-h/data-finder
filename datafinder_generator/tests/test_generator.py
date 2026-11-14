@@ -275,15 +275,15 @@ class TestDualAssociationSameTarget:
                                schema, primary_key=["id"])
         contract_id_col, primary_fk_col, secondary_fk_col = contract_table.columns
 
-        emp_id_pm = RelationalPropertyMapping(employee_cls.property("id"), emp_id_col)
-        emp_name_pm = RelationalPropertyMapping(employee_cls.property("name"), emp_name_col)
+        emp_id_pm = RelationalPropertyMapping(employee_cls.property("id"), emp_id_col, employee_cls.name)
+        emp_name_pm = RelationalPropertyMapping(employee_cls.property("name"), emp_name_col, employee_cls.name)
         emp_rcm = RelationalClassMapping(employee_cls, [emp_id_pm, emp_name_pm])
 
-        contract_id_pm = RelationalPropertyMapping(contract_cls.property("id"), contract_id_col)
+        contract_id_pm = RelationalPropertyMapping(contract_cls.property("id"), contract_id_col, contract_cls.name)
         primary_join = Join(primary_fk_col, emp_id_col)
-        primary_pm = RelationalPropertyMapping(contract_cls.property("primaryOwner"), primary_join)
+        primary_pm = RelationalPropertyMapping(contract_cls.property("primaryOwner"), primary_join, contract_cls.name)
         secondary_join = Join(secondary_fk_col, emp_id_col)
-        secondary_pm = RelationalPropertyMapping(contract_cls.property("secondaryOwner"), secondary_join)
+        secondary_pm = RelationalPropertyMapping(contract_cls.property("secondaryOwner"), secondary_join, contract_cls.name)
         contract_rcm = RelationalClassMapping(contract_cls, [contract_id_pm, primary_pm, secondary_pm])
 
         return Mapping("OrgMapping", [emp_rcm, contract_rcm])
@@ -358,12 +358,12 @@ class TestCamelCaseReverseAssocMethodName:
         tag_table = Table("tags", [("id", "INT"), ("entity_id", "INT")], schema, primary_key=["id"])
         tag_id_col, fk_col = tag_table.columns
 
-        entity_id_pm = RelationalPropertyMapping(entity_cls.property("id"), entity_id_col)
+        entity_id_pm = RelationalPropertyMapping(entity_cls.property("id"), entity_id_col, entity_cls.name)
         entity_rcm = RelationalClassMapping(entity_cls, [entity_id_pm])
 
-        tag_id_pm = RelationalPropertyMapping(tag_cls.property("id"), tag_id_col)
+        tag_id_pm = RelationalPropertyMapping(tag_cls.property("id"), tag_id_col, tag_cls.name)
         join = Join(fk_col, entity_id_col)
-        tag_entity_pm = RelationalPropertyMapping(tag_cls.property("relatedEntity"), join)
+        tag_entity_pm = RelationalPropertyMapping(tag_cls.property("relatedEntity"), join, tag_cls.name)
         tag_rcm = RelationalClassMapping(tag_cls, [tag_id_pm, tag_entity_pm])
 
         return Mapping("OrgMapping", [entity_rcm, tag_rcm])
@@ -426,12 +426,12 @@ class TestAssociationPropertyDocstring:
         trade_table = Table("trades", [("id", "INT"), ("account_id", "INT")], schema, primary_key=["id"])
         trade_id_col, fk_col = trade_table.columns
 
-        acct_id_pm = RelationalPropertyMapping(account_cls.property("id"), acct_id_col)
+        acct_id_pm = RelationalPropertyMapping(account_cls.property("id"), acct_id_col, account_cls.name)
         acct_rcm = RelationalClassMapping(account_cls, [acct_id_pm])
 
-        trade_id_pm = RelationalPropertyMapping(trade_cls.property("id"), trade_id_col)
+        trade_id_pm = RelationalPropertyMapping(trade_cls.property("id"), trade_id_col, trade_cls.name)
         join = Join(fk_col, acct_id_col)
-        trade_acct_pm = RelationalPropertyMapping(trade_cls.property("account"), join)
+        trade_acct_pm = RelationalPropertyMapping(trade_cls.property("account"), join, trade_cls.name)
         trade_rcm = RelationalClassMapping(trade_cls, [trade_id_pm, trade_acct_pm])
 
         return Mapping("FinanceMapping", [acct_rcm, trade_rcm])

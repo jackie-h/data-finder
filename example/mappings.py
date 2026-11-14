@@ -76,33 +76,33 @@ def create_mappings_normalized() -> Mapping:
     c1, c2, c3, c4, c5, c6, c7 = trade_t.columns
 
     account_name_embedded = EmbeddedSetMapping(
-        account_c, [RelationalPropertyMapping(account_c.property('name'), c7)]
+        account_c, [RelationalPropertyMapping(account_c.property('name'), c7, 'Trade_account')], 'Trade_account'
     )
-    pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3)
-    pm2 = RelationalPropertyMapping(trade_c.property('price'), c4)
-    pm3 = RelationalPropertyMapping(trade_c.property('account'), Join(c2, ac1, embedded=account_name_embedded))
-    pm4 = RelationalPropertyMapping(trade_c.property('validFrom'), c5)
-    pm5 = RelationalPropertyMapping(trade_c.property('validTo'), c6)
-    pm6 = RelationalPropertyMapping(trade_c.property('instrument'), Join(c3,ic1))
+    pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3, 'Trade')
+    pm2 = RelationalPropertyMapping(trade_c.property('price'), c4, 'Trade')
+    pm3 = RelationalPropertyMapping(trade_c.property('account'), Join(c2, ac1, embedded=account_name_embedded), 'Trade')
+    pm4 = RelationalPropertyMapping(trade_c.property('validFrom'), c5, 'Trade')
+    pm5 = RelationalPropertyMapping(trade_c.property('validTo'), c6, 'Trade')
+    pm6 = RelationalPropertyMapping(trade_c.property('instrument'), Join(c3,ic1), 'Trade')
     mpm = ProcessingDateMilestonesPropertyMapping(pm4, pm5)
     rm_t = RelationalClassMapping(trade_c, [pm1, pm2, pm3, pm4, pm5, pm6], mpm)
 
-    a_pm1 = RelationalPropertyMapping(account_c.property('id'), ac1)
-    a_pm2 = RelationalPropertyMapping(account_c.property('name'), ac2)
+    a_pm1 = RelationalPropertyMapping(account_c.property('id'), ac1, 'Account')
+    a_pm2 = RelationalPropertyMapping(account_c.property('name'), ac2, 'Account')
     rm_a = RelationalClassMapping(account_c, [a_pm1, a_pm2])
 
-    i_pm1 = RelationalPropertyMapping(instrument_c.property('symbol'), ic1)
-    i_pm2 = RelationalPropertyMapping(instrument_c.property('price'), ic2)
-    i_pm3 = RelationalPropertyMapping(trade_c.property('validFrom'), ic3)
-    i_pm4 = RelationalPropertyMapping(trade_c.property('validTo'), ic4)
+    i_pm1 = RelationalPropertyMapping(instrument_c.property('symbol'), ic1, 'Instrument')
+    i_pm2 = RelationalPropertyMapping(instrument_c.property('price'), ic2, 'Instrument')
+    i_pm3 = RelationalPropertyMapping(trade_c.property('validFrom'), ic3, 'Instrument')
+    i_pm4 = RelationalPropertyMapping(trade_c.property('validTo'), ic4, 'Instrument')
     i_mpm = ProcessingDateMilestonesPropertyMapping(i_pm3, i_pm4)
     rm_i = RelationalClassMapping(instrument_c, [i_pm1, i_pm2, i_pm3, i_pm4], i_mpm)
 
-    cpm1 = RelationalPropertyMapping(c_position_c.property('businessDate'), p1)
-    cpm2 = RelationalPropertyMapping(c_position_c.property('quantity'), p4)
-    cpm3 = RelationalPropertyMapping(c_position_c.property('counterparty'), p3)
-    cpm4 = RelationalPropertyMapping(c_position_c.property('instrument'), Join(p2,ic1))
-    cpm5 = RelationalPropertyMapping(c_position_c.property('npv'), p5)
+    cpm1 = RelationalPropertyMapping(c_position_c.property('businessDate'), p1, 'ContractualPosition')
+    cpm2 = RelationalPropertyMapping(c_position_c.property('quantity'), p4, 'ContractualPosition')
+    cpm3 = RelationalPropertyMapping(c_position_c.property('counterparty'), p3, 'ContractualPosition')
+    cpm4 = RelationalPropertyMapping(c_position_c.property('instrument'), Join(p2,ic1), 'ContractualPosition')
+    cpm5 = RelationalPropertyMapping(c_position_c.property('npv'), p5, 'ContractualPosition')
     cpm_t = SingleBusinessDateMilestonePropertyMapping(cpm1)
     rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4, cpm5], cpm_t)
 

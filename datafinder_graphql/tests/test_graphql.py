@@ -55,7 +55,7 @@ class TestGraphQLMapping:
         sym_prop = Property("Symbol", "symbol", String, ZERO_TO_ONE)
         instrument_class = Class("Instrument", [sym_prop], Package("finance"))
 
-        pm = GraphQLPropertyMapping(sym_prop, field)
+        pm = GraphQLPropertyMapping(sym_prop, field, "Instrument")
         cm = GraphQLClassMapping(instrument_class, [pm], query)
 
         assert cm.query is query

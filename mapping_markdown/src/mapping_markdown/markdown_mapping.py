@@ -249,6 +249,8 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     # Association sections use this to resolve joins without relying on ordering.
     class_context: dict[str, tuple] = {}
     sections_of_class: dict[str, list[tuple[bool, RelationalClassMapping]]] = {}  # each class's Table and Query sections, in order
+    named_sets: set[int] = set()  # the sections that are a set: the ones that say so in their heading
+    section_ids: dict[str, str] = {}  # the id of each class's last section: where a property mapping that its association gives starts from
     set_associations: dict[str, list[tuple[str | None, str | None, list[dict]]]] = {}  # each association's sections that name sets
     queries_of_class: dict[str, list[tuple[str, str | None]]] = {}  # each class's queries, by name and set, before any of them is read
     for node in nodes:
@@ -361,19 +363,21 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                         if prop is None:
                             raise ValueError(f"Property '{prop_name}' not found in class '{cls.name}'")
                         if isinstance(prop.type, PrimitiveType):
-                            property_mappings.append(RelationalPropertyMapping(prop, col))
+                            property_mappings.append(RelationalPropertyMapping(prop, col, set_name or cls.name))
                         # non-primitive (association) properties are resolved in the Association section
                     i += 1
 
                 embedded_by_nav = (
-                    _build_embedded_mappings(embedded_rows, cls, classes_by_name, assoc_nav_lookup)
+                    _build_embedded_mappings(embedded_rows, cls, classes_by_name, assoc_nav_lookup, set_name or cls.name)
                     if embedded_rows else {}
                 )
 
                 milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository,
                                                               table_name=table_name, class_name=class_name)
-                section = RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping)
-                section.id = set_name
+                section = RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping, id=set_name)
+                section_ids[cls.name] = section.id
+                if set_name:
+                    named_sets.add(id(section))
                 sections_of_class.setdefault(cls.name, []).append((is_query, section))
                 class_mappings.append(section)
                 class_context[cls.name] = (property_mappings, cols_by_name, embedded_by_nav)
@@ -452,7 +456,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             embedded = embedded_entry[1] if embedded_entry is not None else None
                             pm_list.append(RelationalPropertyMapping(prop, Join(
                                 last_lhs, last_rhs, embedded=embedded, via=via, conditions=conditions,
-                                condition_texts=condition_texts)))
+                                condition_texts=condition_texts), section_ids[owner_cls_name]))
                         for lhs, rhs in hops:
                             if isinstance(lhs.table, Table):
                                 lhs.table.foreign_keys.append(ForeignKey(lhs, rhs))
@@ -469,18 +473,18 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
     # An embedded mapping with no Association section has nothing to fall back to: the properties live in the
     # class's own row, so the navigation property maps straight to the embedded columns.
-    for pm_list, _, embedded_by_nav in class_context.values():
+    for class_name, (pm_list, _, embedded_by_nav) in class_context.items():
         for nav_prop, embedded in embedded_by_nav.values():
             _check_embedded_joins(nav_prop.id, embedded)
-            pm_list.append(RelationalPropertyMapping(nav_prop, embedded))
+            pm_list.append(RelationalPropertyMapping(nav_prop, embedded, section_ids[class_name]))
 
-    together = _put_sets_together(class_mappings, sections_of_class)
+    together = _put_sets_together(class_mappings, sections_of_class, named_sets)
     _join_the_sets(set_associations, together, packages, classes_by_name, assoc_nav_lookup)
     return Mapping(title, together)
 
 
 def _put_sets_together(class_mappings: list[RelationalClassMapping],
-                       sections_of_class: dict[str, list[tuple[bool, RelationalClassMapping]]]) -> list[ClassMapping]:
+                       sections_of_class: dict[str, list[tuple[bool, RelationalClassMapping]]], named_sets: set[int]) -> list[ClassMapping]:
     """A class mapped to one table or one query is that class mapping. A class mapped to several queries is one class mapping, the union of them,
     that keeps them as its sets; each must be named, so that what joins to it can say which set it means. A class is not mapped to a table
     and to a query: there is no row of the one that is not a row of the other."""
@@ -491,7 +495,7 @@ def _put_sets_together(class_mappings: list[RelationalClassMapping],
             raise ValueError(f"{class_name} is mapped to a table and to a query: a class is one or the other, or several queries that are its sets")
         if len(sections) < 2:
             continue
-        if any(section.id is None for section in queries):
+        if any(id(section) not in named_sets for section in queries):
             raise ValueError(f"{class_name} is mapped to several queries: each needs a set, `#### Query: NAME → {class_name} (set: name)`")
         if not queries:
             continue  # several Table sections of a class: as it always was
@@ -553,7 +557,7 @@ def _join_the_sets(set_associations: dict[str, list[tuple[str | None, str | None
             if lhs is None or rhs is None:
                 raise ValueError(f"Association '{assoc_name}': the columns {keys} are not columns of {source_rel.name} and {target_rel.name}")
             assert isinstance(source.property_mappings, list)
-            source.property_mappings.append(RelationalPropertyMapping(prop, Join(lhs, rhs), source_set_id=source_set, target_set_id=target_set))
+            source.property_mappings.append(RelationalPropertyMapping(prop, Join(lhs, rhs), source_set or source.id, target_set))
 
 
 def _sets_of(mapping: ClassMapping) -> list:
@@ -647,9 +651,10 @@ def _resolve_nav_property(cls_name: str, seg: str, classes_by_name: dict, assoc_
 
 
 def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: dict,
-                              assoc_nav_lookup: dict) -> dict:
+                              assoc_nav_lookup: dict, owner_id: str) -> dict:
     """Group dotted-path (column, segments) rows by their first segment and build nested
-    EmbeddedSetMappings recursively.
+    EmbeddedSetMappings recursively. ``owner_id`` is the id of what holds them (a class mapping, or an embedded
+    mapping above), and each embedded mapping has the id of its owner and its property: ``Trade_account``.
 
     Returns ``{root_nav_property_id: (nav_Property, EmbeddedSetMapping)}``. Raises ValueError for
     any segment that can't be resolved (unknown nav property, or a leaf that isn't a primitive
@@ -675,6 +680,7 @@ def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: d
             )
         target_all_props = target_cls.all_properties()
 
+        embedded_id = f"{owner_id}_{seg0}"
         nested_pms: list[RelationalPropertyMapping] = []
         deeper: list = []
         for col, segs in rows:
@@ -688,23 +694,23 @@ def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: d
                         # ``(embedded in ...)``, gives the join; until then the foreign key column stands in for it
                         pending = Join(col, col)
                         pending.resolved = False
-                        nested_pms.append(RelationalPropertyMapping(nav_leaf, pending))
+                        nested_pms.append(RelationalPropertyMapping(nav_leaf, pending, embedded_id))
                         continue
                 if leaf_prop is None or not isinstance(leaf_prop.type, PrimitiveType):
                     raise ValueError(
                         f"Embedded mapping: property '{leaf_id}' not found (or not primitive) "
                         f"on class '{target_cls.name}'"
                     )
-                nested_pms.append(RelationalPropertyMapping(leaf_prop, col))
+                nested_pms.append(RelationalPropertyMapping(leaf_prop, col, embedded_id))
             else:
                 deeper.append((col, segs))
 
         if deeper:
-            nested = _build_embedded_mappings(deeper, target_cls, classes_by_name, assoc_nav_lookup)
+            nested = _build_embedded_mappings(deeper, target_cls, classes_by_name, assoc_nav_lookup, embedded_id)
             for nested_prop, nested_esm in nested.values():
-                nested_pms.append(RelationalPropertyMapping(nested_prop, nested_esm))
+                nested_pms.append(RelationalPropertyMapping(nested_prop, nested_esm, embedded_id))
 
-        result[seg0] = (nav_prop, EmbeddedSetMapping(target_cls, nested_pms))
+        result[seg0] = (nav_prop, EmbeddedSetMapping(target_cls, nested_pms, embedded_id))
     return result
 
 
@@ -1083,7 +1089,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                     continue
                 heading = f"#### {'Query' if query_of(table) else 'Table'}: {table.name} → {rcm.clazz.name}"
                 scheme_name = _milestone_scheme_name(rcm, repo)
-                options = ([f"set: {rcm.id}"] if rcm.id else []) + ([f"milestoning: {scheme_name}"] if scheme_name else [])
+                options = ([f"set: {rcm.id}"] if id(rcm) in union_of else []) + ([f"milestoning: {scheme_name}"] if scheme_name else [])
                 if options:
                     heading += f" ({', '.join(options)})"
                 lines.append(heading)
@@ -1136,11 +1142,11 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                     continue  # the associations of a class of sets are those of its union, written once
                 rcm = union or section
                 for pm in rcm.property_mappings:
-                    if isinstance(pm.target, Join) and (pm.source_set_id or pm.target_set_id):
+                    if isinstance(pm.target, Join) and (pm.source_set_id != rcm.id or pm.target_set_id):
                         assert isinstance(pm.property.type, Class)
                         assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
                         target = next(r for r in mapping.mappings if isinstance(r, RelationalClassMapping) and r.clazz is pm.property.type)
-                        options = ", ".join(o for o in (f"source set: {pm.source_set_id}" if pm.source_set_id else "",
+                        options = ", ".join(o for o in (f"source set: {pm.source_set_id}" if pm.source_set_id != rcm.id else "",
                                                         f"target set: {pm.target_set_id}" if pm.target_set_id else "") if o)
                         relation = next((each.main_relation for each in _sets_of(target) if each.id == pm.target_set_id), target.main_relation)
                         named = relation.name if relation is not None else ""

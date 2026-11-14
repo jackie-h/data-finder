@@ -144,7 +144,7 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                         if prop is None:
                             _log.warning("Property '%s' not found in class '%s'", prop_name, class_name)
                             continue
-                        property_mappings.append(GraphQLPropertyMapping(prop, GraphQLField(field_name)))
+                        property_mappings.append(GraphQLPropertyMapping(prop, GraphQLField(field_name), cls.name))
                     i += 1
 
                 class_mappings.append(GraphQLClassMapping(cls, property_mappings, query))
@@ -200,7 +200,7 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                             continue
                         prop = Property(nav_prop_name, nav_prop_id, target_cls,
                                         multiplicity=nav_multiplicity)
-                        pm_list.append(GraphQLAssociationMapping(prop, GraphQLField(graphql_field), assoc_name))
+                        pm_list.append(GraphQLAssociationMapping(prop, GraphQLField(graphql_field), assoc_name, src_cls.name))
                     i += 1
                 continue
 
