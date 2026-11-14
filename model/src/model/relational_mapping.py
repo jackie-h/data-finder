@@ -1,5 +1,5 @@
 from model.m3 import Property, Class
-from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
+from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping, UnionMapping
 from model.relational import Operation, RelationalOperationElement, Column, Table, TableAlias
 
 
@@ -27,8 +27,6 @@ class Join(RelationalOperationElement):
         self.condition_texts: list[str | None] = list(condition_texts or [])[:hops] + [None] * (hops - len(condition_texts or []))
         # False while the join stands in for one whose columns a later part of the mapping gives
         self.resolved = True
-        # For a join between classes that have sets: the (source set, target set) pairs it joins, each None for a class that has none. Its condition is on them.
-        self.set_pairs: list[tuple[str | None, str | None]] = []
 
     @property
     def condition(self) -> Operation | None:
@@ -63,13 +61,9 @@ class RelationalPropertyMapping(PropertyMapping):
 
 
 class RelationalClassMapping(ClassMapping):
-    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):
-        super().__init__(clazz, property_mappings, milestone_mapping)
-        # A class mapped to several queries has one set for each, as Legend's set implementations, each its own class mapping with its own name.
-        # The class mapping that the finder reads is the union of them: it has no ``set_name`` and holds the sets it is the union of.
-        self.set_name: str | None = None
-        self.sets: list[RelationalClassMapping] = []
-        self.union: RelationalClassMapping | None = None  # for a set: the class mapping that is the union of it and its sibling sets
+    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None,
+                 id: str | None = None):
+        super().__init__(clazz, property_mappings, milestone_mapping, id)
 
     @property
     def main_relation(self) -> Table | TableAlias | None:
@@ -84,3 +78,12 @@ class RelationalClassMapping(ClassMapping):
         if relation is None or isinstance(relation, TableAlias):
             return relation
         return TableAlias(relation, relation.name)
+
+
+class RelationalUnionMapping(UnionMapping[RelationalClassMapping], RelationalClassMapping):
+    """A class that is the union of relational sets: its sets, each a class mapping to a query, and the union of their queries, a query of its own that its
+    property mappings are on the columns of."""
+
+    def __init__(self, clazz: Class, sets: list[RelationalClassMapping], property_mappings: list[RelationalPropertyMapping],
+                 milestone_mapping: MilestonePropertyMapping | None = None, id: str | None = None):
+        super().__init__(clazz, sets, property_mappings, milestone_mapping, id)

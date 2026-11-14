@@ -196,8 +196,8 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
     column_property: dict[int, str] = {}
     joins = []
     for cm in markdown_mapping._sections(mapping):
-        if cm.set_name:
-            set_of[id(cm.main_relation)] = cm.set_name
+        if cm.id:
+            set_of[id(cm.main_relation)] = cm.id
         table = _mapped_relation(cm)
         if table is not None:
             table_class[id(table)] = cm.clazz.name

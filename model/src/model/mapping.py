@@ -1,12 +1,22 @@
-from typing import Any, Sequence
+from typing import Any, Generic, NamedTuple, Sequence, TypeVar
 
 from model.m3 import Class, Property
+
+
+class SetPair(NamedTuple):
+    """The set implementation a property mapping starts from and the one it reaches, by their ids, as Legend's ``sourceSetImplementationId`` and
+    ``targetSetImplementationId``: ``x[y0, x0]`` is a mapping of the property ``x`` from the set ``x0`` to the set ``y0``. None for a class that is not a
+    union of sets."""
+    source: str | None
+    target: str | None
 
 
 class PropertyMapping:
     def __init__(self, property: Property, target: Any):
         self.property = property
         self.target = target
+        # For a navigation property between classes that are unions of sets: the pairs of sets it joins, and no others.
+        self.set_pairs: list[SetPair] = []
 
 class MilestonePropertyMapping:
     def __init(self):
@@ -53,10 +63,26 @@ class BiTemporalMilestonePropertyMapping(BusinessDateRangeMilestonePropertyMappi
         ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, processing_infinite_datetime)
 
 class ClassMapping:
-    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):
+    """How a class is mapped, as Legend's ``SetImplementation``: it has an ``id``, which names it where a class is mapped in several ways (the sets of a union),
+    and the mappings of the properties of the class."""
+    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None,
+                 id: str | None = None):
         self.clazz = clazz
         self.property_mappings = property_mappings
         self.milestone_mapping = milestone_mapping
+        self.id = id
+
+
+S = TypeVar("S", bound="ClassMapping")
+
+
+class UnionMapping(ClassMapping, Generic[S]):
+    """A class that is the union of several set implementations, as Legend's ``OperationSetImplementation`` with its union operation: it holds the sets it is the
+    union of, each a class mapping with an ``id`` of its own. It has no ``id`` of its own, and its property mappings are those of its sets, on the union of them."""
+    def __init__(self, clazz: Class, sets: Sequence[S], property_mappings: Sequence[PropertyMapping],
+                 milestone_mapping: MilestonePropertyMapping | None = None, id: str | None = None):
+        super().__init__(clazz, property_mappings, milestone_mapping, id)
+        self.sets: list[S] = list(sets)
 
 class Mapping:
     def __init__(self, name: str, mappings: list[ClassMapping]):

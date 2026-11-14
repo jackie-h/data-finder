@@ -12,9 +12,9 @@ from collections.abc import Sequence
 
 from model.relational import (
     Alias, Column, ComparisonOperation, ComparisonOperator, JoinKind, LogicalOperation, LogicalOperator, QuerySpecification,
-    StringConstantOperation, Table, TableAlias, UnionOperation,
+    StringConstantOperation, Table, TableAlias, UnionAlias, UnionOperation,
 )
-from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping
+from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, RelationalUnionMapping
 
 SET_COLUMN = "_set"
 
@@ -25,7 +25,7 @@ def check_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> None:
     for other in sets:
         alias = _alias(other)
         if SET_COLUMN in [c.name for c in alias.columns if isinstance(c, Column)]:
-            raise ValueError(f"the set '{other.set_name}' of {class_name} gives a column named {SET_COLUMN}: {SET_COLUMN} is the column that says "
+            raise ValueError(f"the set '{other.id}' of {class_name} gives a column named {SET_COLUMN}: {SET_COLUMN} is the column that says "
                              f"which set a row came from")
     for other in sets[1:]:
         _agree(class_name, first, other)
@@ -44,7 +44,7 @@ def _columns(rcm: RelationalClassMapping) -> list[Column]:
 
 
 def _agree(class_name: str, first: RelationalClassMapping, other: RelationalClassMapping) -> None:
-    pair = f"the sets '{first.set_name}' and '{other.set_name}' of {class_name}"
+    pair = f"the sets '{first.id}' and '{other.id}' of {class_name}"
     a, b = _columns(first), _columns(other)
     if [c.name for c in a] != [c.name for c in b]:
         raise ValueError(f"{pair} give different columns: {[c.name for c in a]} and {[c.name for c in b]}")
@@ -62,7 +62,7 @@ def _agree(class_name: str, first: RelationalClassMapping, other: RelationalClas
 
 
 def _check_key(class_name: str, rcm: RelationalClassMapping) -> None:
-    where = f"the set '{rcm.set_name}' of {class_name}"
+    where = f"the set '{rcm.id}' of {class_name}"
     alias = _alias(rcm)
     key = [c.name for c in _columns(rcm) if c.primary_key]
     if not key:
@@ -130,15 +130,15 @@ def _join_is_to_a_key(where: str, join) -> None:
                          f"and then repeat")
 
 
-def union_alias(name: str, sets: Sequence[tuple[TableAlias, str]], where: str) -> TableAlias:
-    """The queries of the sets put together, each with its name, as one query under ``name``: ``UNION ALL`` (a row of one set is never dropped because a
+def union_alias(name: str, sets: Sequence[tuple[TableAlias, str]], where: str) -> UnionAlias:
+    """The queries of the sets put together, each with its id, as one query under ``name``: ``UNION ALL`` (a row of one set is never dropped because a
     row of another looks the same), with a column ``_set`` that says which set each row is of. The columns are those of the first set."""
     branches = []
-    for each, set_name in sets:
+    for each, set_id in sets:
         spec = copy.copy(each.relation)
         if not isinstance(spec, QuerySpecification):
-            raise ValueError(f"{where}: the set '{set_name}' is not a single SELECT")
-        spec.columns = [*spec.columns, Alias(StringConstantOperation(set_name), SET_COLUMN)]
+            raise ValueError(f"{where}: the set '{set_id}' is not a single SELECT")
+        spec.columns = [*spec.columns, Alias(StringConstantOperation(set_id), SET_COLUMN)]
         branches.append(spec)
     union = branches[0]
     for branch in branches[1:]:
@@ -146,24 +146,18 @@ def union_alias(name: str, sets: Sequence[tuple[TableAlias, str]], where: str) -
     first = sets[0][0]
     columns = [Column(c.name, c.type, primary_key=c.primary_key, nullable=c.nullable) for c in first.columns if isinstance(c, Column)] \
         + [Column(SET_COLUMN, "VARCHAR")]
-    alias = TableAlias(union, name, columns)
-    alias.sets = [each for each, _ in sets]
-    alias.set_names = [set_name for _, set_name in sets]
+    alias = UnionAlias(union, name, columns)
     alias.reads = [r for each, _ in sets for r in each.reads]
     alias.milestoning_scheme = first.milestoning_scheme
     return alias
 
 
-def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> RelationalClassMapping:
+def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> RelationalUnionMapping:
     """The class mapping that is the union of its sets: one query, with each row marked by the set it came from, and the same property mappings,
     on the columns of the union."""
     check_sets(class_name, sets)
-    alias = union_alias(f"{class_name.upper()}_SETS", [(_alias(each), each.set_name or "") for each in sets], f"{class_name}")
+    alias = union_alias(f"{class_name.upper()}_SETS", [(_alias(each), each.id or "") for each in sets], f"{class_name}")
     by_name = {c.name: c for c in alias.columns if isinstance(c, Column)}
     mappings = [RelationalPropertyMapping(pm.property, by_name[pm.target.name]) for pm in sets[0].property_mappings
                 if isinstance(pm.target, Column)]
-    merged = RelationalClassMapping(sets[0].clazz, mappings, milestone_mapping=sets[0].milestone_mapping)
-    merged.sets = list(sets)
-    for each in sets:
-        each.union = merged
-    return merged
+    return RelationalUnionMapping(sets[0].clazz, list(sets), mappings, milestone_mapping=sets[0].milestone_mapping)

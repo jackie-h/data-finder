@@ -2,7 +2,7 @@
 import pytest
 
 from mapping_markdown.markdown_mapping import load, save
-from model.relational_mapping import RelationalClassMapping
+from model.relational_mapping import RelationalClassMapping, RelationalUnionMapping
 
 _MODEL = "sql_queries_model.md"
 _COLUMNS = """| Column | Type    | Key | Nullable | Property ID |
@@ -70,9 +70,9 @@ def _mapping(tmp_path, queries=_DEFAULT, extra_tables=""):
     return path
 
 
-def _firm(mapping) -> RelationalClassMapping:
+def _firm(mapping) -> RelationalUnionMapping:
     firm = next(r for r in mapping.mappings if r.clazz.name == "Firm")
-    assert isinstance(firm, RelationalClassMapping)
+    assert isinstance(firm, RelationalUnionMapping)
     return firm
 
 
@@ -80,9 +80,20 @@ def _firm(mapping) -> RelationalClassMapping:
 
 def test_the_sets_of_a_class_are_one_class_mapping_that_keeps_its_sets(tmp_path):
     firm = _firm(load(str(_mapping(tmp_path))))
-    assert [s.set_name for s in firm.sets] == ["big", "small"]
-    assert firm.set_name is None
+    assert [s.id for s in firm.sets] == ["big", "small"]
+    assert firm.id is None
     assert [s.main_relation.name for s in firm.sets] == ["BIG", "SMALL"]  # type: ignore[union-attr]
+
+
+def test_the_union_is_a_union_mapping_that_holds_its_sets_and_a_set_is_an_ordinary_class_mapping(tmp_path):
+    """Legend's OperationSetImplementation holds its SetImplementations, each with an id; the set knows nothing of the union."""
+    from model.mapping import UnionMapping
+    from model.relational import UnionAlias
+    firm = _firm(load(str(_mapping(tmp_path))))
+    assert isinstance(firm, UnionMapping) and isinstance(firm, RelationalClassMapping) and isinstance(firm.main_relation, UnionAlias)
+    assert all(isinstance(each, RelationalClassMapping) and not isinstance(each, UnionMapping) for each in firm.sets)
+    assert not any(hasattr(each, "sets") or hasattr(each, "union") for each in firm.sets)
+    assert [each.id for each in firm.sets] == ["big", "small"]
 
 
 def test_the_union_of_the_sets_is_one_query_with_the_number_of_the_set_each_row_came_from(tmp_path):
@@ -210,7 +221,7 @@ def test_the_sets_survive_writing(tmp_path):
     text = path.read_text()
     assert "(set: big)" in text and "(set: small)" in text and "UNION" not in text
     again = _firm(load(str(path)))
-    assert [s.set_name for s in again.sets] == ["big", "small"]
+    assert [s.id for s in again.sets] == ["big", "small"]
 
 
 # --- an association between classes that have sets says which sets it joins ------------------------------------------------------------------
@@ -263,8 +274,9 @@ def _employees(mapping):
 def test_an_association_from_a_class_of_sets_names_the_sets_it_joins_and_the_join_is_on_them(tmp_path):
     from model.relational import ComparisonOperation, LogicalOperation
     mapping = load(str(_mapping(tmp_path, _DEFAULT + _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person") + _assoc(" (source set: big)"))))
-    join = _employees(mapping).target
-    assert join.set_pairs == [("big", None)]  # type: ignore[attr-defined]
+    pm = _employees(mapping)
+    join = pm.target
+    assert pm.set_pairs == [("big", None)]
     condition = join.condition  # type: ignore[attr-defined]
     assert isinstance(condition, ComparisonOperation) and condition.left.name == "_set" and condition.right.value == "big"  # type: ignore[attr-defined]
     assert not isinstance(condition, LogicalOperation)
@@ -274,8 +286,9 @@ def test_an_association_between_classes_of_sets_pairs_the_sets_and_nothing_else(
     from model.relational import LogicalOperation, LogicalOperator
     text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF_Q") + \
         _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS_Q")
-    join = _employees(load(str(_mapping(tmp_path, text)))).target
-    assert join.set_pairs == [("big", "staff"), ("small", "contractors")]  # type: ignore[attr-defined]
+    pm = _employees(load(str(_mapping(tmp_path, text))))
+    join = pm.target
+    assert pm.set_pairs == [("big", "staff"), ("small", "contractors")]
     assert isinstance(join.condition, LogicalOperation) and join.condition.operator == LogicalOperator.OR  # type: ignore[attr-defined]
 
 
@@ -314,7 +327,7 @@ def test_the_sets_of_an_association_survive_writing(tmp_path):
     written = path.read_text()
     assert "#### Association: FirmPerson (source set: big, target set: staff)" in written
     assert "#### Association: FirmPerson (source set: small, target set: contractors)" in written
-    assert _employees(load(str(path))).target.set_pairs == [("big", "staff"), ("small", "contractors")]  # type: ignore[attr-defined]
+    assert _employees(load(str(path))).set_pairs == [("big", "staff"), ("small", "contractors")]
 
 
 def test_the_sets_must_have_the_same_milestoning(tmp_path):

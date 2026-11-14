@@ -14,7 +14,7 @@ from model.relational import (
     Column, ComparisonOperation, DecimalConstantOperation, query_of, FloatConstantOperation, IntegerConstantOperation,
     IsNotNullOperation, IsNullOperation, LogicalOperation, NamedRelation, NotOperation, StringConstantOperation, Table, TableAlias,
 )
-from model.relational_mapping import Join, EmbeddedSetMapping
+from model.relational_mapping import Join, EmbeddedSetMapping, RelationalClassMapping, RelationalUnionMapping
 
 
 def is_primitive(prop: Property) -> bool:
@@ -236,21 +236,33 @@ def query_assignment(rcm) -> str:
     return f"    __table = {_query_constant(query)}" if query is not None else ""
 
 
+def _relational(mapping) -> list[RelationalClassMapping]:
+    return [rcm for rcm in mapping.mappings if isinstance(rcm, RelationalClassMapping)]
+
+
+def _sets_of(mapping) -> dict[int, RelationalUnionMapping]:
+    """The union class mappings of the mapping, by the query each is mapped to: a query that is the union of the queries of its sets."""
+    return {id(rcm.main_relation): rcm for rcm in _relational(mapping) if isinstance(rcm, RelationalUnionMapping)}
+
+
 def _queries_of(mapping) -> list[TableAlias]:
-    """The queries classes of the mapping are mapped to, and those they read, each after the queries it reads."""
+    """The queries classes of the mapping are mapped to, and those they read, each after the queries it reads (a union after the queries of its sets)."""
     found: list[TableAlias] = []
+    unions = _sets_of(mapping)
 
     def add(alias: TableAlias) -> None:
         if any(alias is f for f in found):
             return
-        for each in alias.sets:
-            add(each)
+        if (union := unions.get(id(alias))) is not None:
+            for each in union.sets:
+                if (set_query := query_of(each.main_relation)) is not None:
+                    add(set_query)
         for read in alias.reads:
             if (read_query := query_of(read)) is not None:
                 add(read_query)
         found.append(alias)
 
-    for rcm in mapping.mappings:
+    for rcm in _relational(mapping):
         query = query_of(rcm.main_relation)
         if query is not None:
             add(query)
@@ -261,9 +273,12 @@ def query_definitions(mapping) -> str:
     """Python source, for the top of a finder module, that makes each query of the mapping, so that the module can read its columns and
     write it into a query. A query is built from its SQL where it is used, and not kept anywhere else."""
     lines = []
+    unions = _sets_of(mapping)
     for alias in _queries_of(mapping):
-        if alias.sets:
-            sets = ", ".join(f"({_query_constant(each)}, {name!r})" for each, name in zip(alias.sets, alias.set_names))
+        if (union := unions.get(id(alias))) is not None:
+            set_queries = [(query_of(each.main_relation), each.id) for each in union.sets]
+            assert all(q is not None for q, _ in set_queries), f"a set of {union.clazz.name} is not mapped to a query"
+            sets = ", ".join(f"({_query_constant(q)}, {set_id!r})" for q, set_id in set_queries if q is not None)
             milestoning = f", milestoning=lambda c: {_scheme_columns_code(alias, 'c')}" if alias.milestoning_scheme else ""
             lines.append(f"{_query_constant(alias)} = derived_union('{alias.name}', [{sets}], \"Sets '{alias.name}'\"{milestoning})")
             continue
