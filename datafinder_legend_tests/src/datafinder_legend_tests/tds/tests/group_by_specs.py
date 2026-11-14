@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE
+from datafinder_legend_tests.legend import ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE
 
 _SRC = "tds/tests/testGroupBy.pure"
 
@@ -111,9 +111,10 @@ GROUP_BY_FIRM_SPECS = FinderSpec(
         unsupported("groupByAfterASortOnColumnNotInGroupBy", f"{_SRC}::groupByAfterASortOnColumnNotInGroupBy",
                     'select "firmtable_0"."legalName" as "legalName", listagg("lastName", \'*\') as "lastNames" from (select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) order by "lastName" asc) as "firmtable_0" group by "legalName"',
                     'a sort before a group by on a column that is not grouped is nested in a subselect'),
-        unsupported("groupByAfterConcatenate", f"{_SRC}::groupByAfterConcatenate",
-                    'select "unionalias_0"."legalName" as "legalName", count(distinct("lastName")) as "lastNamesCount" from (select distinct "unionalias_1"."legalName" as "legalName", "unionalias_1"."lastName" as "lastName" from (select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) union all select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID)) as "unionalias_1") as "unionalias_0" group by "legalName"',
-                    'no concatenate / union'),
+        ported("groupByAfterConcatenate", f"{_SRC}::groupByAfterConcatenate",
+               'select "unionalias_0"."legalName" as "legalName", count(distinct("lastName")) as "lastNamesCount" from (select distinct "unionalias_1"."legalName" as "legalName", "unionalias_1"."lastName" as "lastName" from (select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) union all select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID)) as "unionalias_1") as "unionalias_0" group by "legalName"',
+               lambda f: f.find_all([f.legal_name().alias("legalName"), f.employees().last_name().alias("lastName")]).concatenate(f.find_all([f.legal_name().alias("legalName"), f.employees().last_name().alias("lastName")]), all=True).distinct().group_by(lambda r: r.legalName).aggregate(lastNamesCount=lambda r: r.lastName.count_distinct()),
+               known_gaps={BACKEND: DISTINCT_COUNT_QUALIFIED}),
         ported("testTDSGroupByEmptyColsTerminalOperation", f"{_SRC}::testTDSGroupByEmptyColsTerminalOperation",
                'select count(*) as "Firm Count" from firmTable as "root"',
                lambda f: f.find_all([count_all()])),
