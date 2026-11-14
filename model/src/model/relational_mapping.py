@@ -27,6 +27,8 @@ class Join(RelationalOperationElement):
         self.condition_texts: list[str | None] = list(condition_texts or [])[:hops] + [None] * (hops - len(condition_texts or []))
         # False while the join stands in for one whose columns a later part of the mapping gives
         self.resolved = True
+        # For a join between classes that have sets: the (source set, target set) pairs it joins, each None for a class that has none. Its condition is on them.
+        self.set_pairs: list[tuple[str | None, str | None]] = []
 
     @property
     def condition(self) -> Operation | None:
@@ -67,6 +69,7 @@ class RelationalClassMapping(ClassMapping):
         # The class mapping that the finder reads is the union of them: it has no ``set_name`` and holds the sets it is the union of.
         self.set_name: str | None = None
         self.sets: list[RelationalClassMapping] = []
+        self.union: RelationalClassMapping | None = None  # for a set: the class mapping that is the union of it and its sibling sets
 
     @property
     def main_relation(self) -> Table | TableAlias | None:

@@ -228,8 +228,8 @@ _PERSON_COLUMNS = """| Column  | Type    | Key | Nullable | Property ID |
 | age     | INT     |     | Y        | age         |
 | firm_id | INT     |     | Y        |             |
 """
-_PERSON_SETS = (_query("STAFF", " (set: staff)", "SELECT id, name, age, firm_id FROM staff", _PERSON_COLUMNS, "Person")
-                + _query("CONTRACTORS", " (set: contractors)", "SELECT id, name, age, firm_id FROM contractors", _PERSON_COLUMNS, "Person"))
+_PERSON_SETS = (_query("STAFF_Q", " (set: staff)", "SELECT id, name, age, firm_id FROM staff", _PERSON_COLUMNS, "Person")
+                + _query("CONTRACTORS_Q", " (set: contractors)", "SELECT id, name, age, firm_id FROM contractors", _PERSON_COLUMNS, "Person"))
 _PERSON_TABLES = "".join(f"""#### Table: {t}
 
 | Column  | Type | Key | Nullable | Property ID |
@@ -268,8 +268,8 @@ def test_an_association_from_a_class_of_sets_names_the_sets_it_joins_and_the_joi
 
 def test_an_association_between_classes_of_sets_pairs_the_sets_and_nothing_else(tmp_path):
     from model.relational import LogicalOperation, LogicalOperator
-    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF") + \
-        _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS")
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF_Q") + \
+        _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS_Q")
     join = _employees(load(str(_mapping(tmp_path, text)))).target
     assert join.set_pairs == [("big", "staff"), ("small", "contractors")]  # type: ignore[attr-defined]
     assert isinstance(join.condition, LogicalOperation) and join.condition.operator == LogicalOperator.OR  # type: ignore[attr-defined]
@@ -290,21 +290,21 @@ def test_an_association_of_sets_is_refused_unless_it_names_real_sets_once_each(t
 
 
 def test_an_association_that_joins_to_the_set_of_a_class_must_name_the_sets(tmp_path):
-    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big)", target="STAFF")
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big)", target="STAFF_Q")
     with pytest.raises(ValueError, match="Person has sets: the association FirmPerson must say its target set"):
         load(str(_mapping(tmp_path, text)))
 
 
 def test_the_target_table_of_a_set_is_the_query_of_that_set(tmp_path):
-    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="CONTRACTORS")
-    with pytest.raises(ValueError, match="the target set 'staff' of FirmPerson is the query STAFF, not CONTRACTORS"):
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="CONTRACTORS_Q")
+    with pytest.raises(ValueError, match="the target set 'staff' of FirmPerson is the query STAFF_Q, not CONTRACTORS_Q"):
         load(str(_mapping(tmp_path, text)))
 
 
 def test_the_sets_of_an_association_survive_writing(tmp_path):
     from datafinder_examples import example_path
-    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF") + \
-        _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS")
+    text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF_Q") + \
+        _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS_Q")
     path = tmp_path / "written.md"
     save(str(path), "Sets", load(str(_mapping(tmp_path, text))), [str(example_path(_MODEL))])
     written = path.read_text()

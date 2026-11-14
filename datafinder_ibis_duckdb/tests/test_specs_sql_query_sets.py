@@ -26,6 +26,8 @@ def _seed_db():
     for table in ("retail_customers", "corporate_customers"):
         conn.execute(f"CREATE TABLE org.{table} (id INT, name VARCHAR)")
         conn.execute(f"INSERT INTO org.{table} SELECT * FROM read_csv_auto('{str(example_path(f'sql_query_sets_{table}.csv'))}')")
+    conn.execute("CREATE TABLE org.orders (id INT, customer_id INT, amount INT)")
+    conn.execute(f"INSERT INTO org.orders SELECT * FROM read_csv_auto('{str(example_path('sql_query_sets_orders.csv'))}')")
     conn.close()
 
 

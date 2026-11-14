@@ -160,4 +160,6 @@ def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> Re
                 if isinstance(pm.target, Column)]
     merged = RelationalClassMapping(sets[0].clazz, mappings, milestone_mapping=sets[0].milestone_mapping)
     merged.sets = list(sets)
+    for each in sets:
+        each.union = merged
     return merged
