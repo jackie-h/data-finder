@@ -1,3 +1,4 @@
+import re
 import datetime
 from functools import reduce
 from typing import Callable, Iterable, Sequence
@@ -531,8 +532,19 @@ def constant_value_string(op:ConstantOperation) -> str:
     else:
         raise ValueError
 
+_PLAIN_IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*$')
+
+
+def _column_reference(alias_name: str, column_name: str) -> str:
+    """``t0.name``, with the column quoted when its name is not a plain identifier (``"First Name"``): a result's columns have the names
+    it was asked to give them."""
+    if _PLAIN_IDENTIFIER.match(column_name):
+        return alias_name + '.' + column_name
+    return alias_name + '."' + column_name.replace('"', '""') + '"'
+
+
 def table_alias_column_string(tac: TableAliasColumn) -> str:
-    return tac.table_alias.name + '.' + tac.column.name
+    return _column_reference(tac.table_alias.name, tac.column.name)
 
 _AGGREGATE_SQL_NAMES = {
     AggregateOperator.AVERAGE: 'AVG',
@@ -889,10 +901,10 @@ class SQLQueryGenerator:
 
     def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
         if isinstance(attr, Column):
-            return self.__table_alias_for_table(attr.owner_relation).name + '.' + attr.name
+            return _column_reference(self.__table_alias_for_table(attr.owner_relation).name, attr.name)
         column, parent = self.__resolve(attr)
         ta = self.__table_alias_for_table(column.owner_relation, key=self.__join_target_key(parent) if parent is not None else None)
-        return ta.name + '.' + column.name
+        return _column_reference(ta.name, column.name)
 
     def __join_target_key(self, parent: JoinTreeNodeOperation):
         """Cache key for the join target alias. Always keyed by node identity so the
@@ -1139,10 +1151,10 @@ class SQLQueryGenerator:
                 self.__add_join(node)
             else:
                 ta = self.__table_alias_for_table(column.owner_relation)
-            return ta.name + '.' + column.name
+            return _column_reference(ta.name, column.name)
         elif isinstance(op, Column):
             ta = self.__table_alias_for_table(op.owner_relation)
-            return ta.name + '.' + op.name
+            return _column_reference(ta.name, op.name)
         elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation,
                              DateExtractOperation, DateArithmeticOperation, DateDiffOperation,
                              AggregateOperation, CountAllOperation)):
