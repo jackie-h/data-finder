@@ -56,8 +56,8 @@ def test_concatenate_needs_the_same_columns():
 
 def test_a_concatenated_result_is_ordered_and_limited_like_any_other():
     union = _result([_NAME, _ID]).concatenate(_result([_NAME, _ID]))
-    union.order_by(union["name"].ascending(), union["id"].descending()).offset(2).limit(5)
-    assert union.to_sql().endswith(") AS t0 ORDER BY t0.name ASC, t0.id DESC LIMIT 5 OFFSET 2")
+    ordered = union.order_by(union["name"].ascending(), union["id"].descending()).offset(2).limit(5)
+    assert ordered.to_sql().endswith(") AS t0 ORDER BY t0.name ASC, t0.id DESC LIMIT 5 OFFSET 2")
     with pytest.raises(KeyError, match="No column 'missing'"):
         union["missing"]
 
@@ -66,15 +66,15 @@ def test_concatenate_chains_and_a_side_with_an_order_is_in_brackets():
     first = _result([_NAME]).concatenate(_result([_NAME]), all=True)
     three = first.concatenate(_result([_NAME]), all=True)
     assert three.to_sql().count("UNION ALL") == 2
-    ordered = _result([_NAME]).concatenate(_result([_NAME]))
-    ordered.order_by(ordered["name"].ascending()).limit(1)
+    union = _result([_NAME]).concatenate(_result([_NAME]))
+    ordered = union.order_by(union["name"].ascending()).limit(1)
     sql = _result([_NAME]).concatenate(ordered, all=True).to_sql()
     assert "UNION ALL (SELECT" in sql and "LIMIT 1)" in sql
 
 
 def test_each_select_of_a_union_has_aliases_of_its_own():
-    ordered = _result([_NAME]).concatenate(_result([_NAME]))
-    ordered.order_by(ordered["name"].ascending()).limit(1)
+    union = _result([_NAME]).concatenate(_result([_NAME]))
+    ordered = union.order_by(union["name"].ascending()).limit(1)
     sql = _result([_NAME]).concatenate(ordered, all=True).to_sql()
     aliases = [part.split(" ")[0] for part in sql.split(" AS ")[1:]]
     defined = [alias for alias in aliases if alias.startswith("t")]
@@ -174,6 +174,23 @@ def test_taking_after_dropping_is_one_query():
     assert rows.to_sql().endswith("LIMIT 5 OFFSET 2") and rows.to_sql().count("SELECT") == 1
 
 
-def test_taking_again_is_a_step_over_the_rows_taken():
-    rows = _result([_ID]).limit(2).limit(5)
-    assert "LIMIT 2) AS" in rows.to_sql() and rows.to_sql().endswith("LIMIT 5")
+def test_taking_again_takes_from_the_rows_taken():
+    assert _result([_ID]).limit(2).limit(5).to_sql().endswith("LIMIT 2")
+    assert _result([_ID]).limit(5).limit(2).to_sql().endswith("LIMIT 2")
+
+
+def test_dropping_again_drops_from_the_rows_left():
+    assert _result([_ID]).offset(2).offset(3).to_sql().endswith("OFFSET 5")
+
+
+def test_distinct_rows_that_are_taken_are_a_step_over_them():
+    sql = _result([_ID]).limit(3).distinct().to_sql()
+    assert "LIMIT 3) AS" in sql and sql.startswith("SELECT DISTINCT")
+
+
+def test_a_step_does_not_change_the_result_it_is_made_from():
+    rows = _result([_ID])
+    taken = rows.order_by(_ID.ascending()).limit(2)
+    assert rows.to_sql() == "SELECT t0.ID AS \"Id\" FROM accounts AS t0"
+    assert taken is not rows and taken.to_sql().endswith("ORDER BY t0.ID ASC LIMIT 2")
+    assert rows.limit(1).to_sql().endswith("LIMIT 1") and taken.to_sql().endswith("LIMIT 2")   # each from the same rows

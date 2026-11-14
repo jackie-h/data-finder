@@ -176,4 +176,4 @@ def test_group_by_of_finder_attributes_is_the_result_as_before():
     table = trades._table
     account = StringAttribute("Account", "ACCOUNT", "VARCHAR", table)
     grouped = FinderResult(None, None, [account, DoubleAttribute("Price", "PRICE", "DOUBLE", table).sum()], table, NoOperation())
-    assert grouped.group_by(account) is grouped
+    assert grouped.group_by(account)._group_by == [account] and grouped._group_by == []

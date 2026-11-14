@@ -1,3 +1,4 @@
+import copy
 import datetime
 import decimal
 import itertools
@@ -257,6 +258,11 @@ class GroupedRows:
         return self._result._next([*self._keys, *aggregates], group_by=keys)
 
 
+# A SELECT says its rows in one order: DISTINCT, then ORDER BY, then OFFSET, then LIMIT. A step of a result that comes earlier in that
+# order than the last one taken is a step over the rows already taken, so it reads from a query of its own, as every step does.
+_DISTINCT, _SORT, _DROP, _TAKE = 1, 2, 3, 4
+
+
 class FinderResult(DataFrame):
 
     def __init__(self, business_date: datetime.date | None,
@@ -279,6 +285,30 @@ class FinderResult(DataFrame):
         self._having: Operation | None = None
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
         self._relation_name: str | None = None
+        self._stage = 0  # the last of distinct, sort, drop and take that this query says
+
+    def _copy(self) -> 'FinderResult':
+        """A result that is this one, to say one more thing about: a step does not change the result it is made from."""
+        result = copy.copy(self)
+        result._order_by = list(self._order_by)
+        result._group_by = list(self._group_by)
+        result._relation_name = None  # a name of its own, as a relation
+        return result
+
+    def _over(self, sort_ops: Sequence[SortOperation] = ()) -> 'tuple[FinderResult, list[SortOperation]]':
+        """A step over this result's query, for what has to be said of the rows it gives: ``sort_ops``, which are of this result's
+        columns, are given as the step reads them."""
+        alias, attributes = self._relation()
+        sorts = []
+        for sort_op in sort_ops:
+            inner = _column_of(sort_op.column)
+            name = next((n for c, n in zip(self._columns, attributes) if inner is not None
+                         and _column_of(c.element if isinstance(c, Alias) else c) is inner), None)
+            if name is None:
+                raise ValueError("The rows after a limit or an offset are ordered by the columns of the result: "
+                                 f"{list(attributes)} (result[\"name\"].ascending())")
+            sorts.append(SortOperation(attributes[name]._column_with_join(), sort_op.direction))
+        return FinderResult(None, None, list(attributes.values()), alias, NoOperation()), sorts
 
     # --- a result as a relation, for what follows it ---------------------------------------------------------------
 
@@ -428,8 +458,9 @@ class FinderResult(DataFrame):
             return GroupedRows(self, keys)
         if any(functions):
             raise TypeError("group_by takes finder attributes, or functions of a row (lambda r: r.dept), not both")
-        self._group_by = list(keys)
-        return self
+        result = self._copy()
+        result._group_by = list(keys)
+        return result
 
     def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
         """One row for the whole of this result, each column named by its keyword and an aggregate of the rows, as Legend's
@@ -451,56 +482,38 @@ class FinderResult(DataFrame):
             return found._column_with_join() if isinstance(found, Attribute) else found
         return element
 
-    def _limited(self) -> bool:
-        return self._limit is not None or self._offset is not None
-
-    def _after_limit(self, sort_ops: Sequence[SortOperation] = ()) -> tuple['FinderResult', list[SortOperation]]:
-        """A step over this result, for what has to happen to the rows it has already taken or dropped, as Legend's steps do:
-        ``rows.limit(2).order_by(...)`` orders the two rows, where a ``LIMIT`` of the same query would take the first two of the
-        order. The sorts are of this result's columns, and are given as the step reads them."""
-        alias, attributes = self._relation()
-        sorts = []
-        for sort_op in sort_ops:
-            inner = _column_of(sort_op.column)
-            if inner is not None and isinstance(inner.owner, TableAlias) and inner.owner.name == alias.name:
-                sorts.append(SortOperation(attributes[inner.name]._column_with_join(), sort_op.direction))
-                continue
-            name = next((n for c, n in zip(self._columns, attributes)
-                         if _column_of(c.element if isinstance(c, Alias) else c) is inner and inner is not None), None)
-            if name is None:
-                raise ValueError("The rows after a limit or an offset are ordered by the columns of the result: "
-                                 f"{list(attributes)} (result[\"name\"].ascending())")
-            sorts.append(SortOperation(attributes[name]._column_with_join(), sort_op.direction))
-        return FinderResult(None, None, list(attributes.values()), alias, NoOperation()), sorts
-
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
-        direction. Rows that are already limited or offset are ordered as they are, not limited by the order: a step over them."""
-        if self._limited():
-            step, sorts = self._after_limit(sort_ops)
-            return step.order_by(*sorts)
+        direction. Rows that are already dropped or taken are ordered as a step over them, as Legend's ``sort`` is."""
         sort_ops = tuple(SortOperation(self._own(s.column), s.direction) for s in sort_ops)
+        base = self
+        if self._stage > _SORT:
+            base, sorted_ops = self._over(sort_ops)
+            sort_ops = tuple(sorted_ops)
+        result = base._copy()
         resorted = {_sort_target(sort_op) for sort_op in sort_ops}
-        self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
-        return self
+        result._order_by = [*sort_ops, *(s for s in base._order_by if _sort_target(s) not in resorted)]
+        result._stage = max(base._stage, _SORT)
+        return result
 
     def limit(self, n: int) -> 'FinderResult':
-        """The first ``n`` rows, as Legend's ``take``. Rows that were already limited are limited again as a step over them."""
-        if self._limit is not None:
-            return self._after_limit()[0].limit(n)
-        self._limit = n
-        return self
+        """The first ``n`` rows, as Legend's ``take``. Taking again takes from the rows taken."""
+        result = self._copy()
+        result._limit = n if self._limit is None else min(self._limit, n)
+        result._stage = _TAKE
+        return result
 
     def offset(self, n: int) -> 'FinderResult':
         """Skip the first ``n`` rows, as Legend's ``drop``. Sort the rows first: without an order, which rows are first is not
-        defined. Rows that were already limited, or offset, are skipped as a step over them: ``limit(5).offset(2)`` is three rows."""
+        defined. Rows that were already taken are skipped as a step over them: ``limit(5).offset(2)`` is three rows."""
         if n < 0:
             raise ValueError("offset cannot be negative")
-        if self._limited():
-            return self._after_limit()[0].offset(n)
-        self._offset = n
-        return self
+        base = self._over()[0] if self._stage >= _TAKE else self
+        result = base._copy()
+        result._offset = n if base._offset is None else base._offset + n
+        result._stage = _DROP
+        return result
 
     def slice(self, start: int, stop: int) -> 'FinderResult':
         """Rows ``start`` up to but not including ``stop``, counting from 0: ``offset(start).limit(stop - start)``."""
@@ -512,18 +525,23 @@ class FinderResult(DataFrame):
         """Keep the groups for which every condition holds: ``HAVING``. A condition tests an aggregate or a grouping
         column: ``f.find_all([f.category(), count_all()]).group_by(f.category()).having(count_all() > 1)``.
         Calls accumulate, as ``and_`` does."""
+        result = self._copy()
         for condition in conditions:
-            self._having = condition if self._having is None else self._having.and_(condition)
-        return self
+            result._having = condition if result._having is None else result._having.and_(condition)
+        return result
 
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""
-        self._distinct = True
-        return self
+        base = self._over()[0] if self._stage > _SORT else self
+        result = base._copy()
+        result._distinct = True
+        result._stage = max(base._stage, _DISTINCT)
+        return result
 
     def timeout(self, milliseconds: int) -> 'FinderResult':
-        self._timeout_ms = milliseconds
-        return self
+        result = self._copy()
+        result._timeout_ms = milliseconds
+        return result
 
     def _execute(self) -> DataFrame:
         return QueryRunnerBase.get_runner().select(

@@ -34,9 +34,10 @@ class TestFinderResultTimeout:
         result = _make_result().timeout(1000)
         assert result._timeout_ms == 1000
 
-    def test_timeout_method_returns_self_for_chaining(self):
+    def test_timeout_is_a_result_that_says_it_and_leaves_the_first_as_it_was(self):
         result = _make_result()
-        assert result.timeout(500) is result
+        timed = result.timeout(500)
+        assert timed._timeout_ms == 500 and timed is not result and result._timeout_ms != 500
 
     def test_timeout_accepts_sub_second_values(self):
         result = _make_result().timeout(100)
@@ -183,9 +184,10 @@ class TestDistinct:
     def test_not_distinct_by_default(self):
         assert _make_result()._distinct is False
 
-    def test_distinct_returns_the_result_for_chaining(self):
+    def test_distinct_is_a_result_that_says_it_and_leaves_the_first_as_it_was(self):
         result = _make_result()
-        assert result.distinct() is result and result._distinct is True
+        distinct = result.distinct()
+        assert distinct._distinct is True and distinct is not result and result._distinct is False
 
     def test_a_view_cannot_be_distinct(self):
         from model.view import ViewDefinitionError

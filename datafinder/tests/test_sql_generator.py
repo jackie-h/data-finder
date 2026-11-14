@@ -173,8 +173,8 @@ class TestOrderBy:
         result = convert_inputs_and_select(None, None, [attr], table, NoOperation())
         assert isinstance(result, FinderResult)
         chained = result.order_by(attr.ascending())
-        assert chained is result
-        assert len(result._order_by) == 1
+        assert chained is not result and len(chained._order_by) == 1
+        assert result._order_by == []                                         # a step does not change the result it is made from
 
 
 class TestCountAllOperation:
@@ -347,8 +347,8 @@ class TestGroupBy:
         result = convert_inputs_and_select(None, None, [name_attr], table, NoOperation())
         assert isinstance(result, FinderResult)
         chained = result.group_by(name_attr)
-        assert chained is result
-        assert len(result._group_by) == 1
+        assert chained is not result and len(chained._group_by) == 1
+        assert result._group_by == []
 
 
 class TestLimit:
@@ -384,8 +384,8 @@ class TestLimit:
         result = convert_inputs_and_select(None, None, [attr], table, NoOperation())
         assert isinstance(result, FinderResult)
         chained = result.limit(10)
-        assert chained is result
-        assert result._limit == 10
+        assert chained is not result and chained._limit == 10
+        assert result._limit is None
 
 
 def _make_double_attr():
