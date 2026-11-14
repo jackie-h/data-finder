@@ -12,7 +12,7 @@ from collections.abc import Sequence
 
 from model.relational import (
     Alias, Column, ComparisonOperation, ComparisonOperator, JoinKind, LogicalOperation, LogicalOperator, QuerySpecification,
-    StringConstantOperation, Table, TableAlias, UnionAlias, UnionOperation,
+    StringConstantOperation, Table, TableAlias, UnionOperation,
 )
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, RelationalUnionMapping
 
@@ -130,7 +130,7 @@ def _join_is_to_a_key(where: str, join) -> None:
                          f"and then repeat")
 
 
-def union_alias(name: str, sets: Sequence[tuple[TableAlias, str]], where: str) -> UnionAlias:
+def union_alias(name: str, sets: Sequence[tuple[TableAlias, str]], where: str) -> TableAlias:
     """The queries of the sets put together, each with its id, as one query under ``name``: ``UNION ALL`` (a row of one set is never dropped because a
     row of another looks the same), with a column ``_set`` that says which set each row is of. The columns are those of the first set."""
     branches = []
@@ -146,7 +146,7 @@ def union_alias(name: str, sets: Sequence[tuple[TableAlias, str]], where: str) -
     first = sets[0][0]
     columns = [Column(c.name, c.type, primary_key=c.primary_key, nullable=c.nullable) for c in first.columns if isinstance(c, Column)] \
         + [Column(SET_COLUMN, "VARCHAR")]
-    alias = UnionAlias(union, name, columns)
+    alias = TableAlias(union, name, columns)
     alias.reads = [r for each, _ in sets for r in each.reads]
     alias.milestoning_scheme = first.milestoning_scheme
     return alias

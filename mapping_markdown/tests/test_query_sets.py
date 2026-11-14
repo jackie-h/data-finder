@@ -88,9 +88,9 @@ def test_the_sets_of_a_class_are_one_class_mapping_that_keeps_its_sets(tmp_path)
 def test_the_union_is_a_union_mapping_that_holds_its_sets_and_a_set_is_an_ordinary_class_mapping(tmp_path):
     """Legend's OperationSetImplementation holds its SetImplementations, each with an id; the set knows nothing of the union."""
     from model.mapping import UnionMapping
-    from model.relational import UnionAlias
+    from model.relational import TableAlias, UnionOperation
     firm = _firm(load(str(_mapping(tmp_path))))
-    assert isinstance(firm, UnionMapping) and isinstance(firm, RelationalClassMapping) and isinstance(firm.main_relation, UnionAlias)
+    assert isinstance(firm, UnionMapping) and isinstance(firm, RelationalClassMapping) and isinstance(firm.main_relation, TableAlias) and isinstance(firm.main_relation.relation, UnionOperation)
     assert all(isinstance(each, RelationalClassMapping) and not isinstance(each, UnionMapping) for each in firm.sets)
     assert not any(hasattr(each, "sets") or hasattr(each, "union") for each in firm.sets)
     assert [each.id for each in firm.sets] == ["big", "small"]

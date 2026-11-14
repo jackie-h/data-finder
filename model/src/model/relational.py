@@ -1746,13 +1746,10 @@ class TableAlias(NamedRelation):
         return column
 
 
-class UnionAlias(TableAlias):
-    """The queries of the sets of a class put together as one, under a name: what a union class mapping is mapped to. Its ``relation`` is the UNION ALL of them."""
-
-
 def query_of(relation: 'Relation | None') -> 'TableAlias | None':
-    """The relation as a query that a class is mapped to, or nothing if it is not one: a table, or an alias of one."""
-    return relation if isinstance(relation, TableAlias) and (relation.sql or isinstance(relation, UnionAlias)) else None
+    """The relation as a query that a class is mapped to, or nothing if it is not one: a table, or an alias of one, is not. A query is an alias of a query
+    expression: a SELECT, or the UNION ALL of the SELECTs of the sets of a class."""
+    return relation if isinstance(relation, TableAlias) and isinstance(relation.relation, QueryExpression) else None
 
 
 def tables_read_by(relation: 'Relation | None') -> 'list[Table]':
