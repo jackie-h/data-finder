@@ -42,6 +42,16 @@ FILTER_REPEATED_IN_CLASS_FILTER = (
     "finder writes it once, outside, which keeps the same rows"
 )
 
+CHAINED_RESULT_SUBSELECT = (
+    "a step on a result that is already a query (a filter on a concatenation) reads it as a derived table of its own; Legend adds the "
+    "step to the query's outer select, so the finder has one more level of subselect, which keeps the same rows"
+)
+
+HOUR_OF_DATETIME_LITERAL = (
+    "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
+    "string, which DuckDB cannot run, so there are no rows of Legend's to compare"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"
