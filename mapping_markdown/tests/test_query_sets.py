@@ -2,6 +2,7 @@
 import pytest
 
 from mapping_markdown.markdown_mapping import load, save
+from model.relational_mapping import RelationalClassMapping
 
 _MODEL = "sql_queries_model.md"
 _COLUMNS = """| Column | Type    | Key | Nullable | Property ID |
@@ -65,8 +66,10 @@ def _mapping(tmp_path, queries=_DEFAULT, extra_tables=""):
     return path
 
 
-def _firm(mapping):
-    return next(r for r in mapping.mappings if r.clazz.name == "Firm")
+def _firm(mapping) -> RelationalClassMapping:
+    firm = next(r for r in mapping.mappings if r.clazz.name == "Firm")
+    assert isinstance(firm, RelationalClassMapping)
+    return firm
 
 
 # --- the sets are read, and named ---------------------------------------------------------------------------------------------------------
@@ -161,7 +164,7 @@ def test_every_set_of_a_class_says_its_key(tmp_path):
 
 def test_a_set_has_the_key_of_its_table(tmp_path):
     """Selecting name and not the table's key: two rows of the set can look the same, so the rows of the union cannot be told apart."""
-    cols = "| Column | Type    | Key | Nullable | Property ID |\n|---|---|---|---|---|\n| name | VARCHAR | PK |  | legalName |\n"
+    cols = "| Column | Type    | Key | Nullable | Property ID |\n|---|---|---|---|---|\n| name | VARCHAR | PK | N | legalName |\n"
     big = _query("BIG", " (set: big)", "SELECT name FROM big_firms", columns=cols)
     small = _query("SMALL", " (set: small)", "SELECT name FROM small_firms", columns=cols)
     with pytest.raises(ValueError, match=r"the set 'big' of Firm does not select the key of big_firms \(id\)"):
@@ -198,7 +201,8 @@ def test_a_distinct_set_has_every_column_as_its_key_and_a_grouped_set_the_group_
 def test_the_sets_survive_writing(tmp_path):
     first = load(str(_mapping(tmp_path)))
     path = tmp_path / "written.md"
-    save(first, str(path))
+    from datafinder_examples import example_path
+    save(str(path), "Sets", first, [str(example_path(_MODEL))])
     text = path.read_text()
     assert "(set: big)" in text and "(set: small)" in text and "UNION" not in text
     again = _firm(load(str(path)))

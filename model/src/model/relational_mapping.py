@@ -63,6 +63,10 @@ class RelationalPropertyMapping(PropertyMapping):
 class RelationalClassMapping(ClassMapping):
     def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):
         super().__init__(clazz, property_mappings, milestone_mapping)
+        # A class mapped to several queries has one set for each, as Legend's set implementations, each its own class mapping with its own name.
+        # The class mapping that the finder reads is the union of them: it has no ``set_name`` and holds the sets it is the union of.
+        self.set_name: str | None = None
+        self.sets: list[RelationalClassMapping] = []
 
     @property
     def main_relation(self) -> Table | TableAlias | None:
