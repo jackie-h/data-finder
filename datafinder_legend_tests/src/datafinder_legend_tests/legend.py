@@ -52,6 +52,11 @@ HOUR_OF_DATETIME_LITERAL = (
     "string, which DuckDB cannot run, so there are no rows of Legend's to compare"
 )
 
+CLASS_FILTER_AS_QUERY = (
+    "a class mapping ~filter is a query here, which is read as a derived table; Legend adds its condition to the WHERE of the query "
+    "that reads the class, so the finder has one more level of subselect, which keeps the same rows"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"

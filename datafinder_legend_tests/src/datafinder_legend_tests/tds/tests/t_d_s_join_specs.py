@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, CHAINED_RESULT_SUBSELECT, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, CHAINED_RESULT_SUBSELECT, CLASS_FILTER_AS_QUERY, ported, unsupported
 
 _SRC = "tds/tests/testTDSJoin.pure"
 
@@ -15,9 +15,6 @@ T_D_S_JOIN_SPECS = FinderSpec(
     finder_name="PersonFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testLeftOuterJoinWithFilterOnClassAndFunction", f"{_SRC}::testLeftOuterJoinWithFilterOnClassAndFunction",
-                    'select "persontable_0"."personID" as "personID", "persontable_0"."personName" as "personName", "persontable_0"."eID" as "eID", "persontable_0"."firmName" as "firmName", "persontable_0"."fID" as "fID" from (select * from (select "root".ID as "personID", "root".LASTNAME as "personName", "root".FIRMID as "eID" from personTable as "root") as "persontable_1" left outer join (select "root".LEGALNAME as "firmName", "root".ID as "fID" from firmTable as "root" where "root".LEGALNAME = \'Firm X\' and char_length("root".LEGALNAME) > 20) as "firmtable_0" on ("persontable_1"."eID" + 2 = "firmtable_0"."fID")) as "persontable_0"',
-                    'no join of two result tables (TDS join)'),
     ],
 )
 
@@ -50,5 +47,25 @@ T_D_S_JOIN_PERSON_SPECS = FinderSpec(
         ported("testJoinByColAfterQueryWithConcatenateToQueryWithConcatenate", f"{_SRC}::testJoinByColAfterQueryWithConcatenateToQueryWithConcatenate",
                'select "unionalias_0"."First Name" as "First Name", "unionalias_0"."Age_1" as "Age_1", "unionalias_0"."First Name_2" as "First Name_2", "unionalias_0"."Age" as "Age" from (select "unionalias_1"."First Name" as "First Name", "unionalias_1"."Age_1" as "Age_1", "unionalias_3"."First Name_2" as "First Name_2", "unionalias_3"."Age" as "Age" from (select "unionalias_2"."First Name" as "First Name", "unionalias_2"."Age_1" as "Age_1" from (select "root".FIRSTNAME as "First Name", "root".AGE as "Age_1" from personTable as "root" union all select "root".FIRSTNAME as "First Name", "root".AGE as "Age_1" from personTable as "root") as "unionalias_2") as "unionalias_1" left outer join (select "unionalias_2"."First Name_2" as "First Name_2", "unionalias_2"."Age" as "Age" from (select "root".FIRSTNAME as "First Name_2", "root".AGE as "Age" from personTable as "root" union all select "root".FIRSTNAME as "First Name_2", "root".AGE as "Age" from personTable as "root") as "unionalias_2") as "unionalias_3" on ("unionalias_1"."First Name" = "unionalias_3"."First Name_2")) as "unionalias_0"',
                lambda f: f.find_all([f.first_name().alias("First Name"), f.age().alias("Age_1")]).concatenate(f.find_all([f.first_name().alias("First Name"), f.age().alias("Age_1")]), all=True).join(f.find_all([f.first_name().alias("First Name_2"), f.age().alias("Age")]).concatenate(f.find_all([f.first_name().alias("First Name_2"), f.age().alias("Age")]), all=True), lambda l, r: getattr(l, "First Name") == getattr(r, "First Name_2"), how="left")),
+    ],
+)
+
+
+def _person_left_join_firm(f):
+    from joinfirm_finder import JoinFirmFinder  # type: ignore[import-not-found]  # written by the generator
+    firms = JoinFirmFinder()
+    return f.find_all([f.person_id().alias("personID"), f.last_name().alias("personName"), f.employer_id().alias("eID")]).join(
+        firms.find_all([firms.legal_name().alias("firmName"), firms.firm_id().alias("fID")], firms.legal_name().length() > 20),
+        lambda a, b: a.eID + 2 == b.fID, how="left")
+
+
+T_D_S_JOIN_FILTER_SPECS = FinderSpec(
+    finder_name="JoinPersonFinder",
+    mapping_file="tds/tests/tds_join_filter_mapping.md",
+    expectations=[
+        ported("testLeftOuterJoinWithFilterOnClassAndFunction", f"{_SRC}::testLeftOuterJoinWithFilterOnClassAndFunction",
+               'select "persontable_0"."personID" as "personID", "persontable_0"."personName" as "personName", "persontable_0"."eID" as "eID", "persontable_0"."firmName" as "firmName", "persontable_0"."fID" as "fID" from (select * from (select "root".ID as "personID", "root".LASTNAME as "personName", "root".FIRMID as "eID" from personTable as "root") as "persontable_1" left outer join (select "root".LEGALNAME as "firmName", "root".ID as "fID" from firmTable as "root" where "root".LEGALNAME = \'Firm X\' and char_length("root".LEGALNAME) > 20) as "firmtable_0" on ("persontable_1"."eID" + 2 = "firmtable_0"."fID")) as "persontable_0"',
+               _person_left_join_firm,
+               known_gaps={BACKEND: CLASS_FILTER_AS_QUERY}),
     ],
 )
