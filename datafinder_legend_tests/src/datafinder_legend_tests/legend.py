@@ -62,6 +62,11 @@ DISTINCT_COUNT_QUALIFIED = (
     "it reads, which is the same column"
 )
 
+UNION_WITH_KEY_COLUMNS = (
+    "Legend selects the key of each set implementation into the union, padded with null for the other set (pk_0_0, pk_0_1) so the rows of "
+    "the two sets stay apart; the query of a union selects only the columns it gives, which are the same rows"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"

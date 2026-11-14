@@ -16,6 +16,7 @@ from datafinder_legend_tests.results import assert_same_rows
 
 # mapping -> the data it runs on
 _VARIANTS = {
+    "tests/mapping/union/union_filter_mapping.md": "tests/mapping/union/union_data.sql",
     "tds/tests/tds_join_filter_mapping.md": "tests/simple_data.sql",
     "tds/tests/tds_join_mapping.md": "tests/simple_data.sql",
     "milestoning/tests/bitemporal_none_mapping.md": "milestoning/tests/bitemporal_none_data.sql",
