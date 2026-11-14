@@ -57,6 +57,11 @@ CLASS_FILTER_AS_QUERY = (
     "that reads the class, so the finder has one more level of subselect, which keeps the same rows"
 )
 
+DISTINCT_COUNT_QUALIFIED = (
+    "Legend writes count(distinct(\"lastName\")) with the column unqualified; the finder qualifies it with the alias of the derived table "
+    "it reads, which is the same column"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"

@@ -4,10 +4,10 @@ Ported from legend-engine core_relational ``functions/tests/testModelGroupBy.pur
 Grouping on the model.
 Mapping: tests/simple_mapping.md.
 """
-from datafinder import constant, when
+from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER
+from datafinder_legend_tests.legend import ported, unsupported, CHAINED_RESULT_SUBSELECT, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER
 import datetime
 
 _SRC = "functions/tests/testModelGroupBy.pure"
@@ -65,9 +65,10 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
         unsupported("testFilterWithQualifiedProperty", f"{_SRC}::testFilterWithQualifiedProperty",
                     'select "producttable_0".NAME as "prodName", sum(-"root".quantity) as "qt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join accountTable as "accounttable_0" on ("root".accountID = "accounttable_0".ID) where "accounttable_0".name = \'Account 1\' group by "prodName" order by "prodName" desc',
                     'no qualified (derived) properties'),
-        unsupported("testGroupByWithUnion", f"{_SRC}::testGroupByWithUnion",
-                    'select "subselect"."sum" as "sum" from (select sum("unionalias_1"."Quantity") as "sum", count(1) as "count" from (select "root".quantity as "Quantity" from tradeTable as "root" union all select "root".quantity as "Quantity" from tradeTable as "root") as "unionalias_1") as "subselect" where "subselect"."count" > 0',
-                    'no concatenate / union'),
+        ported("testGroupByWithUnion", f"{_SRC}::testGroupByWithUnion",
+               'select "subselect"."sum" as "sum" from (select sum("unionalias_1"."Quantity") as "sum", count(1) as "count" from (select "root".quantity as "Quantity" from tradeTable as "root" union all select "root".quantity as "Quantity" from tradeTable as "root") as "unionalias_1") as "subselect" where "subselect"."count" > 0',
+               lambda f: f.find_all([f.quantity().alias("Quantity")]).concatenate(f.find_all([f.quantity().alias("Quantity")]), all=True).aggregate(sum=lambda r: r.Quantity.sum(), count=lambda r: count_all()).filter(lambda r: r.count > 0).select("sum"),
+               known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
         unsupported("testGroupByAndFilterIsolatedJoinMerge", f"{_SRC}::testGroupByAndFilterIsolatedJoinMerge",
                     'select "synonymtable_0".NAME as "Cusip", sum("root".quantity) as "Total Quantity" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join (select "synonymtable_0".PRODID as PRODID, "synonymtable_0".NAME as NAME from productSchema.synonymTable as "synonymtable_0" where "synonymtable_0".TYPE = \'CUSIP\') as "synonymtable_0" on ("synonymtable_0".PRODID = "producttable_0".ID) left outer join productSchema.synonymTable as "synonymtable_1" on ("synonymtable_1".PRODID = "producttable_0".ID and "synonymtable_1".TYPE = \'CUSIP\') where "synonymtable_1".NAME = \'CUSIP1\' group by "Cusip"',
                     'no qualified (derived) properties'),
