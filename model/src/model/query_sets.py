@@ -157,6 +157,11 @@ def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> Re
     """The class mapping that is the union of its sets: one query, with each row marked by the set it came from, and the same property mappings,
     on the columns of the union."""
     check_sets(class_name, sets)
+    for each in sets:
+        other = [pm.property.id for pm in each.property_mappings if not isinstance(pm.target, Column)]
+        if other:
+            raise ValueError(f"the set '{each.id}' of {class_name} maps {', '.join(other)} to something other than a column: the properties of a union are "
+                             f"its columns, and a navigation between sets is said by an association that names them")
     alias = union_alias(f"{class_name.upper()}_SETS", [(_alias(each), each.id or "") for each in sets], f"{class_name}")
     by_name = {c.name: c for c in alias.columns if isinstance(c, Column)}
     mappings = [RelationalPropertyMapping(pm.property, by_name[pm.target.name], class_name) for pm in sets[0].property_mappings
@@ -187,7 +192,7 @@ def set_pair_condition(join: Join, source_set_id: str | None, target_set_id: str
 
 def merge_set_navigations(class_mapping: ClassMapping) -> list[PropertyMapping]:
     """The property mappings with those of one navigation between sets made one, as the finder reads a navigation: a property mapped from one pair of sets to
-    another for each pair (Legend's ``x[y0, x0]``, ``x[y1, x1]``) is one join, that holds for a row of the source and a row of the target if their sets
+    another for each pair of sets is one join, that holds for a row of the source and a row of the target if their sets
     are one of the pairs. The finder joins on one pair of key columns, so the pairs must all join on the same ones; a property mapped between no sets
     is as it was."""
     class_name, property_mappings = class_mapping.clazz.name, class_mapping.property_mappings
