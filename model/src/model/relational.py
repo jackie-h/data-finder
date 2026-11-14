@@ -1572,8 +1572,8 @@ DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # type: i
 
 
 class Relation:
-    """Something rows are read from, as in Legend: it has columns. A table, a view and a query are relations; a table
-    and a view also have a name (a NamedRelation). As in Legend a column is a RelationalOperationElement: a table's are
+    """Something rows are read from: it has columns. A table, a view and a query are relations; a table
+    and a view also have a name (a NamedRelation). A column is a RelationalOperationElement: a table's are
     its Columns, a query's are the expressions it shows."""
     columns: Sequence[RelationalOperationElement]
 
@@ -1654,7 +1654,7 @@ class Schema:
 
 
 class Column(RelationalOperationElement):
-    """A column of a relation. As in Legend its ``owner`` is the Relation it belongs to. A Table gives the columns it is
+    """A column of a relation. Its ``owner`` is the Relation it belongs to. A Table gives the columns it is
     made of their owner, so a column that is only in a table's list needs none."""
     table: 'Table | TableAlias | None'
     owner: 'Relation | None'
@@ -1669,7 +1669,7 @@ class Column(RelationalOperationElement):
             raise TypeError(f"A column is owned by a Relation, not by the name {owner!r}: give the table")
         self.owner = owner
         self.primary_key = primary_key
-        self.nullable = nullable and not primary_key  # as in Legend, a primary key is never null
+        self.nullable = nullable and not primary_key  # a primary key is never null
 
     @property
     def owner_relation(self) -> 'Relation':
@@ -1700,7 +1700,7 @@ class ForeignKey:
 
 
 class TableAlias(NamedRelation):
-    """A relation under a name where it is used, as in Legend and as ANSI SQL's ``<table reference>`` with its
+    """A relation under a name where it is used, as ANSI SQL's ``<table reference>`` with its
     ``<correlation name>``: ``(query) AS relation1``, ``employee AS manager``. What reads its columns says which alias
     they belong to by the column's owner.
 
@@ -1773,7 +1773,7 @@ def schema_of(relation: 'Relation | None') -> 'Schema | None':
 
 class Table(NamedRelation):
     columns: Sequence[Column]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
-    # (a table's columns are Columns, as Legend's are: narrower than a relation's elements, never assigned from outside)
+    # (a table's columns are Columns: narrower than a relation's elements, never assigned from outside)
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
 
@@ -1797,13 +1797,13 @@ class Table(NamedRelation):
             if column is None or (isinstance(key, Column) and column is not key):
                 raise ValueError(f"Primary key column '{name_of_key}' is not a column of table '{name}'")
             column.primary_key = True
-            column.nullable = False  # as in Legend, a primary key is never null
+            column.nullable = False  # a primary key is never null
         if schema is not None:
             schema.tables.append(self)
 
     @property
     def primary_key(self) -> list[Column]:
-        """The columns that are the table's primary key, as Legend's ``primaryKey``."""
+        """The columns that are the table's primary key."""
         return [column for column in self._own_columns if column.primary_key]
 
     def _add(self, column: Column) -> Column:
@@ -1844,7 +1844,7 @@ def same_relation(a: 'Relation | None', b: 'Relation | None') -> bool:
 
 
 class JoinOperation:
-    """A relation joined on a condition, as Legend's ``Join`` and ANSI SQL's ``<join type> JOIN <table reference> ON
+    """A relation joined on a condition, as ANSI SQL's ``<join type> JOIN <table reference> ON
     <search condition>``: its ``target``, the kind of join and the condition ``operation``.
 
     Every column in the condition is owned by a relation, and that says which side of the join it is on: a column of the
@@ -2015,7 +2015,7 @@ class NotExistsOperation(RelationalOperationElement, Aliasable):
 class RelationExistsOperation(Operation, BooleanAggregates):
     """There is a row of ``relation`` for which ``condition`` holds: ANSI SQL's ``EXISTS (SELECT 1 FROM <relation> WHERE
     <condition>)``. The condition reads the columns of the relation and of the row it is asked of (a correlated subquery). It is a
-    condition like any other, so it is combined with ``&`` and ``|`` and negated with ``~``, as Legend's ``exists`` is in a
+    condition like any other, so it is combined with ``&`` and ``|`` and negated with ``~``, in a
     ``filter``. (An ExistsOperation asks if a property of the class has a value.)"""
     relation: Relation
     condition: RelationalOperationElement
@@ -2031,7 +2031,7 @@ class QueryExpression(Relation):
     view's definition or a derived table in a FROM clause. It is a QuerySpecification, a single SELECT, or a
     UnionOperation of two.
 
-    It is a relation, as Legend's select and union are: its columns are what it shows. It has no name of its own: a
+    It is a relation: its columns are what it shows. It has no name of its own: a
     TableAlias gives it one where it is used.
 
     It has no ORDER BY or row limit: a table is a set of rows with no order. An OrderedQuerySpecification adds those."""
@@ -2049,7 +2049,7 @@ class QuerySpecification(QueryExpression):
                  having: Operation | None = None, joins: 'Sequence[JoinOperation] | None' = None):
         Relation.__init__(self, columns)  # not super(): a View is also a NamedRelation
         self.filter = filter
-        # Relations joined to the table, as Legend's root join tree node has its children: each is always joined, in this order.
+        # Relations joined to the table: each is always joined, in this order.
         # (The joins a navigation through a property needs are not these: they are worked out from the columns the query reads.)
         self.joins: list[JoinOperation] = list(joins or [])
         self.group_by = group_by or []
@@ -2090,7 +2090,7 @@ class OrderedQuerySpecification(QuerySpecification):
 
 class UnionOperation(QueryExpression):
     """Two query expressions whose rows are put together: ``left UNION right`` (the distinct rows), or ``UNION ALL``
-    with ``all``. ANSI SQL's ``<query expression body>`` with a set operator, and Legend's ``concatenate``. The two have
+    with ``all``. ANSI SQL's ``<query expression body>`` with a set operator, as ``concatenate`` makes. The two have
     the same number of columns, and the result's columns are the left one's. Either side can be a union itself.
 
     As a query expression it has no ORDER BY or row limit; a query that reads from it, through a TableAlias, has."""

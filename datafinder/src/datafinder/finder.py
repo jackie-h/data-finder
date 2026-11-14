@@ -38,11 +38,11 @@ def derived_table(name: str, sql: str, reads: list, columns: list, where: str,
 def keys_join(name: str, table, source, target, kind: JoinKind, condition: Operation | Callable | None = None,
               reverse: bool = False) -> JoinOperation:
     """``table`` joined where its ``target`` column equals the ``source`` column of what is joined from, and where
-    ``condition`` holds besides, as Legend's join ``firmTable.ID = personTable.FIRMID and firmTable.FLAG is null``. The
+    ``condition`` holds besides, such as ``firmTable.ID = personTable.FIRMID and firmTable.FLAG is null``. The
     condition reads the columns of the two tables, which say which side they are on.
 
     A join of a table to itself has the same table on both sides, so its condition is a function of the two sides,
-    ``lambda plain, target: ...``, as Legend's ``personTable.MANAGERID = {target}.ID``: ``plain`` makes the columns of the
+    ``lambda plain, target: ...``, such as ``personTable.MANAGERID = {target}.ID``: ``plain`` makes the columns of the
     table the join starts from, and ``target`` those of the one it reaches. ``reverse`` is that the join is followed from
     the other end, so the sides trade places."""
     join = JoinOperation.on_keys(name, table, source, target, kind)

@@ -9,7 +9,7 @@ class Join(RelationalOperationElement):
     A property mapped through several tables has the hops before the last one in ``via``, each a (from, to) pair of
     columns, in order; ``lhs`` and ``rhs`` are then the last hop, the one that reaches the target class's table.
 
-    A hop can also have a condition besides its key columns, as Legend's join ``firmTable.ID = personTable.FIRMID and
+    A hop can also have a condition besides its key columns, such as ``firmTable.ID = personTable.FIRMID and
     firmTable.FLAG is null``. ``conditions`` has one for each hop, the ``via`` ones and then the last, or ``None`` for a hop
     with only its keys. It is a condition over the columns of the two tables of that hop, so it reads the same from either
     end of the join; ``condition_texts`` is how it was written."""
@@ -71,7 +71,7 @@ class RelationalClassMapping(ClassMapping):
 
     @property
     def main_table_alias(self) -> TableAlias | None:
-        """What the class is mapped to, under a name, as Legend's ``mainTableAlias``: the query's own alias, or an alias of the table named
+        """What the class is mapped to, under a name: the query's own alias, or an alias of the table named
         as the table is. Its ``relation`` is the table or the query."""
         relation = self.main_relation
         if relation is None or isinstance(relation, TableAlias):

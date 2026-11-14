@@ -493,7 +493,7 @@ def needs_parentheses(parent: LogicalOperation, child: RelationalOperationElemen
     return isinstance(child, LogicalOperation) and child.operator != parent.operator
 
 
-# Comparisons that are never true for a missing value. Legend guards these on an optional property with IS NOT NULL;
+# Comparisons that are never true for a missing value. These are guarded on an optional property with IS NOT NULL;
 # it does not guard = (which a missing value never matches either). A <> against a value is not guarded but widened: <> or IS NULL.
 _GUARDED_COMPARISONS = (
     ComparisonOperator.LESS_THAN, ComparisonOperator.GREATER_THAN, ComparisonOperator.LESS_THAN_OR_EQUAL_TO,
@@ -817,8 +817,8 @@ class SQLQueryGenerator:
 
     def __guarded(self, op: RelationalOperationElement) -> RelationalOperationElement:
         """The condition with an explicit ``IS NOT NULL`` before each ordering or pattern comparison on a value that can
-        be missing, as Legend writes it for what a query asks of a class. The guard changes no row. A ``<>`` of a column and a value also
-        matches a missing value, as Legend writes it for any column: ``<> x OR IS NULL``. It is not added
+        be missing, for what a query asks of a class. The guard changes no row. A ``<>`` of a column and a value also
+        matches a missing value, for any column: ``<> x OR IS NULL``. It is not added
         to a join's own filter (its milestoning dates and kwargs) or to HAVING, which are not that, so they are never
         passed through here."""
         if isinstance(op, LogicalOperation):
@@ -828,7 +828,7 @@ class SQLQueryGenerator:
             return LogicalOperation(IsNotNullOperation(op.left), LogicalOperator.AND, op)
         if isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.NOT_EQUAL \
                 and isinstance(op.left, ColumnWithJoin) and isinstance(op.right, ConstantOperation):
-            # a missing value is different from any value, as Legend writes it: <> x OR is null
+            # a missing value is different from any value: <> x OR is null
             return LogicalOperation(op, LogicalOperator.OR, IsNullOperation(op.left))
         return op
 
@@ -877,7 +877,7 @@ class SQLQueryGenerator:
 
         Columns that are not aggregated are what the aggregates are computed for, so a query that selects both is
         grouped by those columns (as ``df.groupby(columns).agg(...)`` does). An aggregate read through a to-many
-        association is computed for each row of the root table, as Legend does, so the root's primary key is grouped
+        association is computed for each row of the root table, so the root's primary key is grouped
         by too. A query that selects only aggregates over the root's own columns is not grouped: the aggregate covers
         every row."""
         if query.group_by or not isinstance(query, OrderedQuerySpecification):
@@ -1073,7 +1073,7 @@ class SQLQueryGenerator:
 
     def __sided(self, op: RelationalOperationElement, node: JoinTreeNodeOperation) -> RelationalOperationElement:
         """A join's condition with each column under the alias of its side: the joined table's under the step's, any
-        other under the one it is joined from. An equality of two columns has the key first, as Legend writes a join
+        other under the one it is joined from. An equality of two columns has the key first, as a join is
         defined as key = foreign key."""
         def alias_of(column: Column) -> TableAliasColumn:
             key = node if node.join.is_target(column) else node.parent

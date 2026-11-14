@@ -1,5 +1,5 @@
-"""exists: a condition of a result that holds when another result has a row meeting a condition, as Legend's ``exists`` in a
-``filter`` and SQL's ``EXISTS``. ``~exists`` is ``NOT EXISTS``."""
+"""exists: a condition of a result that holds when another result has a row meeting a condition, in a
+``filter``, as SQL's ``EXISTS``. ``~exists`` is ``NOT EXISTS``."""
 import pytest
 
 from datafinder import DoubleAttribute, StringAttribute, exists

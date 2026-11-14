@@ -168,7 +168,7 @@ def _attributes(alias: TableAlias) -> dict[str, Attribute]:
 
 
 class Row:
-    """A row of a result as a function of it reads it: its columns are attributes, ``r.price``, as Legend's ``$r.price``. The
+    """A row of a result as a function of it reads it: its columns are attributes, ``r.price``. The
     columns are known when the query is built, so a name that is not one is refused then, with the columns there are."""
 
     def __init__(self, attributes: dict[str, Attribute]):
@@ -185,7 +185,7 @@ class Row:
 
 
 def exists(other: 'FinderResult', condition: Callable[['Row'], Operation]) -> RelationExistsOperation:
-    """Whether ``other`` has a row for which ``condition`` holds, as Legend's ``exists(e | ...)``, and SQL's ``EXISTS``. It is a
+    """Whether ``other`` has a row for which ``condition`` holds, as SQL's ``EXISTS``. It is a
     condition, for the ``filter`` of a result: the function is of a row of ``other``, and it reads the row being filtered from
     the function it is in. ``~exists(...)`` is ``NOT EXISTS``, and conditions are combined with ``&`` and ``|``::
 
@@ -223,8 +223,7 @@ class GroupedRows:
                              "group_by(lambda r: r.ship_date.year().alias(\"year\"))")
 
     def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
-        """The keys, and a column for each keyword that is an aggregate of the rows of its group, as Legend's
-        ``groupBy(~dept, ~headcount : x | $x.id : y | $y->count())``::
+        """The keys, and a column for each keyword that is an aggregate of the rows of its group::
 
             rows.group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count(),
                                                       avg_salary=lambda r: r.salary.average())
@@ -298,7 +297,7 @@ class FinderResult(DataFrame):
 
     def concatenate(self, other: 'FinderResult', all: bool = False) -> 'FinderResult':
         """The rows of this result and of ``other``, which has the same columns: ``UNION`` (each distinct row once), or
-        ``UNION ALL`` with ``all=True``, as Legend's ``concatenate``. The result is a result like any other: it can be
+        ``UNION ALL`` with ``all=True``. The result is a result like any other: it can be
         ordered, limited and concatenated again. Its columns are named as ``columns()`` gives them."""
         left_alias, left = self._relation()
         right_alias, right = other._relation()
@@ -319,7 +318,7 @@ class FinderResult(DataFrame):
         return source.relation if bare else as_relation.relation  # type: ignore[union-attr,return-value]
 
     def _next(self, display: Sequence, op: Operation | None = None, group_by: Sequence = ()) -> 'FinderResult':
-        """A result that reads from this one: a query over this result's query, as Legend's relation functions are."""
+        """A result that reads from this one: a query over this result's query."""
         alias, _ = self._relation()
         step = FinderResult(None, None, display, alias, NoOperation() if op is None else op)
         step._group_by = list(group_by)
@@ -329,7 +328,7 @@ class FinderResult(DataFrame):
         return Row(self._relation()[1])
 
     def filter(self, *conditions: Callable[['Row'], Operation]) -> 'FinderResult':
-        """The rows of this result for which every condition holds, as Legend's ``filter(r | $r.price > 250)``: each
+        """The rows of this result for which every condition holds: each
         condition is a function of a row that reads its columns as attributes, including one that a window function, an
         aggregate or ``extend`` made, which a ``WHERE`` over the rows themselves cannot do::
 
@@ -344,8 +343,8 @@ class FinderResult(DataFrame):
         return self._next(list(self._relation()[1].values()), op)
 
     def extend(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
-        """This result with more columns, each named by its keyword and worked out from a row, as Legend's
-        ``extend(~top : r | ...)``. A window adds an aggregate over the rows to each row::
+        """This result with more columns, each named by its keyword and worked out from a row.
+        A window adds an aggregate over the rows to each row::
 
             rows.extend(double=lambda r: r.price * 2.0,
                         top=lambda r: r.price.max().over(partition_by=[r.account]))
@@ -358,7 +357,7 @@ class FinderResult(DataFrame):
                            *(Alias(expression(row), name) for name, expression in columns.items())])
 
     def select(self, *names: str) -> 'FinderResult':
-        """Only some of this result's columns, by name, as Legend's ``select(~[sym, price])``. To rename or work out a
+        """Only some of this result's columns, by name. To rename or work out a
         column use ``extend`` first."""
         _, attributes = self._relation()
         missing = [n for n in names if n not in attributes]
@@ -368,7 +367,7 @@ class FinderResult(DataFrame):
 
     def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation],
              how: Literal["inner", "left", "right", "full"]) -> 'FinderResult':
-        """The rows of this result put together with the rows of ``other``, as Legend's ``join``. The condition is a function
+        """The rows of this result put together with the rows of ``other``. The condition is a function
         of a row of each (bracket each comparison, and join them with ``&`` or ``|``: ``and`` and ``or`` would drop one)::
 
             orders.join(customers, lambda o, c: o.customer_id == c.id, how="inner")     # only orders that have a customer
@@ -378,7 +377,7 @@ class FinderResult(DataFrame):
         ``how`` is one of ANSI SQL's join types: ``inner``, or ``left``, ``right`` or ``full``, the outer joins that keep the
         rows that find no match, with NULL for the other side's columns.
 
-        The columns of the two must be named differently, as Legend requires: name them with ``alias()``, or ``extend`` then
+        The columns of the two must be named differently: name them with ``alias()``, or ``extend`` then
         ``select``."""
         try:
             kind = JoinKind(how)
@@ -407,7 +406,7 @@ class FinderResult(DataFrame):
     def group_by(self, *keys: Any) -> 'FinderResult': ...
     def group_by(self, *keys) -> 'GroupedRows | FinderResult':
         """Group the rows. Given finder attributes, the aggregates selected next to them are grouped by them, and the result
-        is this one. Given a function of a row, as Legend's ``groupBy(~dept, ...)``, the rows of this result are grouped by
+        is this one. Given a function of a row, the rows of this result are grouped by
         the key it returns (a column, or a tuple of them; an expression is named with ``alias``), and the result of
         ``aggregate`` on that is a step over this one::
 
@@ -423,8 +422,8 @@ class FinderResult(DataFrame):
         return self
 
     def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
-        """One row for the whole of this result, each column named by its keyword and an aggregate of the rows, as Legend's
-        ``aggregate(~total : x | $x.salary : y | $y->plus())``: ``rows.aggregate(total=lambda r: r.salary.sum())``."""
+        """One row for the whole of this result, each column named by its keyword and an aggregate of the rows:
+        ``rows.aggregate(total=lambda r: r.salary.sum())``."""
         return GroupedRows(self, ()).aggregate(**columns)
 
     def _own(self, element):

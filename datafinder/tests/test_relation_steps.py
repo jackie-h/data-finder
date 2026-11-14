@@ -1,5 +1,4 @@
-"""A result as a relation: ``filter``, ``extend`` and ``select`` each take the result before them and return one, as Legend's
-relation functions do, and the SQL of a step is a query over the query before it."""
+"""A result as a relation: ``filter``, ``extend`` and ``select`` each take the result before them and return one, and the SQL of a step is a query over the query before it."""
 import pytest
 
 from datafinder import DoubleAttribute, StringAttribute
