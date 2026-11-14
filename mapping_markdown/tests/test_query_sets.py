@@ -43,6 +43,8 @@ def _mapping(tmp_path, queries=_DEFAULT, extra_tables=""):
 | id     | INT     | PK  | N        |             |
 | name   | VARCHAR |     | Y        |             |
 | region | VARCHAR |     | Y        |             |
+| from_z | DATE    |     | Y        |             |
+| thru_z | DATE    |     | Y        |             |
 
 #### Table: small_firms
 
@@ -50,6 +52,8 @@ def _mapping(tmp_path, queries=_DEFAULT, extra_tables=""):
 |--------|---------|-----|----------|-------------|
 | id     | INT     | PK  | N        |             |
 | name   | VARCHAR |     | Y        |             |
+| from_z | DATE    |     | Y        |             |
+| thru_z | DATE    |     | Y        |             |
 
 #### Table: regions
 
@@ -311,3 +315,18 @@ def test_the_sets_of_an_association_survive_writing(tmp_path):
     assert "#### Association: FirmPerson (source set: big, target set: staff)" in written
     assert "#### Association: FirmPerson (source set: small, target set: contractors)" in written
     assert _employees(load(str(path))).target.set_pairs == [("big", "staff"), ("small", "contractors")]  # type: ignore[attr-defined]
+
+
+def test_the_sets_must_have_the_same_milestoning(tmp_path):
+    scheme = """| Scheme              | processing_start | processing_end | business_date | business_date_from | business_date_to | infinite_datetime |
+|---------------------|------------------|----------------|---------------|--------------------|------------------|-------------------|
+| business_date_range |                  |                |               | from_z             | thru_z           | 9999-12-31        |
+
+"""
+    dated = _COLUMNS + "| from_z | DATE    |     | Y        | businessFrom |\n| thru_z | DATE    |     | Y        | businessThru |\n"
+    text = _mapping(tmp_path, _query("BIG", " (set: big, milestoning: business_date_range)", "SELECT id, name, from_z, thru_z FROM big_firms", dated)
+                    + _query("SMALL", " (set: small)", "SELECT id, name, from_z, thru_z FROM small_firms",
+                                      _COLUMNS + "| from_z | DATE    |     | Y        |              |\n| thru_z | DATE    |     | Y        |              |\n"))
+    text.write_text(text.read_text().replace("### Schema: org", scheme + "### Schema: org", 1))
+    with pytest.raises(ValueError, match="the sets 'big' and 'small' of Firm have different milestoning"):
+        load(str(text))

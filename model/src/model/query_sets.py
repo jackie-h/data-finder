@@ -51,6 +51,10 @@ def _agree(class_name: str, first: RelationalClassMapping, other: RelationalClas
     if [c.type.upper() for c in a] != [c.type.upper() for c in b]:
         raise ValueError(f"{pair} give different types: {[c.type for c in a]} and {[c.type for c in b]}")
 
+    scheme_a, scheme_b = _alias(first).milestoning_scheme, _alias(other).milestoning_scheme
+    if (scheme_a.name if scheme_a else None) != (scheme_b.name if scheme_b else None):
+        raise ValueError(f"{pair} have different milestoning: {scheme_a.name if scheme_a else 'none'} and {scheme_b.name if scheme_b else 'none'}")
+
     def properties(rcm):
         return {pm.target.name: pm.property.id for pm in rcm.property_mappings if isinstance(pm.target, Column)}
     if properties(first) != properties(other):
