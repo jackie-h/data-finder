@@ -108,13 +108,14 @@ def _mapped_relation(class_mapping) -> Table | TableAlias | None:
     return None
 
 
-def _query_entry(query: TableAlias, class_name: str | None, column_property: dict[int, str]) -> dict[str, Any]:
+def _query_entry(query: TableAlias, class_name: str | None, column_property: dict[int, str], set_name: str | None = None) -> dict[str, Any]:
     """A query a class is mapped to, with the SQL it is written as and what it reads."""
     reads = [{"query": r.name} if query_of(r) is not None else {"schema": r.schema.name if isinstance(r, Table) and r.schema else None, "table": r.name}
              for r in query.reads]
     return {
         "name": query.name,
         "class": class_name,
+        "set": set_name,
         "sql": query.sql,
         "reads": reads,
         "milestoning": query.milestoning_scheme.name if query.milestoning_scheme is not None else None,
@@ -191,9 +192,12 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
         for pkg in packages for a in pkg.children if isinstance(a, Association)
     }
     table_class: dict[int, str] = {}  # by the table or the query
+    set_of: dict[int, str] = {}  # the name of the set a query is, by the query
     column_property: dict[int, str] = {}
     joins = []
-    for cm in mapping.mappings:
+    for cm in markdown_mapping._sections(mapping):
+        if cm.set_name:
+            set_of[id(cm.main_relation)] = cm.set_name
         table = _mapped_relation(cm)
         if table is not None:
             table_class[id(table)] = cm.clazz.name
@@ -228,7 +232,7 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
                 } for c in table.columns],
             } for table in schema.tables],
         } for schema in datastore.schemas],
-        "queries": [_query_entry(q, table_class.get(id(q)), column_property) for q in datastore.queries],
+        "queries": [_query_entry(q, table_class.get(id(q)), column_property, set_of.get(id(q))) for q in datastore.queries],
         "associations": joins,
     }
 
