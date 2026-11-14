@@ -99,7 +99,7 @@ def assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -
     if gap is not None:
         try:
             _assert_same_rows(database, finder, expectation)
-        except AssertionError:
+        except (AssertionError, duckdb.Error):  # Legend's SQL can be one DuckDB will not run
             pytest.xfail(gap)
         pytest.fail(f"[{expectation.name}] now returns Legend's rows: remove its {ROWS} known_gaps entry ({gap})")
     _assert_same_rows(database, finder, expectation)
