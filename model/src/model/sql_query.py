@@ -26,7 +26,7 @@ from model.relational import (
     DecimalConstantOperation, FloatConstantOperation, InOperation, IntegerConstantOperation, IsNotNullOperation,
     IsNullOperation, JoinKind, JoinOperation, LogicalOperation, LogicalOperator, NamedRelation, NoOperation,
     NotInOperation, NotOperation, Operation, QueryExpression, QuerySpecification, Relation, RelationalOperationElement,
-    ScalarFunction, ScalarFunctionOperation, StringConstantOperation, Table, TableAlias, UnionOperation,
+    ScalarFunction, ScalarFunctionOperation, StringConstantOperation, Table, TableAlias,
     UntypedArithmeticOperation,
 )
 
@@ -131,15 +131,12 @@ def parse_query_reads(sql: str, tables: Sequence[NamedRelation], where: str = "T
 def _query(node: exp.Expr, tables: dict[str, NamedRelation], where: str, reads: list) -> QueryExpression:
     if isinstance(node, exp.Subquery):
         return _query(node.this, tables, where, reads)
-    if isinstance(node, (exp.Intersect, exp.Except)):
-        raise SqlQueryError(f"{where}: only UNION [ALL] is read, not {node.key.upper()}")
-    if isinstance(node, exp.Union):
-        left, right = _query(node.this, tables, where, reads), _query(node.expression, tables, where, reads)
-        if len(left.columns) != len(right.columns):
-            raise SqlQueryError(f"{where}: the two sides of a UNION have {len(left.columns)} and {len(right.columns)} columns")
-        return UnionOperation(left, right, all=not node.args.get("distinct"))
+    if isinstance(node, (exp.Union, exp.Intersect, exp.Except)):
+        raise SqlQueryError(
+            f"{where}: a mapped query is one SELECT, not a {node.key.upper()}. A union is the Query sections of one class, each its own "
+            f"set: write each SELECT in a section of its own, with (set: name) in its heading, and the mapping puts them together")
     if not isinstance(node, exp.Select):
-        raise SqlQueryError(f"{where}: a query is a SELECT, or a UNION of them, not {node.sql(dialect=DIALECT)!r}")
+        raise SqlQueryError(f"{where}: a query is a SELECT, not {node.sql(dialect=DIALECT)!r}")
     return _select(node, tables, where, reads)
 
 

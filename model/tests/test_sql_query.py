@@ -3,7 +3,7 @@ import pytest
 
 from model.relational import (
     Alias, AggregateOperation, AggregateOperator, CaseOperation, Column, ComparisonOperation, ConcatOperation, JoinKind,
-    LogicalOperation, QuerySpecification, Table, TableAlias, UnionOperation,
+    LogicalOperation, QuerySpecification, Table, TableAlias,
 )
 from model.sql_query import SqlQueryError, output_names, parse_query, parse_query_reads
 
@@ -71,11 +71,16 @@ def test_is_not_null_is_not_is_null():
     assert isinstance(like, ComparisonOperation) and like.operator == ComparisonOperator.NOT_LIKE
 
 
-def test_a_union_is_a_union_of_its_sides():
-    query = _parse("SELECT ID FROM personTable UNION ALL SELECT ID FROM firmTable")
-    assert isinstance(query, UnionOperation) and query.all
-    assert parse_query_reads("SELECT ID FROM personTable UNION ALL SELECT ID FROM firmTable", _TABLES)[1] == [_PERSON, _FIRM]
-    assert not _parse("SELECT ID FROM personTable UNION SELECT ID FROM firmTable").all  # type: ignore[attr-defined]
+def test_a_union_is_refused_and_the_error_says_what_to_write_instead():
+    """A mapped query is one SELECT. A union is several queries of one class, each its own set, which the mapping puts together and checks."""
+    for sql in ("SELECT ID FROM personTable UNION ALL SELECT ID FROM firmTable", "SELECT ID FROM personTable UNION SELECT ID FROM firmTable"):
+        with pytest.raises(SqlQueryError, match=r"A union is the Query sections of one class.*\(set: name\)"):
+            _parse(sql)
+
+
+def test_a_union_in_a_from_is_refused_too():
+    with pytest.raises(SqlQueryError, match="A union is the Query sections of one class"):
+        _parse("SELECT u.ID FROM (SELECT ID FROM personTable UNION ALL SELECT ID FROM firmTable) AS u")
 
 
 def test_star_is_every_column():
@@ -94,7 +99,7 @@ def test_star_is_every_column():
     ("SELECT ID FROM personTable LIMIT 1", "LIMIT is not part of a mapped query"),
     ("SELECT ID + 1 FROM personTable", "has no name"),
     ("SELECT ID FROM personTable a, firmTable b", "not part"),
-    ("SELECT ID FROM personTable INTERSECT SELECT ID FROM firmTable", "only UNION"),
+    ("SELECT ID FROM personTable INTERSECT SELECT ID FROM firmTable", "not a INTERSECT"),
     ("SELECT ID, ID FROM personTable", "names ['ID'] more than once"),
     ("SELECT SQRT(AGE) AS s FROM personTable", "is not something a view can read yet"),
 ])
