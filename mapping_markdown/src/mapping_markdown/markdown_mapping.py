@@ -108,7 +108,7 @@ def _build_repository_from_content(nodes: list) -> DataStore | None:
     repo = None
     current_schema = None
     queries: list[tuple[str, str, list[dict]]] = []  # name, SQL and the rows of its column table
-    set_owners: dict[str, str] = {}  # the lower case name of each set to the query it names: a set's name is the mapping's, as Legend's set id is
+    set_owners: dict[str, str] = {}  # the lower case name of each set to the query it names: a set's name is the mapping's, not the class's
     i = 0
     while i < len(nodes):
         node = nodes[i]
@@ -515,7 +515,7 @@ def _put_sets_together(class_mappings: list[RelationalClassMapping],
 def _join_the_sets(set_associations: dict[str, list[tuple[str | None, str | None, list[dict]]]], mappings: list[ClassMapping], packages: list,
                    classes_by_name: dict, assoc_nav_lookup: dict) -> None:
     """The navigation property of each association whose sections name sets: a property mapping for each section, from its source set to its target set, with
-    a join of its own on the columns the section gives, as Legend maps ``x[y0, x0]`` and ``x[y1, x1]``. A pair that no section names does not join."""
+    a join of its own on the columns the section gives. A pair that no section names does not join."""
     by_class = {m.clazz.name: m for m in mappings if isinstance(m, RelationalClassMapping)}
     for assoc_name, sections in set_associations.items():
         assoc_def = next((c for pkg in packages for c in pkg.children if isinstance(c, Association) and c.name == assoc_name), None)
