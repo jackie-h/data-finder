@@ -86,7 +86,7 @@ def test_the_sets_of_a_class_are_one_class_mapping_that_keeps_its_sets(tmp_path)
 
 
 def test_the_union_is_a_union_mapping_that_holds_its_sets_and_a_set_is_an_ordinary_class_mapping(tmp_path):
-    """Legend's OperationSetImplementation holds its SetImplementations, each with an id; the set knows nothing of the union."""
+    """The union holds its sets, each with an id; a set knows nothing of the union."""
     from model.mapping import UnionMapping
     from model.relational import TableAlias, UnionOperation
     firm = _firm(load(str(_mapping(tmp_path))))
@@ -268,7 +268,7 @@ def _assoc(options, source_column="id", target="people", target_column="firm_id"
 
 
 def _employees(mapping):
-    """The property mappings of Firm.employees: one for each pair of sets, as Legend has them."""
+    """The property mappings of Firm.employees: one for each pair of sets."""
     return [pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees"]
 
 
@@ -354,3 +354,14 @@ def test_the_sets_must_have_the_same_milestoning(tmp_path):
     text.write_text(text.read_text().replace("### Schema: org", scheme + "### Schema: org", 1))
     with pytest.raises(ValueError, match="the sets 'big' and 'small' of Firm have different milestoning"):
         load(str(text))
+
+
+def test_a_property_of_a_set_that_is_not_a_column_is_refused_and_not_dropped_from_the_union(tmp_path):
+    """The properties of a union are its columns: a set with another kind of mapping would lose it silently."""
+    from model.query_sets import union_of_sets
+    from model.relational_mapping import RelationalPropertyMapping
+    firm = _firm(load(str(_mapping(tmp_path))))
+    sets = [firm.sets[0], firm.sets[1]]
+    sets[0].property_mappings.append(RelationalPropertyMapping(firm.clazz.properties["legalName"], object()))  # type: ignore[arg-type,attr-defined]
+    with pytest.raises(ValueError, match="the set 'big' of Firm maps legalName to something other than a column"):
+        union_of_sets("Firm", sets)
