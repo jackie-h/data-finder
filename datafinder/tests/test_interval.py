@@ -35,22 +35,22 @@ def test_a_datetime_minus_a_timedelta_is_still_a_datetime():
 
 def test_an_interval_is_written_as_the_difference_of_the_two_times():
     result, start, end = _versions()
-    table = result._table
+    table = result._origin().table
     sql = FinderResult(None, None, [(end - start).alias("length")], table, NoOperation()).to_sql()
     assert sql == 'SELECT t0.END_TIME - t0.START_TIME AS "length" FROM versions AS t0'
 
 
 def test_a_datetime_constant_in_an_interval_is_typed_as_a_timestamp():
     result, start, end = _versions()
-    sql = FinderResult(None, None, [(end - datetime.datetime(2005, 1, 1)).alias("age")], result._table, NoOperation()).to_sql()
+    sql = FinderResult(None, None, [(end - datetime.datetime(2005, 1, 1)).alias("age")], result._origin().table, NoOperation()).to_sql()
     assert "t0.END_TIME - TIMESTAMP '2005-01-01 00:00:00'" in sql
 
 
 def test_an_interval_is_compared_with_a_timedelta_or_another_interval():
     result, start, end = _versions()
-    sql = FinderResult(None, None, [start], result._table, (end - start) > _DAY).to_sql()
+    sql = FinderResult(None, None, [start], result._origin().table, (end - start) > _DAY).to_sql()
     assert "WHERE t0.END_TIME - t0.START_TIME > INTERVAL '86400' SECOND" in sql
-    assert "<=" in FinderResult(None, None, [start], result._table, (end - start) <= (end - start)).to_sql()
+    assert "<=" in FinderResult(None, None, [start], result._origin().table, (end - start) <= (end - start)).to_sql()
 
 
 def test_the_smallest_and_largest_interval_are_intervals():
@@ -67,13 +67,13 @@ def test_an_interval_has_no_arithmetic_or_sum():
 def test_an_interval_constant_is_a_timedelta_in_seconds():
     assert isinstance(constant(_DAY), IntervalConstantOperation)
     result, start, _ = _versions()
-    sql = FinderResult(None, None, [constant(datetime.timedelta(seconds=90.5)).alias("c")], result._table, NoOperation()).to_sql()
+    sql = FinderResult(None, None, [constant(datetime.timedelta(seconds=90.5)).alias("c")], result._origin().table, NoOperation()).to_sql()
     assert "INTERVAL '90.5' SECOND" in sql
 
 
 def test_a_column_of_intervals_is_read_as_one_by_the_step_after_it():
     result, start, end = _versions()
-    lengths = FinderResult(None, None, [(end - start).alias("length")], result._table, NoOperation())
+    lengths = FinderResult(None, None, [(end - start).alias("length")], result._origin().table, NoOperation())
     assert lengths["length"].column().type == "INTERVAL"
     assert isinstance(lengths["length"], IntervalAttribute)
     assert "WHERE t0.length > INTERVAL '86400' SECOND" in lengths.filter(lambda r: r.length > _DAY).to_sql()
@@ -89,7 +89,7 @@ def test_a_case_of_intervals_takes_the_longer_and_is_typed_as_an_interval():
     result, start, end = _versions()
     gap = end - start
     longer = when(gap > _DAY).then(gap).otherwise(_DAY)
-    step = FinderResult(None, None, [longer.alias("longer")], result._table, NoOperation())
+    step = FinderResult(None, None, [longer.alias("longer")], result._origin().table, NoOperation())
     assert step["longer"].column().type == "INTERVAL"
 
 

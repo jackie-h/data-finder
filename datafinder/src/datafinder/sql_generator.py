@@ -1,3 +1,5 @@
+import decimal
+import itertools
 import re
 import datetime
 from functools import reduce
@@ -12,6 +14,7 @@ from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, Sin
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.milestoning import milestoning_columns_of
+from model.naming import to_snake_case
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
@@ -21,7 +24,7 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, RelationExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation, \
-    JoinKind
+    JoinKind, QueryOrigin, QueryStep, DistinctRows, SortedRows, DroppedRows, TakenRows, StringFunctionOperation
 
 _JOIN_WORDS = {JoinKind.INNER: 'INNER', JoinKind.LEFT: 'LEFT OUTER', JoinKind.RIGHT: 'RIGHT OUTER', JoinKind.FULL: 'FULL OUTER'}
 
@@ -431,7 +434,11 @@ def build_query_specification(business_date: datetime.date | None, processing_da
                          limit: int | None = None, business_date_to: datetime.date | None = None,
                          distinct: bool = False, offset: int | None = None,
                          having: Operation | None = None,
-                         processing_datetime_to: datetime.datetime | datetime.date | None = None) -> OrderedQuerySpecification:
+                         processing_datetime_to: datetime.datetime | datetime.date | None = None,
+                         raw_columns: Sequence | None = None) -> OrderedQuerySpecification:
+    """The query for the rows asked of ``table``. ``raw_columns`` are the columns as they were given, when ``columns`` are those
+    under the names a query reading from it needs; a step written after it works the query out again from them."""
+    asked_op = op
     if milestoning_columns_of(table) is not None:
         assert isinstance(table, (MilestonedTable, TableAlias))
         if business_date_to is not None or processing_datetime_to is not None:
@@ -458,7 +465,199 @@ def build_query_specification(business_date: datetime.date | None, processing_da
 
     _apply_join_filters(query, milestoning_condition)
     _apply_sub_selects(query, business_date, business_date_to, processing_datetime, processing_datetime_to)
+    query.origin = QueryOrigin(columns if raw_columns is None else raw_columns, table, asked_op, business_date, processing_datetime,
+                               business_date_to, processing_datetime_to)
     return query
+
+# --- the steps written after a query, said as SELECTs ---------------------------------------------------------------------
+
+_NUMBER_TYPES = {int: "BIGINT", float: "DOUBLE", decimal.Decimal: "DECIMAL"}
+
+_CONSTANT_TYPES = {
+    IntegerConstantOperation: "BIGINT", FloatConstantOperation: "DOUBLE", StringConstantOperation: "VARCHAR",
+    DateConstantOperation: "DATE", DateTimeConstantOperation: "TIMESTAMP", DecimalConstantOperation: "DECIMAL",
+    BooleanConstantOperation: "BOOLEAN", IntervalConstantOperation: "INTERVAL",
+}
+
+
+def _column_name(element: RelationalOperationElement) -> str:
+    """The name a column of a result has for the step after it: the name it was given, or its display name in snake_case
+    (as a view names its columns)."""
+    return element.name if isinstance(element, Alias) else to_snake_case(display_alias(element))
+
+
+def _column_type(element: RelationalOperationElement) -> str:
+    """The database type of what a result column holds, so a query over the result can compare it as that type."""
+    if isinstance(element, Alias):
+        return _column_type(element.element)
+    if isinstance(element, Attribute):
+        return element.column().type
+    if isinstance(element, ColumnWithJoin):
+        return element.column.type
+    if isinstance(element, Column):
+        return element.type
+    if isinstance(element, CountAllOperation):
+        return "BIGINT"
+    if isinstance(element, IntervalOperation):  # before the number kinds: it is arithmetic's subclass, but not a number
+        return "INTERVAL"
+    # a number of a known kind: an integer, double or decimal arithmetic result, function, aggregate or constant
+    kind = getattr(element, "_number_kind", None)
+    if kind in _NUMBER_TYPES:
+        return _NUMBER_TYPES[kind]
+    if isinstance(element, AggregateOperation):
+        if element.operator in (AggregateOperator.COUNT, AggregateOperator.COUNT_DISTINCT):
+            return "BIGINT"
+        if element.operator == AggregateOperator.STRING_AGG:
+            return "VARCHAR"
+        if element.operator in (AggregateOperator.MIN, AggregateOperator.MAX, AggregateOperator.SUM):
+            return _column_type(element.element)
+        if element.operator in (AggregateOperator.BOOL_AND, AggregateOperator.BOOL_OR):
+            return "BOOLEAN"
+        return "DOUBLE"
+    if isinstance(element, WindowFunctionOperation):
+        return _column_type(element.element) if element.element is not None else "BIGINT"
+    if isinstance(element, ConstantOperation):
+        return _CONSTANT_TYPES.get(type(element), "VARCHAR")
+    if isinstance(element, CaseOperation):
+        return _column_type(element.then)
+    if isinstance(element, (ConcatOperation, StringFunctionOperation)):
+        return "VARCHAR"
+    if isinstance(element, (DateExtractOperation, DateDiffOperation)):
+        return "BIGINT"
+    if isinstance(element, (DateArithmeticOperation, DateTruncOperation)):
+        return _column_type(element.element)
+    if isinstance(element, ScalarFunctionOperation):  # an untyped one, such as fill_null: what it is applied to
+        return _column_type(element.element)
+    if isinstance(element, ArithmeticOperation):  # one of unknown kind
+        return "DOUBLE"
+    return "VARCHAR"
+
+
+
+def _sort_target(sort_op: SortOperation) -> tuple:
+    """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
+    own target, so sorting by an expression again adds a sort."""
+    column = sort_op.column
+    if not isinstance(column, ColumnWithJoin):
+        return ("expression", id(column))
+    joins = []
+    node = column.parent
+    while node is not None:
+        joins.append(node.join.name)
+        node = node.parent
+    return column.column.owner_name, column.column.name, tuple(joins)
+
+
+
+def _column_of(element) -> 'Column | None':
+    """The column an attribute, or a column reached through joins, reads; none for any other expression."""
+    if isinstance(element, Attribute):
+        return element.column()
+    if isinstance(element, ColumnWithJoin):
+        return element.column
+    return None
+
+
+def display_columns(columns: Sequence) -> list[Alias]:
+    """The columns of a query that something reads from, each under the name that reads it."""
+    return [c if isinstance(c, Alias) else Alias(c, _column_name(c)) for c in columns]
+
+
+relation_numbers = itertools.count(1)
+
+_DISTINCT, _SORT, _DROP, _TAKE = 1, 2, 3, 4  # what a SELECT has said last, in the order it can say them
+
+
+def _stage(query: QuerySpecification) -> int:
+    if not isinstance(query, OrderedQuerySpecification):
+        return _DISTINCT if query.distinct else 0
+    if query.limit is not None:
+        return _TAKE
+    if query.offset is not None:
+        return _DROP
+    return _SORT if query.order_by else (_DISTINCT if query.distinct else 0)
+
+
+def _said(query: QuerySpecification, raw: bool = False, **changes) -> OrderedQuerySpecification:
+    """The query with more said of its rows. It is worked out again from what it was asked for, as a sort can need a join that
+    the query did not. ``raw``: with its columns as they were given, which a runner is given, and not as a query over it reads them."""
+    origin = query.origin
+    assert origin is not None, "a step is said of a query that was asked for rows, which is worked out from what it was asked for"
+    ordered = isinstance(query, OrderedQuerySpecification)
+    said = {
+        'order_by': query.order_by if ordered else [], 'limit': query.limit if ordered else None,
+        'offset': query.offset if ordered else None, 'distinct': query.distinct, 'group_by': query.group_by, 'having': query.having,
+        **changes}
+    return build_query_specification(
+        origin.business_date, origin.processing_datetime, origin.columns if raw else display_columns(origin.columns), origin.table,
+        origin.op, said['order_by'], said['group_by'], said['limit'], business_date_to=origin.business_date_to,
+        distinct=said['distinct'], offset=said['offset'], having=said['having'],
+        processing_datetime_to=origin.processing_datetime_to, raw_columns=origin.columns)
+
+
+def _select_over(relation: QueryExpression) -> tuple[OrderedQuerySpecification, TableAlias]:
+    """A SELECT of every column of ``relation``, which it reads under a name of its own, for what cannot be said by the SELECT before."""
+    alias = TableAlias(relation, f"relation{next(relation_numbers)}")
+    columns = [Alias(alias.column(_column_name(c), _column_type(c)), _column_name(c)) for c in relation.columns]
+    return build_query_specification(None, None, columns, alias, NoOperation()), alias
+
+
+def _own_sorts(query: QueryExpression, alias: TableAlias, sorts: Sequence[SortOperation]) -> list[SortOperation]:
+    """The sorts, which are of the columns ``query`` shows, as a SELECT over it reads them: the columns of ``alias``."""
+    result = []
+    for sort in sorts:
+        found = None
+        ref = _column_of(sort.column)
+        for shown in query.columns:
+            element = shown.element if isinstance(shown, Alias) else shown
+            if element is sort.column or (ref is not None and _column_of(element) is ref):
+                found = shown
+                break
+        if found is None:
+            names = [_column_name(c) for c in query.columns]
+            raise ValueError(f"The rows after a limit or an offset are ordered by the columns of the result: {names} "
+                             "(result[\"name\"].ascending())")
+        name = _column_name(found)
+        result.append(SortOperation(ColumnWithJoin(alias.column(name, _column_type(found)), None), sort.direction))
+    return result
+
+
+def fold(relation: QueryExpression, raw: bool = False) -> QueryExpression:
+    """The query a relation with steps written after it is, in as few SELECTs as it can be said in.
+
+    A SELECT says DISTINCT, then the order, then the offset, then the limit, in that order only. A step that comes next, or again, is said
+    by the SELECT of what it is written after (a second limit takes the fewer rows, a second offset adds to the first); one that comes
+    earlier than the last one said is of the rows that SELECT gives, so it is a SELECT over it, as every other step is. ``raw``: with
+    the columns of the result as they were given, which a runner is given."""
+    if not isinstance(relation, QueryStep):
+        if raw and isinstance(relation, QuerySpecification) and relation.origin is not None \
+                and relation.columns is not relation.origin.columns:
+            return _said(relation, raw=True)
+        return relation
+    below = fold(relation.source)
+    query = below if isinstance(below, QuerySpecification) else _select_over(below)[0]
+    if isinstance(relation, DistinctRows):
+        if _stage(query) > _DISTINCT:
+            query = _select_over(query)[0]
+        return _said(query, raw, distinct=True)
+    if isinstance(relation, SortedRows):
+        sorts = list(relation.sorts)
+        if _stage(query) > _SORT:
+            inner = query
+            query, alias = _select_over(inner)
+            sorts = _own_sorts(inner, alias, sorts)
+        resorted = {_sort_target(s) for s in sorts}
+        previous = query.order_by if isinstance(query, OrderedQuerySpecification) else []
+        return _said(query, raw, order_by=[*sorts, *(s for s in previous if _sort_target(s) not in resorted)])
+    if isinstance(relation, DroppedRows):
+        if _stage(query) >= _TAKE:
+            query = _select_over(query)[0]
+        offset = query.offset if isinstance(query, OrderedQuerySpecification) else None
+        return _said(query, raw, offset=relation.count if offset is None else offset + relation.count)
+    assert isinstance(relation, TakenRows)
+    limit = query.limit if isinstance(query, OrderedQuerySpecification) else None
+    return _said(query, raw, limit=relation.count if limit is None else min(limit, relation.count))
+
 
 def sql_format_datetime(value:datetime.datetime) -> str:
     return value.strftime("'%Y-%m-%d %H:%M:%S'")
@@ -1198,6 +1397,7 @@ class SQLQueryGenerator:
 
     def __query_sql(self, relation: 'QueryExpression') -> str:
         """A query written by a generator of its own that numbers its aliases after this one's; a union is its two queries."""
+        relation = fold(relation)
         if isinstance(relation, UnionOperation):
             return self.__union_side_sql(relation.left) + (' UNION ALL ' if relation.all else ' UNION ') \
                 + self.__union_side_sql(relation.right)
@@ -1211,6 +1411,7 @@ class SQLQueryGenerator:
     def __union_side_sql(self, side: 'QueryExpression') -> str:
         """One side of a union: in brackets if it has an ORDER BY, a row limit or an offset, as SQL needs for them to belong
         to that side and not to the whole union."""
+        side = fold(side)
         sql = self.__query_sql(side)
         if isinstance(side, OrderedQuerySpecification) and (side.order_by or side.limit is not None or side.offset):
             return '(' + sql + ')'
@@ -1273,9 +1474,11 @@ def to_sql(business_date: datetime.date | None, processing_datetime: datetime.da
     return query_sql_to_string(query, validate_sqlglot=validate_sqlglot)
 
 
-def query_sql_to_string(query: QuerySpecification, validate_sqlglot: bool = True) -> str:
+def query_sql_to_string(query: QueryExpression, validate_sqlglot: bool = True) -> str:
+    folded = fold(query, raw=True)
+    assert isinstance(folded, QuerySpecification), f"{type(folded).__name__} is not a query that can be written on its own"
     qe = SQLQueryGenerator()
-    qe.generate(query)
+    qe.generate(folded)
     sql = qe.build_query_string()
     if validate_sqlglot:
         sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)

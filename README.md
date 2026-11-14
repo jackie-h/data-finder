@@ -589,6 +589,19 @@ distinct query has to use a selected column.
 `offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
 first: without an order, which rows come first is not defined.
 
+The steps are done in the order they are written. `offset(1).limit(3)` skips one row and takes three, but `limit(4).offset(1)` takes
+four and skips one of them (three rows); `limit(3)` then `order_by(...)` orders the three rows taken, where `order_by(...)` then
+`limit(3)` takes the first three of the order. A step is a new result and leaves the one it was made from as it was, so `rows.limit(2)`
+and `rows.limit(5)` are both of `rows`.
+
+`distinct()`, `order_by`, `offset` and `limit` are kept as steps of the query before them (`DistinctRows`, `SortedRows`, `DroppedRows` and
+`TakenRows` in `model.relational`), and the SQL says them when it is asked for. A SELECT says `DISTINCT`, then the order, then `OFFSET`, then
+`LIMIT`, in that order only. A step that comes next, or again, is said by the same SELECT (`offset(2).offset(3)` skips five, `limit(5).limit(2)`
+takes two); one that comes earlier than the last one written (an order after a limit, or `distinct()` after an order) is a SELECT over the rows
+the one before it gives, as every other step is. A sort after a limit or an offset orders by the result's own columns (`rows["id"].ascending()`).
+`group_by(attributes)` and `having` are said of the rows a finder reads, so they come before every other step and are refused after one;
+`group_by(lambda r: ...).aggregate(...)` groups the rows after them.
+
 `when(condition).then(value).otherwise(value)` chooses a value for each row, as in polars:
 `when(CompanyFinder.category().eq("Technology")).then("tech").otherwise("other")`. Python's own `if` cannot build a query
 (it needs a real `True` or `False`), so the condition goes through `when`. Add cases with `.when(...).then(...)`. A value is

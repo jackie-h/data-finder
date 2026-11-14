@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import decimal
+from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Sequence, TypeVar, overload
 
@@ -2038,6 +2039,18 @@ class QueryExpression(Relation):
     It has no ORDER BY or row limit: a table is a set of rows with no order. An OrderedQuerySpecification adds those."""
 
 
+@dataclass(frozen=True)
+class QueryOrigin:
+    """The rows of ``table`` as they were asked for: ``columns`` shown, those where ``op`` holds, at these dates."""
+    columns: Sequence
+    table: Relation
+    op: Operation
+    business_date: 'datetime.date | None' = None
+    processing_datetime: 'datetime.datetime | datetime.date | None' = None
+    business_date_to: 'datetime.date | None' = None
+    processing_datetime_to: 'datetime.datetime | datetime.date | None' = None
+
+
 class QuerySpecification(QueryExpression):
     """A single SELECT over a root table, as ANSI SQL's ``<query specification>`` with its ``<table expression>``: what to
     show, which rows qualify, how they are grouped, which groups qualify (HAVING) and whether duplicates are removed
@@ -2063,6 +2076,9 @@ class QuerySpecification(QueryExpression):
         # Steps the query only asks the existence of, each as the query that stands for its table, keyed by id(node):
         # the query joins to that instead of to the table, so a parent is not repeated for each row that matches.
         self.sub_selects: dict[int, 'OrderedQuerySpecification'] = {}
+        # What the query was asked for before its dates and navigations were worked into it: it is worked out again when a step is said
+        # by it, since a step can need another join.
+        self.origin: 'QueryOrigin | None' = None
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
@@ -2087,6 +2103,48 @@ class OrderedQuerySpecification(QuerySpecification):
 
     def expressions(self) -> list[RelationalOperationElement]:
         return [*self.columns, *self.group_by, *self.order_by, self.filter]
+
+
+class QueryStep(QueryExpression):
+    """A query expression that is of the rows of another one, one step written after it: its columns are that one's.
+
+    A step says what is done to the rows of its ``source``, and nothing of the SELECTs that say it: a SELECT says DISTINCT, the
+    order, the offset and the limit in that order only, so a query that writes them in another order is a query over a query. Which
+    step a SELECT says and which it leaves to one over it is decided where the SQL is written, from the order they were written in."""
+    source: QueryExpression
+
+    def __init__(self, source: QueryExpression):
+        super().__init__(source.columns)
+        self.source = source
+
+
+class DistinctRows(QueryStep):
+    """The rows of ``source``, each distinct row once."""
+
+
+class SortedRows(QueryStep):
+    """The rows of ``source`` in the order of ``sorts``, which are of the columns that ``source`` shows. A column sorted again is
+    sorted as the later sort says, and the earlier ones order the rows it leaves tied."""
+
+    def __init__(self, source: QueryExpression, sorts: Sequence['SortOperation']):
+        super().__init__(source)
+        self.sorts = tuple(sorts)
+
+
+class DroppedRows(QueryStep):
+    """The rows of ``source`` after the first ``count`` of them."""
+
+    def __init__(self, source: QueryExpression, count: int):
+        super().__init__(source)
+        self.count = count
+
+
+class TakenRows(QueryStep):
+    """The first ``count`` rows of ``source``."""
+
+    def __init__(self, source: QueryExpression, count: int):
+        super().__init__(source)
+        self.count = count
 
 
 class UnionOperation(QueryExpression):

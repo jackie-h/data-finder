@@ -165,14 +165,14 @@ def test_a_group_by_key_is_read_from_the_row_so_a_missing_column_says_which_are(
 
 def test_group_by_takes_functions_or_finder_attributes_but_not_both():
     trades = _trades()
-    table = trades._table
+    table = trades._origin().table
     with pytest.raises(TypeError, match="not both"):
         trades.group_by(lambda r: r.account, StringAttribute("Sym", "SYM", "VARCHAR", table))
 
 
 def test_group_by_of_finder_attributes_is_the_result_as_before():
     trades = _trades()
-    table = trades._table
+    table = trades._origin().table
     account = StringAttribute("Account", "ACCOUNT", "VARCHAR", table)
     grouped = FinderResult(None, None, [account, DoubleAttribute("Price", "PRICE", "DOUBLE", table).sum()], table, NoOperation())
-    assert grouped.group_by(account) is grouped
+    assert grouped.group_by(account)._select().group_by == [account] and grouped._select().group_by == []

@@ -56,8 +56,8 @@ def test_concatenate_needs_the_same_columns():
 
 def test_a_concatenated_result_is_ordered_and_limited_like_any_other():
     union = _result([_NAME, _ID]).concatenate(_result([_NAME, _ID]))
-    union.order_by(union["name"].ascending(), union["id"].descending()).offset(2).limit(5)
-    assert union.to_sql().endswith(") AS t0 ORDER BY t0.name ASC, t0.id DESC LIMIT 5 OFFSET 2")
+    ordered = union.order_by(union["name"].ascending(), union["id"].descending()).offset(2).limit(5)
+    assert ordered.to_sql().endswith(") AS t0 ORDER BY t0.name ASC, t0.id DESC LIMIT 5 OFFSET 2")
     with pytest.raises(KeyError, match="No column 'missing'"):
         union["missing"]
 
@@ -66,15 +66,15 @@ def test_concatenate_chains_and_a_side_with_an_order_is_in_brackets():
     first = _result([_NAME]).concatenate(_result([_NAME]), all=True)
     three = first.concatenate(_result([_NAME]), all=True)
     assert three.to_sql().count("UNION ALL") == 2
-    ordered = _result([_NAME]).concatenate(_result([_NAME]))
-    ordered.order_by(ordered["name"].ascending()).limit(1)
+    union = _result([_NAME]).concatenate(_result([_NAME]))
+    ordered = union.order_by(union["name"].ascending()).limit(1)
     sql = _result([_NAME]).concatenate(ordered, all=True).to_sql()
     assert "UNION ALL (SELECT" in sql and "LIMIT 1)" in sql
 
 
 def test_each_select_of_a_union_has_aliases_of_its_own():
-    ordered = _result([_NAME]).concatenate(_result([_NAME]))
-    ordered.order_by(ordered["name"].ascending()).limit(1)
+    union = _result([_NAME]).concatenate(_result([_NAME]))
+    ordered = union.order_by(union["name"].ascending()).limit(1)
     sql = _result([_NAME]).concatenate(ordered, all=True).to_sql()
     aliases = [part.split(" ")[0] for part in sql.split(" AS ")[1:]]
     defined = [alias for alias in aliases if alias.startswith("t")]
@@ -85,7 +85,7 @@ def test_concatenating_does_not_change_the_results_it_is_made_from():
     left, right = _result([_NAME]), _result([_NAME])
     left.concatenate(right)
     assert left.to_sql() == 'SELECT t0.NAME AS "Name" FROM accounts AS t0'
-    assert isinstance(left.concatenate(right)._table.relation, UnionOperation)  # type: ignore[attr-defined]
+    assert isinstance(left.concatenate(right)._origin().table.relation, UnionOperation)  # type: ignore[attr-defined]
 
 
 def test_the_columns_of_a_union_are_those_of_its_left_side():
@@ -97,8 +97,9 @@ def test_the_columns_of_a_union_are_those_of_its_left_side():
 def test_a_result_of_concatenate_reads_from_an_alias_of_the_union():
     from model.relational import TableAlias
     result = _result([_NAME]).concatenate(_result([_NAME]))
-    assert isinstance(result._table, TableAlias) and isinstance(result._table.relation, UnionOperation)
-    assert result._table.name.startswith("relation")
+    table = result._origin().table
+    assert isinstance(table, TableAlias) and isinstance(table.relation, UnionOperation)
+    assert table.name.startswith("relation")
 
 
 def test_the_columns_of_a_union_have_the_types_of_what_the_results_show():
