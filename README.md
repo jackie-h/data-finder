@@ -195,8 +195,8 @@ An Association table with more than one row is a path through several tables. Ea
 
 #### Join conditions
 
-A join can have a condition besides its key columns, as Legend's `Join Firm_Person(firm.ID = person.FIRMID and firm.FLAG is null
-and person.FLAG is not null)`. Add a `Condition` column to the Association table and write the condition for each row over the two
+A join can have a condition besides its key columns, such as `firm.ID = person.FIRMID and firm.FLAG is null
+and person.FLAG is not null`. Add a `Condition` column to the Association table and write the condition for each row over the two
 tables that row joins:
 
 ```
@@ -215,8 +215,8 @@ row has its own condition, on the hop it belongs to. A blank cell is a hop with 
 A condition can use `=`, `<>`, `!=`, `<`, `<=`, `>`, `>=`, `IS [NOT] NULL`, `AND`, `OR`, `NOT`, parentheses and string and number
 literals. A function (`now()`), anything else, and a column with no table are refused when the mapping is loaded.
 
-When a table is joined to itself its name is both sides, so the side the join reaches is written `{target}`, as in Legend's
-`Join Person_Manager(personTable.MANAGERID = {target}.ID)`: the table's own name is the row the join starts from.
+When a table is joined to itself its name is both sides, so the side the join reaches is written `{target}`, as in
+`personTable.MANAGERID = {target}.ID`: the table's own name is the row the join starts from.
 
 ```
 #### Association: EmployeeManager
@@ -460,7 +460,7 @@ A query that selects aggregates is grouped by its other columns, so you do not h
 TradeFinder.find_all(None, None, [TradeFinder.account().name(), TradeFinder.price().average()])
 ```
 
-An aggregate over a to-many association is computed for each row of the root, as in Legend. This gives each
+An aggregate over a to-many association is computed for each row of the root. This gives each
 employee the number of their reports, including 0 for those with none:
 
 ```python
@@ -583,9 +583,9 @@ that is missing for a row (a comparison with NULL) is not true, so that row take
 ### Chaining steps
 
 What `find_all(...)` returns is a relation: its columns have names (the alias you gave a column, else its display name in
-snake_case), and the step after it reads them as it reads a table's. As in Legend, where `filter`, `extend`, `select`
-and `concatenate` each take a relation and return one, each step is a query over the query before it. A column of
-a result is `result["name"]`, and a function of a row reads it as `r.name`, as Legend's `$r.name`.
+snake_case), and the step after it reads them as it reads a table's. `filter`, `extend`, `select`
+and `concatenate` each take a relation and return one, and each step is a query over the query before it. A column of
+a result is `result["name"]`, and a function of a row reads it as `r.name`.
 
 ```python
 trades = TradeFinder.find_all(None, now, [TradeFinder.account().name().alias("account"),
@@ -602,19 +602,19 @@ top.order_by(top["account"].ascending())
   `select("a", "b")` keeps columns by name; `extend(name=lambda r: ...)` adds columns, including a window
   (`.over(partition_by=[...])`, or `.over()` for all the rows). To rename a column, `extend` it and `select`.
 - `concatenate(other)` is `UNION` (`all=True` for `UNION ALL`).
-- `join(other, lambda a, b: a.key == b.key, how="inner")` puts the rows of two results together, as Legend's `join` and as pandas,
+- `join(other, lambda a, b: a.key == b.key, how="inner")` puts the rows of two results together, as pandas,
   polars and ibis do. The condition is a function of a row of each, so it can be more than equality, and several comparisons
-  are combined with `&` and `|` (each in brackets: Python's `and` would keep only one). `how` is required, as Legend's join kind is, and is `inner`, `left`,
+  are combined with `&` and `|` (each in brackets: Python's `and` would keep only one). `how` is required, and is `inner`, `left`,
   `right` or `full`: ANSI SQL's join types, the outer ones keeping the rows that find no match, with NULL for the other side's
-  columns. The two sides' columns must be named differently (`alias()`, or `extend` then `select`), as Legend requires.
+  columns. The two sides' columns must be named differently (`alias()`, or `extend` then `select`).
 - `exists(other, lambda o: o.key == r.key)` is a condition for the `filter` of a result: it holds when `other` has a row meeting the
-  condition, as Legend's `exists` and SQL's `EXISTS`. The function is of a row of `other`, and it reads the row being filtered from
+  condition, as SQL's `EXISTS` does. The function is of a row of `other`, and it reads the row being filtered from
   the function it is in: `rows.filter(lambda r: exists(other, lambda o: (o.key == r.key) & (o.n != r.n)))`. `~exists(...)` is `NOT EXISTS`,
   and `exists` conditions combine with `&` and `|` like any other. None of `other`'s columns are in the result.
 - `group_by(lambda r: r.dept).aggregate(headcount=lambda r: r.id.count(), avg=lambda r: r.salary.average())` groups the rows
-  and gives the key columns and an aggregate of each group, as Legend's `groupBy`. Several keys are a tuple
+  and gives the key columns and an aggregate of each group. Several keys are a tuple
   (`lambda r: (r.dept, r.title)`), and a key that is worked out is named with `alias`. `aggregate(...)` alone is one row for the
-  whole result, as Legend's `aggregate`. Each column is an aggregate of the rows (`sum`, `count`, `average`, `min`, `max`, or
+  whole result. Each column is an aggregate of the rows (`sum`, `count`, `average`, `min`, `max`, or
   arithmetic of them such as `r.price.sum() / 7.0`), not a window.
 - A step can be ordered, limited, grouped and aggregated like any result, by its own columns:
   `step.order_by(step["price"].descending())`.

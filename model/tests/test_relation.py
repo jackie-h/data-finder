@@ -1,4 +1,4 @@
-"""Relations, as in Legend: a relation has columns, a named relation has a name, and a table alias is a relation under a name."""
+"""Relations: a relation has columns, a named relation has a name, and a table alias is a relation under a name."""
 from model.relational import (
     Alias, Column, NamedRelation, NoOperation, OrderedQuerySpecification, QueryExpression, QuerySpecification, Relation,
     Table, TableAlias)
@@ -153,7 +153,7 @@ def test_a_table_takes_its_primary_key_in_the_constructor():
     table = Table("accounts", [("ID", "INT"), ("REGION", "VARCHAR"), ("NAME", "VARCHAR")], primary_key=["ID", "REGION"])
     id_, region, name = table.columns
     assert id_.primary_key and region.primary_key and not name.primary_key
-    # as in Legend, a primary key is never null
+    # a primary key is never null
     assert not id_.nullable and not region.nullable and name.nullable
     assert table.primary_key == [id_, region]
     assert Table("none", [("ID", "INT")]).primary_key == []

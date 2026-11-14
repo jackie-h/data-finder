@@ -1,6 +1,6 @@
 # Join Conditions Mapping
 
-A join can have a condition besides its key columns, as Legend's `Join Firm_Person(firms.id = persons.firm_id and ...)`.
+A join can have a condition besides its key columns, such as `firms.id = persons.firm_id and ...`.
 An Association table with a `Condition` column gives each row's condition over the two tables the row joins, written as
 `table.column`, so it reads the same from either end of the join. A person has a firm only when the firm's `flag` is NULL
 and the person's `flag` is not.
@@ -29,7 +29,7 @@ and the person's `flag` is not.
 | active     | INT     |     | Y        |             |
 
 An employee is joined to itself, so `staff` is both sides of the condition: its own name is the employee the join starts from and
-`{target}` the one it reaches, as in Legend's `personTable.MANAGERID = {target}.ID`. Both have to be active.
+`{target}` the one it reaches, as in `personTable.MANAGERID = {target}.ID`. Both have to be active.
 
 #### Association: EmployeeManager
 

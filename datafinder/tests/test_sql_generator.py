@@ -1505,7 +1505,7 @@ class TestMilestoningFilterShape:
                             "AND (t0.out_z > '2017-06-11 00:00:00' OR t0.out_z IS NULL)")
 
     def test_a_join_through_an_optional_navigation_is_not_guarded(self):
-        """The guard Legend writes on an optional property is for what a query compares, not for the dates that choose
+        """The guard on an optional property is for what a query compares, not for the dates that choose
         which version of a milestoned table a join reads."""
         target = self._bitemporal("child")
         root = Table("parent", [Column("id", "INT", _OWNER_PARENT)])
@@ -2082,7 +2082,7 @@ class TestAliasOfExpressions:
 
 
 class TestJoinConditionOrder:
-    """A join condition is written with the key column first, as Legend writes it."""
+    """A join condition is written with the key column first."""
 
     @staticmethod
     def _sql(key_on_target: bool):
@@ -2213,9 +2213,8 @@ class TestHaving:
 
 
 class TestOptionalPropertyGuard:
-    """Legend writes ``col IS NOT NULL AND`` before an ordering or pattern comparison on an optional property. The
-    guard does not change the rows, since such a comparison is never true for a missing value, but it keeps the SQL the
-    same as Legend's."""
+    """``col IS NOT NULL AND`` is written before an ordering or pattern comparison on an optional property. The
+    guard does not change the rows, since such a comparison is never true for a missing value."""
 
     @staticmethod
     def _age(optional: bool = True, node=None):
@@ -2286,7 +2285,7 @@ class TestOptionalPropertyGuard:
         (True, False, True), (True, True, True), (False, False, False), (False, True, False),
     ])
     def test_not_in_follows_the_column_and_not_the_property(self, nullable, optional, matches_null):
-        """As in Legend, which writes ``or col is null`` for a required property over a nullable column."""
+        """``or col is null`` is written for a required property over a nullable column."""
         table = Table("person", [Column("NAME", "VARCHAR", _OWNER_PERSON)])
         name = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_PERSON, nullable=nullable, optional=optional)
         sql = to_sql(None, None, [name], table, name.is_not_in(["x"]))
@@ -2296,7 +2295,7 @@ class TestOptionalPropertyGuard:
         (True, False, False), (True, True, True), (False, False, False), (False, True, True),
     ])
     def test_the_guard_follows_the_property_and_not_the_column(self, nullable, optional, guarded):
-        """As in Legend, which guards an optional property over a NOT NULL column but not a required one over a nullable one."""
+        """An optional property over a NOT NULL column is guarded, but not a required one over a nullable one."""
         table = Table("person", [Column("AGE", "INT", _OWNER_PERSON)])
         age = IntegerAttribute("Age", "AGE", "INT", _OWNER_PERSON, nullable=nullable, optional=optional)
         assert ("IS NOT NULL AND" in to_sql(None, None, [age], table, age > 30)) is guarded

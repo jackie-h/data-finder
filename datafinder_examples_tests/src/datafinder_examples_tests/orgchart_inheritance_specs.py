@@ -18,7 +18,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
     finder_name="EmployeeFinder",
     mapping_file=ORGCHART_INHERITANCE_MAPPING,
     expectations=[
-        # Employee.department is optional (0..1) and first_name is required (1). As in Legend, an ordering or pattern
+        # Employee.department is optional (0..1) and first_name is required (1). An ordering or pattern
         # comparison on an optional value says it needs one: the guard changes no row, but it is in the SQL.
         TestExpectation(
             name="optional_property_pattern_comparison_is_guarded",
