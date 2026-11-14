@@ -484,7 +484,7 @@ class FinderResult(DataFrame):
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
-        direction. Rows that are already dropped or taken are ordered as a step over them, as Legend's ``sort`` is."""
+        direction. Rows that are already dropped or taken are ordered as a step over them."""
         sort_ops = tuple(SortOperation(self._own(s.column), s.direction) for s in sort_ops)
         base = self
         if self._stage > _SORT:
@@ -497,14 +497,14 @@ class FinderResult(DataFrame):
         return result
 
     def limit(self, n: int) -> 'FinderResult':
-        """The first ``n`` rows, as Legend's ``take``. Taking again takes from the rows taken."""
+        """The first ``n`` rows. Taking again takes from the rows taken."""
         result = self._copy()
         result._limit = n if self._limit is None else min(self._limit, n)
         result._stage = _TAKE
         return result
 
     def offset(self, n: int) -> 'FinderResult':
-        """Skip the first ``n`` rows, as Legend's ``drop``. Sort the rows first: without an order, which rows are first is not
+        """Skip the first ``n`` rows. Sort the rows first: without an order, which rows are first is not
         defined. Rows that were already taken are skipped as a step over them: ``limit(5).offset(2)`` is three rows."""
         if n < 0:
             raise ValueError("offset cannot be negative")

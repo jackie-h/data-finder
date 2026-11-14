@@ -566,11 +566,12 @@ in order.
 distinct query has to use a selected column.
 
 `offset(n)` skips the first `n` rows and `slice(start, stop)` keeps rows `start` up to `stop`, counting from 0. Sort
-first: without an order, which rows come first is not defined. The steps apply in the order they are written, as Legend's `take`,
-`drop` and `slice` do: `offset(1).limit(3)` skips one row and takes three, but `limit(4).offset(1)` takes four and skips one of them
+first: without an order, which rows come first is not defined. The steps apply in the order they are written:
+`offset(1).limit(3)` skips one row and takes three, but `limit(4).offset(1)` takes four and skips one of them
 (three rows), and `limit(3)` then `order_by(...)` orders the three rows taken, where `order_by(...)` then `limit(3)` takes the first
 three of the order. A step after a limit or an offset is a query over the query before it, so it orders by the result's own columns
-(`rows["id"].ascending()`), and the same goes for a `concatenate`d result. A step is a new result and leaves the one it was made from as it was, so `rows.limit(2)` and `rows.limit(5)` are both of `rows`. A query says
+(`rows["id"].ascending()`), and the same goes for a `concatenate`d result. A step is a new result and leaves the one it was made from as it was, so
+`rows.limit(2)` and `rows.limit(5)` are both of `rows`. A query says
 `DISTINCT`, then the order, then `OFFSET`, then `LIMIT`, so a step that comes earlier than the last one written (an order after a limit,
 or a limit then `distinct()`) is a step over the rows already taken; `limit(5).limit(2)` takes two, and `offset(1).offset(2)` skips three.
 
