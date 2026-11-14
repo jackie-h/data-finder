@@ -14,8 +14,8 @@ UNION_SPECS = FinderSpec(
     finder_name="PersonFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testSimpleUnion", f"{_SRC}::testSimpleUnion",
+        ported("testSimpleUnion", f"{_SRC}::testSimpleUnion",
                     'select "unionalias_0"."lastName" as "lastName" from (select "root".LASTNAME as "lastName" from personTable as "root" union select "root".LASTNAME as "lastName" from personTable as "root") as "unionalias_0"',
-                    'no union'),
+                    lambda f: f.find_all([f.last_name().alias("lastName")]).concatenate(f.find_all([f.last_name().alias("lastName")]))),
     ],
 )
