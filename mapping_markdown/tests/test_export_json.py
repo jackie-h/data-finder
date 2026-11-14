@@ -57,7 +57,7 @@ def test_inheritance_is_exported():
 def test_mapping_tables_columns_and_classes(finance):
     assert finance["title"] == "Finance Mapping"
     assert finance["models"] == ["finance.md", "finance_trade.md"]
-    assert finance["dataStore"] == {"name": "finance_db", "type": "Database"}
+    assert (finance["dataStore"]["name"], finance["dataStore"]["type"]) == ("finance_db", "Database")
     tables = {(s["name"], t["name"]): t for s in finance["schemas"] for t in s["tables"]}
     assert set(tables) == {("ref_data", "account_master"), ("ref_data", "branch"), ("ref_data", "desk"), ("ref_data", "price"),
                            ("trading", "trades"), ("trading", "contractualposition")}
@@ -75,7 +75,7 @@ def test_mapping_associations_carry_columns_and_multiplicities(finance):
     assert by_name["AccountBranch"]["rows"] == [{
         "sourceSchema": "ref_data", "sourceTable": "account_master", "sourceColumn": "BRANCH_ID",
         "targetSchema": "ref_data", "targetTable": "branch", "targetColumn": "ID",
-        "sourceIsQuery": False, "targetIsQuery": False,
+        "sourceIsQuery": False, "targetIsQuery": False, "condition": None,
     }]
     assert (by_name["AccountBranch"]["sourceMultiplicity"], by_name["AccountBranch"]["targetMultiplicity"]) == ("0..1", "*")
     assert by_name["TradeInstrument"]["targetMultiplicity"] == "*"             # one-way: the join is still mapped
@@ -122,7 +122,7 @@ def test_a_join_that_starts_from_a_query_has_no_schema_and_says_so(sql_queries):
     assert by_name["FirmPerson"]["rows"] == [{
         "sourceSchema": None, "sourceTable": "FIRM_VIEW", "sourceColumn": "firm_id",
         "targetSchema": "org", "targetTable": "people", "targetColumn": "firm_id",
-        "sourceIsQuery": True, "targetIsQuery": False,
+        "sourceIsQuery": True, "targetIsQuery": False, "condition": None,
     }]
     assert by_name["HolderRate"]["rows"][0]["targetIsQuery"] is True        # a join that ends at a query
     assert by_name["HolderRate"]["rows"][0]["targetTable"] == "RATE_QUERY"
@@ -152,3 +152,36 @@ def test_cli_writes_json(tmp_path):
     out = tmp_path / "nested" / "data.json"
     export_json.main(["--config", str(config), "--out", str(out)])
     assert json.loads(out.read_text())["models"][0]["file"] == "diamond_model.md"
+
+
+@pytest.fixture(scope="module")
+def conditions():
+    return export_json.export_mapping(os.path.join(EXAMPLES, "join_conditions_mapping.md"), "join_conditions_mapping.md", EXAMPLES)
+
+
+def _conditions(mapping, association):
+    return [row["condition"] for a in mapping["associations"] if a["name"] == association for row in a["rows"]]
+
+
+def test_a_join_condition_is_exported_as_it_was_written(conditions):
+    assert _conditions(conditions, "FirmPerson") == ["firms.flag IS NULL AND persons.flag IS NOT NULL"]
+    assert _conditions(conditions, "FirmNamedPerson") == ["(persons.first_name = 'Peter' OR persons.first_name = 'John')"]
+
+
+def test_a_join_of_a_table_to_itself_keeps_the_target_marker(conditions):
+    assert _conditions(conditions, "EmployeeManager") == ["staff.active = 1 AND {target}.active = 1"]
+
+
+def test_each_row_of_a_join_has_its_own_condition(conditions):
+    assert _conditions(conditions, "PersonMemberFirm") == [None, "memberships.active = 1"]
+
+
+def test_a_join_with_no_condition_says_so(finance):
+    assert all(row["condition"] is None for a in finance["associations"] for row in a["rows"])
+
+
+def test_the_milestoning_schemes_of_the_data_store_are_exported(finance):
+    schemes = {m["name"]: m for m in finance["dataStore"]["milestoningSchemes"]}
+    assert schemes and all(set(m) == {"name", "processingStart", "processingEnd", "processingDatetime", "processingInfiniteDatetime",
+                                      "businessDate", "businessDateFrom", "businessDateTo", "businessInfiniteDatetime"}
+                           for m in schemes.values())
