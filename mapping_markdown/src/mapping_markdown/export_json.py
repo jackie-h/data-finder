@@ -25,6 +25,7 @@ import os
 from typing import Any
 
 from model.m3 import Association, Class, PrimitiveType, TaggedValue
+from model.mapping import UnionMapping
 from model.relational import Column, MilestoningScheme, Table, TableAlias, query_of
 from model.relational_mapping import EmbeddedSetMapping, Join
 from model_markdown import markdown_model
@@ -108,13 +109,25 @@ def _mapped_relation(class_mapping) -> Table | TableAlias | None:
     return None
 
 
-def _query_entry(query: TableAlias, class_name: str | None, column_property: dict[int, str]) -> dict[str, Any]:
+def _mapped_class(mapping, clazz) -> Any:
+    return next((m for m in mapping.mappings if m.clazz is clazz), None)
+
+
+def _query_of_set(class_mapping, set_id: str | None) -> TableAlias | None:
+    """The query of the set of a class mapping that has that id."""
+    if set_id is None or not isinstance(class_mapping, UnionMapping):
+        return None
+    return next((each.main_relation for each in class_mapping.sets if each.id == set_id), None)
+
+
+def _query_entry(query: TableAlias, class_name: str | None, column_property: dict[int, str], set_name: str | None = None) -> dict[str, Any]:
     """A query a class is mapped to, with the SQL it is written as and what it reads."""
     reads = [{"query": r.name} if query_of(r) is not None else {"schema": r.schema.name if isinstance(r, Table) and r.schema else None, "table": r.name}
              for r in query.reads]
     return {
         "name": query.name,
         "class": class_name,
+        "set": set_name,
         "sql": query.sql,
         "reads": reads,
         "milestoning": query.milestoning_scheme.name if query.milestoning_scheme is not None else None,
@@ -143,11 +156,17 @@ def _milestoning_scheme(scheme: MilestoningScheme) -> dict[str, Any]:
     }
 
 
-def _join_entry(assoc: Association | None, source_class: str, join: Join) -> dict[str, Any]:
+def _join_entry(assoc: Association | None, source_class: str, join: Join, source_set: str | None = None, target_set: str | None = None,
+                source_query: TableAlias | None = None, target_query: TableAlias | None = None) -> dict[str, Any]:
     """A join as the viewer reads it: one row for each table the join passes through, then the one it ends at."""
     rows = []
     for (lhs, rhs), condition in zip(join.via + [(join.lhs, join.rhs)], join.condition_texts):
         (src_schema, src_table, src_column), (tgt_schema, tgt_table, tgt_column) = _located(lhs), _located(rhs)
+        # a join between sets is from the query of the set it starts from to the query of the set it reaches, and not from the union of them
+        if source_query is not None:
+            src_schema, src_table = None, source_query.name
+        if target_query is not None:
+            tgt_schema, tgt_table = None, target_query.name
         rows.append({
             "sourceSchema": src_schema,
             "sourceTable": src_table,
@@ -162,6 +181,8 @@ def _join_entry(assoc: Association | None, source_class: str, join: Join) -> dic
     return {
         "name": assoc.name if assoc else None,
         "sourceClass": source_class,
+        "sourceSet": source_set,
+        "targetSet": target_set,
         "sourceMultiplicity": str(assoc.source_multiplicity) if assoc else None,
         "targetMultiplicity": str(assoc.target_multiplicity) if assoc else None,
         "rows": rows,
@@ -191,9 +212,13 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
         for pkg in packages for a in pkg.children if isinstance(a, Association)
     }
     table_class: dict[int, str] = {}  # by the table or the query
+    set_of: dict[int, str] = {}  # the name of the set a query is, by the query
     column_property: dict[int, str] = {}
     joins = []
-    for cm in mapping.mappings:
+    # the property mappings of a union are those of its sets, and the navigations between them are only there
+    for cm in [*markdown_mapping._sections(mapping), *(m for m in mapping.mappings if isinstance(m, UnionMapping))]:
+        if cm.id:
+            set_of[id(cm.main_relation)] = cm.id
         table = _mapped_relation(cm)
         if table is not None:
             table_class[id(table)] = cm.clazz.name
@@ -201,7 +226,9 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
             if isinstance(pm.target, Column):
                 column_property[id(pm.target)] = pm.property.id
             elif isinstance(pm.target, Join):
-                joins.append(_join_entry(associations_by_nav.get((cm.clazz.name, pm.property.id)), cm.clazz.name, pm.target))
+                joins.append(_join_entry(associations_by_nav.get((cm.clazz.name, pm.property.id)), cm.clazz.name, pm.target,
+                                         pm.source_set_id, pm.target_set_id,
+                                         _query_of_set(cm, pm.source_set_id), _query_of_set(_mapped_class(mapping, pm.property.type), pm.target_set_id)))
             elif isinstance(pm.target, EmbeddedSetMapping):
                 # a property of an object embedded in the row that reaches another table
                 for holder, prop, join, _ in markdown_mapping._embedded_joins(pm.target, [pm.property.id]):
@@ -228,7 +255,7 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
                 } for c in table.columns],
             } for table in schema.tables],
         } for schema in datastore.schemas],
-        "queries": [_query_entry(q, table_class.get(id(q)), column_property) for q in datastore.queries],
+        "queries": [_query_entry(q, table_class.get(id(q)), column_property, set_of.get(id(q))) for q in datastore.queries],
         "associations": joins,
     }
 

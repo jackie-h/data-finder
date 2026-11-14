@@ -185,3 +185,19 @@ def test_the_milestoning_schemes_of_the_data_store_are_exported(finance):
     assert schemes and all(set(m) == {"name", "processingStart", "processingEnd", "processingDatetime", "processingInfiniteDatetime",
                                       "businessDate", "businessDateFrom", "businessDateTo", "businessInfiniteDatetime"}
                            for m in schemes.values())
+
+
+def test_the_sets_of_a_class_are_exported_each_as_a_query_with_its_set_and_the_class():
+    mapping = export_json.export_mapping(os.path.join(EXAMPLES, "sql_query_sets_mapping.md"), "sql_query_sets_mapping.md", EXAMPLES)
+    queries = {q["name"]: q for q in mapping["queries"]}
+    assert set(queries) == {"RETAIL", "CORPORATE"}
+    assert [(q["class"], q["set"]) for q in queries.values()] == [("Customer", "retail"), ("Customer", "corporate")]
+    assert queries["RETAIL"]["sql"] == "SELECT id, name FROM retail_customers"
+    assert {c["name"]: c["property"] for c in queries["CORPORATE"]["columns"]} == {"id": "id", "name": "name"}
+    [orders] = mapping["associations"]
+    assert (orders["name"], orders["sourceSet"], orders["targetSet"]) == ("CustomerOrders", "retail", None)
+    assert orders["rows"][0]["sourceIsQuery"] and orders["rows"][0]["sourceTable"] == "RETAIL"  # the query of the set, which the export lists, not the union
+
+
+def test_a_query_that_is_not_a_set_has_no_set(sql_queries):
+    assert all(q["set"] is None for q in sql_queries["queries"])

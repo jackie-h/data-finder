@@ -1,6 +1,7 @@
 from typing import Callable
 
 from model.milestoning import MilestoningColumns
+from model.query_sets import union_alias
 from model.sql_query import parse_query_reads
 
 from model.relational import (
@@ -30,6 +31,17 @@ def derived_table(name: str, sql: str, reads: list, columns: list, where: str,
     alias = TableAlias(query, name, columns)
     alias.sql, alias.reads = sql, used
     if milestoning is not None:  # the columns that milestone it are columns the query gives, which the alias owns
+        own = [c for c in alias.columns if isinstance(c, Column)]
+        alias.milestoning_columns = milestoning(lambda column_name: next(c for c in own if c.name == column_name))
+    return alias
+
+
+def derived_union(name: str, sets: list[tuple[TableAlias, str]], where: str,
+                  milestoning: 'Callable[[Callable[[str], Column]], MilestoningColumns] | None' = None) -> TableAlias:
+    """The queries of the sets of a class, each with the name of its set, put together as one query under ``name``: what a class is mapped to when it
+    is mapped to several queries. Each row says which set it came from in its column ``_set``."""
+    alias = union_alias(name, sets, where)
+    if milestoning is not None:
         own = [c for c in alias.columns if isinstance(c, Column)]
         alias.milestoning_columns = milestoning(lambda column_name: next(c for c in own if c.name == column_name))
     return alias

@@ -1747,8 +1747,9 @@ class TableAlias(NamedRelation):
 
 
 def query_of(relation: 'Relation | None') -> 'TableAlias | None':
-    """The relation as a query that a class is mapped to, or nothing if it is not one: a table, or an alias of one."""
-    return relation if isinstance(relation, TableAlias) and relation.sql else None
+    """The relation as a query that a class is mapped to, or nothing if it is not one: a table, or an alias of one, is not. A query is an alias of a query
+    expression: a SELECT, or the UNION ALL of the SELECTs of the sets of a class."""
+    return relation if isinstance(relation, TableAlias) and isinstance(relation.relation, QueryExpression) else None
 
 
 def tables_read_by(relation: 'Relation | None') -> 'list[Table]':

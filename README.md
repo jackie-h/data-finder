@@ -252,8 +252,29 @@ This is not a database view: nothing is created in the database. The query is a 
 a derived table, `FROM (SELECT DISTINCT ...) AS t0`. It is read as PostgreSQL, the standard dialect here, and checked when the mapping is loaded: it is
 read into the same query objects a query is made of (a `TableAlias` of the query, which has the columns the section lists), the tables and columns it reads
 must exist, and the columns it gives must be the ones the section lists. A query can use `DISTINCT`, any join (`INNER`, `LEFT`, `RIGHT`, `FULL`, with an
-`ON`), `WHERE`, `GROUP BY` with `SUM`, `COUNT`, `MIN`, `MAX` and `AVG`, `HAVING`, `UNION [ALL]`, and named expressions (`'Mr ' || first_name AS text`,
-`CASE`, `UPPER`, `LOWER`, `TRIM`, `LENGTH`, `ABS`). It can read another query that comes before it.
+`ON`), `WHERE`, `GROUP BY` with `SUM`, `COUNT`, `MIN`, `MAX` and `AVG`, `HAVING`, and named expressions (`'Mr ' || first_name AS text`,
+`CASE`, `UPPER`, `LOWER`, `TRIM`, `LENGTH`, `ABS`). It can read another query that comes before it. A query is one `SELECT`: a `UNION`, `INTERSECT` or `EXCEPT` is
+refused, and a union is written as sets (below).
+
+#### Sets: a class that is the union of several queries
+
+A class that is the union of several tables (Legend's union class mapping, with a set implementation for each) is mapped to a query for each, and each query is a **set** with a name of
+its own: `#### Query: RETAIL → Customer (set: retail)`. The mapping puts the sets together as one `UNION ALL`, gives each row the name of its set in the column `_set`, and checks what
+a hand-written union would leave to chance:
+
+- A set name is unique in the mapping, as is a query's name, and neither is the name of a table. A class that is mapped to several queries has every one of them named, and is not also mapped to a table.
+- The sets give the same columns, with the same types, and map them to the same properties. A set cannot give a column named `_set`.
+- Every set has a key, marked `PK`, that no two of its rows share, because rows of different sets can look the same (a key of 1 is in both). It is checked: a set selects the key of its table, a join in it is on
+  the key of what it joins (and is not a `RIGHT` or `FULL` join, which add rows), a `DISTINCT` set has every column as its key, and a grouped set has what it is grouped by.
+- An association from or to a class that has sets says which sets it joins, in a section for each pair, as Legend writes `x[y0, x0]`:
+  `#### Association: CustomerOrders (source set: retail)`, or `(source set: big, target set: staff)` when both ends have sets. Each section is a property mapping of its own,
+  from its source set to its target set, with a join of its own on the columns it gives (Legend's `sourceSetImplementationId` and `targetSetImplementationId`). A pair is given once,
+  a set named is a set of that class, its target table is that set's query, and a class that has sets cannot be joined without naming them. A pair that no section names does not join.
+  A finder reads the pairs of one navigation as one join, on the sets of the pairs, so for now they must join on the same columns.
+
+```
+#### Query: RETAIL → Customer (set: retail)      #### Query: CORPORATE → Customer (set: corporate)
+```
 
 A query is milestoned as a table is, by the columns its SQL gives. Name the scheme in the heading, `#### Query: RATE_QUERY → Rate (milestoning: business_date_range)`, and map the scheme's
 columns to the `businessFrom`, `businessThru`, `validFrom` and `validTo` properties as a Table section does. A query over the class is then given the dates, `find_all("2021-06-01", None, ...)`,

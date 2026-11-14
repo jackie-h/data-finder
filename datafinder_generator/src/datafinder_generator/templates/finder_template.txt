@@ -3,7 +3,7 @@ from typing import Union
 from datafinder.typed_attributes import *
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range, convert_inputs_and_select_for_processing_range
 from datafinder.attribute import Attribute
-from datafinder.finder import RelatedFinder, derived_table, display_prefix, keys_join, via_joins
+from datafinder.finder import RelatedFinder, derived_table, derived_union, display_prefix, keys_join, via_joins
 from decimal import Decimal
 from datafinder.runner import convert_date, convert_date_time
 from model.relational import Column, Table, NoOperation, JoinOperation, JoinKind, JoinTreeNodeOperation, CountAllOperation, Operation, ComparisonOperation, ComparisonOperator, LogicalOperation, LogicalOperator, IsNullOperation, IsNotNullOperation, NotOperation, StringConstantOperation, IntegerConstantOperation, FloatConstantOperation, DecimalConstantOperation

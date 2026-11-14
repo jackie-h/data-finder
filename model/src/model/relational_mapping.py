@@ -1,5 +1,5 @@
 from model.m3 import Property, Class
-from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
+from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping, UnionMapping
 from model.relational import Operation, RelationalOperationElement, Column, Table, TableAlias
 
 
@@ -56,13 +56,14 @@ class EmbeddedSetMapping(RelationalOperationElement):
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: RelationalOperationElement):
-        super().__init__(property, target)
+    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str | None = None, target_set_id: str | None = None):
+        super().__init__(property, target, source_set_id, target_set_id)
 
 
 class RelationalClassMapping(ClassMapping):
-    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None):
-        super().__init__(clazz, property_mappings, milestone_mapping)
+    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None,
+                 id: str | None = None):
+        super().__init__(clazz, property_mappings, milestone_mapping, id)
 
     @property
     def main_relation(self) -> Table | TableAlias | None:
@@ -77,3 +78,12 @@ class RelationalClassMapping(ClassMapping):
         if relation is None or isinstance(relation, TableAlias):
             return relation
         return TableAlias(relation, relation.name)
+
+
+class RelationalUnionMapping(UnionMapping[RelationalClassMapping], RelationalClassMapping):
+    """A class that is the union of relational sets: its sets, each a class mapping to a query, and the union of their queries, a query of its own that its
+    property mappings are on the columns of."""
+
+    def __init__(self, clazz: Class, sets: list[RelationalClassMapping], property_mappings: list[RelationalPropertyMapping],
+                 milestone_mapping: MilestonePropertyMapping | None = None, id: str | None = None):
+        super().__init__(clazz, sets, property_mappings, milestone_mapping, id)

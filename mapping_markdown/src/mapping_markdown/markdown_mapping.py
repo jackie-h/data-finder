@@ -7,18 +7,45 @@ from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_TO_ONE, ZERO_TO_ONE
-from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
+from model.mapping import ClassMapping, Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping, \
     BusinessDateRangeMilestonePropertyMapping, SingleProcessingDatetimeMilestonePropertyMapping
 from mapping_markdown.join_condition import parse_condition
 from model.sql_query import output_names, parse_query_reads
-from model.relational import query_of, schema_of, tables_read_by, BinaryOperation, DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, \
+from model.relational import ComparisonOperation, query_of, schema_of, tables_read_by, BinaryOperation, DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, \
     ForeignKey, Operation, TableAlias, UnaryOperation
+from model.mapping import UnionMapping
+from model.query_sets import union_of_sets
 from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
 
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
-_TABLE_RE = re.compile(r'(\S+)(?:\s*→\s*(\w+))?(?:\s*\(milestoning:\s*(\w+)\))?\s*$')
+_TABLE_RE = re.compile(r'(\S+)(?:\s*→\s*(\w+))?(?:\s*\((.*)\))?\s*$')
+_HEADING_OPTIONS = {"Table": ("milestoning",), "Query": ("milestoning", "set")}
+_NAME_RE = re.compile(r'[A-Za-z_][A-Za-z0-9_]*$')
+
+
+def _section_heading(text: str, kind: str) -> "tuple[str, str | None, str | None, str | None] | None":
+    """The name, the class, the milestoning scheme and the set of a ``Table`` or ``Query`` heading: ``orders → Order (milestoning: bitemporal)``,
+    ``PERSON_SET1 → Person (set: set1, milestoning: business_date_range)``. None if it is not a heading of this form; an option that this kind of
+    section does not have is an error, and so is a set that is not a name."""
+    m = _TABLE_RE.match(text.strip())
+    if m is None:
+        return None
+    options: dict[str, str] = {}
+    for part in (m.group(3) or "").split(","):
+        if not part.strip():
+            continue
+        key, _, value = part.partition(":")
+        key, value = key.strip(), value.strip()
+        if key not in _HEADING_OPTIONS[kind]:
+            raise ValueError(f"{kind} '{m.group(1)}': '{key}' is not a heading option of a {kind} section (it has {', '.join(_HEADING_OPTIONS[kind])})")
+        if not value or key in options:
+            raise ValueError(f"{kind} '{m.group(1)}': the heading option '{key}' needs one value")
+        if key == "set" and not _NAME_RE.match(value):
+            raise ValueError(f"{kind} '{m.group(1)}': the set '{value}' is not a name: use letters, digits and underscores, not starting with a digit")
+        options[key] = value
+    return m.group(1), m.group(2), options.get("milestoning"), options.get("set")
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +108,7 @@ def _build_repository_from_content(nodes: list) -> DataStore | None:
     repo = None
     current_schema = None
     queries: list[tuple[str, str, list[dict]]] = []  # name, SQL and the rows of its column table
+    set_owners: dict[str, str] = {}  # the lower case name of each set to the query it names: a set's name is the mapping's, as Legend's set id is
     i = 0
     while i < len(nodes):
         node = nodes[i]
@@ -89,8 +117,14 @@ def _build_repository_from_content(nodes: list) -> DataStore | None:
             level = node.tag
             if level == "h4" and text.startswith("Query:") and repo is not None:
                 # ``#### Query: NAME → Class``: the SQL in a ``sql`` fence, then the columns it gives and what they map to
-                m = _TABLE_RE.match(text[len("Query:"):].strip())
-                query_name = m.group(1) if m else text[len("Query:"):].strip()
+                heading = _section_heading(text[len("Query:"):], "Query")
+                query_name = heading[0] if heading else text[len("Query:"):].strip()
+                if any(q[0].lower() == query_name.lower() for q in queries):
+                    raise ValueError(f"the query '{query_name}' is already the name of a query")
+                if heading and heading[3]:
+                    if heading[3].lower() in set_owners:
+                        raise ValueError(f"the set '{heading[3]}' is already the name of a set (of the query '{set_owners[heading[3].lower()]}')")
+                    set_owners[heading[3].lower()] = query_name
                 if i + 1 >= len(nodes) or nodes[i + 1].type != "fence":
                     raise ValueError(f"Query '{query_name}' needs its SQL in a fenced ```sql block right after its heading")
                 rows: list[dict] = []
@@ -143,6 +177,8 @@ def _attach_queries(repo: DataStore, queries: list[tuple[str, str, list[dict]]])
     readable: list = [t for schema in repo.schemas for t in schema.tables]
     for name, sql, rows in queries:
         where = f"Query '{name}'"
+        if any(r.name.lower() == name.lower() for r in readable):
+            raise ValueError(f"{where}: '{name}' is already the name of a table, or of a query before it")
         query, reads = parse_query_reads(sql, readable, where)
         columns = [Column(row["Column"].strip(), row.get("Type", "").strip(), primary_key=row.get("Key", "").strip().upper() == "PK",
                           nullable=_parse_nullable(row, row["Column"].strip()))
@@ -212,6 +248,14 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     # class_name → (property_mappings, cols_by_name) built as Table sections are processed.
     # Association sections use this to resolve joins without relying on ordering.
     class_context: dict[str, tuple] = {}
+    sections_of_class: dict[str, list[tuple[bool, RelationalClassMapping]]] = {}  # each class's Table and Query sections, in order
+    set_associations: dict[str, list[tuple[str | None, str | None, list[dict]]]] = {}  # each association's sections that name sets
+    queries_of_class: dict[str, list[tuple[str, str | None]]] = {}  # each class's queries, by name and set, before any of them is read
+    for node in nodes:
+        if node.type == "heading" and node.tag == "h4" and node.children and node.children[0].content.startswith("Query:"):
+            found = _section_heading(node.children[0].content[len("Query:"):], "Query")
+            if found and found[1]:
+                queries_of_class.setdefault(found[1], []).append((found[0], found[3]))
 
     i = 0
     while i < len(nodes):
@@ -245,12 +289,14 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
             elif level == "h4" and (text.startswith("Table:") or text.startswith("Query:")):
                 is_query = text.startswith("Query:")  # its SQL fence follows the heading, then the columns as a table has them
-                m = _TABLE_RE.match(text[len("Query:" if is_query else "Table:"):].strip())
-                if m is None:
+                heading = _section_heading(text[len("Query:" if is_query else "Table:"):], "Query" if is_query else "Table")
+                if heading is None:
                     i += 1
                     continue
-                table_name, class_name, scheme_name = m.group(1), m.group(2), m.group(3)
+                table_name, class_name, scheme_name, set_name = heading
 
+                if class_name is None and set_name:
+                    raise ValueError(f"Query '{table_name}': a set is a query that a class is mapped to: name the class, `→ Class (set: {set_name})`")
                 if class_name is None and is_query:
                     i += 2 + (1 if i + 2 < len(nodes) and nodes[i + 2].type == "table" else 0)  # heading, SQL, columns
                     continue
@@ -304,7 +350,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             continue
                         prop = all_props.get(prop_name)
                         if prop is None:
-                            prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name, repository)
+                            prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name or "", repository)
                         if prop is None:
                             nav = assoc_nav_lookup.get((cls.name, prop_name))
                             if nav is not None:
@@ -326,9 +372,10 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
                 milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository,
                                                               table_name=table_name, class_name=class_name)
-                class_mappings.append(
-                    RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping)
-                )
+                section = RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping)
+                section.id = set_name
+                sections_of_class.setdefault(cls.name, []).append((is_query, section))
+                class_mappings.append(section)
                 class_context[cls.name] = (property_mappings, cols_by_name, embedded_by_nav)
                 continue
 
@@ -337,6 +384,9 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 # ``Association: Name (embedded in Class.path)`` reads a property of an object embedded in Class's row
                 embedded_in = _EMBEDDED_IN_RE.search(heading)
                 assoc_name = heading[:embedded_in.start()].strip() if embedded_in else heading
+                source_set = target_set = None
+                if not embedded_in:
+                    assoc_name, source_set, target_set = _association_sets(heading)
                 i += 1
 
                 # Find the Association in the model to determine source class and nav property.
@@ -361,6 +411,18 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 pm_list, cols_by_name, embedded_by_nav = class_context.get(owner_cls_name, (None, {}, {}))
                 nav = assoc_nav_lookup.get((src_cls_name, nav_prop_id))
                 target_cls = classes_by_name.get(nav[0]) if nav else None
+
+                if source_set or target_set:
+                    # an association between classes that have sets: each section joins one pair of sets, and the pairs are put together below
+                    if i < len(nodes) and nodes[i].type == "table":
+                        set_associations.setdefault(assoc_name, []).append(
+                            (source_set, target_set, _parse_ast_table(nodes[i], _ASSOCIATION_HEADERS, _ASSOCIATION_OPTIONAL_HEADERS)))
+                        i += 1
+                    continue
+                for role, class_name in (("source", src_cls_name), ("target", nav[0] if nav else None)):
+                    if class_name is not None and len(queries_of_class.get(class_name, [])) > 1:
+                        raise ValueError(f"{class_name} has sets: the association {assoc_name} must say its {role} set: "
+                                         f"`#### Association: {assoc_name} ({role} set: name)`, once for each set it joins")
 
                 if pm_list is None:
                     raise ValueError(
@@ -412,7 +474,91 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
             _check_embedded_joins(nav_prop.id, embedded)
             pm_list.append(RelationalPropertyMapping(nav_prop, embedded))
 
-    return Mapping(title, class_mappings)
+    together = _put_sets_together(class_mappings, sections_of_class)
+    _join_the_sets(set_associations, together, packages, classes_by_name, assoc_nav_lookup)
+    return Mapping(title, together)
+
+
+def _put_sets_together(class_mappings: list[RelationalClassMapping],
+                       sections_of_class: dict[str, list[tuple[bool, RelationalClassMapping]]]) -> list[ClassMapping]:
+    """A class mapped to one table or one query is that class mapping. A class mapped to several queries is one class mapping, the union of them,
+    that keeps them as its sets; each must be named, so that what joins to it can say which set it means. A class is not mapped to a table
+    and to a query: there is no row of the one that is not a row of the other."""
+    merged_for: dict[int, RelationalClassMapping] = {}
+    for class_name, sections in sections_of_class.items():
+        queries = [section for is_query, section in sections if is_query]
+        if queries and len(queries) != len(sections):
+            raise ValueError(f"{class_name} is mapped to a table and to a query: a class is one or the other, or several queries that are its sets")
+        if len(sections) < 2:
+            continue
+        if any(section.id is None for section in queries):
+            raise ValueError(f"{class_name} is mapped to several queries: each needs a set, `#### Query: NAME → {class_name} (set: name)`")
+        if not queries:
+            continue  # several Table sections of a class: as it always was
+        union = union_of_sets(class_name, queries)
+        for section in queries:
+            merged_for[id(section)] = union
+    result: list[ClassMapping] = []
+    for mapping in class_mappings:
+        union = merged_for.get(id(mapping))
+        if union is None:
+            result.append(mapping)
+        elif union not in result:
+            result.append(union)
+    return result
+
+
+def _join_the_sets(set_associations: dict[str, list[tuple[str | None, str | None, list[dict]]]], mappings: list[ClassMapping], packages: list,
+                   classes_by_name: dict, assoc_nav_lookup: dict) -> None:
+    """The navigation property of each association whose sections name sets: a property mapping for each section, from its source set to its target set, with
+    a join of its own on the columns the section gives, as Legend maps ``x[y0, x0]`` and ``x[y1, x1]``. A pair that no section names does not join."""
+    by_class = {m.clazz.name: m for m in mappings if isinstance(m, RelationalClassMapping)}
+    for assoc_name, sections in set_associations.items():
+        assoc_def = next((c for pkg in packages for c in pkg.children if isinstance(c, Association) and c.name == assoc_name), None)
+        if assoc_def is None:
+            raise ValueError(f"Association '{assoc_name}': not found in the model")
+        nav = assoc_nav_lookup.get((assoc_def.source, assoc_def.source_property.id))
+        source, target = by_class.get(assoc_def.source), by_class.get(nav[0]) if nav else None
+        if source is None or target is None or nav is None:
+            raise ValueError(f"Association '{assoc_name}': its classes are not both mapped")
+        source_rel, target_rel = source.main_relation, target.main_relation
+        if not isinstance(source_rel, (Table, TableAlias)) or not isinstance(target_rel, (Table, TableAlias)):
+            raise ValueError(f"Association '{assoc_name}': its classes are not mapped to tables or queries")
+        prop = Property(assoc_def.source_property.name, assoc_def.source_property.id, classes_by_name[nav[0]], assoc_def.source_multiplicity)
+        pairs: list[tuple[str | None, str | None]] = []
+        for source_set, target_set, rows in sections:
+            for role, mapped, name in (("source", source, source_set), ("target", target, target_set)):
+                sets = {each.id: each for each in _sets_of(mapped)}
+                if sets and name is None:
+                    raise ValueError(f"{mapped.clazz.name} has sets: the association {assoc_name} must say its {role} set")
+                if not sets and name is not None:
+                    raise ValueError(f"{mapped.clazz.name} has no sets: '{name}' is not one")
+                if sets and name not in sets:
+                    raise ValueError(f"'{name}' is not a set of {mapped.clazz.name} ({', '.join(str(n) for n in sets)})")
+            if len(rows) != 1:
+                raise ValueError(f"Association '{assoc_name}': a section that names sets joins on one row, not {len(rows)}")
+            row = rows[0]
+            if (source_set, target_set) in pairs:
+                raise ValueError(f"the sets ({', '.join(n for n in (source_set, target_set) if n)}) of {assoc_name} are given twice")
+            pairs.append((source_set, target_set))
+            named = row.get("Target Table", "").strip()
+            expected = next((each.main_relation for each in _sets_of(target) if each.id == target_set), target_rel)
+            expected_name = getattr(expected, "name", "")
+            if named.lower() != expected_name.lower():
+                label = f"the target set '{target_set}' of {assoc_name} is the query {expected_name}" if target_set else f"the target of {assoc_name} is {expected_name}"
+                raise ValueError(f"{label}, not {named}")
+            keys = (row.get("Source Column", "").strip(), row.get("Target Column", "").strip())
+            lhs = next((c for c in source_rel.columns if isinstance(c, Column) and c.name.lower() == keys[0].lower()), None)
+            rhs = next((c for c in target_rel.columns if isinstance(c, Column) and c.name.lower() == keys[1].lower()), None)
+            if lhs is None or rhs is None:
+                raise ValueError(f"Association '{assoc_name}': the columns {keys} are not columns of {source_rel.name} and {target_rel.name}")
+            assert isinstance(source.property_mappings, list)
+            source.property_mappings.append(RelationalPropertyMapping(prop, Join(lhs, rhs), source_set_id=source_set, target_set_id=target_set))
+
+
+def _sets_of(mapping: ClassMapping) -> list:
+    """The sets a class mapping is the union of, or none if it is not a union."""
+    return list(mapping.sets) if isinstance(mapping, UnionMapping) else []
 
 
 def _association_hops(assoc_name: str, rows: list[dict], first_columns: dict, tables_by_name: dict) \
@@ -620,7 +766,7 @@ def _condition_columns(mapping: Mapping) -> set[tuple[str, str]]:
             for child in ((op.left, op.right) if isinstance(op, BinaryOperation) else (op.element,)):
                 walk(child)
 
-    for rcm in mapping.mappings:
+    for rcm in _sections(mapping):
         joins = [pm.target for pm in rcm.property_mappings if isinstance(pm.target, Join)]
         for pm in rcm.property_mappings:
             if isinstance(pm.target, EmbeddedSetMapping):
@@ -645,6 +791,22 @@ def _link_tables(rcm: RelationalClassMapping) -> list[Table]:
 
 _COLUMN_MAPPING_HEADERS = ["Column", "Type", "Key", "Nullable", "Property ID"]
 _EMBEDDED_IN_RE = re.compile(r'\(\s*embedded in\s+(\w+)\.([\w.]+)\s*\)\s*$')
+_SET_OPTIONS_RE = re.compile(r'^(.*?)\s*\(\s*((?:source|target) set\s*:.*)\)\s*$')
+
+
+def _association_sets(heading: str) -> "tuple[str, str | None, str | None]":
+    """The association's name and the source and target set that its heading names: ``FirmPerson (source set: big, target set: staff)``."""
+    m = _SET_OPTIONS_RE.match(heading)
+    if m is None:
+        return heading, None, None
+    options: dict[str, str] = {}
+    for part in m.group(2).split(","):
+        key, _, value = part.partition(":")
+        key, value = key.strip(), value.strip()
+        if key not in ("source set", "target set") or not value or key in options:
+            raise ValueError(f"Association '{m.group(1)}': the heading option '{key}' is not 'source set: name' or 'target set: name', each once")
+        options[key] = value
+    return m.group(1), options.get("source set"), options.get("target set")
 _ASSOCIATION_HEADERS = ["Source Column", "Target Table", "Target Column"]
 _ASSOCIATION_OPTIONAL_HEADERS = ["Condition"]
 _QUERIES = "(queries)"
@@ -858,6 +1020,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         lines.append(f"## Model: {mp}")
         lines.append("")
 
+    union_of = {id(each): rcm for rcm in mapping.mappings if isinstance(rcm, UnionMapping) for each in rcm.sets}  # a set's union, by the set
     # tables a join passes through that no class is mapped to, by (repo, schema) and name
     link_tables: dict = {}
     # Group by repo → schema, preserving insertion order
@@ -865,7 +1028,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
     repo_objs: dict = {}
     repo_schema_map: dict = {}
 
-    for rcm in mapping.mappings:
+    for rcm in _sections(mapping):
         if not isinstance(rcm, RelationalClassMapping):
             continue
         table = _primary_table(rcm)
@@ -893,7 +1056,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
     # a table a class is mapped to is written with that class, not as a table of its own
     for tables in link_tables.values():
         for name in [n for n, t in tables.items()
-                     if any(_primary_table(r) is t for r in mapping.mappings if isinstance(r, RelationalClassMapping))]:
+                     if any(_primary_table(r) is t for r in _sections(mapping) if isinstance(r, RelationalClassMapping))]:
             del tables[name]
 
     condition_columns = _condition_columns(mapping)
@@ -920,8 +1083,9 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                     continue
                 heading = f"#### {'Query' if query_of(table) else 'Table'}: {table.name} → {rcm.clazz.name}"
                 scheme_name = _milestone_scheme_name(rcm, repo)
-                if scheme_name:
-                    heading += f" (milestoning: {scheme_name})"
+                options = ([f"set: {rcm.id}"] if rcm.id else []) + ([f"milestoning: {scheme_name}"] if scheme_name else [])
+                if options:
+                    heading += f" ({', '.join(options)})"
                 lines.append(heading)
                 lines.append("")
                 if (query := query_of(table)) is not None:
@@ -950,7 +1114,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                         col_rows.extend(_flatten_embedded_rows(pm.target, pm.property.id))
                 written = {row[0] for row in col_rows}
                 for column in (c for c in table.columns if isinstance(c, Column)):
-                    if (table.qualified_name, column.name) in condition_columns and column.name not in written:
+                    if ((table.qualified_name, column.name) in condition_columns or query_of(table) is not None) and column.name not in written:
                         col_rows.append([column.name, column.type or "", "PK" if column.primary_key else "",
                                          _nullable_cell(column), ""])
                 lines.append(_md_table(_COLUMN_MAPPING_HEADERS, col_rows))
@@ -966,9 +1130,24 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                     [c.name, c.type or "", "PK" if c.primary_key else "", _nullable_cell(c), ""] for c in link.columns]))
                 lines.append("")
 
-            for rcm in rcms:
+            for section in rcms:
+                union = union_of.get(id(section))
+                if union is not None and section is not union.sets[0]:
+                    continue  # the associations of a class of sets are those of its union, written once
+                rcm = union or section
                 for pm in rcm.property_mappings:
-                    if isinstance(pm.target, Join):
+                    if isinstance(pm.target, Join) and (pm.source_set_id or pm.target_set_id):
+                        assert isinstance(pm.property.type, Class)
+                        assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
+                        target = next(r for r in mapping.mappings if isinstance(r, RelationalClassMapping) and r.clazz is pm.property.type)
+                        options = ", ".join(o for o in (f"source set: {pm.source_set_id}" if pm.source_set_id else "",
+                                                        f"target set: {pm.target_set_id}" if pm.target_set_id else "") if o)
+                        relation = next((each.main_relation for each in _sets_of(target) if each.id == pm.target_set_id), target.main_relation)
+                        named = relation.name if relation is not None else ""
+                        lines += [f"#### Association: {assoc_name} ({options})", "",
+                                  _md_table(["Source Column", "Target Table", "Target Column"], [[pm.target.lhs.name, named, pm.target.rhs.name]]), ""]
+                    elif isinstance(pm.target, Join):
+                        assert isinstance(pm.property.type, Class)
                         assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
                         lines.append(f"#### Association: {assoc_name}")
                         lines.append("")
@@ -1013,6 +1192,11 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
             lines.append("")
 
     return "\n".join(lines)
+
+
+def _sections(mapping: Mapping) -> list:
+    """The class mappings as they are written: a class mapped to sets is its sets, each a section of its own, and not the union of them."""
+    return [each for rcm in mapping.mappings for each in (rcm.sets if isinstance(rcm, UnionMapping) else [rcm])]
 
 
 def _primary_table(rcm: RelationalClassMapping) -> Optional[Table | TableAlias]:
