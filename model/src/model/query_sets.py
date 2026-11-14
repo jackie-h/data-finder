@@ -14,7 +14,7 @@ from model.relational import (
     Alias, Column, ComparisonOperation, ComparisonOperator, JoinKind, LogicalOperation, LogicalOperator, Operation, QuerySpecification,
     StringConstantOperation, Table, TableAlias, UnionOperation,
 )
-from model.mapping import PropertyMapping
+from model.mapping import ClassMapping, PropertyMapping
 from model.relational_mapping import Join, RelationalClassMapping, RelationalPropertyMapping, RelationalUnionMapping
 
 SET_COLUMN = "_set"
@@ -159,7 +159,7 @@ def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> Re
     check_sets(class_name, sets)
     alias = union_alias(f"{class_name.upper()}_SETS", [(_alias(each), each.id or "") for each in sets], f"{class_name}")
     by_name = {c.name: c for c in alias.columns if isinstance(c, Column)}
-    mappings = [RelationalPropertyMapping(pm.property, by_name[pm.target.name]) for pm in sets[0].property_mappings
+    mappings = [RelationalPropertyMapping(pm.property, by_name[pm.target.name], class_name) for pm in sets[0].property_mappings
                 if isinstance(pm.target, Column)]
     return RelationalUnionMapping(sets[0].clazz, list(sets), mappings, milestone_mapping=sets[0].milestone_mapping)
 
@@ -185,21 +185,26 @@ def set_pair_condition(join: Join, source_set_id: str | None, target_set_id: str
     return condition
 
 
-def merge_set_navigations(class_name: str, property_mappings: Sequence[PropertyMapping]) -> list[PropertyMapping]:
+def merge_set_navigations(class_mapping: ClassMapping) -> list[PropertyMapping]:
     """The property mappings with those of one navigation between sets made one, as the finder reads a navigation: a property mapped from one pair of sets to
     another for each pair (Legend's ``x[y0, x0]``, ``x[y1, x1]``) is one join, that holds for a row of the source and a row of the target if their sets
     are one of the pairs. The finder joins on one pair of key columns, so the pairs must all join on the same ones; a property mapped between no sets
     is as it was."""
+    class_name, property_mappings = class_mapping.clazz.name, class_mapping.property_mappings
+
+    def between_sets(pm: PropertyMapping) -> bool:
+        return pm.source_set_id != class_mapping.id or pm.target_set_id is not None  # from a set of this class, or to a set of another
+
     merged: list[PropertyMapping] = []
     done: set[str] = set()
     for pm in property_mappings:
-        if not (pm.source_set_id or pm.target_set_id):
+        if not between_sets(pm):
             merged.append(pm)
             continue
         if pm.property.id in done:
             continue
         done.add(pm.property.id)
-        pairs = [other for other in property_mappings if other.property is pm.property and (other.source_set_id or other.target_set_id)]
+        pairs = [other for other in property_mappings if other.property is pm.property and between_sets(other)]
         joins = [other.target for other in pairs]
         assert all(isinstance(j, Join) for j in joins)
         first = joins[0]
@@ -209,8 +214,9 @@ def merge_set_navigations(class_name: str, property_mappings: Sequence[PropertyM
                              f"the finder joins on one pair of columns, and then on the sets of the pairs")
         condition: Operation | None = None
         for other in pairs:
-            term = set_pair_condition(other.target, other.source_set_id, other.target_set_id)
+            source_set = other.source_set_id if other.source_set_id != class_mapping.id else None  # the class mapping itself is not a set
+            term = set_pair_condition(other.target, source_set, other.target_set_id)
             assert term is not None  # a pair has a set
             condition = term if condition is None else LogicalOperation(condition, LogicalOperator.OR, term)
-        merged.append(RelationalPropertyMapping(pm.property, Join(first.lhs, first.rhs, conditions=[condition], condition_texts=[None])))
+        merged.append(RelationalPropertyMapping(pm.property, Join(first.lhs, first.rhs, conditions=[condition], condition_texts=[None]), class_mapping.id))
     return merged

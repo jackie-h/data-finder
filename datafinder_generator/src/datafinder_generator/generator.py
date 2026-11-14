@@ -71,7 +71,7 @@ class _ClassView:
         self.clazz = rcm.clazz
         self.milestone_mapping = rcm.milestone_mapping
         # a navigation between sets is mapped for each pair of them, and is one join to the finder
-        self.property_mappings = [pm for pm in merge_set_navigations(rcm.clazz.name, rcm.property_mappings) if not isinstance(pm.target, EmbeddedSetMapping)]
+        self.property_mappings = [pm for pm in merge_set_navigations(rcm) if not isinstance(pm.target, EmbeddedSetMapping)]
         self.embedded_mappings = [pm for pm in rcm.property_mappings if isinstance(pm.target, EmbeddedSetMapping)]
         self.main_relation = rcm.main_relation
 
@@ -357,7 +357,7 @@ def _build_reverse_assoc_map(mapping: Mapping, assoc_lookup: dict) -> dict:
     """Return target_class_name -> list of (source_rcm, rpm, assoc, reverse_name)."""
     reverse_map: dict = {}
     for rcm in mapping.mappings:
-        for rpm in merge_set_navigations(rcm.clazz.name, rcm.property_mappings):
+        for rpm in merge_set_navigations(rcm):
             if is_primitive(rpm.property) or not isinstance(rpm.target, Join) or rpm.target.via:
                 continue
             target_cls = rpm.property.type

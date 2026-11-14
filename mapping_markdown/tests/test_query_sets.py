@@ -81,7 +81,7 @@ def _firm(mapping) -> RelationalUnionMapping:
 def test_the_sets_of_a_class_are_one_class_mapping_that_keeps_its_sets(tmp_path):
     firm = _firm(load(str(_mapping(tmp_path))))
     assert [s.id for s in firm.sets] == ["big", "small"]
-    assert firm.id is None
+    assert firm.id == "Firm"  # the union has the id of its class, and its sets their own
     assert [s.main_relation.name for s in firm.sets] == ["BIG", "SMALL"]  # type: ignore[union-attr]
 
 
@@ -285,7 +285,7 @@ def test_the_pairs_of_one_navigation_are_merged_for_the_finder_into_one_join_on_
     from model.relational import ComparisonOperation, LogicalOperation, LogicalOperator
     text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF_Q") + \
         _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS_Q")
-    merged = [pm for pm in merge_set_navigations("Firm", _firm(load(str(_mapping(tmp_path, text)))).property_mappings) if pm.property.id == "employees"]
+    merged = [pm for pm in merge_set_navigations(_firm(load(str(_mapping(tmp_path, text))))) if pm.property.id == "employees"]
     assert len(merged) == 1
     condition = merged[0].target.condition  # type: ignore[attr-defined]
     assert isinstance(condition, LogicalOperation) and condition.operator == LogicalOperator.OR
@@ -301,7 +301,7 @@ def test_pairs_that_join_on_different_columns_are_read_but_the_finder_joins_on_o
     firm = _firm(load(str(_mapping(tmp_path, text))))
     assert len(_employees(load(str(_mapping(tmp_path, text))))) == 2
     with pytest.raises(ValueError, match="the pairs of sets of the navigation employees of Firm join on different columns"):
-        merge_set_navigations("Firm", firm.property_mappings)
+        merge_set_navigations(firm)
 
 
 @pytest.mark.parametrize("assoc,message", [
@@ -354,3 +354,15 @@ def test_the_sets_must_have_the_same_milestoning(tmp_path):
     text.write_text(text.read_text().replace("### Schema: org", scheme + "### Schema: org", 1))
     with pytest.raises(ValueError, match="the sets 'big' and 'small' of Firm have different milestoning"):
         load(str(text))
+
+
+def test_a_property_mapping_starts_from_the_id_of_what_holds_it(tmp_path):
+    firm = _firm(load(str(_mapping(tmp_path))))
+    assert {pm.source_set_id for pm in firm.property_mappings} == {"Firm"}  # the union's own, on the columns of the union
+    assert [{pm.source_set_id for pm in each.property_mappings} for each in firm.sets] == [{"big"}, {"small"}]
+
+
+def test_a_set_cannot_have_the_id_of_another_class_mapping(tmp_path):
+    people = _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person")
+    with pytest.raises(ValueError, match="the id 'Person' is the id of more than one class mapping"):
+        load(str(_mapping(tmp_path, _query("BIG", " (set: Person)") + _query("SMALL", " (set: small)", "SELECT id, name FROM small_firms") + people)))
