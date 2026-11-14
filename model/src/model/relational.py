@@ -1730,6 +1730,9 @@ class TableAlias(NamedRelation):
         # for a query that classes are mapped to: the SQL it was read from, the relations of the data store it reads, and how its
         # rows are milestoned: the scheme that is named, and the columns of the query that scheme makes
         self.sql: str | None = None
+        # for the union of the sets of a class: the query of each set, and the name of that set, in the order they are put together
+        self.sets: list[TableAlias] = []
+        self.set_names: list[str] = []
         self.reads: list[NamedRelation] = []
         self.milestoning_scheme: 'MilestoningScheme | None' = None
         self.milestoning_columns: 'MilestoningColumns | None' = None
@@ -1748,7 +1751,7 @@ class TableAlias(NamedRelation):
 
 def query_of(relation: 'Relation | None') -> 'TableAlias | None':
     """The relation as a query that a class is mapped to, or nothing if it is not one: a table, or an alias of one."""
-    return relation if isinstance(relation, TableAlias) and relation.sql else None
+    return relation if isinstance(relation, TableAlias) and (relation.sql or relation.sets) else None
 
 
 def tables_read_by(relation: 'Relation | None') -> 'list[Table]':

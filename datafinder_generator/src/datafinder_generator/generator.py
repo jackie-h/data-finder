@@ -243,6 +243,8 @@ def _queries_of(mapping) -> list[TableAlias]:
     def add(alias: TableAlias) -> None:
         if any(alias is f for f in found):
             return
+        for each in alias.sets:
+            add(each)
         for read in alias.reads:
             if (read_query := query_of(read)) is not None:
                 add(read_query)
@@ -260,6 +262,11 @@ def query_definitions(mapping) -> str:
     write it into a query. A query is built from its SQL where it is used, and not kept anywhere else."""
     lines = []
     for alias in _queries_of(mapping):
+        if alias.sets:
+            sets = ", ".join(f"({_query_constant(each)}, {name!r})" for each, name in zip(alias.sets, alias.set_names))
+            milestoning = f", milestoning=lambda c: {_scheme_columns_code(alias, 'c')}" if alias.milestoning_scheme else ""
+            lines.append(f"{_query_constant(alias)} = derived_union('{alias.name}', [{sets}], \"Sets '{alias.name}'\"{milestoning})")
+            continue
         reads = ", ".join(table_code(t) for t in alias.reads)
         columns = ", ".join(f"Column('{c.name}', '{c.type}'{', primary_key=True' if c.primary_key else ''}"
                             f"{'' if c.nullable or c.primary_key else ', nullable=False'})"

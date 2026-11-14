@@ -126,25 +126,35 @@ def _join_is_to_a_key(where: str, join) -> None:
                          f"and then repeat")
 
 
-def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> RelationalClassMapping:
-    """The class mapping that is the union of its sets: one query, with each row marked by the set it came from, and the same property mappings,
-    on the columns of the union."""
-    check_sets(class_name, sets)
+def union_alias(name: str, sets: Sequence[tuple[TableAlias, str]], where: str) -> TableAlias:
+    """The queries of the sets put together, each with its name, as one query under ``name``: ``UNION ALL`` (a row of one set is never dropped because a
+    row of another looks the same), with a column ``_set`` that says which set each row is of. The columns are those of the first set."""
     branches = []
-    for each in sets:
-        spec = copy.copy(_alias(each).relation)
-        assert isinstance(spec, QuerySpecification)
-        spec.columns = [*spec.columns, Alias(StringConstantOperation(each.set_name or ""), SET_COLUMN)]
+    for each, set_name in sets:
+        spec = copy.copy(each.relation)
+        if not isinstance(spec, QuerySpecification):
+            raise ValueError(f"{where}: the set '{set_name}' is not a single SELECT")
+        spec.columns = [*spec.columns, Alias(StringConstantOperation(set_name), SET_COLUMN)]
         branches.append(spec)
     union = branches[0]
     for branch in branches[1:]:
         union = UnionOperation(union, branch, all=True)
-    first = _alias(sets[0])
-    columns = [Column(c.name, c.type, primary_key=c.primary_key, nullable=c.nullable) for c in _columns(sets[0])] + [Column(SET_COLUMN, "VARCHAR")]
-    name = f"{class_name.upper()}_SETS"
+    first = sets[0][0]
+    columns = [Column(c.name, c.type, primary_key=c.primary_key, nullable=c.nullable) for c in first.columns if isinstance(c, Column)] \
+        + [Column(SET_COLUMN, "VARCHAR")]
     alias = TableAlias(union, name, columns)
-    alias.reads = [r for each in sets for r in _alias(each).reads]
+    alias.sets = [each for each, _ in sets]
+    alias.set_names = [set_name for _, set_name in sets]
+    alias.reads = [r for each, _ in sets for r in each.reads]
     alias.milestoning_scheme = first.milestoning_scheme
+    return alias
+
+
+def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> RelationalClassMapping:
+    """The class mapping that is the union of its sets: one query, with each row marked by the set it came from, and the same property mappings,
+    on the columns of the union."""
+    check_sets(class_name, sets)
+    alias = union_alias(f"{class_name.upper()}_SETS", [(_alias(each), each.set_name or "") for each in sets], f"{class_name}")
     by_name = {c.name: c for c in alias.columns if isinstance(c, Column)}
     mappings = [RelationalPropertyMapping(pm.property, by_name[pm.target.name]) for pm in sets[0].property_mappings
                 if isinstance(pm.target, Column)]
