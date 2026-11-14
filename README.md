@@ -394,7 +394,7 @@ The config names the markdown to export (`dir` is a folder relative to the confi
 { "dir": ".", "models": ["finance.md", "finance_trade.md"], "mappings": ["finance_mapping.md"] }
 ```
 
-`models` lists each model's packages, classes (own properties with type, multiplicity, key and description, and superclasses) and associations (both ends: the source property, the target property, which is `null` for a one-way association, and the multiplicity of each). `mappings` lists the data store, schemas, tables with the class each is mapped to, columns with the property each is mapped to, and the joins between tables with their association and multiplicities. Models that a mapping references are exported too.
+`models` lists each model's packages, classes (own properties with type, multiplicity, key and description, and superclasses) and associations (both ends: the source property, the target property, which is `null` for a one-way association, and the multiplicity of each). `mappings` lists the data store with its milestoning schemes, schemas, tables with the class each is mapped to, columns with the property each is mapped to, the queries classes are mapped to, and the joins between tables with their association and multiplicities. Each row of a join has its `condition`, as it was written in the `Condition` column (`firms.flag IS NULL AND persons.flag IS NOT NULL`, with `{target}` for the joined side of a table joined to itself), or `null` for a row of only keys. Models that a mapping references are exported too.
 
 ---
 

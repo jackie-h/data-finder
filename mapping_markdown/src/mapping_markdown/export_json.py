@@ -11,7 +11,7 @@ ignored (the ER diagram viewer in data-finder-ts shares its config with this).
 The JSON is plain data about the model and the mapping: ``models`` (packages, classes with their own properties, multiplicities, keys,
 docs and superclasses, and associations) and ``mappings`` (data store, schemas, tables with the class each is mapped to, columns with
 the property each is mapped to, the queries classes are mapped to, written as SQL, with their columns, and the joins between tables and
-queries with their association and multiplicities).
+queries with their association and multiplicities, and the condition of each row of a join, as it was written, or null for a row of only keys).
 
 A query is a relation of the data store that is in no schema, so a mapping has ``queries`` beside its ``schemas``: each has its ``name``, the
 ``class`` mapped to it, the ``sql`` it is written as, the relations it ``reads`` (a table by schema and name, or another query by name), the
@@ -25,7 +25,7 @@ import os
 from typing import Any
 
 from model.m3 import Association, Class, PrimitiveType, TaggedValue
-from model.relational import Column, Table, TableAlias, query_of
+from model.relational import Column, MilestoningScheme, Table, TableAlias, query_of
 from model.relational_mapping import EmbeddedSetMapping, Join
 from model_markdown import markdown_model
 
@@ -128,10 +128,25 @@ def _query_entry(query: TableAlias, class_name: str | None, column_property: dic
     }
 
 
+def _milestoning_scheme(scheme: MilestoningScheme) -> dict[str, Any]:
+    """A milestoning scheme as it is written in the DataStore section: the columns that hold each axis, and what an open end holds."""
+    return {
+        "name": scheme.name,
+        "processingStart": scheme.processing_start,
+        "processingEnd": scheme.processing_end,
+        "processingDatetime": scheme.processing_datetime,
+        "processingInfiniteDatetime": scheme.processing_infinite_datetime,
+        "businessDate": scheme.business_date,
+        "businessDateFrom": scheme.business_date_from,
+        "businessDateTo": scheme.business_date_to,
+        "businessInfiniteDatetime": scheme.business_infinite_datetime,
+    }
+
+
 def _join_entry(assoc: Association | None, source_class: str, join: Join) -> dict[str, Any]:
     """A join as the viewer reads it: one row for each table the join passes through, then the one it ends at."""
     rows = []
-    for lhs, rhs in join.via + [(join.lhs, join.rhs)]:
+    for (lhs, rhs), condition in zip(join.via + [(join.lhs, join.rhs)], join.condition_texts):
         (src_schema, src_table, src_column), (tgt_schema, tgt_table, tgt_column) = _located(lhs), _located(rhs)
         rows.append({
             "sourceSchema": src_schema,
@@ -142,6 +157,7 @@ def _join_entry(assoc: Association | None, source_class: str, join: Join) -> dic
             "targetColumn": tgt_column,
             "sourceIsQuery": src_schema is None,
             "targetIsQuery": tgt_schema is None,
+            "condition": condition,
         })
     return {
         "name": assoc.name if assoc else None,
@@ -195,12 +211,14 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
         "file": name,
         "title": mapping.name,
         "models": model_names,
-        "dataStore": {"name": datastore.name, "type": type(datastore).__name__},
+        "dataStore": {"name": datastore.name, "type": type(datastore).__name__,
+                      "milestoningSchemes": [_milestoning_scheme(m) for m in datastore.milestoning_schemes]},
         "schemas": [{
             "name": schema.name,
             "tables": [{
                 "name": table.name,
                 "class": table_class.get(id(table)),
+                "milestoning": table.milestoning_scheme.name if table.milestoning_scheme is not None else None,
                 "columns": [{
                     "name": c.name,
                     "type": c.type,
