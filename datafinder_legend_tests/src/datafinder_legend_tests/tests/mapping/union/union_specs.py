@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, UNION_WITH_KEY_COLUMNS, ported, unsupported
 
 _SRC = "tests/mapping/union/testUnion.pure"
 
@@ -15,9 +15,6 @@ UNION_SPECS = FinderSpec(
     finder_name="PersonFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testSimpleQueryFromWithFilterInMapping", f"{_SRC}::testSimpleQueryFromWithFilterInMapping",
-                    'select "unionBase"."PersonSet1lastName_s1_PersonSet2lastName_s2" as "Lastname" from (select "root".ID as "pk_0_0", null as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet2lastName_s2" from PersonSet1 as "root" where "root".FirmID = 1 union all select null as "pk_0_0", "root".ID as "pk_0_1", "root".lastName_s2 as "PersonSet1lastName_s1_PersonSet2lastName_s2" from PersonSet2 as "root" where "root".FirmID = 1) as "unionBase"',
-                    'union class mappings (Operation_SetImplementation)'),
         unsupported("testUnionToUnionJoinSequenceWithMultipleChildrenInUnionSourceTree", f"{_SRC}::testUnionToUnionJoinSequenceWithMultipleChildrenInUnionSourceTree",
                     'select "unionalias_1"."FirmSet1name_FirmSet2name" as "name" from PersonSet1 as "root" left outer join (select "root".ID as ID_0, null as ID_1, "root".name as "FirmSet1name_FirmSet2name" from FirmSet1 as "root" union all select null as ID_0, "root".ID as ID_1, "root".name as "FirmSet1name_FirmSet2name" from FirmSet2 as "root") as "unionalias_0" on ("root".FirmID = "unionalias_0".ID_0 or "root".FirmID = "unionalias_0".ID_1) left outer join PersonAdditional as "personadditional_0" on ("root".ID = "personadditional_0".ID) left outer join (select "root".ID as ID_0, null as ID_1, "root".ID as "pk_0_0", null as "pk_0_1", "root".name as "FirmSet1name_FirmSet2name" from FirmSet1 as "root" union all select null as ID_0, "root".ID as ID_1, null as "pk_0_0", "root".ID as "pk_0_1", "root".name as "FirmSet1name_FirmSet2name" from FirmSet2 as "root") as "unionalias_1" on ("root".FirmID = "unionalias_1".ID_0 or "root".FirmID = "unionalias_1".ID_1) where "unionalias_0"."FirmSet1name_FirmSet2name" is not distinct from "personadditional_0".extrainfo',
                     'union class mappings (Operation_SetImplementation)'),
@@ -42,5 +39,17 @@ UNION_SPECS = FinderSpec(
         unsupported("testUnionWithSinglePropertyMapping", f"{_SRC}::testUnionWithSinglePropertyMapping",
                     'select "unionBase"."PersonSet1lastName_s1_PersonSet1lastName_s1" as "name", "firm_0".name as "firmName" from (select "root".ID as "pk_0_0", null as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet1lastName_s1", "root".FirmID as FirmID_0, null as FirmID_1 from PersonSet1 as "root" union all select null as "pk_0_0", "root".ID as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet1lastName_s1", null as FirmID_0, "root".FirmID as FirmID_1 from PersonSet1 as "root") as "unionBase" left outer join Firm as "firm_0" on ("unionBase".FirmID_0 = "firm_0".ID or "unionBase".FirmID_1 = "firm_0".ID)',
                     'union class mappings (Operation_SetImplementation)'),
+    ],
+)
+
+
+UNION_FILTER_SPECS = FinderSpec(
+    finder_name="PersonFinder",
+    mapping_file="tests/mapping/union/union_filter_mapping.md",
+    expectations=[
+        ported("testSimpleQueryFromWithFilterInMapping", f"{_SRC}::testSimpleQueryFromWithFilterInMapping",
+               'select "unionBase"."PersonSet1lastName_s1_PersonSet2lastName_s2" as "Lastname" from (select "root".ID as "pk_0_0", null as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet2lastName_s2" from PersonSet1 as "root" where "root".FirmID = 1 union all select null as "pk_0_0", "root".ID as "pk_0_1", "root".lastName_s2 as "PersonSet1lastName_s1_PersonSet2lastName_s2" from PersonSet2 as "root" where "root".FirmID = 1) as "unionBase"',
+               lambda f: f.find_all([f.last_name().alias("Lastname")]),
+               known_gaps={BACKEND: UNION_WITH_KEY_COLUMNS}),
     ],
 )
