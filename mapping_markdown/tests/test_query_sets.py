@@ -268,28 +268,40 @@ def _assoc(options, source_column="id", target="people", target_column="firm_id"
 
 
 def _employees(mapping):
-    return next(pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees")
+    """The property mappings of Firm.employees: one for each pair of sets, as Legend has them."""
+    return [pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees"]
 
 
-def test_an_association_from_a_class_of_sets_names_the_sets_it_joins_and_the_join_is_on_them(tmp_path):
-    from model.relational import ComparisonOperation, LogicalOperation
-    mapping = load(str(_mapping(tmp_path, _DEFAULT + _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person") + _assoc(" (source set: big)"))))
-    pm = _employees(mapping)
-    join = pm.target
-    assert pm.set_pairs == [("big", None)]
-    condition = join.condition  # type: ignore[attr-defined]
-    assert isinstance(condition, ComparisonOperation) and condition.left.name == "_set" and condition.right.value == "big"  # type: ignore[attr-defined]
-    assert not isinstance(condition, LogicalOperation)
+def test_an_association_from_a_class_of_sets_is_a_property_mapping_for_each_pair_of_sets_and_each_has_its_own_plain_join(tmp_path):
+    mapping = load(str(_mapping(tmp_path, _DEFAULT + _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person") + _assoc(" (source set: big)")
+                                + _assoc(" (source set: small)"))))
+    big, small = _employees(mapping)
+    assert [(pm.source_set_id, pm.target_set_id) for pm in (big, small)] == [("big", None), ("small", None)]
+    assert big.target is not small.target and big.target.condition is None and small.target.condition is None  # type: ignore[attr-defined]
 
 
-def test_an_association_between_classes_of_sets_pairs_the_sets_and_nothing_else(tmp_path):
-    from model.relational import LogicalOperation, LogicalOperator
+def test_the_pairs_of_one_navigation_are_merged_for_the_finder_into_one_join_on_the_sets_of_the_pairs(tmp_path):
+    from model.query_sets import merge_set_navigations
+    from model.relational import ComparisonOperation, LogicalOperation, LogicalOperator
     text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF_Q") + \
         _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS_Q")
-    pm = _employees(load(str(_mapping(tmp_path, text))))
-    join = pm.target
-    assert pm.set_pairs == [("big", "staff"), ("small", "contractors")]
-    assert isinstance(join.condition, LogicalOperation) and join.condition.operator == LogicalOperator.OR  # type: ignore[attr-defined]
+    merged = [pm for pm in merge_set_navigations(_firm(load(str(_mapping(tmp_path, text)))).property_mappings) if pm.property.id == "employees"]
+    assert len(merged) == 1
+    condition = merged[0].target.condition  # type: ignore[attr-defined]
+    assert isinstance(condition, LogicalOperation) and condition.operator == LogicalOperator.OR
+    first = condition.left
+    assert isinstance(first, LogicalOperation) and first.operator == LogicalOperator.AND
+    assert isinstance(first.left, ComparisonOperation) and first.left.right.value == "big"  # type: ignore[attr-defined]
+
+
+def test_pairs_that_join_on_different_columns_are_read_but_the_finder_joins_on_one_pair_of_columns(tmp_path):
+    from model.query_sets import merge_set_navigations
+    text = _DEFAULT + _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person") + _assoc(" (source set: big)") \
+        + _assoc(" (source set: small)", source_column="name")
+    firm = _firm(load(str(_mapping(tmp_path, text))))
+    assert len(_employees(load(str(_mapping(tmp_path, text))))) == 2
+    with pytest.raises(ValueError, match="the pairs of sets of the navigation employees of Firm join on different columns"):
+        merge_set_navigations(firm.property_mappings)
 
 
 @pytest.mark.parametrize("assoc,message", [
@@ -297,7 +309,6 @@ def test_an_association_between_classes_of_sets_pairs_the_sets_and_nothing_else(
     (_assoc(" (source set: nope)"), "'nope' is not a set of Firm"),
     (_assoc(" (source set: big, target set: staff)"), "Person has no sets: 'staff' is not one"),
     (_assoc(" (source set: big)") + _assoc(" (source set: big)"), r"the sets \(big\) of FirmPerson are given twice"),
-    (_assoc(" (source set: big)") + _assoc(" (source set: small)", source_column="name"), "the sections of FirmPerson join on different columns"),
     (_assoc(" (target set: big)"), "Firm has sets: the association FirmPerson must say its source set"),
 ])
 def test_an_association_of_sets_is_refused_unless_it_names_real_sets_once_each(tmp_path, assoc, message):
@@ -327,7 +338,7 @@ def test_the_sets_of_an_association_survive_writing(tmp_path):
     written = path.read_text()
     assert "#### Association: FirmPerson (source set: big, target set: staff)" in written
     assert "#### Association: FirmPerson (source set: small, target set: contractors)" in written
-    assert _employees(load(str(path))).set_pairs == [("big", "staff"), ("small", "contractors")]
+    assert [(pm.source_set_id, pm.target_set_id) for pm in _employees(load(str(path)))] == [("big", "staff"), ("small", "contractors")]
 
 
 def test_the_sets_must_have_the_same_milestoning(tmp_path):
