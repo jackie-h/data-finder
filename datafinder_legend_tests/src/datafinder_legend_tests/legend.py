@@ -67,6 +67,12 @@ UNION_WITH_KEY_COLUMNS = (
     "the two sets stay apart; the query of a union selects only the columns it gives, which are the same rows"
 )
 
+UNION_SETS_BY_NUMBER = (
+    "Legend selects each set's key and milestoning columns, padded with null for the other sets, and joins each pair of sets through "
+    "its own join and link tables; the finder gives each row the number of the set it came from and joins the unions on a condition "
+    "on those numbers, so its SQL has no padding and no link tables. The rows are the same"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"
