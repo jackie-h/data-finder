@@ -16,6 +16,21 @@ from datafinder_legend_tests.results import assert_same_rows
 
 # mapping -> the data it runs on
 _VARIANTS = {
+    "tests/mapping/union/union_chained_2sets_v1_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_2sets_v2_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_2sets_v3_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_2sets_v4_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_2sets_v5_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_3sets_v1_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_3sets_v2_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_3sets_v3_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_3sets_v4_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_3sets_v5_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_4sets_v1_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_4sets_v2_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_4sets_v3_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_4sets_v4_mapping.md": "tests/mapping/union/union_chained_data.sql",
+    "tests/mapping/union/union_chained_4sets_v5_mapping.md": "tests/mapping/union/union_chained_data.sql",
     "tests/mapping/union/union_filter_mapping.md": "tests/mapping/union/union_data.sql",
     "tds/tests/tds_join_filter_mapping.md": "tests/simple_data.sql",
     "tds/tests/tds_join_mapping.md": "tests/simple_data.sql",
