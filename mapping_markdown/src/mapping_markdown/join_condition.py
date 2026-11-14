@@ -5,7 +5,7 @@
 It is read into the same condition objects a query is made of, so the generated finders put it into the ``ON`` of the join
 beside its key columns. Columns are written ``table.column`` (or ``schema.table.column``) and say which side they are on by
 their table, so the condition reads the same from either end of the join. When a table is joined to itself its name is
-both sides, so the joined side is written ``{target}``, as Legend writes it: ``personTable.MANAGERID = {target}.ID``. Comparisons, ``IS [NOT] NULL``, ``AND``, ``OR``,
+both sides, so the joined side is written ``{target}``: ``personTable.MANAGERID = {target}.ID``. Comparisons, ``IS [NOT] NULL``, ``AND``, ``OR``,
 ``NOT``, parentheses and string and number literals are read; a function, or anything else, is refused."""
 from __future__ import annotations
 

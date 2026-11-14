@@ -23,7 +23,7 @@ class Attribute(RelationalOperationElement, Aliasable):
         generator decides at query-build time whether to use it (see sql_generator elision).
 
         ``nullable`` is whether the column can hold NULL, and ``optional`` is whether the property can be missing (its
-        multiplicity starts at 0, or a navigation to it does). They are not the same fact, and Legend uses each for
+        multiplicity starts at 0, or a navigation to it does). They are not the same fact, and each is used for
         something different: ``is_not_in`` matches NULL rows when the column is nullable, even for a required property,
         and an ordering or pattern comparison is guarded with IS NOT NULL when the property is optional, even over a
         column that is NOT NULL.

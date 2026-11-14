@@ -54,7 +54,7 @@ def _price_as_a_multiple(f):
 
 
 def _totals_per_account(f):
-    """The rows of a relation grouped by one of its columns, and an aggregate of each group: Legend's groupBy."""
+    """The rows of a relation grouped by one of its columns, and an aggregate of each group."""
     totals = _trades(f).group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum(), trades=lambda r: r.price.count())
     return totals.order_by(totals["account"].ascending())
 

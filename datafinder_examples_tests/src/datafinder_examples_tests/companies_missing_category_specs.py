@@ -1,9 +1,9 @@
 """
 Test specifications for a value that can be missing, using companies_mapping.md.
 
-Uses a dataset in which two companies have no category, which Company.category (multiplicity 0..1) allows. As in
-Legend, a missing value is different from any value, so ``!=`` against a value matches it, and ``==``
-does not. Legend writes the ``OR IS NULL`` for any column, a required property and a primary key included.
+Uses a dataset in which two companies have no category, which Company.category (multiplicity 0..1) allows. A
+missing value is different from any value, so ``!=`` against a value matches it, and ``==``
+does not. The ``OR IS NULL`` is written for any column, a required property and a primary key included.
 
     companies — id INT, name VARCHAR, category VARCHAR (NULL for ids 2 and 4)
 """

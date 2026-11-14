@@ -79,7 +79,7 @@ class BiTemporalColumns(BusinessDateRangeColumns, ProcessingTemporalColumns):
     def __init__(self, business_date_from_column: Column, business_date_to_column: Column,
                  start_at_column: Column, end_at_column: Column, processing_infinite_datetime: str | None = None,
                  business_infinite_datetime: str | None = None):
-        """Each axis has its own infinity: a Legend table can end one in a datetime and the other in a date, or one in
+        """Each axis has its own infinity: a table can end one in a datetime and the other in a date, or one in
         an infinity and the other in NULL (``None``)."""
         BusinessDateRangeColumns.__init__(self, business_date_from_column, business_date_to_column,
                                           business_infinite_datetime)

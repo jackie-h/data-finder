@@ -1,4 +1,4 @@
-"""join: the rows of two results put together, as Legend's join and as pandas, polars and ibis have it: a condition that is a function
+"""join: the rows of two results put together, as pandas, polars and ibis have it: a condition that is a function
 of a row of each, and the kind of join as ``how``."""
 import pytest
 
@@ -28,12 +28,12 @@ def _from(sql: str) -> str:
 def test_a_join_is_written_as_the_join_of_the_two_queries(how, word):
     trades, accounts = _results()
     sql = trades.join(accounts, lambda t, a: t.account == a.id, how=how).to_sql()
-    # the join is a query of its own, which the result reads from, as Legend wraps a joined relation
+    # the join is a query of its own, which the result reads from
     assert sql.startswith('SELECT t0.account AS "account",t0.sym AS "sym",t0.price AS "price",t0.id AS "id",t0.name AS "name" FROM (SELECT t1.account AS "account",')
     assert f") AS t1 {word} (SELECT " in sql and sql.endswith(") AS t2 ON (t1.account = t2.id)) AS t0")
 
 
-def test_how_is_required_as_legends_join_has_no_default_kind():
+def test_how_is_required_as_a_join_has_no_default_kind():
     trades, accounts = _results()
     with pytest.raises(TypeError, match="how"):
         trades.join(accounts, lambda t, a: t.account == a.id)  # type: ignore[call-arg]

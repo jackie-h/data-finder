@@ -868,7 +868,7 @@ def _call_with_a_time_then_plain(f):
 
 
 # Branch has no milestoning of its own, but the accounts it reaches do, so a query of branches has no time: the time is
-# given to the accounts, as in Legend's branch.accounts(%time).
+# given to the accounts, as in branch.accounts(processing_time=at).
 BRANCH_FINDER_SPECS = FinderSpec(
     finder_name="BranchFinder",
     mapping_file=FINANCE_MAPPING,
