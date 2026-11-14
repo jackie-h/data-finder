@@ -79,6 +79,15 @@ _DEFAULT_TIMEOUT_MS = 60_000
 _relation_numbers = itertools.count(1)
 
 
+def _column_of(element) -> Any:
+    """The column an attribute, or a column reached through joins, reads; none for any other expression."""
+    if isinstance(element, Attribute):
+        return element.column()
+    if isinstance(element, ColumnWithJoin):
+        return element.column
+    return None
+
+
 def _sort_target(sort_op: SortOperation) -> tuple:
     """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
     own target, so sorting by an expression again adds a sort."""
@@ -442,23 +451,54 @@ class FinderResult(DataFrame):
             return found._column_with_join() if isinstance(found, Attribute) else found
         return element
 
+    def _limited(self) -> bool:
+        return self._limit is not None or self._offset is not None
+
+    def _after_limit(self, sort_ops: Sequence[SortOperation] = ()) -> tuple['FinderResult', list[SortOperation]]:
+        """A step over this result, for what has to happen to the rows it has already taken or dropped, as Legend's steps do:
+        ``rows.limit(2).order_by(...)`` orders the two rows, where a ``LIMIT`` of the same query would take the first two of the
+        order. The sorts are of this result's columns, and are given as the step reads them."""
+        alias, attributes = self._relation()
+        sorts = []
+        for sort_op in sort_ops:
+            inner = _column_of(sort_op.column)
+            if inner is not None and isinstance(inner.owner, TableAlias) and inner.owner.name == alias.name:
+                sorts.append(SortOperation(attributes[inner.name]._column_with_join(), sort_op.direction))
+                continue
+            name = next((n for c, n in zip(self._columns, attributes)
+                         if _column_of(c.element if isinstance(c, Alias) else c) is inner and inner is not None), None)
+            if name is None:
+                raise ValueError("The rows after a limit or an offset are ordered by the columns of the result: "
+                                 f"{list(attributes)} (result[\"name\"].ascending())")
+            sorts.append(SortOperation(attributes[name]._column_with_join(), sort_op.direction))
+        return FinderResult(None, None, list(attributes.values()), alias, NoOperation()), sorts
+
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
-        direction."""
+        direction. Rows that are already limited or offset are ordered as they are, not limited by the order: a step over them."""
+        if self._limited():
+            step, sorts = self._after_limit(sort_ops)
+            return step.order_by(*sorts)
         sort_ops = tuple(SortOperation(self._own(s.column), s.direction) for s in sort_ops)
         resorted = {_sort_target(sort_op) for sort_op in sort_ops}
         self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
         return self
 
     def limit(self, n: int) -> 'FinderResult':
+        """The first ``n`` rows, as Legend's ``take``. Rows that were already limited are limited again as a step over them."""
+        if self._limit is not None:
+            return self._after_limit()[0].limit(n)
         self._limit = n
         return self
 
     def offset(self, n: int) -> 'FinderResult':
-        """Skip the first ``n`` rows. Sort the rows first: without an order, which rows are first is not defined."""
+        """Skip the first ``n`` rows, as Legend's ``drop``. Sort the rows first: without an order, which rows are first is not
+        defined. Rows that were already limited, or offset, are skipped as a step over them: ``limit(5).offset(2)`` is three rows."""
         if n < 0:
             raise ValueError("offset cannot be negative")
+        if self._limited():
+            return self._after_limit()[0].offset(n)
         self._offset = n
         return self
 

@@ -973,6 +973,41 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_sql={"duckdb": "LIMIT 3 OFFSET 1"},
         ),
         TestExpectation(
+            name="concatenate_then_take_then_sort",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            # the three highest ids, then those three in ascending order (not the three lowest)
+            query=lambda f: (lambda top: top.order_by(top["id"].ascending()))(_descending(
+                f.find_all([f.id_()], f.id_() < 3).concatenate(f.find_all([f.id_()], f.id_() >= 3)), "id").limit(3)),
+            expected_columns=["id"],
+            expected_result=np.array([[3], [4], [5]], dtype=object),
+            expected_sql={"duckdb": "LIMIT 3) AS"},
+        ),
+        TestExpectation(
+            name="concatenate_then_take_then_drop",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            # the first four ids, without the first of them (not four rows after the first)
+            query=lambda f: _ascending(
+                f.find_all([f.id_()], f.id_() < 3).concatenate(f.find_all([f.id_()], f.id_() >= 3)), "id").limit(4).offset(1),
+            expected_columns=["id"],
+            expected_result=np.array([[2], [3], [4]], dtype=object),
+        ),
+        TestExpectation(
+            name="concatenate_then_take_then_slice",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _ascending(
+                f.find_all([f.id_()], f.id_() < 3).concatenate(f.find_all([f.id_()], f.id_() >= 3)), "id").limit(4).slice(1, 3),
+            expected_columns=["id"],
+            expected_result=np.array([[2], [3]], dtype=object),
+        ),
+        TestExpectation(
+            name="concatenate_then_drop_then_take_and_drop_again",
+            skip_backends={"graphql": "The GraphQL finder has no union"},
+            query=lambda f: _ascending(
+                f.find_all([f.id_()], f.id_() < 3).concatenate(f.find_all([f.id_()], f.id_() >= 3)), "id").offset(1).limit(3).offset(1),
+            expected_columns=["id"],
+            expected_result=np.array([[3], [4]], dtype=object),
+        ),
+        TestExpectation(
             name="concatenate_a_result_with_its_own_order_and_limit",
             skip_backends={"graphql": "The GraphQL finder has no union"},
             query=lambda f: _ascending(
