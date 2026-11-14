@@ -34,10 +34,9 @@ class TestFinderResultTimeout:
         result = _make_result().timeout(1000)
         assert result._timeout_ms == 1000
 
-    def test_timeout_is_a_result_that_says_it_and_leaves_the_first_as_it_was(self):
+    def test_timeout_is_how_the_query_runs_and_not_a_step_of_it(self):
         result = _make_result()
-        timed = result.timeout(500)
-        assert timed._timeout_ms == 500 and timed is not result and result._timeout_ms != 500
+        assert result.timeout(500) is result and result._timeout_ms == 500
 
     def test_timeout_accepts_sub_second_values(self):
         result = _make_result().timeout(100)

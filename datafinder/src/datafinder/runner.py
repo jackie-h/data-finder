@@ -257,9 +257,10 @@ class GroupedRows:
         return self._result._next([*self._keys, *aggregates], group_by=keys)
 
 
-# A SELECT says its rows in one order: DISTINCT, then ORDER BY, then OFFSET, then LIMIT. A step of a result that comes earlier in that
-# order than the last one taken is a step over the rows already taken, so it reads from a query of its own, as every step does.
-_DISTINCT, _SORT, _DROP, _TAKE = 1, 2, 3, 4
+# The steps are done in the order they are written. A SELECT can say some of them in one order only: GROUP BY, HAVING, DISTINCT, ORDER BY,
+# OFFSET, then LIMIT. A step that comes next in that order, or the same again, is said by the query it is made from; one that comes earlier
+# than the last step written is a step over the rows that query gives, so it reads from a query of its own, as every step does.
+_GROUP, _HAVING, _DISTINCT, _SORT, _DROP, _TAKE = 1, 2, 3, 4, 5, 6
 
 
 class FinderResult(DataFrame):
@@ -284,7 +285,7 @@ class FinderResult(DataFrame):
         self._having: Operation | None = None
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
         self._relation_name: str | None = None
-        self._stage = 0  # the last of distinct, sort, drop and take that this query says
+        self._stage = 0  # the last of group by, having, distinct, order, drop and take that this query says
 
     def _copy(self) -> 'FinderResult':
         """A result that is this one, to say one more thing about: a step does not change the result it is made from."""
@@ -293,6 +294,13 @@ class FinderResult(DataFrame):
         result._group_by = list(self._group_by)
         result._relation_name = None  # a name of its own, as a relation
         return result
+
+    def _said_before(self, stage: int, name: str) -> None:
+        """``group_by`` and ``having`` are of the rows a query reads, so they cannot be said of rows it has already ordered, dropped or
+        taken: it is a mistake to write them there, not a step over them."""
+        if self._stage > stage:
+            raise ValueError(f"{name} comes before distinct, order_by, offset and limit, which are done in the order written: "
+                             f"write {name} first, or group the rows after them with group_by(lambda r: ...).aggregate(...)")
 
     def _over(self, sort_ops: Sequence[SortOperation] = ()) -> 'tuple[FinderResult, list[SortOperation]]':
         """A step over this result's query, for what has to be said of the rows it gives: ``sort_ops``, which are of this result's
@@ -457,8 +465,10 @@ class FinderResult(DataFrame):
             return GroupedRows(self, keys)
         if any(functions):
             raise TypeError("group_by takes finder attributes, or functions of a row (lambda r: r.dept), not both")
+        self._said_before(_GROUP, "group_by")
         result = self._copy()
         result._group_by = list(keys)
+        result._stage = _GROUP
         return result
 
     def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
@@ -493,7 +503,7 @@ class FinderResult(DataFrame):
         result = base._copy()
         resorted = {_sort_target(sort_op) for sort_op in sort_ops}
         result._order_by = [*sort_ops, *(s for s in base._order_by if _sort_target(s) not in resorted)]
-        result._stage = max(base._stage, _SORT)
+        result._stage = _SORT
         return result
 
     def limit(self, n: int) -> 'FinderResult':
@@ -524,23 +534,24 @@ class FinderResult(DataFrame):
         """Keep the groups for which every condition holds: ``HAVING``. A condition tests an aggregate or a grouping
         column: ``f.find_all([f.category(), count_all()]).group_by(f.category()).having(count_all() > 1)``.
         Calls accumulate, as ``and_`` does."""
+        self._said_before(_HAVING, "having")
         result = self._copy()
         for condition in conditions:
             result._having = condition if result._having is None else result._having.and_(condition)
+        result._stage = _HAVING
         return result
 
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""
-        base = self._over()[0] if self._stage > _SORT else self
+        base = self._over()[0] if self._stage > _DISTINCT else self
         result = base._copy()
         result._distinct = True
-        result._stage = max(base._stage, _DISTINCT)
+        result._stage = _DISTINCT
         return result
 
     def timeout(self, milliseconds: int) -> 'FinderResult':
-        result = self._copy()
-        result._timeout_ms = milliseconds
-        return result
+        self._timeout_ms = milliseconds
+        return self
 
     def _execute(self) -> DataFrame:
         return QueryRunnerBase.get_runner().select(

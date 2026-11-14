@@ -194,3 +194,23 @@ def test_a_step_does_not_change_the_result_it_is_made_from():
     assert rows.to_sql() == "SELECT t0.ID AS \"Id\" FROM accounts AS t0"
     assert taken is not rows and taken.to_sql().endswith("ORDER BY t0.ID ASC LIMIT 2")
     assert rows.limit(1).to_sql().endswith("LIMIT 1") and taken.to_sql().endswith("LIMIT 2")   # each from the same rows
+
+
+def test_distinct_after_an_order_is_a_step_over_the_ordered_rows():
+    sql = _result([_NAME]).order_by(_ID.ascending()).distinct().to_sql()
+    assert sql.startswith("SELECT DISTINCT") and "ORDER BY t1.ID ASC) AS t0" in sql
+
+
+def test_distinct_before_an_order_is_one_query():
+    sql = _result([_NAME]).distinct().order_by(_NAME.ascending()).to_sql()
+    assert sql.count("SELECT") == 1 and sql.endswith("ORDER BY t0.NAME ASC")
+
+
+def test_group_by_and_having_are_said_before_the_rows_are_ordered_dropped_or_taken():
+    from datafinder import count_all
+    grouped = _result([_NAME, count_all()]).group_by(_NAME).having(count_all() > 1).limit(2)
+    assert grouped.to_sql().endswith("GROUP BY t0.NAME HAVING COUNT(*) > 1 LIMIT 2")
+    with pytest.raises(ValueError, match="group_by comes before"):
+        _result([_NAME, count_all()]).limit(2).group_by(_NAME)
+    with pytest.raises(ValueError, match="having comes before"):
+        _result([_NAME, count_all()]).group_by(_NAME).order_by(_NAME.ascending()).having(count_all() > 1)
