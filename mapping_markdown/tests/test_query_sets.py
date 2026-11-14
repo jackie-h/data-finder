@@ -285,7 +285,7 @@ def test_the_pairs_of_one_navigation_are_merged_for_the_finder_into_one_join_on_
     from model.relational import ComparisonOperation, LogicalOperation, LogicalOperator
     text = _DEFAULT + _PERSON_TABLES + _PERSON_SETS + _assoc(" (source set: big, target set: staff)", target="STAFF_Q") + \
         _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS_Q")
-    merged = [pm for pm in merge_set_navigations(_firm(load(str(_mapping(tmp_path, text)))).property_mappings) if pm.property.id == "employees"]
+    merged = [pm for pm in merge_set_navigations("Firm", _firm(load(str(_mapping(tmp_path, text)))).property_mappings) if pm.property.id == "employees"]
     assert len(merged) == 1
     condition = merged[0].target.condition  # type: ignore[attr-defined]
     assert isinstance(condition, LogicalOperation) and condition.operator == LogicalOperator.OR
@@ -301,7 +301,7 @@ def test_pairs_that_join_on_different_columns_are_read_but_the_finder_joins_on_o
     firm = _firm(load(str(_mapping(tmp_path, text))))
     assert len(_employees(load(str(_mapping(tmp_path, text))))) == 2
     with pytest.raises(ValueError, match="the pairs of sets of the navigation employees of Firm join on different columns"):
-        merge_set_navigations(firm.property_mappings)
+        merge_set_navigations("Firm", firm.property_mappings)
 
 
 @pytest.mark.parametrize("assoc,message", [

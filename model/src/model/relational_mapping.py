@@ -56,8 +56,8 @@ class EmbeddedSetMapping(RelationalOperationElement):
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: RelationalOperationElement):
-        super().__init__(property, target)
+    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str | None = None, target_set_id: str | None = None):
+        super().__init__(property, target, source_set_id, target_set_id)
 
 
 class RelationalClassMapping(ClassMapping):

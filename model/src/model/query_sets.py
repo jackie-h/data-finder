@@ -11,10 +11,11 @@ import copy
 from collections.abc import Sequence
 
 from model.relational import (
-    Alias, Column, ComparisonOperation, ComparisonOperator, JoinKind, LogicalOperation, LogicalOperator, QuerySpecification,
+    Alias, Column, ComparisonOperation, ComparisonOperator, JoinKind, LogicalOperation, LogicalOperator, Operation, QuerySpecification,
     StringConstantOperation, Table, TableAlias, UnionOperation,
 )
-from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, RelationalUnionMapping
+from model.mapping import PropertyMapping
+from model.relational_mapping import Join, RelationalClassMapping, RelationalPropertyMapping, RelationalUnionMapping
 
 SET_COLUMN = "_set"
 
@@ -161,3 +162,55 @@ def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> Re
     mappings = [RelationalPropertyMapping(pm.property, by_name[pm.target.name]) for pm in sets[0].property_mappings
                 if isinstance(pm.target, Column)]
     return RelationalUnionMapping(sets[0].clazz, list(sets), mappings, milestone_mapping=sets[0].milestone_mapping)
+
+
+def set_pair_condition(join: Join, source_set_id: str | None, target_set_id: str | None) -> Operation | None:
+    """That the sets of a row of the source and a row of the target are the pair: ``source._set = 'a' AND target._set = 'b'``, with only the side that has
+    sets; and what the join says besides."""
+    def in_set(relation, set_id):
+        column = next(c for c in relation.columns if isinstance(c, Column) and c.name == SET_COLUMN)
+        return ComparisonOperation(column, ComparisonOperator.EQUAL, StringConstantOperation(set_id))
+    terms: list[Operation] = []
+    if source_set_id:
+        terms.append(in_set(join.lhs.owner_relation, source_set_id))
+    if target_set_id:
+        terms.append(in_set(join.rhs.owner_relation, target_set_id))
+    if join.condition is not None:
+        terms.append(join.condition)
+    if not terms:
+        return None
+    condition: Operation = terms[0]
+    for term in terms[1:]:
+        condition = LogicalOperation(condition, LogicalOperator.AND, term)
+    return condition
+
+
+def merge_set_navigations(class_name: str, property_mappings: Sequence[PropertyMapping]) -> list[PropertyMapping]:
+    """The property mappings with those of one navigation between sets made one, as the finder reads a navigation: a property mapped from one pair of sets to
+    another for each pair (Legend's ``x[y0, x0]``, ``x[y1, x1]``) is one join, that holds for a row of the source and a row of the target if their sets
+    are one of the pairs. The finder joins on one pair of key columns, so the pairs must all join on the same ones; a property mapped between no sets
+    is as it was."""
+    merged: list[PropertyMapping] = []
+    done: set[str] = set()
+    for pm in property_mappings:
+        if not (pm.source_set_id or pm.target_set_id):
+            merged.append(pm)
+            continue
+        if pm.property.id in done:
+            continue
+        done.add(pm.property.id)
+        pairs = [other for other in property_mappings if other.property is pm.property and (other.source_set_id or other.target_set_id)]
+        joins = [other.target for other in pairs]
+        assert all(isinstance(j, Join) for j in joins)
+        first = joins[0]
+        if any((j.lhs.name, j.rhs.name, j.lhs.owner_relation, j.rhs.owner_relation) != (first.lhs.name, first.rhs.name, first.lhs.owner_relation, first.rhs.owner_relation)
+               for j in joins):
+            raise ValueError(f"the pairs of sets of the navigation {pm.property.id} of {class_name} join on different columns: "
+                             f"the finder joins on one pair of columns, and then on the sets of the pairs")
+        condition: Operation | None = None
+        for other in pairs:
+            term = set_pair_condition(other.target, other.source_set_id, other.target_set_id)
+            assert term is not None  # a pair has a set
+            condition = term if condition is None else LogicalOperation(condition, LogicalOperator.OR, term)
+        merged.append(RelationalPropertyMapping(pm.property, Join(first.lhs, first.rhs, conditions=[condition], condition_texts=[None])))
+    return merged

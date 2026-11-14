@@ -267,8 +267,10 @@ a hand-written union would leave to chance:
 - Every set has a key, marked `PK`, that no two of its rows share, because rows of different sets can look the same (a key of 1 is in both). It is checked: a set selects the key of its table, a join in it is on
   the key of what it joins (and is not a `RIGHT` or `FULL` join, which add rows), a `DISTINCT` set has every column as its key, and a grouped set has what it is grouped by.
 - An association from or to a class that has sets says which sets it joins, in a section for each pair, as Legend writes `x[y0, x0]`:
-  `#### Association: CustomerOrders (source set: retail)`, or `(source set: big, target set: staff)` when both ends have sets. The sections of one association join on the same columns and differ only in their
-  sets, a pair is given once, and the target table of a set is that set's query. A pair that no section names does not join.
+  `#### Association: CustomerOrders (source set: retail)`, or `(source set: big, target set: staff)` when both ends have sets. Each section is a property mapping of its own,
+  from its source set to its target set, with a join of its own on the columns it gives (Legend's `sourceSetImplementationId` and `targetSetImplementationId`). A pair is given once,
+  a set named is a set of that class, its target table is that set's query, and a class that has sets cannot be joined without naming them. A pair that no section names does not join.
+  A finder reads the pairs of one navigation as one join, on the sets of the pairs, so for now they must join on the same columns.
 
 ```
 #### Query: RETAIL → Customer (set: retail)      #### Query: CORPORATE → Customer (set: corporate)

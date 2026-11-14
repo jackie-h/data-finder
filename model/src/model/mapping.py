@@ -1,22 +1,17 @@
-from typing import Any, Generic, NamedTuple, Sequence, TypeVar
+from typing import Any, Generic, Sequence, TypeVar
 
 from model.m3 import Class, Property
 
 
-class SetPair(NamedTuple):
-    """The set implementation a property mapping starts from and the one it reaches, by their ids, as Legend's ``sourceSetImplementationId`` and
-    ``targetSetImplementationId``: ``x[y0, x0]`` is a mapping of the property ``x`` from the set ``x0`` to the set ``y0``. None for a class that is not a
-    union of sets."""
-    source: str | None
-    target: str | None
-
-
 class PropertyMapping:
-    def __init__(self, property: Property, target: Any):
+    def __init__(self, property: Property, target: Any, source_set_id: str | None = None, target_set_id: str | None = None):
         self.property = property
         self.target = target
-        # For a navigation property between classes that are unions of sets: the pairs of sets it joins, and no others.
-        self.set_pairs: list[SetPair] = []
+        # For a navigation property between classes that are unions of sets, as Legend's ``sourceSetImplementationId`` and ``targetSetImplementationId``: the
+        # ids of the set the mapping starts from and the one it reaches. ``x[y0, x0]`` is a mapping of ``x`` from the set ``x0`` to the set ``y0``, and a property
+        # joined between several pairs of sets has a mapping for each pair. None for a class that is not a union of sets.
+        self.source_set_id = source_set_id
+        self.target_set_id = target_set_id
 
 class MilestonePropertyMapping:
     def __init(self):
