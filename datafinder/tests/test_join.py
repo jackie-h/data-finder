@@ -2,6 +2,8 @@
 of a row of each, and the kind of join as ``how``."""
 import pytest
 
+from datafinder.relation_planner import parts_of
+
 from datafinder import DoubleAttribute, StringAttribute
 from datafinder.runner import FinderResult
 from model.relational import (ComparisonOperation, JoinKind, JoinOperation, NoOperation, QuerySpecification, Table,
@@ -69,7 +71,8 @@ def test_the_columns_of_a_join_are_the_columns_of_both():
 
 def test_the_model_of_a_join_is_a_query_of_the_left_with_a_join_to_the_right():
     trades, accounts = _results()
-    alias = trades.join(accounts, lambda t, a: t.account == a.id, how="left")._table
+    alias = trades.join(accounts, lambda t, a: t.account == a.id, how="left")._node
+    alias = parts_of(alias).table
     assert isinstance(alias, TableAlias) and isinstance(alias.relation, QuerySpecification)
     query = alias.relation
     (join,) = query.joins

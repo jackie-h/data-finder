@@ -1,22 +1,17 @@
 import datetime
-import decimal
-import itertools
-from typing import Any, Callable, Literal, Optional, Sequence, Union, overload
+from dataclasses import replace
+from typing import Any, Callable, Literal, Sequence, Union, overload
 
 from datafinder import Attribute, Operation, DataFrame
-from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins, build_query_specification
-from datafinder.typed_attributes import typed_attribute
+from datafinder.relation_planner import (
+    _attributes, alias_of, attributes_of, parts_of, relation_numbers as _relation_numbers)
+from datafinder.sql_generator import to_sql, view_sql_to_string, display_alias, check_view_joins
+from model.milestoning import ProcessingTemporalColumns, milestoning_columns_of
 from model.naming import to_snake_case
-from model.milestoning import MilestonedTable, ProcessingTemporalColumns, milestoning_columns_of
+from model.relation_tree import (
+    Aggregate, Concatenate, Distinct, Drop, Extend, Filter, Join, Project, Read, RelationNode, Select, Sort, Take)
 from model.relational import (
-    AggregateOperation, AggregateOperator, Alias, ArithmeticOperation, BooleanConstantOperation, CaseOperation, Column,
-    ColumnWithJoin, ConcatOperation, ConstantOperation, CountAllOperation, DateArithmeticOperation, DateConstantOperation,
-    DateDiffOperation, DateExtractOperation, DateTimeConstantOperation, DateTruncOperation, DecimalConstantOperation,
-    FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, IntervalOperation, JoinKind, JoinOperation, NoOperation, Operation,
-    QueryExpression, QuerySpecification, Relation, RelationExistsOperation, RelationalOperationElement,
-    ScalarFunctionOperation, SortOperation, StringConstantOperation, StringFunctionOperation, Table, TableAlias,
-    UnionOperation,
-    WindowFunctionOperation)
+    Alias, JoinKind, NoOperation, Relation, RelationExistsOperation, SortOperation, Table, TableAlias)
 from model.view import View, ViewDefinitionError, contains_aggregate
 
 
@@ -76,95 +71,6 @@ def convert_date(maybe_date) -> datetime.date:
 
 _DEFAULT_TIMEOUT_MS = 60_000
 
-_relation_numbers = itertools.count(1)
-
-
-def _sort_target(sort_op: SortOperation) -> tuple:
-    """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
-    own target, so sorting by an expression again adds a sort."""
-    column = sort_op.column
-    if not isinstance(column, ColumnWithJoin):
-        return ("expression", id(column))
-    joins = []
-    node = column.parent
-    while node is not None:
-        joins.append(node.join.name)
-        node = node.parent
-    return column.column.owner_name, column.column.name, tuple(joins)
-
-
-# --- the columns of a result, for a query over it -------------------------------------------------------------------
-
-_NUMBER_TYPES = {int: "BIGINT", float: "DOUBLE", decimal.Decimal: "DECIMAL"}
-
-_CONSTANT_TYPES = {
-    IntegerConstantOperation: "BIGINT", FloatConstantOperation: "DOUBLE", StringConstantOperation: "VARCHAR",
-    DateConstantOperation: "DATE", DateTimeConstantOperation: "TIMESTAMP", DecimalConstantOperation: "DECIMAL",
-    BooleanConstantOperation: "BOOLEAN", IntervalConstantOperation: "INTERVAL",
-}
-
-
-def _column_name(element: RelationalOperationElement) -> str:
-    """The name a column of a result has for the step after it: the name it was given, or its display name in snake_case
-    (as a view names its columns)."""
-    return element.name if isinstance(element, Alias) else to_snake_case(display_alias(element))
-
-
-def _column_type(element: RelationalOperationElement) -> str:
-    """The database type of what a result column holds, so a query over the result can compare it as that type."""
-    if isinstance(element, Alias):
-        return _column_type(element.element)
-    if isinstance(element, Attribute):
-        return element.column().type
-    if isinstance(element, ColumnWithJoin):
-        return element.column.type
-    if isinstance(element, Column):
-        return element.type
-    if isinstance(element, CountAllOperation):
-        return "BIGINT"
-    if isinstance(element, IntervalOperation):  # before the number kinds: it is arithmetic's subclass, but not a number
-        return "INTERVAL"
-    # a number of a known kind: an integer, double or decimal arithmetic result, function, aggregate or constant
-    kind = getattr(element, "_number_kind", None)
-    if kind in _NUMBER_TYPES:
-        return _NUMBER_TYPES[kind]
-    if isinstance(element, AggregateOperation):
-        if element.operator in (AggregateOperator.COUNT, AggregateOperator.COUNT_DISTINCT):
-            return "BIGINT"
-        if element.operator == AggregateOperator.STRING_AGG:
-            return "VARCHAR"
-        if element.operator in (AggregateOperator.MIN, AggregateOperator.MAX, AggregateOperator.SUM):
-            return _column_type(element.element)
-        if element.operator in (AggregateOperator.BOOL_AND, AggregateOperator.BOOL_OR):
-            return "BOOLEAN"
-        return "DOUBLE"
-    if isinstance(element, WindowFunctionOperation):
-        return _column_type(element.element) if element.element is not None else "BIGINT"
-    if isinstance(element, ConstantOperation):
-        return _CONSTANT_TYPES.get(type(element), "VARCHAR")
-    if isinstance(element, CaseOperation):
-        return _column_type(element.then)
-    if isinstance(element, (ConcatOperation, StringFunctionOperation)):
-        return "VARCHAR"
-    if isinstance(element, (DateExtractOperation, DateDiffOperation)):
-        return "BIGINT"
-    if isinstance(element, (DateArithmeticOperation, DateTruncOperation)):
-        return _column_type(element.element)
-    if isinstance(element, ScalarFunctionOperation):  # an untyped one, such as fill_null: what it is applied to
-        return _column_type(element.element)
-    if isinstance(element, ArithmeticOperation):  # one of unknown kind
-        return "DOUBLE"
-    return "VARCHAR"
-
-
-def _attributes(alias: TableAlias) -> dict[str, Attribute]:
-    """The columns of a relation under a name, as a query that reads from it sees them: a typed attribute for each, named
-    as ``_column_name`` names it and owned by the alias."""
-    names = [_column_name(element) for element in alias.columns]
-    duplicates = sorted({n for n in names if names.count(n) > 1})
-    if duplicates:
-        raise ValueError(f"A result needs each column named once, but {duplicates} are repeated: name them with alias()")
-    return {name: typed_attribute(name, _column_type(element), alias) for name, element in zip(names, alias.columns)}
 
 
 class Row:
@@ -244,45 +150,35 @@ class GroupedRows:
                 raise ValueError(f"The column '{name}' is named twice in this aggregate")
             aggregates.append(Alias(expression, name))
         keys = [key.element if isinstance(key, Alias) else key for key in self._keys]
-        return self._result._next([*self._keys, *aggregates], group_by=keys)
+        return self._result._step(Aggregate, [*self._keys, *aggregates], group_by=keys)
 
 
 class FinderResult(DataFrame):
+    """The rows of a query, as what was written of it: a tree of steps (``model.relation_tree``), of which this is the last. A step
+    gives a result of its own and leaves this one as it was. Nothing is worked out until the SQL, or the rows, are asked for."""
 
     def __init__(self, business_date: datetime.date | None,
                  processing_datetime: datetime.datetime | datetime.date | None,
                  columns: Sequence, table: Relation, op: Operation,
                  business_date_to: datetime.date | None = None,
-                 processing_datetime_to: datetime.datetime | datetime.date | None = None):
-        self._business_date = business_date
-        self._business_date_to = business_date_to
-        self._processing_datetime = processing_datetime
-        self._processing_datetime_to = processing_datetime_to
-        self._columns = columns
-        self._table = table
-        self._op = op
-        self._order_by: list[SortOperation] = []
-        self._group_by: list = []
-        self._limit: int | None = None
-        self._distinct = False
-        self._offset: int | None = None
-        self._having: Operation | None = None
+                 processing_datetime_to: datetime.datetime | datetime.date | None = None,
+                 *, node: RelationNode | None = None):
+        self._node: RelationNode = node if node is not None else Read(
+            columns, table, op, business_date, processing_datetime, business_date_to, processing_datetime_to)
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
-        self._relation_name: str | None = None
+
+    def _then(self, node: RelationNode) -> 'FinderResult':
+        """A result of a step written after this one."""
+        result = FinderResult(None, None, (), None, NoOperation(), node=node)  # type: ignore[arg-type]
+        result._timeout_ms = self._timeout_ms
+        parts_of(node)  # a step that cannot be said is refused when it is written, not when the SQL is asked for
+        return result
 
     # --- a result as a relation, for what follows it ---------------------------------------------------------------
 
     def _relation(self) -> tuple[TableAlias, dict[str, Any]]:
         """This result as a relation: its query, with each column named for what reads it."""
-        if self._relation_name is None:
-            self._relation_name = f"relation{next(_relation_numbers)}"
-        display = [c if isinstance(c, Alias) else Alias(c, _column_name(c)) for c in self._columns]
-        query = build_query_specification(
-            self._business_date, self._processing_datetime, display, self._table, self._op, self._order_by, self._group_by,
-            self._limit, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having, processing_datetime_to=self._processing_datetime_to)
-        alias = TableAlias(query, self._relation_name)
-        return alias, _attributes(alias)
+        return alias_of(self._node), attributes_of(self._node)
 
     def columns(self) -> list[str]:
         """The names of this result's columns as what follows it reads them."""
@@ -299,33 +195,16 @@ class FinderResult(DataFrame):
         """The rows of this result and of ``other``, which has the same columns: ``UNION`` (each distinct row once), or
         ``UNION ALL`` with ``all=True``. The result is a result like any other: it can be
         ordered, limited and concatenated again. Its columns are named as ``columns()`` gives them."""
-        left_alias, left = self._relation()
-        right_alias, right = other._relation()
-        if list(left) != list(right):
-            raise ValueError(f"Concatenated results need the same columns: {list(left)} and {list(right)} differ")
-        alias = TableAlias(UnionOperation(self._union_side(left_alias, all), other._union_side(right_alias, all), all),  # type: ignore[arg-type]
-                           f"relation{next(_relation_numbers)}")
-        return FinderResult(None, None, [Alias(a, n) for n, a in _attributes(alias).items()], alias, NoOperation())
-
-    def _union_side(self, as_relation: TableAlias, all: bool) -> QueryExpression:
-        """This result as one side of a union. A result that is only the union of two more with the same operator is
-        that union itself, not a SELECT over it, so ``a.concatenate(b).concatenate(c)`` is one flat chain of unions."""
-        source = self._table
-        bare = (isinstance(source, TableAlias) and isinstance(source.relation, UnionOperation)
-                and source.relation.all == all and isinstance(self._op, NoOperation)
-                and not (self._order_by or self._group_by or self._distinct or self._having
-                         or self._limit is not None or self._offset is not None))
-        return source.relation if bare else as_relation.relation  # type: ignore[union-attr,return-value]
-
-    def _next(self, display: Sequence, op: Operation | None = None, group_by: Sequence = ()) -> 'FinderResult':
-        """A result that reads from this one: a query over this result's query."""
-        alias, _ = self._relation()
-        step = FinderResult(None, None, display, alias, NoOperation() if op is None else op)
-        step._group_by = list(group_by)
-        return step
+        left, right = self.columns(), other.columns()
+        if left != right:
+            raise ValueError(f"Concatenated results need the same columns: {left} and {right} differ")
+        return self._then(Concatenate(self._node, other._node, all))
 
     def _row(self) -> 'Row':
         return Row(self._relation()[1])
+
+    def _step(self, kind: type[Project], display: Sequence, op: Operation | None = None, group_by: Sequence = ()) -> 'FinderResult':
+        return self._then(kind(self._node, display, op, tuple(group_by)))
 
     def filter(self, *conditions: Callable[['Row'], Operation]) -> 'FinderResult':
         """The rows of this result for which every condition holds: each
@@ -340,7 +219,7 @@ class FinderResult(DataFrame):
             if not callable(condition):
                 raise TypeError("A filter condition is a function of a row: filter(lambda r: r.price > 250.0)")
             op = condition(row) if op is None else op.and_(condition(row))
-        return self._next(list(self._relation()[1].values()), op)
+        return self._step(Filter, list(self._relation()[1].values()), op)
 
     def extend(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
         """This result with more columns, each named by its keyword and worked out from a row.
@@ -353,8 +232,8 @@ class FinderResult(DataFrame):
         for name, expression in columns.items():
             if not callable(expression):
                 raise TypeError(f"The column '{name}' is a function of a row: extend({name}=lambda r: ...)")
-        return self._next([*self._relation()[1].values(),
-                           *(Alias(expression(row), name) for name, expression in columns.items())])
+        return self._step(Extend, [*self._relation()[1].values(),
+                                   *(Alias(expression(row), name) for name, expression in columns.items())])
 
     def select(self, *names: str) -> 'FinderResult':
         """Only some of this result's columns, by name. To rename or work out a
@@ -363,7 +242,7 @@ class FinderResult(DataFrame):
         missing = [n for n in names if n not in attributes]
         if missing:
             raise KeyError(f"No column {missing} in this result: its columns are {list(attributes)}")
-        return self._next([attributes[n] for n in names])
+        return self._step(Select, [attributes[n] for n in names])
 
     def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation],
              how: Literal["inner", "left", "right", "full"]) -> 'FinderResult':
@@ -385,8 +264,8 @@ class FinderResult(DataFrame):
             raise ValueError(f"A join is one of {[k.value for k in JoinKind]}, not '{how}'") from None
         if not callable(condition):
             raise TypeError("A join condition is a function of a row of each: join(other, lambda a, b: a.key == b.key)")
-        left_alias, left = self._relation()
-        right_alias, right = other._relation()
+        _, left = self._relation()
+        _, right = other._relation()
         repeated = sorted(set(left) & set(right))
         if repeated:
             raise ValueError(f"A join needs the columns of its two sides named differently, but {repeated} are on both: "
@@ -396,9 +275,7 @@ class FinderResult(DataFrame):
             raise TypeError("A join condition gives a comparison, such as a.key == b.key, not "
                             f"{type(test).__name__} (combine comparisons with & and |, each in brackets)")
         columns = [Alias(a, n) for n, a in (*left.items(), *right.items())]
-        joined = QuerySpecification(columns, NoOperation(), table=left_alias, joins=[JoinOperation('', right_alias, test, kind)])
-        alias = TableAlias(joined, f"relation{next(_relation_numbers)}")
-        return FinderResult(None, None, [Alias(a, n) for n, a in _attributes(alias).items()], alias, NoOperation())
+        return self._then(Join(self._node, other._node, kind, test, columns))
 
     @overload
     def group_by(self, *keys: Callable[['Row'], Any]) -> 'GroupedRows': ...  # pyright: ignore[reportOverlappingOverload]
@@ -418,48 +295,36 @@ class FinderResult(DataFrame):
             return GroupedRows(self, keys)
         if any(functions):
             raise TypeError("group_by takes finder attributes, or functions of a row (lambda r: r.dept), not both")
-        self._group_by = list(keys)
-        return self
+        return self._then(replace(self._read("group_by"), group_by=tuple(keys)))
+
+    def _read(self, name: str) -> Read:
+        """The finder's own query, which says what it groups and keeps by. That is of the rows it reads, so it cannot follow a step."""
+        if not isinstance(self._node, Read):
+            raise ValueError(f"{name} is said of the rows a finder reads, so it comes before every other step: write {name} first, or "
+                             f"group the rows after the steps with group_by(lambda r: ...).aggregate(...)")
+        return self._node
 
     def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
         """One row for the whole of this result, each column named by its keyword and an aggregate of the rows:
         ``rows.aggregate(total=lambda r: r.salary.sum())``."""
         return GroupedRows(self, ()).aggregate(**columns)
 
-    def _own(self, element):
-        """A column of this result, as ``result["name"]`` gives it, is what this result shows under that name: so
-        ``result.order_by(result["name"].ascending())`` orders by the column, not by a column of a later query."""
-        if isinstance(element, Attribute):
-            column = element.column()
-        elif isinstance(element, ColumnWithJoin):
-            column = element.column
-        else:
-            return element
-        if self._relation_name is not None and isinstance(column.owner, TableAlias) and column.owner.name == self._relation_name:
-            shown = {_column_name(c): c.element if isinstance(c, Alias) else c for c in self._columns}
-            found = shown.get(column.name, element)
-            return found._column_with_join() if isinstance(found, Attribute) else found
-        return element
-
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
-        direction."""
-        sort_ops = tuple(SortOperation(self._own(s.column), s.direction) for s in sort_ops)
-        resorted = {_sort_target(sort_op) for sort_op in sort_ops}
-        self._order_by = [*sort_ops, *(s for s in self._order_by if _sort_target(s) not in resorted)]
-        return self
+        direction. Rows that are already dropped or taken are ordered after that, as a step over them."""
+        return self._then(Sort(self._node, tuple(sort_ops)))
 
     def limit(self, n: int) -> 'FinderResult':
-        self._limit = n
-        return self
+        """The first ``n`` rows. Taking again takes from the rows taken."""
+        return self._then(Take(self._node, n))
 
     def offset(self, n: int) -> 'FinderResult':
-        """Skip the first ``n`` rows. Sort the rows first: without an order, which rows are first is not defined."""
+        """Skip the first ``n`` rows. Sort the rows first: without an order, which rows come first is not defined. Rows that were
+        already taken are skipped after that: ``limit(5).offset(2)`` is three rows."""
         if n < 0:
             raise ValueError("offset cannot be negative")
-        self._offset = n
-        return self
+        return self._then(Drop(self._node, n))
 
     def slice(self, start: int, stop: int) -> 'FinderResult':
         """Rows ``start`` up to but not including ``stop``, counting from 0: ``offset(start).limit(stop - start)``."""
@@ -471,25 +336,26 @@ class FinderResult(DataFrame):
         """Keep the groups for which every condition holds: ``HAVING``. A condition tests an aggregate or a grouping
         column: ``f.find_all([f.category(), count_all()]).group_by(f.category()).having(count_all() > 1)``.
         Calls accumulate, as ``and_`` does."""
+        read = self._read("having")
+        having = read.having
         for condition in conditions:
-            self._having = condition if self._having is None else self._having.and_(condition)
-        return self
+            having = condition if having is None else having.and_(condition)
+        return self._then(replace(read, having=having))
 
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""
-        self._distinct = True
-        return self
+        return self._then(Distinct(self._node))
 
     def timeout(self, milliseconds: int) -> 'FinderResult':
         self._timeout_ms = milliseconds
         return self
 
     def _execute(self) -> DataFrame:
+        p = parts_of(self._node)
         return QueryRunnerBase.get_runner().select(
-            self._business_date, self._processing_datetime,
-            self._columns, self._table, self._op, self._order_by, self._group_by, self._limit,
-            self._timeout_ms, business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having, processing_datetime_to=self._processing_datetime_to,
+            p.business_date, p.processing_datetime, p.columns, p.table, p.op, list(p.order_by), list(p.group_by), p.limit,
+            self._timeout_ms, business_date_to=p.business_date_to, distinct=p.distinct, offset=p.offset,
+            having=p.having, processing_datetime_to=p.processing_datetime_to,
         )
 
     def to_view(self, name: str, schema: str) -> 'ViewDefinition':
@@ -501,34 +367,36 @@ class FinderResult(DataFrame):
         has no ORDER BY or row limit; to order the rows you read back use ``ViewDefinition.result().order_by()``.
         Each column is named after its display name in snake_case, e.g. "Account Name" becomes ``account_name``.
         """
-        if (self._business_date is not None or self._business_date_to is not None
-                or self._processing_datetime is not None or self._processing_datetime_to is not None):
+        p = parts_of(self._node)
+        if (p.business_date is not None or p.business_date_to is not None
+                or p.processing_datetime is not None or p.processing_datetime_to is not None):
             raise ViewDefinitionError(
                 "A view has no dates: pass None for the business date and processing time, and the view will "
                 "expose the milestoning columns instead")
-        if self._distinct:
+        if p.distinct:
             raise ViewDefinitionError("A view cannot be distinct")
-        if self._offset is not None:
+        if p.offset is not None:
             raise ViewDefinitionError("A view has no row offset")
-        if self._having is not None:
+        if p.having is not None:
             raise ViewDefinitionError("A view has no HAVING; filter the rows you read back from it")
-        if self._order_by or self._limit is not None:
+        if p.order_by or p.limit is not None:
             raise ViewDefinitionError(
                 "A view has no ORDER BY or row limit; order the rows when you read them with result().order_by()")
-        if not isinstance(self._table, Table):
+        if not isinstance(p.table, Table):
             raise ViewDefinitionError("A view is defined over a table, not over a union")
-        projection = [Alias(column, to_snake_case(display_alias(column))) for column in self._columns]
-        view = ViewDefinition(name, schema, self._table, projection, self._op, self._group_by)
+        projection = [Alias(column, to_snake_case(display_alias(column))) for column in p.columns]
+        view = ViewDefinition(name, schema, p.table, projection, p.op, list(p.group_by))
         check_view_joins(view)
         return view
 
     def to_sql(self) -> str:
+        p = parts_of(self._node)
         return to_sql(
-            self._business_date, self._processing_datetime,
-            self._columns, self._table, self._op,
-            self._order_by, self._group_by, self._limit,
-            business_date_to=self._business_date_to, distinct=self._distinct, offset=self._offset,
-            having=self._having, processing_datetime_to=self._processing_datetime_to,
+            p.business_date, p.processing_datetime,
+            p.columns, p.table, p.op,
+            list(p.order_by), list(p.group_by), p.limit,
+            business_date_to=p.business_date_to, distinct=p.distinct, offset=p.offset,
+            having=p.having, processing_datetime_to=p.processing_datetime_to,
         )
 
     def to_pandas(self):

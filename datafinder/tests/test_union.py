@@ -1,4 +1,5 @@
 """A union of query expressions, and ``concatenate``, which gives the union of two results as a result."""
+from datafinder.relation_planner import parts_of
 import pytest
 
 from datafinder import DoubleAttribute, IntegerAttribute, StringAttribute
@@ -56,8 +57,8 @@ def test_concatenate_needs_the_same_columns():
 
 def test_a_concatenated_result_is_ordered_and_limited_like_any_other():
     union = _result([_NAME, _ID]).concatenate(_result([_NAME, _ID]))
-    union.order_by(union["name"].ascending(), union["id"].descending()).offset(2).limit(5)
-    assert union.to_sql().endswith(") AS t0 ORDER BY t0.name ASC, t0.id DESC LIMIT 5 OFFSET 2")
+    ordered = union.order_by(union["name"].ascending(), union["id"].descending()).offset(2).limit(5)
+    assert ordered.to_sql().endswith(") AS t0 ORDER BY t0.name ASC, t0.id DESC LIMIT 5 OFFSET 2")
     with pytest.raises(KeyError, match="No column 'missing'"):
         union["missing"]
 
@@ -66,8 +67,8 @@ def test_concatenate_chains_and_a_side_with_an_order_is_in_brackets():
     first = _result([_NAME]).concatenate(_result([_NAME]), all=True)
     three = first.concatenate(_result([_NAME]), all=True)
     assert three.to_sql().count("UNION ALL") == 2
-    ordered = _result([_NAME]).concatenate(_result([_NAME]))
-    ordered.order_by(ordered["name"].ascending()).limit(1)
+    union = _result([_NAME]).concatenate(_result([_NAME]))
+    ordered = union.order_by(union["name"].ascending()).limit(1)
     sql = _result([_NAME]).concatenate(ordered, all=True).to_sql()
     assert "UNION ALL (SELECT" in sql and "LIMIT 1)" in sql
 
@@ -85,7 +86,7 @@ def test_concatenating_does_not_change_the_results_it_is_made_from():
     left, right = _result([_NAME]), _result([_NAME])
     left.concatenate(right)
     assert left.to_sql() == 'SELECT t0.NAME AS "Name" FROM accounts AS t0'
-    assert isinstance(left.concatenate(right)._table.relation, UnionOperation)  # type: ignore[attr-defined]
+    assert isinstance(parts_of(left.concatenate(right)._node).table.relation, UnionOperation)  # type: ignore[attr-defined]
 
 
 def test_the_columns_of_a_union_are_those_of_its_left_side():
@@ -97,8 +98,9 @@ def test_the_columns_of_a_union_are_those_of_its_left_side():
 def test_a_result_of_concatenate_reads_from_an_alias_of_the_union():
     from model.relational import TableAlias
     result = _result([_NAME]).concatenate(_result([_NAME]))
-    assert isinstance(result._table, TableAlias) and isinstance(result._table.relation, UnionOperation)
-    assert result._table.name.startswith("relation")
+    table = parts_of(result._node).table
+    assert isinstance(table, TableAlias) and isinstance(table.relation, UnionOperation)
+    assert table.name.startswith("relation")
 
 
 def test_the_columns_of_a_union_have_the_types_of_what_the_results_show():
@@ -141,3 +143,76 @@ def test_a_different_set_operator_is_not_flattened():
     a, b, c = (_result([_NAME], _ID.eq(i)) for i in (1, 2, 3))
     sql = a.concatenate(b, all=True).concatenate(c).to_sql()
     assert "UNION ALL" in sql and sql.count("FROM (") == 2
+
+
+def test_ordering_rows_that_are_limited_orders_those_rows():
+    union = _result([_ID]).concatenate(_result([_ID]), all=True)
+    top = union.order_by(union["id"].descending()).limit(2)
+    ordered = top.order_by(top["id"].ascending())
+    assert ordered is not top
+    assert "ORDER BY t1.id DESC LIMIT 2) AS t0 ORDER BY t0.id ASC" in ordered.to_sql()   # the order is of the two rows taken
+    assert top.to_sql().endswith("ORDER BY t0.id DESC LIMIT 2")             # the limited rows are as they were
+
+
+def test_a_column_of_the_table_orders_the_rows_it_shows_after_a_limit():
+    rows = _result([_ID, _NAME]).limit(3)
+    ordered = rows.order_by(_NAME.ascending())
+    assert "LIMIT 3) AS" in ordered.to_sql() and ordered.to_sql().endswith("ORDER BY t0.name ASC")
+
+
+def test_ordering_after_a_limit_by_a_column_the_result_does_not_show_is_refused():
+    rows = _result([_ID]).limit(3)
+    with pytest.raises(ValueError, match="ordered by the columns of the result"):
+        rows.order_by(_NAME.ascending())
+
+
+def test_dropping_after_taking_is_a_step_over_the_rows_taken():
+    rows = _result([_ID]).limit(5).offset(2)
+    assert "LIMIT 5) AS" in rows.to_sql() and rows.to_sql().endswith("OFFSET 2")
+
+
+def test_taking_after_dropping_is_one_query():
+    rows = _result([_ID]).offset(2).limit(5)
+    assert rows.to_sql().endswith("LIMIT 5 OFFSET 2") and rows.to_sql().count("SELECT") == 1
+
+
+def test_taking_again_takes_from_the_rows_taken():
+    assert _result([_ID]).limit(2).limit(5).to_sql().endswith("LIMIT 2")
+    assert _result([_ID]).limit(5).limit(2).to_sql().endswith("LIMIT 2")
+
+
+def test_dropping_again_drops_from_the_rows_left():
+    assert _result([_ID]).offset(2).offset(3).to_sql().endswith("OFFSET 5")
+
+
+def test_distinct_rows_that_are_taken_are_a_step_over_them():
+    sql = _result([_ID]).limit(3).distinct().to_sql()
+    assert "LIMIT 3) AS" in sql and sql.startswith("SELECT DISTINCT")
+
+
+def test_a_step_does_not_change_the_result_it_is_made_from():
+    rows = _result([_ID])
+    taken = rows.order_by(_ID.ascending()).limit(2)
+    assert rows.to_sql() == "SELECT t0.ID AS \"Id\" FROM accounts AS t0"
+    assert taken is not rows and taken.to_sql().endswith("ORDER BY t0.ID ASC LIMIT 2")
+    assert rows.limit(1).to_sql().endswith("LIMIT 1") and taken.to_sql().endswith("LIMIT 2")   # each from the same rows
+
+
+def test_distinct_after_an_order_is_a_step_over_the_ordered_rows():
+    sql = _result([_NAME]).order_by(_ID.ascending()).distinct().to_sql()
+    assert sql.startswith("SELECT DISTINCT") and "ORDER BY t1.ID ASC) AS t0" in sql
+
+
+def test_distinct_before_an_order_is_one_query():
+    sql = _result([_NAME]).distinct().order_by(_NAME.ascending()).to_sql()
+    assert sql.count("SELECT") == 1 and sql.endswith("ORDER BY t0.NAME ASC")
+
+
+def test_group_by_and_having_are_said_before_the_rows_are_ordered_dropped_or_taken():
+    from datafinder import count_all
+    grouped = _result([_NAME, count_all()]).group_by(_NAME).having(count_all() > 1).limit(2)
+    assert grouped.to_sql().endswith("GROUP BY t0.NAME HAVING COUNT(*) > 1 LIMIT 2")
+    with pytest.raises(ValueError, match="group_by is said of the rows a finder reads"):
+        _result([_NAME, count_all()]).limit(2).group_by(_NAME)
+    with pytest.raises(ValueError, match="having is said of the rows a finder reads"):
+        _result([_NAME, count_all()]).group_by(_NAME).order_by(_NAME.ascending()).having(count_all() > 1)
