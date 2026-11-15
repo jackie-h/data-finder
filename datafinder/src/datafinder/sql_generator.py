@@ -1077,8 +1077,11 @@ class SQLQueryGenerator:
             for parent in having_joins.values():
                 self.__add_join(parent)
             self._having = self.build_filter(having)
+        constants = {id(c.element): c.name for c in query.columns if isinstance(c, Alias) and isinstance(c.element, ConstantOperation)}
         self._order_by_parts = [
-            self.__sort_expression(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+            # a constant is sorted by the name it is selected under: a literal in ORDER BY is not a column (a number is a position)
+            ('"' + constants[id(s.column)].replace('"', '""') + '"' if id(s.column) in constants else self.__sort_expression(s.column))
+            + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
             for s in order_by
         ]
         self._limit = query.limit if ordered else None
