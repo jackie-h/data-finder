@@ -40,7 +40,7 @@ def test_the_generator_names_each_relation_it_reads_with_a_table_alias():
     generator = SQLQueryGenerator()
     generator.generate(query)
     assert all(isinstance(alias, TableAlias) for alias in generator._from)
-    assert [(alias.name, alias.relation.name) for alias in generator._from] == [("t0", "accounts")]  # pyright: ignore[reportAttributeAccessIssue]
+    assert [(alias.name, getattr(alias.relation, "name", None)) for alias in generator._from] == [("t0", "accounts")]
 
 
 def test_reading_a_column_that_belongs_to_no_relation_is_a_clear_error():

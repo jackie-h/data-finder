@@ -12,6 +12,7 @@ import shutil
 import sys
 import tempfile
 from dataclasses import dataclass
+from http.server import HTTPServer
 from pathlib import Path
 from typing import Callable
 
@@ -205,7 +206,7 @@ def make_finder():
     """Returns a finder wired to a mock server seeded with the scenario's data (one server per scenario)."""
     tmp = Path(tempfile.mkdtemp())
     classes: dict[str, dict[str, type]] = {}
-    servers: dict[str, object] = {}
+    servers: dict[str, HTTPServer] = {}
 
     def make(scenario_id: str, finder_name: str):
         scenario = _SCENARIOS_BY_ID[scenario_id]
@@ -216,13 +217,13 @@ def make_finder():
                 scenario.mapping_file, directory, f"graphql_{Path(scenario.mapping_file).stem}")
         if scenario_id not in servers:
             servers[scenario_id] = start_graphql_server(scenario.tables())
-        endpoint = GraphQLEndpoint(endpoint_url(servers[scenario_id]), _FILTER_CONVENTION)  # pyright: ignore[reportArgumentType]
+        endpoint = GraphQLEndpoint(endpoint_url(servers[scenario_id]), _FILTER_CONVENTION)
         return classes[scenario.mapping_file][finder_name](endpoint)
 
     yield make
 
     for server in servers.values():
-        server.shutdown()  # pyright: ignore[reportAttributeAccessIssue]
+        server.shutdown()
     for name in [n for n in sys.modules if n.startswith("graphql_") and n.endswith("_finder")]:
         sys.modules.pop(name, None)
     shutil.rmtree(tmp, ignore_errors=True)

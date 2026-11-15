@@ -18,7 +18,7 @@ from sqlglot.errors import SqlglotError
 from model.relational import (
     ComparisonOperation, ComparisonOperator, Column, DecimalConstantOperation, FloatConstantOperation,
     IntegerConstantOperation, IsNotNullOperation, IsNullOperation, LogicalOperation, LogicalOperator, NotOperation,
-    Operation, RelationalOperationElement, StringConstantOperation, Table, TableAlias,
+    Operation, RelationalOperationElement, StringConstantOperation, Table, TableAlias, negated,
 )
 
 TARGET = "{target}"
@@ -82,12 +82,8 @@ def parse_condition(text: str, tables: list[Table], where: str) -> Operation:
             return FloatConstantOperation(float(number)) if "e" in node.name.lower() else DecimalConstantOperation(number)
         if isinstance(node, exp.Neg) and isinstance(node.this, exp.Literal) and not node.this.is_string:
             inner = operand(node.this)
-            if isinstance(inner, IntegerConstantOperation):
-                return IntegerConstantOperation(-inner.value)
-            if isinstance(inner, FloatConstantOperation):
-                return FloatConstantOperation(-inner.value)
-            if isinstance(inner, DecimalConstantOperation):
-                return DecimalConstantOperation(-inner.value)
+            if isinstance(inner, (IntegerConstantOperation, FloatConstantOperation, DecimalConstantOperation)):
+                return negated(inner)
         if isinstance(node, exp.Func):
             raise ValueError(f"{where}: a function in a join condition is not supported: {node.sql()!r} in {text!r}")
         raise ValueError(f"{where}: {node.sql()!r} in {text!r} is not a column or a literal")

@@ -27,7 +27,7 @@ from model.relational import (
     IsNullOperation, JoinKind, JoinOperation, LogicalOperation, LogicalOperator, NamedRelation, NoOperation,
     NotInOperation, NotOperation, Operation, QueryExpression, QuerySpecification, Relation, RelationalOperationElement,
     ScalarFunction, ScalarFunctionOperation, StringConstantOperation, Table, TableAlias,
-    UntypedArithmeticOperation,
+    UntypedArithmeticOperation, negated,
 )
 
 DIALECT = "postgres"
@@ -245,8 +245,7 @@ def _value(node: exp.Expr, scope: _Scope) -> RelationalOperationElement:
     if isinstance(node, exp.Boolean):
         return BooleanConstantOperation(bool(node.this))
     if isinstance(node, exp.Neg) and isinstance(node.this, exp.Literal) and not node.this.is_string:
-        inner = _literal(node.this, scope)
-        return type(inner)(-inner.value)  # pyright: ignore[reportAttributeAccessIssue, reportCallIssue]
+        return negated(_literal(node.this, scope))
     if type(node) in _ARITHMETIC:
         return UntypedArithmeticOperation(_value(node.this, scope), _ARITHMETIC[type(node)], _value(node.expression, scope))
     if isinstance(node, exp.DPipe):

@@ -467,7 +467,8 @@ def _op_to_where_clause(op) -> str | None:
             return _nest(field, f"{{ _in: [{values}] }}")
         not_in = _nest(field, f"{{ _nin: [{values}] }}")
         # a server's _nin skips nulls as SQL does, so a nullable field has to match its nulls explicitly
-        if op.element.column.nullable:    # _field_name checked it is a ColumnWithJoin  # pyright: ignore[reportAttributeAccessIssue]
+        assert isinstance(op.element, ColumnWithJoin)  # _field_name checked it
+        if op.element.column.nullable:
             return f"{{ _or: [{not_in}, {_nest(field, '{ _is_null: true }')}] }}"
         return not_in
     if isinstance(op, IsNullOperation):

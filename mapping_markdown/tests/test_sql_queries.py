@@ -48,14 +48,16 @@ def _alias(mapping, class_name):
 
 
 def test_a_query_is_read_into_a_table_alias_that_knows_its_sql(tmp_path):
-    from model.relational import QuerySpecification, Table, TableAlias
+    from model.relational import Column, QuerySpecification, Table, TableAlias
     alias = _alias(load(str(_mapping(tmp_path, "SELECT DISTINCT firm_id, firm_name FROM people"))), "Firm")
     assert isinstance(alias, TableAlias) and alias.name == "FIRM_QUERY"
     assert isinstance(alias.relation, QuerySpecification) and alias.relation.distinct
     assert alias.sql == "SELECT DISTINCT firm_id, firm_name FROM people"
     assert [r.name for r in alias.reads] == ["people"] and isinstance(alias.reads[0], Table)
-    assert [(c.name, c.type, c.primary_key) for c in alias.columns] == [("firm_id", "INT", True), ("firm_name", "VARCHAR", False)]  # pyright: ignore[reportAttributeAccessIssue]
-    assert all(c.owner is alias and c.table is alias for c in alias.columns)  # pyright: ignore[reportAttributeAccessIssue]
+    columns = [c for c in alias.columns if isinstance(c, Column)]
+    assert len(columns) == len(alias.columns)
+    assert [(c.name, c.type, c.primary_key) for c in columns] == [("firm_id", "INT", True), ("firm_name", "VARCHAR", False)]
+    assert all(c.owner is alias and c.table is alias for c in columns)
 
 
 def test_a_query_is_in_the_data_stores_queries_and_in_no_schema(tmp_path):

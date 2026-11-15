@@ -30,6 +30,16 @@ def _element(mixed_in: object) -> 'RelationalOperationElement':
     return mixed_in
 
 
+class _Operand:
+    """What the mixins that follow (aggregates, comparisons, arithmetic, text and date functions) need of the expression they are part of:
+    it gives an operand, and the classes that give it an aggregate or a number kind set those on the class once they are all defined."""
+    if TYPE_CHECKING:
+        _number_kind: 'type | None'
+        _value_aggregate: 'type[AggregateOperation]'
+
+        def _arithmetic_operand(self) -> 'RelationalOperationElement': ...
+
+
 class Sortable:
     """Something the result can be ordered by: ``f.id_().count().ascending()``."""
 
@@ -50,7 +60,7 @@ class Aliasable:
         return Alias(_element(self), name)
 
 
-class Aggregates(Generic[AG]):
+class Aggregates(_Operand, Generic[AG]):
     """Aggregates of an expression, as a column has them: ``(f.price() * f.quantity()).sum()``, ``constant(1).sum()``,
     ``when(...).then(5.0).otherwise(1.0).sum()``.
 
@@ -62,7 +72,7 @@ class Aggregates(Generic[AG]):
     def _aggregate(self, operator: 'AggregateOperator', label: str, kind: 'type[AggregateOperation] | None' = None) -> Any:
         """The aggregate of ``kind``, else of the expression's own type: what the method that asks for it says it gives."""
         value_kind: 'type[AggregateOperation] | None' = kind or getattr(self, '_value_aggregate', None)
-        return (value_kind or UntypedAggregateOperation)(self._arithmetic_operand(), operator, label + ' Expression')  # pyright: ignore[reportAttributeAccessIssue]
+        return (value_kind or UntypedAggregateOperation)(self._arithmetic_operand(), operator, label + ' Expression')
 
     def sum(self) -> AG:
         return self._aggregate(AggregateOperator.SUM, 'Sum')
@@ -88,15 +98,15 @@ class Aggregates(Generic[AG]):
                                DoubleAggregateOperation)
 
 
-class Extremes(Generic[AG]):
+class Extremes(_Operand, Generic[AG]):
     """The smallest and largest of a group, for an expression that can be ordered but not summed. They are of the
     expression's own type: the minimum of an interval is an interval."""
 
     def min(self) -> AG:
-        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MIN, 'Min Expression')  # pyright: ignore[reportAttributeAccessIssue]
+        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MIN, 'Min Expression')
 
     def max(self) -> AG:
-        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MAX, 'Max Expression')  # pyright: ignore[reportAttributeAccessIssue]
+        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MAX, 'Max Expression')
 
 
 def _sample(ddof: int) -> bool:
@@ -120,7 +130,7 @@ class BooleanAggregates:
         return BooleanAggregateOperation(_element(self), AggregateOperator.BOOL_OR, 'Any Expression')
 
 
-class Equatable(Generic[T]):
+class Equatable(_Operand, Generic[T]):
     """Equality for an expression or a column whose values are ``T``: ``eq``, ``ne``, ``==``, ``!=``, ``is_in`` and
     ``is_not_in``. The other side is a ``T``, another column or an expression, and each gives a filter.
 
@@ -133,7 +143,7 @@ class Equatable(Generic[T]):
 
     def _compared(self, operator: 'ComparisonOperator', other) -> 'ComparisonOperation':
         right = other._arithmetic_operand() if isinstance(other, RelationalOperationElement) else self._to_constant(other)
-        return ComparisonOperation(self._arithmetic_operand(), operator, right)  # pyright: ignore[reportAttributeAccessIssue]
+        return ComparisonOperation(self._arithmetic_operand(), operator, right)
 
     def eq(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
         """The expression equals a value, or another column or expression."""
@@ -159,11 +169,11 @@ class Equatable(Generic[T]):
 
     def is_in(self, values: 'Iterable[T]') -> 'InOperation':
         """The expression is one of ``values``: ``f.name().substring(0, 4).is_in(["beta", "Hell"])``."""
-        return InOperation(self._arithmetic_operand(), self._constants(values))  # pyright: ignore[reportAttributeAccessIssue]
+        return InOperation(self._arithmetic_operand(), self._constants(values))
 
     def is_not_in(self, values: 'Iterable[T]') -> 'NotInOperation':
         """The expression is none of ``values``."""
-        return NotInOperation(self._arithmetic_operand(), self._constants(values))  # pyright: ignore[reportAttributeAccessIssue]
+        return NotInOperation(self._arithmetic_operand(), self._constants(values))
 
 
 class Orderable(Equatable[T]):
@@ -226,7 +236,7 @@ def _arithmetic_result_kind(operator: 'ArithmeticOperator', a: 'type | None', b:
     return int
 
 
-class Arithmetic(Generic[K]):
+class Arithmetic(_Operand, Generic[K]):
     """The operators ``+ - * /`` for an expression that holds a number of kind ``K`` (``int``, ``float`` or
     ``decimal.Decimal``): ``a + b``, ``a * 2``, ``1 - a``. The other operand is a number or another numeric expression.
 
@@ -245,7 +255,7 @@ class Arithmetic(Generic[K]):
             operand = other._arithmetic_operand()
         else:
             operand = _constant_operand(other)
-        me = self._arithmetic_operand()  # pyright: ignore[reportAttributeAccessIssue]
+        me = self._arithmetic_operand()
         left, right = (operand, me) if reflected else (me, operand)
         kind = _arithmetic_result_kind(operator, getattr(self, '_number_kind', None), _number_kind_of(other))
         return _ARITHMETIC_RESULTS[kind](left, operator, right)
@@ -767,7 +777,7 @@ class DateFunctions:
         return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.YEAR, 'Diff Years ' + self._function_label())
 
 
-class DateTimeFunctions:
+class DateTimeFunctions(_Operand):
     """Functions of a datetime: those of a date, with hour, minute and second granularity. Shared by a datetime column and
     a datetime constant; the user of this class provides ``_function_input()`` and ``_function_label()``.
 
@@ -911,15 +921,15 @@ class DateTimeFunctions:
         if isinstance(other, datetime.timedelta):
             return self._timedelta_op(other, is_add=False)
         if isinstance(other, datetime.datetime):
-            return IntervalOperation(self._arithmetic_operand(), DateTimeConstantOperation(other))  # pyright: ignore[reportAttributeAccessIssue]
+            return IntervalOperation(self._arithmetic_operand(), DateTimeConstantOperation(other))
         if isinstance(other, DateTimeFunctions) and isinstance(other, RelationalOperationElement):
-            return IntervalOperation(self._arithmetic_operand(), other._arithmetic_operand())  # pyright: ignore[reportAttributeAccessIssue]
+            return IntervalOperation(self._arithmetic_operand(), other._arithmetic_operand())
         return NotImplemented
 
     def __rsub__(self, other: datetime.datetime) -> 'IntervalOperation':
         """A datetime minus this: ``datetime.datetime(2005, 1, 1) - ts``, the time between them."""
         if isinstance(other, datetime.datetime):
-            return IntervalOperation(DateTimeConstantOperation(other), self._arithmetic_operand())  # pyright: ignore[reportAttributeAccessIssue]
+            return IntervalOperation(DateTimeConstantOperation(other), self._arithmetic_operand())
         return NotImplemented
 
     def _timedelta_op(self, td: datetime.timedelta, is_add: bool):
@@ -960,18 +970,18 @@ class DateTimeFunctions:
         return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.SECOND, 'Diff Seconds ' + self._function_label())
 
 
-class StringPredicates:
+class StringPredicates(_Operand):
     """Pattern tests on an expression that holds text, as on a column: ``f.name().upper().starts_with("AC")``,
     ``f.name().join(",").contains("John")``."""
 
     def _like(self, pattern: str) -> 'ComparisonOperation':
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # pyright: ignore[reportAttributeAccessIssue]
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,
                                    StringConstantOperation(pattern))
 
     def matches(self, pattern: str) -> 'ComparisonOperation':
         """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
         ``f.comment().matches("Customer.*Complaints")``."""
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # pyright: ignore[reportAttributeAccessIssue]
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,
                                    StringConstantOperation(pattern))
 
     def contains(self, value: str) -> 'ComparisonOperation':
@@ -1073,6 +1083,17 @@ class BooleanConstantOperation(ConstantOperation, Equatable[bool], Aggregates['U
     def __init__(self, value:bool):
         super().__init__()
         self.value = value
+
+
+def negated(constant: 'ConstantOperation') -> 'ConstantOperation':
+    """A number with the opposite sign, of the same kind."""
+    if isinstance(constant, IntegerConstantOperation):
+        return IntegerConstantOperation(-constant.value)
+    if isinstance(constant, FloatConstantOperation):
+        return FloatConstantOperation(-constant.value)
+    if isinstance(constant, DecimalConstantOperation):
+        return DecimalConstantOperation(-constant.value)
+    raise TypeError(f"{type(constant).__name__} is not a number")
 
 
 class UnaryOperation(Operation):
@@ -1568,14 +1589,14 @@ IntegerConstantOperation._number_type = IntegerFunctionOperation
 FloatConstantOperation._number_type = DoubleFunctionOperation
 DecimalConstantOperation._number_type = DecimalFunctionOperation
 IntegerFunctionOperation._number_type = IntegerFunctionOperation
-IntegerFunctionOperation._number_kind = int  # pyright: ignore[reportAttributeAccessIssue]
-IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+IntegerFunctionOperation._number_kind = int
+IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation
 DoubleFunctionOperation._number_type = DoubleFunctionOperation
-DoubleFunctionOperation._number_kind = float  # pyright: ignore[reportAttributeAccessIssue]
-DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+DoubleFunctionOperation._number_kind = float
+DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation
 DecimalFunctionOperation._number_type = DecimalFunctionOperation
-DecimalFunctionOperation._number_kind = decimal.Decimal  # pyright: ignore[reportAttributeAccessIssue]
-DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+DecimalFunctionOperation._number_kind = decimal.Decimal
+DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation
 
 
 class Relation:
@@ -2123,11 +2144,11 @@ class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['
 
 
 # the aggregate that gives an expression's own type: the type of its sum, minimum and maximum
-IntegerArithmeticOperation._value_aggregate = IntegerAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
-DoubleArithmeticOperation._value_aggregate = DoubleAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
-DecimalArithmeticOperation._value_aggregate = DecimalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
-IntegerConstantOperation._value_aggregate = IntegerAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
-FloatConstantOperation._value_aggregate = DoubleAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
-DecimalConstantOperation._value_aggregate = DecimalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
-IntervalOperation._value_aggregate = IntervalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
-IntervalConstantOperation._value_aggregate = IntervalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+IntegerArithmeticOperation._value_aggregate = IntegerAggregateOperation
+DoubleArithmeticOperation._value_aggregate = DoubleAggregateOperation
+DecimalArithmeticOperation._value_aggregate = DecimalAggregateOperation
+IntegerConstantOperation._value_aggregate = IntegerAggregateOperation
+FloatConstantOperation._value_aggregate = DoubleAggregateOperation
+DecimalConstantOperation._value_aggregate = DecimalAggregateOperation
+IntervalOperation._value_aggregate = IntervalAggregateOperation
+IntervalConstantOperation._value_aggregate = IntervalAggregateOperation

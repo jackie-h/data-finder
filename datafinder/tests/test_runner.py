@@ -141,8 +141,9 @@ class TestOrderByAccumulates:
 
     @staticmethod
     def _columns(result: FinderResult) -> list[tuple[str, SortDirection]]:
-        assert all(isinstance(s.column, ColumnWithJoin) for s in result._query.order_by)
-        return [(s.column.column.name, s.direction) for s in result._query.order_by]  # pyright: ignore[reportAttributeAccessIssue]
+        columns = [s.column for s in result._query.order_by]
+        assert all(isinstance(c, ColumnWithJoin) for c in columns)
+        return [(c.column.name, s.direction) for c, s in zip(columns, result._query.order_by) if isinstance(c, ColumnWithJoin)]
 
     def test_the_later_call_is_primary(self):
         a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)

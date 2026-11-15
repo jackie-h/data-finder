@@ -3,12 +3,18 @@ import pytest
 
 from mapping_markdown.join_condition import parse_condition
 from model.relational import (
-    ComparisonOperation, ComparisonOperator, IntegerConstantOperation, IsNotNullOperation, IsNullOperation,
+    Column, ComparisonOperation, ComparisonOperator, IntegerConstantOperation, IsNotNullOperation, IsNullOperation,
     LogicalOperation, LogicalOperator, StringConstantOperation, Table,
 )
 
 _FIRM = Table("firmTable", [("ID", "INT"), ("FLAG", "INT")])
 _PERSON = Table("personTable", [("ID", "INT"), ("FIRSTNAME", "VARCHAR"), ("FLAG", "INT"), ("MANAGERID", "INT")])
+
+
+def _owner(element):
+    """The table a column of a condition belongs to."""
+    assert isinstance(element, Column), f"{type(element).__name__} is not a column"
+    return element.owner_relation
 
 
 def _parse(text):
@@ -18,8 +24,8 @@ def _parse(text):
 def test_is_null_and_is_not_null_of_each_table():
     op = _parse("firmTable.FLAG IS NULL AND personTable.FLAG IS NOT NULL")
     assert isinstance(op, LogicalOperation) and op.operator == LogicalOperator.AND
-    assert isinstance(op.left, IsNullOperation) and op.left.element.owner_relation is _FIRM  # pyright: ignore[reportAttributeAccessIssue]
-    assert isinstance(op.right, IsNotNullOperation) and op.right.element.owner_relation is _PERSON  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(op.left, IsNullOperation) and _owner(op.left.element) is _FIRM
+    assert isinstance(op.right, IsNotNullOperation) and _owner(op.right.element) is _PERSON
 
 
 def test_an_or_group_of_comparisons_with_string_literals():
@@ -39,23 +45,25 @@ def test_not_equal_and_a_negative_number(text):
 def test_a_schema_qualified_column():
     table = Table("hr.personTable", [("ID", "INT")])
     op = parse_condition("hr.personTable.ID = 1", [table], "J")
-    assert isinstance(op, ComparisonOperation) and op.left.owner_relation is table  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(op, ComparisonOperation) and _owner(op.left) is table
 
 
 def test_target_in_a_join_of_a_table_to_itself_is_an_alias_of_the_table():
     from model.relational import TableAlias
     op = parse_condition("personTable.MANAGERID = {target}.ID AND {target}.FLAG IS NULL", [_PERSON, _PERSON], "J")
     assert isinstance(op, LogicalOperation)
-    assert op.left.left.owner_relation is _PERSON    # the side the join starts from  # pyright: ignore[reportAttributeAccessIssue]
-    alias = op.left.right.owner_relation  # pyright: ignore[reportAttributeAccessIssue]
+    first, second = op.left, op.right
+    assert isinstance(first, ComparisonOperation) and isinstance(second, IsNullOperation)
+    assert _owner(first.left) is _PERSON    # the side the join starts from
+    alias = _owner(first.right)
     assert isinstance(alias, TableAlias) and alias.relation is _PERSON
-    assert op.right.element.owner_relation is alias    # one alias for every {target}  # pyright: ignore[reportAttributeAccessIssue]
+    assert _owner(second.element) is alias    # one alias for every {target}
 
 
 def test_target_in_a_join_to_another_table_is_that_table():
     op = parse_condition("{target}.FLAG IS NULL AND personTable.FLAG IS NOT NULL", [_PERSON, _FIRM], "J")
     assert isinstance(op, LogicalOperation)
-    assert op.left.element.owner_relation is _FIRM  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(op.left, IsNullOperation) and _owner(op.left.element) is _FIRM
 
 
 @pytest.mark.parametrize("text,message", [
