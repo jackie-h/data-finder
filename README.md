@@ -264,6 +264,9 @@ a hand-written union would leave to chance:
 
 - A set name is unique in the mapping, as is a query's name, and neither is the name of a table. A class that is mapped to several queries has every one of them named, and is not also mapped to a table.
 - The sets give the same columns, with the same types, and map them to the same properties. A set cannot give a column named `_set`.
+- The columns of a set can be those of an object embedded in the row, with a dotted `Property ID` as a table's are (`applicant.address.name`; see *Embedded properties*). Each set has its own embedded
+  objects, and the sets must embed the same objects from columns of the same names. A constant is a column of the query (`'agency1' AS source`), and the embedded object is read from the union's column. An object
+  embedded in a set that reaches another table is not supported.
 - Every set has a key, marked `PK`, that no two of its rows share, because rows of different sets can look the same (a key of 1 is in both). It is checked: a set selects the key of its table, a join in it is on
   the key of what it joins (and is not a `RIGHT` or `FULL` join, which add rows), a `DISTINCT` set has every column as its key, and a grouped set has what it is grouped by.
 - An association from or to a class that has sets says which sets it joins, in a section for each pair of sets:

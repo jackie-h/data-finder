@@ -383,3 +383,81 @@ def test_a_property_of_a_set_that_is_not_a_column_is_refused_and_not_dropped_fro
     cast(list, sets[0].property_mappings).append(RelationalPropertyMapping(firm.clazz.properties["legalName"], object(), "big"))  # pyright: ignore[reportArgumentType]
     with pytest.raises(ValueError, match="the set 'big' of Firm maps legalName to something other than a column"):
         union_of_sets("Firm", sets)
+
+
+# --- objects embedded in the row of a set ---------------------------------------------------------------------------------------------------
+def _embedded_text(tmp_path, change=None):
+    from datafinder_examples import example_path
+    text = open(example_path("sql_query_sets_embedded_mapping.md")).read().replace("## Model: sql_query_sets_embedded_model.md",
+                                                                                   f"## Model: {example_path('sql_query_sets_embedded_model.md')}")
+    path = tmp_path / "embedded.md"
+    path.write_text(change(text) if change else text)
+    return path
+
+
+def _application(mapping) -> RelationalUnionMapping:
+    application = next(r for r in mapping.mappings if r.clazz.name == "Application")
+    assert isinstance(application, RelationalUnionMapping)
+    return application
+
+
+def test_each_set_has_its_own_embedded_objects_and_the_union_has_them_on_its_columns(tmp_path):
+    from model.relational import Column
+    from model.relational_mapping import RelationalEmbeddedSetMapping, RelationalNavigationPropertyMapping
+    application = _application(load(str(_embedded_text(tmp_path))))
+
+    def embedded(holder):
+        return {pm.property.id: pm.target for pm in holder.property_mappings if isinstance(pm.target, RelationalEmbeddedSetMapping)}
+
+    for each in application.sets:
+        assert sorted(embedded(each)) == ["applicant", "firm"]
+        assert embedded(each)["applicant"].id == f"{each.id}_applicant"
+    on_union = embedded(application)
+    assert sorted(on_union) == ["applicant", "firm"] and on_union["applicant"].id == "Application_applicant"
+    leaves = {pm.property.id: pm.target for pm in on_union["applicant"].property_mappings if isinstance(pm.target, Column)}
+    assert sorted(leaves) == ["firstName", "nickName"] and {getattr(c.owner, "name", None) for c in leaves.values()} == {"APPLICATION_SETS"}
+    nested = next(pm for pm in on_union["applicant"].property_mappings if isinstance(pm, RelationalNavigationPropertyMapping))
+    assert isinstance(nested.target, RelationalEmbeddedSetMapping) and nested.target.id == "Application_applicant_address"
+    assert [pm.target.name for pm in nested.target.property_mappings if isinstance(pm.target, Column)] == ["applicant_home"]
+
+
+def test_the_sets_must_embed_the_same_objects_from_the_same_columns(tmp_path):
+    def change(text):
+        first, second = text.split("#### Query: AGENCY_TWO")
+        return first + "#### Query: AGENCY_TWO" + second.replace("| applicant_nick_name  | VARCHAR |     | Y        | applicant.nickName      |",
+                                                                  "| applicant_nick_name  | VARCHAR |     | Y        | applicant.firstName     |", 1)
+    with pytest.raises(ValueError, match="map the columns to different properties of the objects embedded in their rows"):
+        load(str(_embedded_text(tmp_path, change)))
+
+
+def test_a_set_that_leaves_out_an_embedded_property_is_refused(tmp_path):
+    def change(text):
+        first, second = text.split("#### Query: AGENCY_TWO")
+        return first + "#### Query: AGENCY_TWO" + second.replace("applicant.address.name", "", 1)
+    with pytest.raises(ValueError, match="different properties of the objects embedded|different properties"):
+        load(str(_embedded_text(tmp_path, change)))
+
+
+def test_the_embedded_objects_of_the_sets_survive_writing(tmp_path):
+    from datafinder_examples import example_path
+    from model.relational import Column
+    first = load(str(_embedded_text(tmp_path)))
+    path = tmp_path / "written.md"
+    save(str(path), "Embedded", first, [str(example_path("sql_query_sets_embedded_model.md"))])
+    assert "applicant.address.name" in path.read_text() and "firm.legalName" in path.read_text()
+    again = _application(load(str(path)))
+    assert [s.id for s in again.sets] == ["agency_one", "agency_two"]
+    assert sorted(pm.property.id for pm in again.property_mappings if not isinstance(pm.target, Column)) == ["applicant", "firm"]
+
+
+def test_an_object_embedded_in_a_set_that_reaches_another_table_is_refused(tmp_path):
+    from model.query_sets import union_of_sets
+    from model.relational_mapping import Join, RelationalEmbeddedSetMapping, RelationalNavigationPropertyMapping
+    application = _application(load(str(_embedded_text(tmp_path))))
+    first = application.sets[0]
+    embedded = next(pm for pm in first.property_mappings if isinstance(pm.target, RelationalEmbeddedSetMapping)).target
+    assert isinstance(embedded, RelationalEmbeddedSetMapping)
+    column = next(pm.target for pm in embedded.property_mappings if not isinstance(pm.target, RelationalEmbeddedSetMapping))
+    embedded.property_mappings.append(RelationalNavigationPropertyMapping(embedded.property_mappings[0].property, Join(column, column), embedded.id, "Address"))
+    with pytest.raises(ValueError, match="of an embedded object to something other than a column"):
+        union_of_sets("Application", list(application.sets))

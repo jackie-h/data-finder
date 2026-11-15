@@ -234,6 +234,8 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
                 joins.append(_join_entry(associations_by_nav.get((cm.clazz.name, pm.property.id)), cm.clazz.name, pm.target, source_set, target_set,
                                          _query_of_set(cm, source_set), _query_of_set(target_class, target_set)))
             elif isinstance(pm.target, RelationalEmbeddedSetMapping):
+                for path, column in markdown_mapping._embedded_columns(pm.target, pm.property.id):
+                    column_property[id(column)] = path  # the column of a property of an object embedded in the row: ``applicant.address.name``
                 # a property of an object embedded in the row that reaches another table
                 for holder, prop, join, _ in markdown_mapping._embedded_joins(pm.target, [pm.property.id]):
                     joins.append(_join_entry(associations_by_nav.get((holder.clazz.name, prop.id)), cm.clazz.name, join))
