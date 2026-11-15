@@ -47,6 +47,11 @@ CHAINED_RESULT_SUBSELECT = (
     "step to the query's outer select, so the finder has one more level of subselect, which keeps the same rows"
 )
 
+LIMIT_OF_LIMIT = (
+    "a limit on rows that were already limited or offset is the one limit of the rows kept, in one select; Legend nests the first "
+    "limit in a subselect and limits that, which returns the same rows"
+)
+
 HOUR_OF_DATETIME_LITERAL = (
     "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
     "string, which DuckDB cannot run, so there are no rows of Legend's to compare"

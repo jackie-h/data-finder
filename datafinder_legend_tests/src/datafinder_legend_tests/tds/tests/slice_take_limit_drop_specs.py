@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported
 
 _SRC = "tds/tests/testSliceTakeLimitDrop.pure"
 
@@ -26,23 +26,23 @@ TDS_SLICE_TAKE_LIMIT_DROP_SPECS = FinderSpec(
         ported("testSimpleDrop", f"{_SRC}::testSimpleDrop",
                'select "root".FIRSTNAME as "name" from personTable as "root" offset 0 rows',
                lambda f: f.find_all([f.first_name()]).offset(0)),
-        unsupported("testSimpleNestedDrop", f"{_SRC}::testSimpleNestedDrop",
+        ported("testSimpleNestedDrop", f"{_SRC}::testSimpleNestedDrop",
                     'select "subselect"."name" as "name" from (select "root".FIRSTNAME as "name" from personTable as "root" offset 5 rows) as "subselect" order by "name" asc',
-                    'an offset before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
-        unsupported("testSimpleNestedDropAfterConcatenate", f"{_SRC}::testSimpleNestedDropAfterConcatenate",
+                    lambda f: f.find_all([f.first_name().alias("name")]).offset(5).order_by(f.first_name().ascending())),
+        ported("testSimpleNestedDropAfterConcatenate", f"{_SRC}::testSimpleNestedDropAfterConcatenate",
                     'select "subselect"."name" as "name" from (select "unionalias_1"."name" as "name" from (select "root".FIRSTNAME as "name" from personTable as "root" union all select "root".FIRSTNAME as "name" from personTable as "root") as "unionalias_1" offset 5 rows) as "subselect" order by "name" asc',
-                    'an offset before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
-        unsupported("testSimpleNestedTake", f"{_SRC}::testSimpleNestedTake",
+                    lambda f: (lambda r: r.order_by(r["name"].ascending()))(f.find_all([f.first_name().alias("name")]).concatenate(f.find_all([f.first_name().alias("name")]), all=True).offset(5))),
+        ported("testSimpleNestedTake", f"{_SRC}::testSimpleNestedTake",
                     'select "subselect"."name" as "name" from (select top 5 "root".FIRSTNAME as "name" from personTable as "root") as "subselect" order by "name" asc',
-                    'operations cannot be applied after a limit'),
-        unsupported("testSimpleNestedTakeAfterConcatenate", f"{_SRC}::testSimpleNestedTakeAfterConcatenate",
+                    lambda f: f.find_all([f.first_name().alias("name")]).limit(5).order_by(f.first_name().ascending())),
+        ported("testSimpleNestedTakeAfterConcatenate", f"{_SRC}::testSimpleNestedTakeAfterConcatenate",
                     'select "subselect"."name" as "name" from (select top 5 "unionalias_1"."name" as "name" from (select "root".FIRSTNAME as "name" from personTable as "root" union all select "root".FIRSTNAME as "name" from personTable as "root") as "unionalias_1") as "subselect" order by "name" asc',
-                    'no concatenate / union'),
-        unsupported("testSimpleNestedSlice", f"{_SRC}::testSimpleNestedSlice",
+                    lambda f: (lambda r: r.order_by(r["name"].ascending()))(f.find_all([f.first_name().alias("name")]).concatenate(f.find_all([f.first_name().alias("name")]), all=True).limit(5))),
+        ported("testSimpleNestedSlice", f"{_SRC}::testSimpleNestedSlice",
                     'select "subselect"."name" as "name" from (select "root".FIRSTNAME as "name" from personTable as "root" offset 1 rows fetch next 4 rows only) as "subselect" order by "name" asc',
-                    'an offset or slice before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
-        unsupported("testSimpleNestedSliceAfterConcatenate", f"{_SRC}::testSimpleNestedSliceAfterConcatenate",
+                    lambda f: f.find_all([f.first_name().alias("name")]).slice(1, 5).order_by(f.first_name().ascending())),
+        ported("testSimpleNestedSliceAfterConcatenate", f"{_SRC}::testSimpleNestedSliceAfterConcatenate",
                     'select "subselect"."name" as "name" from (select "unionalias_1"."name" as "name" from (select "root".FIRSTNAME as "name" from personTable as "root" union all select "root".FIRSTNAME as "name" from personTable as "root") as "unionalias_1" offset 1 rows fetch next 4 rows only) as "subselect" order by "name" asc',
-                    'an offset or slice before more operations, or after a limit, is nested in a subselect; the finder applies them together'),
+                    lambda f: (lambda r: r.order_by(r["name"].ascending()))(f.find_all([f.first_name().alias("name")]).concatenate(f.find_all([f.first_name().alias("name")]), all=True).slice(1, 5))),
     ],
 )
