@@ -15,7 +15,7 @@ from model.relational import (
     IsNotNullOperation, IsNullOperation, LogicalOperation, NamedRelation, NotOperation, StringConstantOperation, Table, TableAlias,
 )
 from model.query_sets import merge_set_navigations
-from model.relational_mapping import Join, EmbeddedSetMapping, RelationalClassMapping, RelationalUnionMapping
+from model.relational_mapping import Join, RelationalClassMapping, RelationalEmbeddedSetMapping, RelationalUnionMapping
 
 
 def is_primitive(prop: Property) -> bool:
@@ -23,7 +23,7 @@ def is_primitive(prop: Property) -> bool:
 
 
 def flatten_embedded(join: Join) -> list[tuple[str, Property, Column]]:
-    """Flatten a Join's embedded EmbeddedSetMapping (if any) into (dotted_path, leaf_property, column)
+    """Flatten a Join's embedded RelationalEmbeddedSetMapping (if any) into (dotted_path, leaf_property, column)
     triples, relative to the related class (e.g. 'name', 'branch.city' — not 'account.name').
 
     Returns [] when the join has no embedded mapping, so templates can gate codegen on it.
@@ -32,12 +32,12 @@ def flatten_embedded(join: Join) -> list[tuple[str, Property, Column]]:
         return []
     result: list[tuple[str, Property, Column]] = []
 
-    def _walk(esm: EmbeddedSetMapping, prefix: str):
+    def _walk(esm: RelationalEmbeddedSetMapping, prefix: str):
         for pm in esm.property_mappings:
             dotted = f"{prefix}.{pm.property.id}" if prefix else pm.property.id
             if isinstance(pm.target, Column):
                 result.append((dotted, pm.property, pm.target))
-            elif isinstance(pm.target, EmbeddedSetMapping):
+            elif isinstance(pm.target, RelationalEmbeddedSetMapping):
                 _walk(pm.target, dotted)
 
     _walk(join.embedded, '')
@@ -50,13 +50,13 @@ def embedded_optional(join: Join) -> dict[str, bool]:
     if join is None or join.embedded is None:
         return result
 
-    def _walk(esm: EmbeddedSetMapping, prefix: str, optional: bool):
+    def _walk(esm: RelationalEmbeddedSetMapping, prefix: str, optional: bool):
         for pm in esm.property_mappings:
             dotted = f"{prefix}.{pm.property.id}" if prefix else pm.property.id
             here = optional or pm.property.multiplicity.lower == 0
             if isinstance(pm.target, Column):
                 result[dotted] = here
-            elif isinstance(pm.target, EmbeddedSetMapping):
+            elif isinstance(pm.target, RelationalEmbeddedSetMapping):
                 _walk(pm.target, dotted, here)
 
     _walk(join.embedded, '', False)
@@ -71,8 +71,8 @@ class _ClassView:
         self.clazz = rcm.clazz
         self.milestone_mapping = rcm.milestone_mapping
         # a navigation between sets is mapped for each pair of them, and is one join to the finder
-        self.property_mappings = [pm for pm in merge_set_navigations(rcm) if not isinstance(pm.target, EmbeddedSetMapping)]
-        self.embedded_mappings = [pm for pm in rcm.property_mappings if isinstance(pm.target, EmbeddedSetMapping)]
+        self.property_mappings = [pm for pm in merge_set_navigations(rcm) if not isinstance(pm.target, RelationalEmbeddedSetMapping)]
+        self.embedded_mappings = [pm for pm in rcm.property_mappings if isinstance(pm.target, RelationalEmbeddedSetMapping)]
         self.main_relation = rcm.main_relation
 
 
@@ -96,14 +96,14 @@ def embedded_classes(rcm: _ClassView) -> list[EmbeddedClass]:
     """The embedded classes of a class mapping, nested ones before the classes that hold them."""
     found: list[EmbeddedClass] = []
 
-    def _walk(esm: EmbeddedSetMapping, stem: str, label: str, optional: bool) -> str:
+    def _walk(esm: RelationalEmbeddedSetMapping, stem: str, label: str, optional: bool) -> str:
         columns, children, joins = [], [], []
         for pm in esm.property_mappings:
             if isinstance(pm.target, Column):
                 columns.append((pm.property, pm.target))
             elif isinstance(pm.target, Join):
                 joins.append((pm.property, pm.target))
-            elif isinstance(pm.target, EmbeddedSetMapping):
+            elif isinstance(pm.target, RelationalEmbeddedSetMapping):
                 child = _walk(pm.target, stem + pm.property.id[:1].upper() + pm.property.id[1:], f"{label} {pm.property.name}",
                               optional or pm.property.multiplicity.lower == 0)
                 children.append((pm.property, child))

@@ -8,7 +8,7 @@ from model.m3 import Class, ONE_TO_ONE, ZERO_TO_ONE
 from model.relational import Database, Schema, Table, Column
 from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
-from model.relational_mapping import RelationalPropertyMapping, Join, EmbeddedSetMapping
+from model.relational_mapping import RelationalEmbeddedSetMapping, RelationalPropertyMapping, Join
 
 FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
 EMBEDDED_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping_embedded.md"))
@@ -913,7 +913,7 @@ class TestEmbeddedMapping:
         join = self._account_join()
         assert join.embedded is not None
         branch_pm = next(pm for pm in join.embedded.property_mappings if pm.property.id == "branch")
-        assert isinstance(branch_pm.target, EmbeddedSetMapping)
+        assert isinstance(branch_pm.target, RelationalEmbeddedSetMapping)
         assert branch_pm.target.clazz.name == "Branch"
         city_pm = branch_pm.target.property_mappings[0]
         assert city_pm.property.id == "city"
@@ -1032,7 +1032,7 @@ class TestEmbeddedMappingErrors:
         mapping = loads(content, packages, self._build_repo())
         trade = next(m for m in mapping.mappings if m.clazz.name == "Trade")
         account = next(pm for pm in trade.property_mappings if pm.property.id == "account")
-        assert isinstance(account.target, EmbeddedSetMapping)
+        assert isinstance(account.target, RelationalEmbeddedSetMapping)
         assert [pm.property.id for pm in account.target.property_mappings] == ["name"]
         written = to_markdown("Finance Mapping", mapping)
         assert "account.name" in written and "Association: TradeAccount" not in written
@@ -1145,7 +1145,7 @@ class TestJoinsThroughTables:
 
     def test_a_property_of_an_embedded_object_is_a_join_inside_it(self):
         home = self._pm("home").target
-        assert isinstance(home, EmbeddedSetMapping)
+        assert isinstance(home, RelationalEmbeddedSetMapping)
         country = next(pm for pm in home.property_mappings if pm.property.id == "country")
         assert isinstance(country.target, Join) and country.target.resolved
         assert _table_name(country.target.rhs) == "countries" and country.target.rhs.name == "code"

@@ -27,7 +27,7 @@ from typing import Any
 from model.m3 import Association, Class, PrimitiveType, TaggedValue
 from model.mapping import UnionMapping
 from model.relational import Column, MilestoningScheme, Table, TableAlias, query_of
-from model.relational_mapping import EmbeddedSetMapping, Join
+from model.relational_mapping import Join, RelationalEmbeddedSetMapping
 from model_markdown import markdown_model
 
 from mapping_markdown import markdown_mapping
@@ -230,7 +230,7 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
                 joins.append(_join_entry(associations_by_nav.get((cm.clazz.name, pm.property.id)), cm.clazz.name, pm.target,
                                          pm.source_set_id, pm.target_set_id,
                                          _query_of_set(cm, pm.source_set_id), _query_of_set(_mapped_class(mapping, pm.property.type), pm.target_set_id)))
-            elif isinstance(pm.target, EmbeddedSetMapping):
+            elif isinstance(pm.target, RelationalEmbeddedSetMapping):
                 # a property of an object embedded in the row that reaches another table
                 for holder, prop, join, _ in markdown_mapping._embedded_joins(pm.target, [pm.property.id]):
                     joins.append(_join_entry(associations_by_nav.get((holder.clazz.name, prop.id)), cm.clazz.name, join))

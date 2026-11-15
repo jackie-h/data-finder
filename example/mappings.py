@@ -4,7 +4,7 @@ from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime, ONE_TO_ONE, ZERO_TO_ONE
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
 from model.relational import Table, Schema, Database
-from model.relational_mapping import RelationalPropertyMapping, RelationalClassMapping, Join, EmbeddedSetMapping
+from model.relational_mapping import RelationalEmbeddedSetMapping, RelationalPropertyMapping, RelationalClassMapping, Join
 
 
 def create_description(text: str) -> TaggedValue:
@@ -75,7 +75,7 @@ def create_mappings_normalized() -> Mapping:
                                ('start_at', 'TIMESTAMP'), ('end_at', 'TIMESTAMP'), ('acct_name', 'VARCHAR')], trading)
     c1, c2, c3, c4, c5, c6, c7 = trade_t.columns
 
-    account_name_embedded = EmbeddedSetMapping(
+    account_name_embedded = RelationalEmbeddedSetMapping(
         account_c, [RelationalPropertyMapping(account_c.property('name'), c7, 'Trade_account')], 'Trade_account'
     )
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3, 'Trade')

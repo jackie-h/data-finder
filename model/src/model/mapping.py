@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from typing import Any, Generic, Sequence, TypeVar
 
 from model.m3 import Class, Property
@@ -59,16 +60,42 @@ class BiTemporalMilestonePropertyMapping(BusinessDateRangeMilestonePropertyMappi
         BusinessDateRangeMilestonePropertyMapping.__init__(self, _date_from, _date_to, business_infinite_datetime)
         ProcessingDateMilestonesPropertyMapping.__init__(self, _in, _out, processing_infinite_datetime)
 
-class ClassMapping:
-    """How a class is mapped: the mappings of its properties. It has an ``id``, which names it where a class is mapped in several ways (the sets of a union), and
-    which the property mappings in it say is where they start from. It is the name of the class, unless it is given another; no two class mappings or sets of a Mapping
-    have the same."""
-    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None,
-                 id: str | None = None):
+class InstanceSetMapping(ABC):
+    """A class mapped by the mappings of its properties, with an ``id``: what a class mapping and a class mapped in the row of another have in common. It is
+    abstract: a class is mapped as one or the other. The ``id`` names it, and is the id that the property mappings in it say they start from."""
+    @abstractmethod
+    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], id: str):
         self.clazz = clazz
         self.property_mappings = property_mappings
+        self.id: str = id
+
+
+class ClassMapping(InstanceSetMapping):
+    """How a class is mapped at the top: the mappings of its properties, and its milestoning. Its ``id`` names it where a class is mapped in several ways (the
+    sets of a union); it is the name of the class, unless it is given another, and no two class mappings or sets of a Mapping have the same."""
+    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], milestone_mapping: MilestonePropertyMapping | None = None,
+                 id: str | None = None):
+        super().__init__(clazz, property_mappings, id or clazz.name)
         self.milestone_mapping = milestone_mapping
-        self.id: str = id or clazz.name
+
+
+class EmbeddedSetMapping(InstanceSetMapping):
+    """A partial class mapping embedded inline in the owning (root) table.
+
+    Represents a chained property (e.g. account.name) satisfied by a flat column on the
+    root table, avoiding the join that would normally be required to reach it. Nested
+    property_mappings entries may themselves target a Column (leaf) or a further nested
+    EmbeddedSetMapping (e.g. account.branch.city) — all such columns live on the root table —
+    or a Join, for a property of the embedded class that reaches another table (e.g.
+    classification.system), whose first column is a column of the root table.
+
+    Its ``id`` is that of what holds it and the path to it, ``Trade_account``, and the property mappings in it start from it.
+    """
+    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], id: str):
+        super().__init__(clazz, property_mappings, id)
+        for pm in property_mappings:
+            if pm.source_set_id != id:
+                raise ValueError(f"the property {pm.property.id} of {clazz.name} embedded as {id} has the source set id '{pm.source_set_id}', not '{id}'")
 
 
 S = TypeVar("S", bound="ClassMapping")

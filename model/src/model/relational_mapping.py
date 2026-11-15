@@ -1,5 +1,5 @@
 from model.m3 import Property, Class
-from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping, UnionMapping
+from model.mapping import ClassMapping, EmbeddedSetMapping, PropertyMapping, MilestonePropertyMapping, UnionMapping
 from model.relational import Operation, RelationalOperationElement, Column, Table, TableAlias
 
 
@@ -14,7 +14,7 @@ class Join(RelationalOperationElement):
     with only its keys. It is a condition over the columns of the two tables of that hop, so it reads the same from either
     end of the join; ``condition_texts`` is how it was written."""
 
-    def __init__(self, lhs: Column, rhs: Column, embedded: 'EmbeddedSetMapping | None' = None,
+    def __init__(self, lhs: Column, rhs: Column, embedded: 'RelationalEmbeddedSetMapping | None' = None,
                  via: 'list[tuple[Column, Column]] | None' = None,
                  conditions: 'list[Operation | None] | None' = None, condition_texts: 'list[str | None] | None' = None):
         super().__init__()
@@ -37,27 +37,6 @@ class Join(RelationalOperationElement):
     def via_conditions(self) -> list[Operation | None]:
         """The conditions of the hops before the last."""
         return self.conditions[:-1]
-
-
-class EmbeddedSetMapping(RelationalOperationElement):
-    """A partial class mapping embedded inline in the owning (root) table.
-
-    Represents a chained property (e.g. account.name) satisfied by a flat column on the
-    root table, avoiding the join that would normally be required to reach it. Nested
-    property_mappings entries may themselves target a Column (leaf) or a further nested
-    EmbeddedSetMapping (e.g. account.branch.city) — all such columns live on the root table —
-    or a Join, for a property of the embedded class that reaches another table (e.g.
-    classification.system), whose first column is a column of the root table.
-    """
-    def __init__(self, clazz: Class, property_mappings: list['RelationalPropertyMapping'], id: str):
-        super().__init__()
-        self.clazz = clazz
-        self.property_mappings = property_mappings
-        # The id the property mappings in it start from: that of the class mapping that holds it, and the path to it, ``Trade_account``.
-        self.id = id
-        for pm in property_mappings:
-            if pm.source_set_id != id:
-                raise ValueError(f"the property {pm.property.id} of {clazz.name} embedded as {id} has the source set id '{pm.source_set_id}', not '{id}'")
 
 
 class RelationalPropertyMapping(PropertyMapping):
@@ -92,3 +71,13 @@ class RelationalUnionMapping(UnionMapping[RelationalClassMapping], RelationalCla
     def __init__(self, clazz: Class, sets: list[RelationalClassMapping], property_mappings: list[RelationalPropertyMapping],
                  milestone_mapping: MilestonePropertyMapping | None = None, id: str | None = None):
         super().__init__(clazz, sets, property_mappings, milestone_mapping, id)
+
+
+class RelationalEmbeddedSetMapping(EmbeddedSetMapping, RelationalOperationElement):
+    """A class embedded in the row of a table: its properties are columns of that row, further embedded mappings, or joins to other tables, as the property mappings
+    of a relational class mapping are. A relational property mapping can have it as its target."""
+    property_mappings: list[RelationalPropertyMapping]
+
+    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], id: str):
+        EmbeddedSetMapping.__init__(self, clazz, property_mappings, id)
+        RelationalOperationElement.__init__(self)

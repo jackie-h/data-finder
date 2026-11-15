@@ -16,7 +16,7 @@ from model.relational import ComparisonOperation, query_of, schema_of, tables_re
     ForeignKey, Operation, TableAlias, UnaryOperation
 from model.mapping import UnionMapping
 from model.query_sets import union_of_sets
-from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
+from model.relational_mapping import RelationalClassMapping, RelationalEmbeddedSetMapping, RelationalPropertyMapping, Join
 
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
@@ -604,14 +604,14 @@ def _association_hops(assoc_name: str, rows: list[dict], first_columns: dict, ta
     return hops, conditions, texts
 
 
-def _check_embedded_joins(path: str, esm: EmbeddedSetMapping) -> None:
+def _check_embedded_joins(path: str, esm: RelationalEmbeddedSetMapping) -> None:
     """Every join of an embedded object has been given its columns by an Association section."""
     for pm in esm.property_mappings:
         if isinstance(pm.target, Join) and not pm.target.resolved:
             raise ValueError(
                 f"'{path}.{pm.property.id}' is mapped to a column but reaches another table: add an Association "
                 f"section headed '(embedded in <Class>.{path})' that says which table")
-        if isinstance(pm.target, EmbeddedSetMapping):
+        if isinstance(pm.target, RelationalEmbeddedSetMapping):
             _check_embedded_joins(f"{path}.{pm.property.id}", pm.target)
 
 
@@ -624,7 +624,7 @@ def _resolve_embedded_join(assoc_name: str, embedded_by_nav: dict, path: list[st
     esm = entry[1] if entry is not None else None
     for seg in path[1:]:
         esm = next((pm.target for pm in esm.property_mappings
-                    if pm.property.id == seg and isinstance(pm.target, EmbeddedSetMapping)), None) if esm else None
+                    if pm.property.id == seg and isinstance(pm.target, RelationalEmbeddedSetMapping)), None) if esm else None
     pending = next((pm.target for pm in esm.property_mappings
                     if pm.property.id == nav_prop_id and isinstance(pm.target, Join)), None) if esm else None
     if pending is None:
@@ -656,7 +656,7 @@ def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: d
     EmbeddedSetMappings recursively. ``owner_id`` is the id of what holds them (a class mapping, or an embedded
     mapping above), and each embedded mapping has the id of its owner and its property: ``Trade_account``.
 
-    Returns ``{root_nav_property_id: (nav_Property, EmbeddedSetMapping)}``. Raises ValueError for
+    Returns ``{root_nav_property_id: (nav_Property, RelationalEmbeddedSetMapping)}``. Raises ValueError for
     any segment that can't be resolved (unknown nav property, or a leaf that isn't a primitive
     property) — a bad embedded path is a mapping authoring error, not a tolerable partial mapping.
     """
@@ -710,12 +710,12 @@ def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: d
             for nested_prop, nested_esm in nested.values():
                 nested_pms.append(RelationalPropertyMapping(nested_prop, nested_esm, embedded_id))
 
-        result[seg0] = (nav_prop, EmbeddedSetMapping(target_cls, nested_pms, embedded_id))
+        result[seg0] = (nav_prop, RelationalEmbeddedSetMapping(target_cls, nested_pms, embedded_id))
     return result
 
 
-def _flatten_embedded_rows(esm: EmbeddedSetMapping, prefix: str) -> list[list[str]]:
-    """Inverse of _build_embedded_mappings: flatten a nested EmbeddedSetMapping back into
+def _flatten_embedded_rows(esm: RelationalEmbeddedSetMapping, prefix: str) -> list[list[str]]:
+    """Inverse of _build_embedded_mappings: flatten a nested RelationalEmbeddedSetMapping back into
     dotted Property ID rows for round-tripping through to_markdown."""
     rows: list[list[str]] = []
     for pm in esm.property_mappings:
@@ -725,18 +725,18 @@ def _flatten_embedded_rows(esm: EmbeddedSetMapping, prefix: str) -> list[list[st
         elif isinstance(pm.target, Join):
             first = _first_column(pm.target)
             rows.append([first.name, first.type or "", "FK", _nullable_cell(first), dotted])
-        elif isinstance(pm.target, EmbeddedSetMapping):
+        elif isinstance(pm.target, RelationalEmbeddedSetMapping):
             rows.extend(_flatten_embedded_rows(pm.target, dotted))
     return rows
 
 
-def _embedded_joins(esm: EmbeddedSetMapping, path: list[str]) -> list[tuple[EmbeddedSetMapping, Property, Join, list[str]]]:
+def _embedded_joins(esm: RelationalEmbeddedSetMapping, path: list[str]) -> list[tuple[RelationalEmbeddedSetMapping, Property, Join, list[str]]]:
     """The joins of the objects embedded in a row, each with the object that holds it and the path to that object."""
     found = []
     for pm in esm.property_mappings:
         if isinstance(pm.target, Join):
             found.append((esm, pm.property, pm.target, path))
-        elif isinstance(pm.target, EmbeddedSetMapping):
+        elif isinstance(pm.target, RelationalEmbeddedSetMapping):
             found.extend(_embedded_joins(pm.target, path + [pm.property.id]))
     return found
 
@@ -775,7 +775,7 @@ def _condition_columns(mapping: Mapping) -> set[tuple[str, str]]:
     for rcm in _sections(mapping):
         joins = [pm.target for pm in rcm.property_mappings if isinstance(pm.target, Join)]
         for pm in rcm.property_mappings:
-            if isinstance(pm.target, EmbeddedSetMapping):
+            if isinstance(pm.target, RelationalEmbeddedSetMapping):
                 joins.extend(j for _, _, j, _ in _embedded_joins(pm.target, [pm.property.id]))
         for join in joins:
             for condition in join.conditions:
@@ -790,7 +790,7 @@ def _link_tables(rcm: RelationalClassMapping) -> list[Table]:
     """The tables the joins of a class mapping pass through on the way to another class's table."""
     joins = [pm.target for pm in rcm.property_mappings if isinstance(pm.target, Join)]
     for pm in rcm.property_mappings:
-        if isinstance(pm.target, EmbeddedSetMapping):
+        if isinstance(pm.target, RelationalEmbeddedSetMapping):
             joins.extend(j for _, _, j, _ in _embedded_joins(pm.target, [pm.property.id]))
     return [rhs.table for j in joins for _, rhs in j.via if isinstance(rhs.table, Table)]
 
@@ -1116,7 +1116,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                         mapped_cols.add(lhs.name)  # a column is one row, whatever joins start from it
                         if pm.target.embedded is not None:
                             col_rows.extend(_flatten_embedded_rows(pm.target.embedded, pm.property.id))
-                    elif isinstance(pm.target, EmbeddedSetMapping):
+                    elif isinstance(pm.target, RelationalEmbeddedSetMapping):
                         col_rows.extend(_flatten_embedded_rows(pm.target, pm.property.id))
                 written = {row[0] for row in col_rows}
                 for column in (c for c in table.columns if isinstance(c, Column)):
@@ -1159,7 +1159,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                         lines.append("")
                         lines.append(_md_table(_association_headers(pm.target), _association_rows(pm.target)))
                         lines.append("")
-                    elif isinstance(pm.target, EmbeddedSetMapping):
+                    elif isinstance(pm.target, RelationalEmbeddedSetMapping):
                         for holder, prop, join, path in _embedded_joins(pm.target, [pm.property.id]):
                             assert isinstance(prop.type, Class)
                             assoc_name = _find_association_name(holder.clazz, prop.type, prop.id)
