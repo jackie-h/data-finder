@@ -24,6 +24,5 @@
     "datafinder_examples/src",
     "datafinder_examples_tests/src"
   ],
-  "reportUnnecessaryTypeIgnoreComment": "error",
-  "enableTypeIgnoreComments": false
+  "reportUnnecessaryTypeIgnoreComment": "error"
 }
