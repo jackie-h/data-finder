@@ -20,7 +20,7 @@ _CASES = [pytest.param(spec, e, id=f"{spec.finder_name}-{e.name}") for spec in _
 @pytest.fixture(scope="module")
 def finders():
     with generated_finders(legend_path(_MAPPING)):
-        from product_finder import ProductFinder  # type: ignore[import]
+        from product_finder import ProductFinder  # pyright: ignore[reportMissingImports]
         yield {"ProductFinder": ProductFinder()}
 
 

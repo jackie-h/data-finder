@@ -64,13 +64,13 @@ DISTINCT_COUNT_QUALIFIED = (
 
 UNION_WITH_KEY_COLUMNS = (
     "Legend selects the key of each set implementation into the union, padded with null for the other set (pk_0_0, pk_0_1) so the rows of "
-    "the two sets stay apart; the query of a union selects only the columns it gives, which are the same rows"
+    "the two sets stay apart; the finder's union selects the columns each set gives and the id of its set in _set, which keeps them apart"
 )
 
 UNION_SETS_BY_NUMBER = (
     "Legend selects each set's key and milestoning columns, padded with null for the other sets, and joins each pair of sets through "
-    "its own join and link tables; the finder gives each row the number of the set it came from and joins the unions on a condition "
-    "on those numbers, so its SQL has no padding and no link tables. The rows are the same"
+    "its own join and link tables; the finder gives each row the id of its set in _set and joins the unions on the pairs of sets that the "
+    "association names, so its SQL has no padding and no link tables. The rows are the same"
 )
 
 EMBEDDED_WITH_JOIN = (

@@ -1,6 +1,6 @@
 """
 The union tests of legend-engine ``tests/mapping/union/testUnion.pure`` that assert the rows and not the SQL, on the mappings in
-tests/mapping/union where each union is a query: the rows Legend asserts are the rows the finder returns.
+tests/mapping/union where each set of a union is a query of its own: the rows Legend asserts are the rows the finder returns.
 """
 import pytest
 
@@ -22,8 +22,8 @@ _MAPPINGS = ["union_mapping.md", "union_to_union_mapping.md", "union_join_in_pro
 @pytest.fixture(scope="module", params=_MAPPINGS)
 def union_finders(request):
     with generated_finders(legend_path(f"tests/mapping/union/{request.param}")), seeded_database(legend_path(_DATA)):
-        from firm_finder import FirmFinder  # type: ignore[import-not-found]  # written by the generator
-        from person_finder import PersonFinder  # type: ignore[import-not-found]
+        from firm_finder import FirmFinder  # pyright: ignore[reportMissingImports]  # written by the generator
+        from person_finder import PersonFinder  # pyright: ignore[reportMissingImports]
         yield PersonFinder(), FirmFinder()
 
 

@@ -1,8 +1,8 @@
 """
 Ported from legend-engine core_relational ``tests/mapping/union/testUnionWithMultipleChainedJoins.pure``.
 
-X, Y and Z are each the union of 2, 3 or 4 milestoned tables, and the five variants say which set of one joins which set of the next. Each union is a
-query with the number of the set each row came from, and the association joins on a condition on those numbers (see the mappings). The
+X, Y and Z are each the union of 2, 3 or 4 milestoned tables, and the five variants say which set of one joins which set of the next. Each table of a
+union is a set with an id of its own, and the associations name the pairs of sets that join (see the mappings). The
 finder's rows are Legend's on Legend's data; its SQL has neither the null padding of the union nor the link tables.
 Two of the tests (a view of a view of a union) are recorded as unsupported.
 """

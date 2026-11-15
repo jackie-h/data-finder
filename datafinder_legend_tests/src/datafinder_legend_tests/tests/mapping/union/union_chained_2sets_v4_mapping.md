@@ -1,9 +1,9 @@
 # Legend Union With Chained Joins Mapping: 2 sets, V4
 
 Source: legend-engine core_relational `tests/mapping/union/testUnionWithMultipleChainedJoins.pure` (`multipleChainedJoinsMappingWithUnionAcross2SetsV4`).
-In this variant Y and Z are unions, X is its set 0 alone and joins every set of Y, and set i of Y joins set i of Z. A union of 2 milestoned tables is a query here, with the business date range of its rows and the number of the
-set each row came from; a class that is not a union is its first table. Every table has the same fk, so the sets that join are said by a
-condition on those numbers, which Legend says with a join per pair of sets (through link tables that hold the same fk, and so keep every row).
+In this variant Y and Z are unions, X is its set 0 alone and joins every set of Y, and set i of Y joins set i of Z. A union of 2 milestoned tables is a set for each, a query of its own with the business date range of its rows; a class that is not a union is
+its first table. Every table has the same fk, so which sets join is said by the pairs of sets of its associations: a pair that is not named does not join (Legend says the
+same with a join for each pair of sets, through link tables that hold the same fk, and so keep every row).
 
 ## Model: union_chained_model.md
 
@@ -62,53 +62,85 @@ condition on those numbers, which Legend says with a join per pair of sets (thro
 
 #### Table: X0 → X (milestoning: business_date_range)
 
-| Column | Type | Key | Nullable | Property ID |
-|--------|------|-----|----------|-------------|
-| pk     | INT  | PK  | N        | pk          |
-| fk     | INT  |     | Y        |             |
+| Column | Type | Key | Nullable | Property ID  |
+|--------|------|-----|----------|--------------|
+| pk     | INT  | PK  | N        | pk           |
+| fk     | INT  |     | Y        |              |
 | from_z | DATE |     | Y        | businessFrom |
 | thru_z | DATE |     | Y        | businessThru |
 
-#### Association: XY
+#### Association: XY (target set: y0)
 
 | Source Column | Target Table | Target Column |
 |---|---|---|
-| fk | Y_UNION | fk |
+| fk | Y_SET0 | fk |
 
-#### Query: Y_UNION → Y (milestoning: business_date_range)
+#### Association: XY (target set: y1)
+
+| Source Column | Target Table | Target Column |
+|---|---|---|
+| fk | Y_SET1 | fk |
+
+#### Query: Y_SET0 → Y (set: y0, milestoning: business_date_range)
 
 ```sql
-SELECT pk, fk, 0 AS setNo, from_z, thru_z FROM Y0
-UNION ALL
-SELECT pk, fk, 1 AS setNo, from_z, thru_z FROM Y1
+SELECT pk, fk, from_z, thru_z FROM Y0
 ```
 
 | Column | Type | Key | Nullable | Property ID  |
 |--------|------|-----|----------|--------------|
-| pk     | INT  |     | Y        | pk           |
+| pk     | INT  | PK  | N        | pk           |
 | fk     | INT  |     | Y        |              |
-| setNo  | INT  |     | Y        |              |
 | from_z | DATE |     | Y        | businessFrom |
 | thru_z | DATE |     | Y        | businessThru |
 
-#### Association: YZ
-
-| Source Column | Target Table | Target Column | Condition |
-|---|---|---|---|
-| fk | Z_UNION | fk | Y_UNION.setNo = Z_UNION.setNo |
-
-#### Query: Z_UNION → Z (milestoning: business_date_range)
+#### Query: Y_SET1 → Y (set: y1, milestoning: business_date_range)
 
 ```sql
-SELECT pk, fk, 0 AS setNo, from_z, thru_z FROM Z0
-UNION ALL
-SELECT pk, fk, 1 AS setNo, from_z, thru_z FROM Z1
+SELECT pk, fk, from_z, thru_z FROM Y1
 ```
 
 | Column | Type | Key | Nullable | Property ID  |
 |--------|------|-----|----------|--------------|
-| pk     | INT  |     | Y        | pk           |
+| pk     | INT  | PK  | N        | pk           |
 | fk     | INT  |     | Y        |              |
-| setNo  | INT  |     | Y        |              |
+| from_z | DATE |     | Y        | businessFrom |
+| thru_z | DATE |     | Y        | businessThru |
+
+#### Association: YZ (source set: y0, target set: z0)
+
+| Source Column | Target Table | Target Column |
+|---|---|---|
+| fk | Z_SET0 | fk |
+
+#### Association: YZ (source set: y1, target set: z1)
+
+| Source Column | Target Table | Target Column |
+|---|---|---|
+| fk | Z_SET1 | fk |
+
+#### Query: Z_SET0 → Z (set: z0, milestoning: business_date_range)
+
+```sql
+SELECT pk, fk, from_z, thru_z FROM Z0
+```
+
+| Column | Type | Key | Nullable | Property ID  |
+|--------|------|-----|----------|--------------|
+| pk     | INT  | PK  | N        | pk           |
+| fk     | INT  |     | Y        |              |
+| from_z | DATE |     | Y        | businessFrom |
+| thru_z | DATE |     | Y        | businessThru |
+
+#### Query: Z_SET1 → Z (set: z1, milestoning: business_date_range)
+
+```sql
+SELECT pk, fk, from_z, thru_z FROM Z1
+```
+
+| Column | Type | Key | Nullable | Property ID  |
+|--------|------|-----|----------|--------------|
+| pk     | INT  | PK  | N        | pk           |
+| fk     | INT  |     | Y        |              |
 | from_z | DATE |     | Y        | businessFrom |
 | thru_z | DATE |     | Y        | businessThru |
