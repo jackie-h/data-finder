@@ -50,7 +50,7 @@ def test_a_joined_result_can_be_filtered_extended_ordered_and_aggregated_like_an
     joined = trades.join(accounts, lambda t, a: t.account == a.id, how="inner")
     totals = joined.filter(lambda r: r.price > 1.0).group_by(lambda r: r.name).aggregate(total=lambda r: r.price.sum())
     sql = totals.order_by(totals["total"].descending()).to_sql()
-    assert "INNER JOIN" in sql and "GROUP BY t0.name" in sql and sql.endswith("ORDER BY SUM(t0.price) DESC")
+    assert "INNER JOIN" in sql and "GROUP BY t0.name" in sql and sql.endswith('ORDER BY "total" DESC')
 
 
 def test_a_join_can_be_joined_again():

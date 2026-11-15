@@ -365,11 +365,13 @@ class FinderResult(DataFrame):
         alias = self._alias
         if column is None or alias is None or not isinstance(column.owner, TableAlias) or column.owner.name != alias.name:
             return element
-        shown = {_column_name(c): c.element if isinstance(c, Alias) else c for c in self._query.columns}
+        shown = {_column_name(c): c for c in self._query.columns}
         found = shown.get(column.name)
         if found is None:
             return element
-        return found._column_with_join() if isinstance(found, Attribute) else found
+        inner = found.element if isinstance(found, Alias) else found
+        # a column is ordered by itself, and an expression by the name it is selected under
+        return inner._column_with_join() if isinstance(inner, Attribute) else found
 
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
