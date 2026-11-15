@@ -8,6 +8,7 @@ from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy, inter
 import duckdb
 import ibis
 from ibis.backends.duckdb import Backend as DuckDBBackend
+from ibis.backends.sql import SQLBackend
 import numpy as np
 import pandas as pd
 import pyarrow as pa
@@ -29,9 +30,9 @@ def sql_for_backend(query: str, backend: str) -> str:
     return sqlglot.transpile(query, read=_SOURCE_DIALECT, write=backend)[0]
 
 
-def _duckdb_connect(url: str) -> DuckDBBackend:
-    """``ibis.connect`` is declared to return the generic backend; a ``duckdb://`` url gives the DuckDB one."""
-    return cast(DuckDBBackend, ibis.connect(url))
+def _connect(url: str) -> SQLBackend:
+    """``ibis.connect`` is declared to return ``BaseBackend``; every backend that takes SQL is a ``SQLBackend``."""
+    return cast(SQLBackend, ibis.connect(url))
 
 
 class IbisConnect(QueryRunnerBase):
@@ -42,7 +43,7 @@ class IbisConnect(QueryRunnerBase):
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None, distinct: bool = False,
                offset: int | None = None, having=None,
                processing_datetime_to: datetime.datetime | datetime.date | None = None) -> DataFrame:
-        conn: DuckDBBackend = _duckdb_connect('duckdb://test.db')
+        conn = _connect('duckdb://test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having, processing_datetime_to=processing_datetime_to)
         query = sql_for_backend(query, conn.name)
         print(query)
@@ -53,13 +54,14 @@ class IbisConnect(QueryRunnerBase):
 
     @staticmethod
     def create_view(view: View) -> None:
-        conn: DuckDBBackend = _duckdb_connect('duckdb://test.db')
+        # raw_sql is not part of the generic backend, each backend has its own: this runs DuckDB statements
+        conn = cast(DuckDBBackend, _connect('duckdb://test.db'))
         conn.raw_sql(f"CREATE SCHEMA IF NOT EXISTS {view.schema}")
         conn.raw_sql(view_sql_to_string(view))
 
     @staticmethod
     def select_view(view: View, order_by: list[str] | None = None, timeout_ms: int = 60_000) -> DataFrame:
-        conn: DuckDBBackend = _duckdb_connect('duckdb://test.db')
+        conn = _connect('duckdb://test.db')
         query = f"SELECT * FROM {view.qualified_name}"
         if order_by:
             query += " ORDER BY " + ", ".join('"' + column + '"' for column in order_by)
@@ -73,8 +75,9 @@ class IbisOutput(DataFrame):
     an integer column to float64, without to_numpy() ever allocating a DataFrame it doesn't
     need."""
 
-    def __init__(self, conn: DuckDBBackend, expr: 'ibis.Table', timeout_ms: int, query: str):
-        self.__conn = conn
+    def __init__(self, conn: SQLBackend, expr: 'ibis.Table', timeout_ms: int, query: str):
+        # the timeout and the read of an interval use the DuckDB connection under the ibis one, which only DuckDB has
+        self.__conn = cast(DuckDBBackend, conn)
         self.__query = query
         self.__expr = expr
         self.__timeout_ms = timeout_ms
