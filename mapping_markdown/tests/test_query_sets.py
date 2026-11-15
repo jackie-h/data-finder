@@ -1,4 +1,6 @@
 """A class can be mapped to several queries, each its own named set, which the mapping puts together as a union and checks."""
+from typing import cast
+
 import pytest
 
 from mapping_markdown.markdown_mapping import load, save
@@ -102,7 +104,7 @@ def test_the_union_of_the_sets_is_one_query_with_the_number_of_the_set_each_row_
     firm = _firm(load(str(_mapping(tmp_path))))
     union = firm.main_relation
     assert isinstance(union, TableAlias) and isinstance(union.relation, UnionOperation) and union.relation.all
-    assert [c.name for c in union.columns] == ["id", "name", "_set"]  # pyright: ignore[reportAttributeAccessIssue]
+    assert [getattr(c, "name", None) for c in union.columns] == ["id", "name", "_set"]
     assert [pm.target.name for pm in firm.property_mappings] == ["id", "name"]
     assert all(pm.target.table is union for pm in firm.property_mappings)
 
@@ -295,7 +297,7 @@ def test_the_pairs_of_one_navigation_are_merged_for_the_finder_into_one_join_on_
     assert isinstance(condition, LogicalOperation) and condition.operator == LogicalOperator.OR
     first = condition.left
     assert isinstance(first, LogicalOperation) and first.operator == LogicalOperator.AND
-    assert isinstance(first.left, ComparisonOperation) and first.left.right.value == "big"  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(first.left, ComparisonOperation) and getattr(first.left.right, "value", None) == "big"
 
 
 def test_pairs_that_join_on_different_columns_are_read_but_the_finder_joins_on_one_pair_of_columns(tmp_path):
@@ -378,6 +380,6 @@ def test_a_property_of_a_set_that_is_not_a_column_is_refused_and_not_dropped_fro
     from model.relational_mapping import RelationalPropertyMapping
     firm = _firm(load(str(_mapping(tmp_path))))
     sets = [firm.sets[0], firm.sets[1]]
-    sets[0].property_mappings.append(RelationalPropertyMapping(firm.clazz.properties["legalName"], object(), "big"))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
+    cast(list, sets[0].property_mappings).append(RelationalPropertyMapping(firm.clazz.properties["legalName"], object(), "big"))  # pyright: ignore[reportArgumentType]
     with pytest.raises(ValueError, match="the set 'big' of Firm maps legalName to something other than a column"):
         union_of_sets("Firm", sets)

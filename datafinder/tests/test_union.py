@@ -5,7 +5,7 @@ from datafinder import DoubleAttribute, IntegerAttribute, StringAttribute
 from datafinder.runner import FinderResult
 from datafinder.sql_generator import build_query_specification
 from model.relational import (
-    NamedRelation, NoOperation, QueryExpression, QuerySpecification, Relation, Table, UnionOperation)
+    NamedRelation, NoOperation, QueryExpression, QuerySpecification, Relation, Table, TableAlias, UnionOperation)
 
 _TABLE = Table("accounts", [("ID", "INT"), ("NAME", "VARCHAR")])
 _ID = IntegerAttribute("Id", "ID", "INT", _TABLE)
@@ -85,7 +85,8 @@ def test_concatenating_does_not_change_the_results_it_is_made_from():
     left, right = _result([_NAME]), _result([_NAME])
     left.concatenate(right)
     assert left.to_sql() == 'SELECT t0.NAME AS "Name" FROM accounts AS t0'
-    assert isinstance(left.concatenate(right)._table.relation, UnionOperation)  # pyright: ignore[reportAttributeAccessIssue]
+    table = left.concatenate(right)._table
+    assert isinstance(table, TableAlias) and isinstance(table.relation, UnionOperation)
 
 
 def test_the_columns_of_a_union_are_those_of_its_left_side():

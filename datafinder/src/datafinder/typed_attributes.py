@@ -24,13 +24,17 @@ class _MinMax(Generic[A]):
     if TYPE_CHECKING:  # provided by the class this is mixed into
         _aggregate_type: Callable[..., A]
 
+        def _column_with_join(self) -> ColumnWithJoin: ...
+
+        def display_name(self) -> str: ...
+
     def min(self) -> A:
         """Return the smallest value in the group."""
-        return self._aggregate_type(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())  # pyright: ignore[reportAttributeAccessIssue]
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())
 
     def max(self) -> A:
         """Return the largest value in the group."""
-        return self._aggregate_type(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())  # pyright: ignore[reportAttributeAccessIssue]
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())
 
 
 def _temporal_constant(value: datetime.datetime | datetime.date):
