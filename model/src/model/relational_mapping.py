@@ -76,7 +76,7 @@ class RelationalUnionMapping(UnionMapping[RelationalClassMapping], RelationalCla
 class RelationalEmbeddedSetMapping(EmbeddedSetMapping, RelationalOperationElement):
     """A class embedded in the row of a table: its properties are columns of that row, further embedded mappings, or joins to other tables, as the property mappings
     of a relational class mapping are. A relational property mapping can have it as its target."""
-    property_mappings: list[RelationalPropertyMapping]  # type: ignore[assignment]
+    property_mappings: list[RelationalPropertyMapping]
 
     def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], id: str):
         EmbeddedSetMapping.__init__(self, clazz, property_mappings, id)

@@ -9,7 +9,7 @@ _FIRM = Class("Firm", [Property("Name", "name", PrimitiveType("String"), ONE_TO_
 
 def test_an_instance_set_mapping_is_abstract():
     with pytest.raises(TypeError, match="abstract"):
-        InstanceSetMapping(_FIRM, [], "Firm")  # type: ignore[abstract]
+        InstanceSetMapping(_FIRM, [], "Firm")  # pyright: ignore[reportAbstractUsage]
 
 
 def test_a_class_mapping_and_an_embedded_set_mapping_are_instance_set_mappings_and_neither_is_the_other():

@@ -15,10 +15,10 @@ def test_an_embedded_set_mapping_is_not_a_relational_operation_element():
 
 
 def test_the_relational_one_is_both():
-    embedded = RelationalEmbeddedSetMapping(_PERSON, [RelationalPropertyMapping(_PERSON.properties["name"], object(), "Firm_employees")], "Firm_employees")  # type: ignore[arg-type]
+    embedded = RelationalEmbeddedSetMapping(_PERSON, [RelationalPropertyMapping(_PERSON.properties["name"], object(), "Firm_employees")], "Firm_employees")  # pyright: ignore[reportArgumentType]
     assert isinstance(embedded, EmbeddedSetMapping) and isinstance(embedded, RelationalOperationElement)
 
 
 def test_the_property_mappings_in_it_start_from_its_id():
     with pytest.raises(ValueError, match="embedded as Firm_employees has the source set id 'Person', not 'Firm_employees'"):
-        RelationalEmbeddedSetMapping(_PERSON, [RelationalPropertyMapping(_PERSON.properties["name"], object(), "Person")], "Firm_employees")  # type: ignore[arg-type]
+        RelationalEmbeddedSetMapping(_PERSON, [RelationalPropertyMapping(_PERSON.properties["name"], object(), "Person")], "Firm_employees")  # pyright: ignore[reportArgumentType]
