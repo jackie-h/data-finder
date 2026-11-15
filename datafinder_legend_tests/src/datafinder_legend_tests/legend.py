@@ -58,6 +58,17 @@ SPECIAL_UNION_FILTERS = (
     "which keeps the same rows"
 )
 
+GROUP_BY_QUERY_SUBSELECT = (
+    "a class mapping ~groupBy is a query here, which is read as a derived table; Legend writes the group by into the select that reads "
+    "the table, and a filter on an aggregate over a derived table of it, so the finder's SQL has a level of select of its own, which "
+    "keeps the same rows"
+)
+
+GROUP_BY_JOIN_COLUMN = (
+    "Legend groups TRADE by its columns and reads the description of the PRODUCT it joins in the same select, which a database that "
+    "checks the group by refuses (DuckDB does); the finder joins the product to the query that groups, so it returns the rows Legend means"
+)
+
 HOUR_OF_DATETIME_LITERAL = (
     "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
     "string, which DuckDB cannot run, so there are no rows of Legend's to compare"
