@@ -6,7 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Sequence, TypeVar, overload
 
 if TYPE_CHECKING:
-    from model.milestoning import MilestoningColumns
+    from model.milestoning import AsOf, MilestoningColumns
 
 
 T = TypeVar("T")
@@ -2063,10 +2063,15 @@ class QuerySpecification(QueryExpression):
         # Steps the query only asks the existence of, each as the query that stands for its table, keyed by id(node):
         # the query joins to that instead of to the table, so a parent is not repeated for each row that matches.
         self.sub_selects: dict[int, 'OrderedQuerySpecification'] = {}
+        # The dates the rows are read as of, and what they add to ``filter`` (which is what was asked of the rows): written with it.
+        self.as_of: 'AsOf | None' = None
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
-        return [*self.columns, *self.group_by, self.filter]
+        return [*self.columns, *self.group_by, self.filter, *self._as_of_expressions()]
+
+    def _as_of_expressions(self) -> list[RelationalOperationElement]:
+        return [] if self.as_of is None or self.as_of.filter is None else [self.as_of.filter]
 
 
 class OrderedQuerySpecification(QuerySpecification):
@@ -2086,7 +2091,7 @@ class OrderedQuerySpecification(QuerySpecification):
         self.offset = offset
 
     def expressions(self) -> list[RelationalOperationElement]:
-        return [*self.columns, *self.group_by, *self.order_by, self.filter]
+        return [*self.columns, *self.group_by, *self.order_by, self.filter, *self._as_of_expressions()]
 
 
 class UnionOperation(QueryExpression):

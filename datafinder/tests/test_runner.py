@@ -83,14 +83,14 @@ class TestFindForDateRangeValidation:
             datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
             self._PDT, [], self._table(), NoOperation())
         assert isinstance(result, FinderResult)
-        assert result._business_date == datetime.date(2024, 1, 1)
-        assert result._business_date_to == datetime.date(2024, 12, 31)
+        assert result._as_of.business_date == datetime.date(2024, 1, 1)
+        assert result._as_of.business_date_to == datetime.date(2024, 12, 31)
 
     def test_string_dates_are_converted(self):
         result = convert_inputs_and_select_for_date_range(
             "2024-01-01", "2024-12-31", "2024-06-01 00:00:00", [], self._table(), NoOperation())
-        assert result._business_date == datetime.date(2024, 1, 1)
-        assert result._business_date_to == datetime.date(2024, 12, 31)
+        assert result._as_of.business_date == datetime.date(2024, 1, 1)
+        assert result._as_of.business_date_to == datetime.date(2024, 12, 31)
 
 
 class TestConvertDateTime:
@@ -128,8 +128,8 @@ class TestConvertDateTime:
 
     def test_find_all_keeps_a_date_processing_date(self):
         result = convert_inputs_and_select(None, "2024-06-01", [], Table("trades", []), NoOperation())
-        assert result._processing_datetime == datetime.date(2024, 6, 1)
-        assert not isinstance(result._processing_datetime, datetime.datetime)
+        assert result._as_of.processing_datetime == datetime.date(2024, 6, 1)
+        assert not isinstance(result._as_of.processing_datetime, datetime.datetime)
 
 
 class TestOrderByAccumulates:
@@ -141,8 +141,8 @@ class TestOrderByAccumulates:
 
     @staticmethod
     def _columns(result: FinderResult) -> list[tuple[str, SortDirection]]:
-        assert all(isinstance(s.column, ColumnWithJoin) for s in result._order_by)
-        return [(s.column.column.name, s.direction) for s in result._order_by]  # type: ignore[attr-defined]
+        assert all(isinstance(s.column, ColumnWithJoin) for s in result._query.order_by)
+        return [(s.column.column.name, s.direction) for s in result._query.order_by]  # type: ignore[attr-defined]
 
     def test_the_later_call_is_primary(self):
         a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
@@ -172,20 +172,21 @@ class TestOrderByAccumulates:
         own = StringAttribute("Name", "name", "VARCHAR", _OWNER_T)
         joined = StringAttribute("Other Name", "name", "VARCHAR", _OWNER_OTHER, JoinTreeNodeOperation(join))
         result = self._result().order_by(own.ascending()).order_by(joined.ascending())
-        assert len(result._order_by) == 2
+        assert len(result._query.order_by) == 2
 
     def test_no_calls_means_no_ordering(self):
-        assert self._result()._order_by == []
+        assert self._result()._query.order_by == []
 
 
 class TestDistinct:
 
     def test_not_distinct_by_default(self):
-        assert _make_result()._distinct is False
+        assert _make_result()._query.distinct is False
 
-    def test_distinct_returns_the_result_for_chaining(self):
+    def test_distinct_is_a_result_with_it_and_leaves_the_first_as_it_was(self):
         result = _make_result()
-        assert result.distinct() is result and result._distinct is True
+        distinct = result.distinct()
+        assert distinct._query.distinct is True and result._query.distinct is False
 
     def test_a_view_cannot_be_distinct(self):
         from model.view import ViewDefinitionError
@@ -196,9 +197,9 @@ class TestDistinct:
 class TestOffset:
 
     def test_offset_and_slice(self):
-        assert _make_result().offset(3)._offset == 3
+        assert _make_result().offset(3)._query.offset == 3
         sliced = _make_result().slice(2, 7)
-        assert (sliced._offset, sliced._limit) == (2, 5)
+        assert (sliced._query.offset, sliced._query.limit) == (2, 5)
 
     def test_bad_values_are_refused(self):
         with pytest.raises(ValueError):
