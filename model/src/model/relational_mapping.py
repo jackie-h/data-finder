@@ -1,5 +1,5 @@
 from model.m3 import Property, Class
-from model.mapping import ClassMapping, EmbeddedSetMapping, PropertyMapping, MilestonePropertyMapping, UnionMapping
+from model.mapping import ClassMapping, EmbeddedSetMapping, NavigationPropertyMapping, PropertyMapping, MilestonePropertyMapping, UnionMapping
 from model.relational import Operation, RelationalOperationElement, Column, Table, TableAlias
 
 
@@ -40,7 +40,13 @@ class Join(RelationalOperationElement):
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str, target_set_id: str | None = None):
+    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str):
+        super().__init__(property, target, source_set_id)
+
+
+class RelationalNavigationPropertyMapping(NavigationPropertyMapping, RelationalPropertyMapping):
+    """A property typed by a class, mapped by a join to the table or query of the class it reaches, or by the embedded mapping of it in the row."""
+    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str, target_set_id: str):
         super().__init__(property, target, source_set_id, target_set_id)
 
 

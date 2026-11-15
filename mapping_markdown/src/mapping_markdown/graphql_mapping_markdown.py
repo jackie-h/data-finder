@@ -200,7 +200,7 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                             continue
                         prop = Property(nav_prop_name, nav_prop_id, target_cls,
                                         multiplicity=nav_multiplicity)
-                        pm_list.append(GraphQLAssociationMapping(prop, GraphQLField(graphql_field), assoc_name, src_cls.name))
+                        pm_list.append(GraphQLAssociationMapping(prop, GraphQLField(graphql_field), assoc_name, src_cls.name, target_class_name))
                     i += 1
                 continue
 

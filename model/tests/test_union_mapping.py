@@ -2,7 +2,7 @@
 import pytest
 
 from model.m3 import Class, Property, ONE_TO_ONE, ZERO_TO_MANY, PrimitiveType
-from model.mapping import ClassMapping, Mapping, PropertyMapping, UnionMapping
+from model.mapping import ClassMapping, Mapping, NavigationPropertyMapping, PropertyMapping, UnionMapping
 
 _STRING = PrimitiveType("String")
 
@@ -18,8 +18,8 @@ def _set(clazz, set_id):
     return ClassMapping(clazz, [], id=set_id)
 
 
-def _navigation(firm, source, target=None):
-    return PropertyMapping(firm.properties["employees"], object(), source, target)
+def _navigation(firm, source, target="Person"):
+    return NavigationPropertyMapping(firm.properties["employees"], object(), source, target)
 
 
 def test_a_union_needs_its_sets_each_to_have_an_id_and_the_ids_to_differ():
@@ -49,14 +49,14 @@ def test_a_navigation_from_a_class_that_is_not_a_union_starts_from_its_class_map
         Mapping("m", [ClassMapping(firm, [_navigation(firm, "big")]), ClassMapping(person, [])])
 
 
-def test_a_navigation_to_a_union_says_which_of_its_sets_it_reaches_and_to_a_class_that_is_not_one_it_does_not():
+def test_a_navigation_to_a_union_reaches_one_of_its_sets_and_to_a_class_that_is_not_one_it_reaches_the_class():
     firm, person = _classes()
     people = UnionMapping(person, [_set(person, "staff"), _set(person, "contractors")], [])
-    with pytest.raises(ValueError, match="the property employees of Firm reaches a union of sets: it needs a target set id, one of staff, contractors"):
+    with pytest.raises(ValueError, match=r"the property employees of Firm reaches 'Person', which is not a set of Person \(staff, contractors\)"):
         Mapping("m", [ClassMapping(firm, [_navigation(firm, "Firm")]), people])
-    with pytest.raises(ValueError, match="'nope' is not a set of Person"):
+    with pytest.raises(ValueError, match="'nope', which is not a set of Person"):
         Mapping("m", [ClassMapping(firm, [_navigation(firm, "Firm", "nope")]), people])
-    with pytest.raises(ValueError, match="Person is not a union of sets: the property employees has no target set id"):
+    with pytest.raises(ValueError, match="reaches 'staff', but the class mapping of Person is 'Person'"):
         Mapping("m", [ClassMapping(firm, [_navigation(firm, "Firm", "staff")]), ClassMapping(person, [])])
 
 
@@ -67,9 +67,7 @@ def test_a_navigation_between_sets_that_names_real_sets_is_accepted():
     assert len(Mapping("m", [firms, people]).mappings) == 2
 
 
-def test_a_property_that_is_not_a_navigation_has_no_target_set_id():
+def test_a_property_that_is_not_a_navigation_is_mapped_without_a_target_set_id():
     firm, person = _classes()
     name = PropertyMapping(firm.properties["name"], object(), "Firm")
     Mapping("m", [UnionMapping(firm, [_set(firm, "big"), _set(firm, "small")], [name]), ClassMapping(person, [])])
-    with pytest.raises(ValueError, match="the property name of Firm is not a navigation: it has no target set id"):
-        Mapping("m", [ClassMapping(firm, [PropertyMapping(firm.properties["name"], object(), "Firm", "big")]), ClassMapping(person, [])])
