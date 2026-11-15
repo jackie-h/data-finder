@@ -199,6 +199,19 @@ def ported(name: str, source: str, legend_sql: str, query, **kwargs) -> TestExpe
                            equivalent_sql={BACKEND: legend_sql}, **kwargs)
 
 
+QUALIFIED_PROPERTIES = (
+    "qualified (derived) properties are deliberately not supported: a class has the properties it maps, and what is computed from them is "
+    "written where it is used"
+)
+
+
+def not_supported(name: str, source: str, legend_sql: str, reason: str) -> TestExpectation:
+    """A Legend test of something the finder deliberately does not do, and so will never pass: kept so that it is counted apart from the
+    tests that are only not done yet."""
+    return TestExpectation(name=name, query=_unsupported_query, source=source,
+                           equivalent_sql={BACKEND: legend_sql}, skip_backends={BACKEND: f"unsupported: {reason}"})
+
+
 def unsupported(name: str, source: str, legend_sql: str, reason: str) -> TestExpectation:
     """A Legend test that cannot be expressed with the finder API yet. Kept so the gap stays visible."""
     return TestExpectation(name=name, query=_unsupported_query, source=source,

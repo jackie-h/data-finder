@@ -10,7 +10,7 @@ Mapping: milestoning/tests/milestoning_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ISOLATED_MILESTONED_JOIN
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ISOLATED_MILESTONED_JOIN, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "milestoning/tests/testBiTemporalDateMilestoning.pure"
 
@@ -77,9 +77,9 @@ BI_TEMPORAL_DATE_MILESTONING_SPECS = FinderSpec(
         unsupported("testMultipleBiTemporalPropertyUsageInProjectWithMilestoningInfinitySpecifiedInDBPlusLatestPropagation", f"{_SRC}::testMultipleBiTemporalPropertyUsageInProjectWithMilestoningInfinitySpecifiedInDBPlusLatestPropagation",
                     'select "bitemporalproductclassificationtablewithlatest_0".type as "type" from OrderTable as "root" left outer join BiTemporalProductTableWithLatest as "bitemporalproducttablewithlatest_0" on ("root".prodFk = "bitemporalproducttablewithlatest_0".id and ("bitemporalproducttablewithlatest_0".out_z = \'9999-12-31 00:00:00.0000\' and "bitemporalproducttablewithlatest_0".thru_z = \'9999-12-31\')) left outer join (select "bitemporalproductclassificationtablewithlatest_1".type as type from BiTemporalProductClassificationTableWithLatest as "bitemporalproductclassificationtablewithlatest_1" where ("bitemporalproductclassificationtablewithlatest_1".out_z = \'9999-12-31 00:00:00.0000\' and "bitemporalproductclassificationtablewithlatest_1".thru_z = \'9999-12-31 00:00:00.0000\')) as "bitemporalproductclassificationtablewithlatest_0" on ("bitemporalproducttablewithlatest_0".type = "bitemporalproductclassificationtablewithlatest_0".type)',
                     '%latest: the finder has no latest version of a milestoned table'),
-        unsupported("testPopulationOfMilestonedThisBiTemporalDatesInProjectAgainstNonMilestonedStore", f"{_SRC}::testPopulationOfMilestonedThisBiTemporalDatesInProjectAgainstNonMilestonedStore",
+        not_supported("testPopulationOfMilestonedThisBiTemporalDatesInProjectAgainstNonMilestonedStore", f"{_SRC}::testPopulationOfMilestonedThisBiTemporalDatesInProjectAgainstNonMilestonedStore",
                     'select "root".id as "id", "productclassificationtablenomilestoning_0".type as "classificationType" from ProductTableNoMilestoning as "root" left outer join ProductClassificationTableNoMilestoning as "productclassificationtablenomilestoning_0" on ("root".type = "productclassificationtablenomilestoning_0".type)',
-                    'a qualified property (biTemporalClassificationTypeWithIndirect)'),
+                    QUALIFIED_PROPERTIES),
         unsupported("testBiTemporalToBiTemporalProjectWithMilestoningInfinitySpecifiedInDB", f"{_SRC}::testBiTemporalToBiTemporalProjectWithMilestoningInfinitySpecifiedInDB",
                     'select "bitemporalproductclassificationtablewithlatest_0".type as "type" from OrderTable as "root" left outer join BiTemporalProductTableWithLatest as "bitemporalproducttablewithlatest_0" on ("root".prodFk = "bitemporalproducttablewithlatest_0".id and ("bitemporalproducttablewithlatest_0".out_z = \'9999-12-31 00:00:00.0000\' and "bitemporalproducttablewithlatest_0".thru_z = \'9999-12-31\')) left outer join (select "bitemporalproductclassificationtablewithlatest_1".type as type from BiTemporalProductClassificationTableWithLatest as "bitemporalproductclassificationtablewithlatest_1" where ("bitemporalproductclassificationtablewithlatest_1".out_z = \'9999-12-31 00:00:00.0000\' and "bitemporalproductclassificationtablewithlatest_1".thru_z = \'9999-12-31 00:00:00.0000\')) as "bitemporalproductclassificationtablewithlatest_0" on ("bitemporalproducttablewithlatest_0".type = "bitemporalproductclassificationtablewithlatest_0".type)',
                     '%latest: the finder has no latest version of a milestoned table'),

@@ -24,7 +24,7 @@ from datafinder_examples_tests.spec import FinderSpec  # noqa: E402
 
 
 def ported_sources() -> dict[str, str]:
-    """source -> 'ported' | 'unsupported'"""
+    """source -> 'ported' | 'unsupported' | 'deliberate' (not supported on purpose)"""
     found: dict[str, str] = {}
     for mod in pkgutil.walk_packages(datafinder_legend_tests.__path__, "datafinder_legend_tests."):
         if not mod.name.endswith("_specs"):
@@ -33,7 +33,8 @@ def ported_sources() -> dict[str, str]:
         for value in vars(module).values():
             if isinstance(value, FinderSpec):
                 for e in value.expectations:
-                    status = "unsupported" if e.skip_backends.get("duckdb", "").startswith("unsupported") else "ported"
+                    reason = e.skip_backends.get("duckdb", "")
+                    status = ("deliberate" if "deliberately not supported" in reason else "unsupported") if reason.startswith("unsupported") else "ported"
                     found[e.source] = status
     return found
 
@@ -42,7 +43,7 @@ def main(argv: list[str]) -> None:
     show_missing = "--missing" in argv
     prefixes = [a for a in argv if not a.startswith("--")]
     done = ported_sources()
-    per_file: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])  # total, ported, unsupported
+    per_file: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0, 0])  # total, ported, unsupported, deliberately not supported
     missing: dict[str, list[str]] = defaultdict(list)
     for path in sorted(LEGEND_ROOT.rglob("*.pure")):
         rel = str(path.relative_to(LEGEND_ROOT))
@@ -58,18 +59,20 @@ def main(argv: list[str]) -> None:
                 row[1] += 1
             elif status == "unsupported":
                 row[2] += 1
+            elif status == "deliberate":
+                row[3] += 1
             else:
                 missing[rel].append(t["name"])
-    total = [0, 0, 0]
+    total = [0, 0, 0, 0]
     for rel, row in per_file.items():
-        if row[1] or row[2] or prefixes:
-            print(f"{rel:75} {row[1]:4} ported {row[2]:4} unsupported of {row[0]:4}")
-        for i in range(3):
+        if row[1] or row[2] or row[3] or prefixes:
+            print(f"{rel:75} {row[1]:4} ported {row[2]:4} unsupported {row[3]:4} deliberate of {row[0]:4}")
+        for i in range(4):
             total[i] += row[i]
         if show_missing:
             for name in missing[rel]:
                 print(f"    - {name}")
-    print(f"\nTOTAL: {total[1]} ported, {total[2]} recorded unsupported, of {total[0]} projection tests with SQL")
+    print(f"\nTOTAL: {total[1]} ported, {total[2]} recorded unsupported, {total[3]} deliberately not supported, of {total[0]} projection tests with SQL")
 
 
 if __name__ == "__main__":

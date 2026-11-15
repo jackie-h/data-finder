@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, CHAINED_RESULT_SUBSELECT, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER
+from datafinder_legend_tests.legend import ported, unsupported, CHAINED_RESULT_SUBSELECT, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER, QUALIFIED_PROPERTIES, not_supported
 import datetime
 
 _SRC = "functions/tests/testModelGroupBy.pure"
@@ -62,16 +62,16 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
         ported("testSimpleWithFilter", f"{_SRC}::testSimpleWithFilter",
                'select "producttable_0".NAME as "prodName", "root".quantity as "qt", sum("root".quantity) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join accountTable as "accounttable_0" on ("root".accountID = "accounttable_0".ID) where "accounttable_0".name = \'Account 2\' group by "prodName", "qt" order by "prodName" asc, "qt" asc',
                lambda f: f.find_all([f.product().name(), f.quantity(), f.quantity().sum()], f.account().name().eq("Account 2")).group_by(f.product().name(), f.quantity()).order_by(f.product().name().ascending(), f.quantity().ascending())),
-        unsupported("testFilterWithQualifiedProperty", f"{_SRC}::testFilterWithQualifiedProperty",
+        not_supported("testFilterWithQualifiedProperty", f"{_SRC}::testFilterWithQualifiedProperty",
                     'select "producttable_0".NAME as "prodName", sum(-"root".quantity) as "qt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join accountTable as "accounttable_0" on ("root".accountID = "accounttable_0".ID) where "accounttable_0".name = \'Account 1\' group by "prodName" order by "prodName" desc',
-                    'no qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
         ported("testGroupByWithUnion", f"{_SRC}::testGroupByWithUnion",
                'select "subselect"."sum" as "sum" from (select sum("unionalias_1"."Quantity") as "sum", count(1) as "count" from (select "root".quantity as "Quantity" from tradeTable as "root" union all select "root".quantity as "Quantity" from tradeTable as "root") as "unionalias_1") as "subselect" where "subselect"."count" > 0',
                lambda f: f.find_all([f.quantity().alias("Quantity")]).concatenate(f.find_all([f.quantity().alias("Quantity")]), all=True).aggregate(sum=lambda r: r.Quantity.sum(), count=lambda r: count_all()).filter(lambda r: r.count > 0).select("sum"),
                known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
-        unsupported("testGroupByAndFilterIsolatedJoinMerge", f"{_SRC}::testGroupByAndFilterIsolatedJoinMerge",
+        not_supported("testGroupByAndFilterIsolatedJoinMerge", f"{_SRC}::testGroupByAndFilterIsolatedJoinMerge",
                     'select "synonymtable_0".NAME as "Cusip", sum("root".quantity) as "Total Quantity" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join (select "synonymtable_0".PRODID as PRODID, "synonymtable_0".NAME as NAME from productSchema.synonymTable as "synonymtable_0" where "synonymtable_0".TYPE = \'CUSIP\') as "synonymtable_0" on ("synonymtable_0".PRODID = "producttable_0".ID) left outer join productSchema.synonymTable as "synonymtable_1" on ("synonymtable_1".PRODID = "producttable_0".ID and "synonymtable_1".TYPE = \'CUSIP\') where "synonymtable_1".NAME = \'CUSIP1\' group by "Cusip"',
-                    'no qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
         unsupported("testUniqueValueOnly3", f"{_SRC}::testUniqueValueOnly3",
                     'select "producttable_0".NAME as "prodName", count(distinct("root".quantity)) as "count", case when count(distinct("root".quantity)) = 1 then max("root".quantity) else null end as "uniqueValue" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) where "producttable_0".NAME = \'Firm C\' group by "prodName"',
                     'no uniqueValueOnly aggregation'),
@@ -124,9 +124,9 @@ MODEL_GROUP_BY_FIRM_SPECS = FinderSpec(
         unsupported("testUsingSameAggFunctionTwice", f"{_SRC}::testUsingSameAggFunctionTwice",
                     'select "root".LEGALNAME as "legalName", sum("firmtable_1".aggCol) as "employeeAge" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, sum("persontable_0".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) group by "legalName" order by "legalName" asc',
                     'an aggregate of an aggregate is computed in a derived table'),
-        unsupported("testUsingSameAggFunctionTwiceUsingQualifier", f"{_SRC}::testUsingSameAggFunctionTwiceUsingQualifier",
+        not_supported("testUsingSameAggFunctionTwiceUsingQualifier", f"{_SRC}::testUsingSameAggFunctionTwiceUsingQualifier",
                     'select "root".LEGALNAME as "legalName", sum("firmtable_1".aggCol) as "employeeAge" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, sum("persontable_0".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) group by "legalName" order by "legalName" asc',
-                    'no qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
         unsupported("testAggToManyWithAverage", f"{_SRC}::testAggToManyWithAverage",
                     'select "addresstable_0".TYPE as "Address Type", count("root".LEGALNAME) as "Count of Firms", avg(1.0 * "persontable_0".AGE) as "Average Age of Employees", avg(1.0 * "firmtable_1".aggCol) as "Sum of Age of Employees Averaged", max("persontable_0".AGE) as "Max Age of Employees", max("firmtable_1".aggCol) as "Max of Sum of Age of Employees" from firmTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) left outer join (select "firmtable_2".ID as ID, sum("persontable_1".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_1" on ("firmtable_2".ID = "persontable_1".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) group by "Address Type"',
                     'an aggregate of an aggregate is computed in a derived table'),
