@@ -193,3 +193,41 @@ SQL_QUERIES_HOLDER_FINDER_SPECS = FinderSpec(
         ),
     ],
 )
+
+SQL_QUERIES_UNIT_FINDER_SPECS = FinderSpec(
+    finder_name="UnitFinder",
+    mapping_file=SQL_QUERIES_MAPPING,
+    expectations=[
+        TestExpectation(
+            name="a_query_is_joined_to_a_second_copy_of_itself_through_its_parent",
+            skip_backends=_NO_QUERIES,
+            query=lambda f: f.find_all([f.name(), f.parent().name()]).order_by(f.id_().ascending()),
+            expected_columns=["Name", "Parent Name"],
+            # the parent of Under Hidden is a unit that the query does not give, so it has none
+            expected_result=np.array([["Root", None], ["Sales", "Root"], ["Support", "Root"], ["EMEA Sales", "Sales"],
+                                      ["Under Hidden", None]], dtype=object),
+            expected_sql={"duckdb": "ON (t1.unit_id = t0.parent_id)"},
+        ),
+        TestExpectation(
+            name="the_parent_of_a_parent",
+            skip_backends=_NO_QUERIES,
+            query=lambda f: f.find_all([f.name(), f.parent().parent().name()], f.name().eq("EMEA Sales")),
+            expected_columns=["Name", "Parent Parent Name"],
+            expected_result=np.array([["EMEA Sales", "Root"]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_filter_on_the_parent",
+            skip_backends=_NO_QUERIES,
+            query=lambda f: f.find_all([f.name()], f.parent().name().eq("Root")).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Sales"], ["Support"]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_children_of_a_unit",
+            skip_backends=_NO_QUERIES,
+            query=lambda f: f.find_all([f.name(), f.children().name()], f.name().eq("Sales")),
+            expected_columns=["Name", "Children Name"],
+            expected_result=np.array([["Sales", "EMEA Sales"]], dtype=object),
+        ),
+    ],
+)

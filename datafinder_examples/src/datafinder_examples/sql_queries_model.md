@@ -101,6 +101,17 @@
 |----------|------|---------|--------------|-----|-------------|
 | Id       | id   | Integer | 1            | Y   |             |
 
+### Class: Unit
+
+| Name | Description                                          |
+|------|------------------------------------------------------|
+| Unit | A unit of an organisation, which has a parent unit   |
+
+| Property | Id   | Type    | Multiplicity | Key | Description |
+|----------|------|---------|--------------|-----|-------------|
+| Id       | id   | Integer | 1            | Y   |             |
+| Name     | name | String  | 1            |     |             |
+
 ### Association: HolderRate
 
 | Name       | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
@@ -112,3 +123,9 @@
 | Name       | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
 | FirmPerson | Firm   | Employees            | employees          | *                   | Person |                      |                    | *                   |             |
+
+### Association: UnitParent
+
+| Name       | Source | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|------------|--------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
+| UnitParent | Unit   | Parent               | parent             | 0..1                | Unit   | Children             | children           | *                   |             |

@@ -1,0 +1,7 @@
+unit_id,name,parent_id,active
+1,Root,,1
+2,Sales,1,1
+3,Support,1,1
+4,EMEA Sales,2,1
+5,Hidden,2,0
+6,Under Hidden,5,1

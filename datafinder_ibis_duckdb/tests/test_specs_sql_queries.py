@@ -17,12 +17,12 @@ from datafinder_examples import example_path
 from datafinder_examples_tests.sql_queries_specs import (
     SQL_QUERIES_FIRM_FINDER_SPECS, SQL_QUERIES_FIRM_X_PERSON_FINDER_SPECS, SQL_QUERIES_MAPPING, SQL_QUERIES_POSITION_FINDER_SPECS,
     SQL_QUERIES_HOLDER_FINDER_SPECS, SQL_QUERIES_QUOTE_FINDER_SPECS, SQL_QUERIES_RATE_FINDER_SPECS,
-    SQL_QUERIES_SHOUT_FINDER_SPECS, SQL_QUERIES_TAG_FINDER_SPECS,
+    SQL_QUERIES_SHOUT_FINDER_SPECS, SQL_QUERIES_TAG_FINDER_SPECS, SQL_QUERIES_UNIT_FINDER_SPECS,
 )
 
 _SPECS = [SQL_QUERIES_FIRM_FINDER_SPECS, SQL_QUERIES_POSITION_FINDER_SPECS, SQL_QUERIES_FIRM_X_PERSON_FINDER_SPECS,
           SQL_QUERIES_TAG_FINDER_SPECS, SQL_QUERIES_SHOUT_FINDER_SPECS, SQL_QUERIES_RATE_FINDER_SPECS,
-          SQL_QUERIES_QUOTE_FINDER_SPECS, SQL_QUERIES_HOLDER_FINDER_SPECS]
+          SQL_QUERIES_QUOTE_FINDER_SPECS, SQL_QUERIES_HOLDER_FINDER_SPECS, SQL_QUERIES_UNIT_FINDER_SPECS]
 _MODS = ["org", "org.views"]
 
 
@@ -36,7 +36,8 @@ def _seed_db():
     conn.execute("CREATE TABLE org.rates (code VARCHAR, amount DOUBLE, from_z DATE, thru_z DATE)")
     conn.execute("CREATE TABLE org.quotes (code VARCHAR, amount DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP, from_z DATE, thru_z DATE)")
     conn.execute("CREATE TABLE org.holders (id INT, rate_code VARCHAR)")
-    for table in ("people", "firms", "trades", "rates", "quotes", "holders"):
+    conn.execute("CREATE TABLE org.units (unit_id INT, name VARCHAR, parent_id INT, active INT)")
+    for table in ("people", "firms", "trades", "rates", "quotes", "holders", "units"):
         conn.execute(f"INSERT INTO org.{table} SELECT * FROM read_csv_auto('{str(example_path(f'sql_queries_{table}.csv'))}')")
     conn.close()
 
@@ -63,9 +64,10 @@ def finders():
     from org.views.rate_finder import RateFinder  # pyright: ignore[reportMissingImports]
     from org.views.shout_finder import ShoutFinder  # pyright: ignore[reportMissingImports]
     from org.views.tag_finder import TagFinder  # pyright: ignore[reportMissingImports]
+    from org.views.unit_finder import UnitFinder  # pyright: ignore[reportMissingImports]
     yield {"FirmFinder": FirmFinder(), "PositionFinder": PositionFinder(), "FirmXPersonFinder": FirmXPersonFinder(),
            "TagFinder": TagFinder(), "ShoutFinder": ShoutFinder(), "RateFinder": RateFinder(),
-           "QuoteFinder": QuoteFinder(), "HolderFinder": HolderFinder()}
+           "QuoteFinder": QuoteFinder(), "HolderFinder": HolderFinder(), "UnitFinder": UnitFinder()}
 
     if tmp in sys.path:
         sys.path.remove(tmp)
