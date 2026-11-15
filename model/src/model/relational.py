@@ -59,33 +59,33 @@ class Aggregates(Generic[AG]):
     UntypedAggregateOperation. A count is an integer, and an average, standard deviation and variance are floating
     point, whatever the type."""
 
-    def _aggregate(self, operator: 'AggregateOperator', label: str,
-                   kind: 'type[AggregateOperation] | None' = None) -> 'AggregateOperation':
-        kind = kind or getattr(self, '_value_aggregate', None) or UntypedAggregateOperation
-        return kind(self._arithmetic_operand(), operator, label + ' Expression')  # pyright: ignore[reportAttributeAccessIssue, reportOptionalCall]
+    def _aggregate(self, operator: 'AggregateOperator', label: str, kind: 'type[AggregateOperation] | None' = None) -> Any:
+        """The aggregate of ``kind``, else of the expression's own type: what the method that asks for it says it gives."""
+        value_kind: 'type[AggregateOperation] | None' = kind or getattr(self, '_value_aggregate', None)
+        return (value_kind or UntypedAggregateOperation)(self._arithmetic_operand(), operator, label + ' Expression')  # pyright: ignore[reportAttributeAccessIssue]
 
     def sum(self) -> AG:
-        return self._aggregate(AggregateOperator.SUM, 'Sum')  # pyright: ignore[reportReturnType]
+        return self._aggregate(AggregateOperator.SUM, 'Sum')
 
     def min(self) -> AG:
-        return self._aggregate(AggregateOperator.MIN, 'Min')  # pyright: ignore[reportReturnType]
+        return self._aggregate(AggregateOperator.MIN, 'Min')
 
     def max(self) -> AG:
-        return self._aggregate(AggregateOperator.MAX, 'Max')  # pyright: ignore[reportReturnType]
+        return self._aggregate(AggregateOperator.MAX, 'Max')
 
     def average(self) -> 'DoubleAggregateOperation':
-        return self._aggregate(AggregateOperator.AVERAGE, 'Average', DoubleAggregateOperation)  # pyright: ignore[reportReturnType]
+        return self._aggregate(AggregateOperator.AVERAGE, 'Average', DoubleAggregateOperation)
 
     def count(self) -> 'IntegerAggregateOperation':
-        return self._aggregate(AggregateOperator.COUNT, 'Count', IntegerAggregateOperation)  # pyright: ignore[reportReturnType]
+        return self._aggregate(AggregateOperator.COUNT, 'Count', IntegerAggregateOperation)
 
     def std(self, ddof: int = 1) -> 'DoubleAggregateOperation':
         return self._aggregate(AggregateOperator.STDDEV_SAMP if _sample(ddof) else AggregateOperator.STDDEV_POP, 'Std',
-                               DoubleAggregateOperation)  # pyright: ignore[reportReturnType]
+                               DoubleAggregateOperation)
 
     def var(self, ddof: int = 1) -> 'DoubleAggregateOperation':
         return self._aggregate(AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP, 'Var',
-                               DoubleAggregateOperation)  # pyright: ignore[reportReturnType]
+                               DoubleAggregateOperation)
 
 
 class Extremes(Generic[AG]):

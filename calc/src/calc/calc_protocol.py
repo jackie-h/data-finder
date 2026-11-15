@@ -17,7 +17,7 @@ class DomainAwareCalcProtocol:
         raise NotImplementedError
 
     #TODO should have key and time?
-    def calculate(self, inputs:ndarray) -> list:
+    def calculate(self, inputs:ndarray) -> ndarray:
         raise NotImplementedError
 
 

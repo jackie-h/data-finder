@@ -83,7 +83,7 @@ def test_the_sets_of_a_class_are_one_class_mapping_that_keeps_its_sets(tmp_path)
     firm = _firm(load(str(_mapping(tmp_path))))
     assert [s.id for s in firm.sets] == ["big", "small"]
     assert firm.id == "Firm"  # the union has the id of its class, and its sets their own
-    assert [s.main_relation.name for s in firm.sets] == ["BIG", "SMALL"]  # pyright: ignore[reportOptionalMemberAccess]
+    assert [getattr(s.main_relation, "name", None) for s in firm.sets] == ["BIG", "SMALL"]
 
 
 def test_the_union_is_a_union_mapping_that_holds_its_sets_and_a_set_is_an_ordinary_class_mapping(tmp_path):
@@ -98,11 +98,11 @@ def test_the_union_is_a_union_mapping_that_holds_its_sets_and_a_set_is_an_ordina
 
 
 def test_the_union_of_the_sets_is_one_query_with_the_number_of_the_set_each_row_came_from(tmp_path):
-    from model.relational import UnionOperation
+    from model.relational import TableAlias, UnionOperation
     firm = _firm(load(str(_mapping(tmp_path))))
     union = firm.main_relation
-    assert isinstance(union.relation, UnionOperation) and union.relation.all  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
-    assert [c.name for c in union.columns] == ["id", "name", "_set"]  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+    assert isinstance(union, TableAlias) and isinstance(union.relation, UnionOperation) and union.relation.all
+    assert [c.name for c in union.columns] == ["id", "name", "_set"]  # pyright: ignore[reportAttributeAccessIssue]
     assert [pm.target.name for pm in firm.property_mappings] == ["id", "name"]
     assert all(pm.target.table is union for pm in firm.property_mappings)
 
@@ -271,8 +271,9 @@ def _assoc(options, source_column="id", target="people", target_column="firm_id"
 def _employees(mapping) -> list[NavigationPropertyMapping]:
     """The property mappings of Firm.employees: one for each pair of sets."""
     pms = [pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees"]
-    assert all(isinstance(pm, NavigationPropertyMapping) for pm in pms)
-    return pms  # pyright: ignore[reportReturnType]
+    navigations = [pm for pm in pms if isinstance(pm, NavigationPropertyMapping)]
+    assert len(navigations) == len(pms)
+    return navigations
 
 
 def test_an_association_from_a_class_of_sets_is_a_property_mapping_for_each_pair_of_sets_and_each_has_its_own_plain_join(tmp_path):

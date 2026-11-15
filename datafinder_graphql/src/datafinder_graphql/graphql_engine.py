@@ -1,5 +1,5 @@
 import datetime
-from typing import Any
+from typing import Any, Sequence
 import json
 from dataclasses import dataclass, field
 import urllib.request
@@ -24,6 +24,7 @@ from model.relational import (
     ColumnWithJoin,
     ComparisonOperation,
     ComparisonOperator,
+    Relation,
     ConstantOperation,
     DateArithmeticOperation,
     DateDiffOperation,
@@ -703,12 +704,14 @@ def _fetch_rows(table: GraphQLQuery, fields_str: str,
 class GraphQLConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,  # pyright: ignore[reportIncompatibleMethodOverride]
-               columns: list, table: GraphQLQuery, op: Operation,
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,
+               columns: Sequence[Any], table: Relation, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,
                distinct: bool = False, offset: int | None = None, having=None,
                processing_datetime_to: datetime.datetime | datetime.date | None = None) -> DataFrame:
+        if not isinstance(table, GraphQLQuery):
+            raise TypeError(f"The GraphQL engine reads a GraphQLQuery, not {type(table).__name__}")
         if processing_datetime_to is not None:
             raise GraphQLUnsupportedError("The GraphQL engine has no processing time range")
         if having is not None:

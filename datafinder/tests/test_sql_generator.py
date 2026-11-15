@@ -1041,13 +1041,13 @@ class TestArithmetic:
     def test_a_string_is_not_a_number(self):
         a, _ = self._ab()
         with pytest.raises(TypeError):
-            a + "x"  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+            _ = a + "x"  # pyright: ignore[reportOperatorIssue]
         with pytest.raises(TypeError):
-            a * True  # pyright: ignore[reportUnusedExpression]
+            _ = a * True
 
     def test_a_function_that_gives_text_is_not_a_number(self):
         with pytest.raises(TypeError, match="Text is joined with text"):
-            StringAttribute("Name", "name", "VARCHAR", _OWNER_T).upper() + 1  # pyright: ignore[reportUnusedExpression]
+            _ = StringAttribute("Name", "name", "VARCHAR", _OWNER_T).upper() + 1
 
 
 class TestConcat:
@@ -1083,7 +1083,7 @@ class TestConcat:
     def test_a_number_is_not_text(self):
         a, _ = self._ab()
         with pytest.raises(TypeError, match="Text is joined with text"):
-            a + 1  # pyright: ignore[reportUnusedExpression]
+            _ = a + 1
 
     def test_numbers_still_add(self):
         n = IntegerAttribute("N", "n", "INT", _OWNER_T)

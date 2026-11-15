@@ -79,7 +79,7 @@ class StringAttribute(_MinMax[StringAggregateOperation], StringFunctions, Attrib
     def _to_constant(self, value):
         return StringConstantOperation(value)
 
-    def _coalesce_type(self) -> type[ScalarFunctionOperation]:
+    def _coalesce_type(self) -> Callable[..., ScalarFunctionOperation]:
         return StringFunctionOperation
 
     def matches(self, pattern: str) -> ComparisonOperation:
@@ -126,8 +126,8 @@ class NumericAttribute(NumericFunctions[N], Attribute, Generic[N, A]):
     if TYPE_CHECKING:  # the aggregate of this type, set by each numeric type
         _aggregate_type: Callable[..., A]
 
-    def _coalesce_type(self) -> type[ScalarFunctionOperation]:
-        return self._number_type  # pyright: ignore[reportReturnType]
+    def _coalesce_type(self) -> Callable[..., ScalarFunctionOperation]:
+        return self._number_type
 
     def sum(self) -> A:
         """Return the sum of all values in the group."""
