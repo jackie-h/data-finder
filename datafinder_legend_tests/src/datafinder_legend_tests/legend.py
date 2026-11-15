@@ -69,6 +69,21 @@ GROUP_BY_JOIN_COLUMN = (
     "checks the group by refuses (DuckDB does); the finder joins the product to the query that groups, so it returns the rows Legend means"
 )
 
+AGGREGATE_COLUMN_QUALIFIED = (
+    "Legend writes the column an aggregate reads from a derived table unqualified, listagg(\"lastName\", '*'); the finder qualifies it with "
+    "the alias of the derived table, which is the same column"
+)
+
+JOIN_KEPT_AFTER_RESTRICT = (
+    "Legend cuts the join to a column that a restrict drops out of the query; the finder keeps the join in the derived table the restrict "
+    "reads, and counts a column where Legend counts rows, which are the same where the column is not null"
+)
+
+ORDER_BY_CONSTANT = (
+    "a column that is a constant and is sorted on is written as the literal, ORDER BY 'Hello', which DuckDB refuses; Legend writes the "
+    "alias of the column"
+)
+
 HOUR_OF_DATETIME_LITERAL = (
     "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
     "string, which DuckDB cannot run, so there are no rows of Legend's to compare"

@@ -10,7 +10,7 @@ import datetime
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, RESTRICT_AFTER_GROUP_BY
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, ORDER_BY_CONSTANT, RESTRICT_AFTER_GROUP_BY, CHAINED_RESULT_SUBSELECT
 
 _SRC = "tds/tests/testTDSRestrict.pure"
 
@@ -42,12 +42,14 @@ RESTRICT_SPECS = FinderSpec(
         ported("testProjectAllColumns_Mulitple", f"{_SRC}::testProjectAllColumns_Mulitple",
                'select "root".FIRSTNAME as "firstName", \'Hello\' as "Hello" from personTable as "root"',
                lambda f: f.find_all([f.first_name(), constant("Hello")])),
-        unsupported("testLowerProjectColsNotEliminatedWithDistinct", f"{_SRC}::testLowerProjectColsNotEliminatedWithDistinct",
+        ported("testLowerProjectColsNotEliminatedWithDistinct", f"{_SRC}::testLowerProjectColsNotEliminatedWithDistinct",
                     'select "persontable_0"."firstName" as "firstName" from (select distinct "root".FIRSTNAME as "firstName", \'Hello\' as "Hello" from personTable as "root" order by "firstName" asc) as "persontable_0"',
-                    'restrict, sort, limit and distinct in sequence nest subselects, and Legend keeps joins to restricted-away columns; the finder builds one query'),
-        unsupported("testLowerProjectColsNotEliminatedWithSort", f"{_SRC}::testLowerProjectColsNotEliminatedWithSort",
+                    lambda f: f.find_all([f.first_name().alias("firstName"), constant("Hello").alias("Hello")]).order_by(f.first_name().ascending()).distinct().select("firstName"),
+               known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
+        ported("testLowerProjectColsNotEliminatedWithSort", f"{_SRC}::testLowerProjectColsNotEliminatedWithSort",
                     'select "persontable_0"."firstName" as "firstName" from (select "root".FIRSTNAME as "firstName", \'Hello\' as "Hello" from personTable as "root" order by "Hello" asc, "firstName" asc) as "persontable_0"',
-                    'a restrict after a sort wraps the query in a subselect'),
+                    lambda f: (lambda r: r.order_by(r["Hello"].ascending(), r["firstName"].ascending()).select("firstName"))(f.find_all([f.first_name().alias("firstName"), constant("Hello").alias("Hello")])),
+                    known_gaps={ROWS: ORDER_BY_CONSTANT}),
         unsupported("testRestrictWithPostProcessor", f"{_SRC}::testRestrictWithPostProcessor",
                     'select "persontable_0"."firstName" as "firstName" from (select "root".FIRSTNAME as "firstName", \'Hello\' as "Hello" from personTable as "root" order by "Hello" asc, "firstName" asc) as "persontable_0"',
                     'a restrict after a sort wraps the query in a subselect'),

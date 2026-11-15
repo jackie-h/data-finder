@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE
+from datafinder_legend_tests.legend import ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, CHAINED_RESULT_SUBSELECT
 
 _SRC = "tds/tests/testGroupBy.pure"
 
@@ -27,9 +27,6 @@ TDS_GROUP_BY_SPECS = FinderSpec(
         unsupported("testTDSGroupByPercentile", f"{_SRC}::testTDSGroupByPercentile",
                     'select "producttable_0".NAME as "prodName", percentile_cont(cast(0.9 as float)) within group (order by "root".quantity + 2 asc) as "p1", percentile_disc(cast(0.5 as float)) within group (order by "root".quantity + 2 desc) as "p2", percentile_cont(cast(0.75 as float)) within group (order by "root".quantity + 2 asc) as "p3" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                     'no percentile aggregate'),
-        unsupported("testTDSGroupByEmptyColsNonTerminalOperation", f"{_SRC}::testTDSGroupByEmptyColsNonTerminalOperation",
-                    'select "subselect"."Firm Count" as "Firm Count" from (select count(*) as "Firm Count" from firmTable as "root") as "subselect" where "subselect"."Firm Count" > 10',
-                    'a filter on an aggregate is nested in a subselect'),
         unsupported("testGroupByWithWavgAggregation", f"{_SRC}::testGroupByWithWavgAggregation",
                     'select dateadd(day, 1, "root".tradeDate) as "tradeDate", count("root".ID) as "ID count", (1.0 * sum("root".quantity * "root".weight)) / sum("root".weight) as "Trade Weighted Average" from weightedTradeTable as "root" group by "tradeDate" order by "tradeDate" asc',
                     'no weighted average aggregate'),
@@ -44,9 +41,10 @@ GROUP_BY_TRADE_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("simpleFilterWithGroupByWithDistinct", f"{_SRC}::simpleFilterWithGroupByWithDistinct",
+        ported("simpleFilterWithGroupByWithDistinct", f"{_SRC}::simpleFilterWithGroupByWithDistinct",
                     'select "tradetable_0"."quantity" as "quantity", count("quantity") as "qty" from (select distinct "root".quantity as "quantity" from tradeTable as "root" where "root".ID < 4 and "root".quantity > 11) as "tradetable_0" group by "quantity"',
-                    'a group by over a distinct is nested in a subselect'),
+                    lambda f: f.find_all([f.quantity()], (f.id_() < 4).and_(f.quantity() > 11)).distinct().group_by(lambda r: r.quantity).aggregate(qty=lambda r: r.quantity.count()),
+               known_gaps={BACKEND: AGGREGATE_COLUMN_QUALIFIED}),
         ported("simpleGroupBySum", f"{_SRC}::simpleGroupBySum",
                'select "producttable_0".NAME as "prodName", sum("root".quantity) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all([f.product().name(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending())),
@@ -102,15 +100,20 @@ GROUP_BY_FIRM_SPECS = FinderSpec(
     finder_name="FirmFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
+        ported("testTDSGroupByEmptyColsNonTerminalOperation", f"{_SRC}::testTDSGroupByEmptyColsNonTerminalOperation",
+                    'select "subselect"."Firm Count" as "Firm Count" from (select count(*) as "Firm Count" from firmTable as "root") as "subselect" where "subselect"."Firm Count" > 10',
+                    lambda f: f.find_all([f.legal_name().alias("LegalName")]).aggregate(FirmCount=lambda r: r.LegalName.count()).filter(lambda r: r.FirmCount > 10),
+               known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
         ported("simpleGroupByWithAssociationWithJoinStrings", f"{_SRC}::simpleGroupByWithAssociationWithJoinStrings",
                'select "root".LEGALNAME as "legalName", listagg("persontable_0".LASTNAME, \'*\') as "lastNames" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "legalName"',
                lambda f: f.find_all([f.legal_name(), f.employees().last_name().join("*")]).group_by(f.legal_name())),
         ported("groupByAfterASortOnColumnInGroupBy", f"{_SRC}::groupByAfterASortOnColumnInGroupBy",
                'select "root".LEGALNAME as "legalName", listagg("persontable_0".LASTNAME, \'*\') as "lastNames" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "legalName" order by "legalName" asc',
                lambda f: f.find_all([f.legal_name(), f.employees().last_name().join("*")]).group_by(f.legal_name()).order_by(f.legal_name().ascending())),
-        unsupported("groupByAfterASortOnColumnNotInGroupBy", f"{_SRC}::groupByAfterASortOnColumnNotInGroupBy",
+        ported("groupByAfterASortOnColumnNotInGroupBy", f"{_SRC}::groupByAfterASortOnColumnNotInGroupBy",
                     'select "firmtable_0"."legalName" as "legalName", listagg("lastName", \'*\') as "lastNames" from (select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) order by "lastName" asc) as "firmtable_0" group by "legalName"',
-                    'a sort before a group by on a column that is not grouped is nested in a subselect'),
+                    lambda f: f.find_all([f.legal_name().alias("legalName"), f.employees().last_name().alias("lastName")]).order_by(f.employees().last_name().ascending()).group_by(lambda r: r.legalName).aggregate(lastNames=lambda r: r.lastName.join("*")),
+               known_gaps={BACKEND: AGGREGATE_COLUMN_QUALIFIED}),
         ported("groupByAfterConcatenate", f"{_SRC}::groupByAfterConcatenate",
                'select "unionalias_0"."legalName" as "legalName", count(distinct("lastName")) as "lastNamesCount" from (select distinct "unionalias_1"."legalName" as "legalName", "unionalias_1"."lastName" as "lastName" from (select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) union all select "root".LEGALNAME as "legalName", "persontable_0".LASTNAME as "lastName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID)) as "unionalias_1") as "unionalias_0" group by "legalName"',
                lambda f: f.find_all([f.legal_name().alias("legalName"), f.employees().last_name().alias("lastName")]).concatenate(f.find_all([f.legal_name().alias("legalName"), f.employees().last_name().alias("lastName")]), all=True).distinct().group_by(lambda r: r.legalName).aggregate(lastNamesCount=lambda r: r.lastName.count_distinct()),
