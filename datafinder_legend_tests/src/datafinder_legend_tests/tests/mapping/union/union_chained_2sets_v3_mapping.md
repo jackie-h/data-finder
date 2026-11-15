@@ -1,9 +1,9 @@
 # Legend Union With Chained Joins Mapping: 2 sets, V3
 
 Source: legend-engine core_relational `tests/mapping/union/testUnionWithMultipleChainedJoins.pure` (`multipleChainedJoinsMappingWithUnionAcross2SetsV3`).
-In this variant X is a union, every set of X joins Y, which is its set 0 alone, and that joins Z, also its set 0 alone. A union of 2 milestoned tables is a query here, with the business date range of its rows and the number of the
-set each row came from; a class that is not a union is its first table. Every table has the same fk, so the sets that join are said by a
-condition on those numbers, which Legend says with a join per pair of sets (through link tables that hold the same fk, and so keep every row).
+In this variant X is a union, every set of X joins Y, which is its set 0 alone, and that joins Z, also its set 0 alone. A union of 2 milestoned tables is a set for each, a query of its own with the business date range of its rows; a class that is not a union is
+its first table. Every table has the same fk, so which sets join is said by the pairs of sets of its associations: a pair that is not named does not join (Legend says the
+same with a join for each pair of sets, through link tables that hold the same fk, and so keep every row).
 
 ## Model: union_chained_model.md
 
@@ -51,23 +51,39 @@ condition on those numbers, which Legend says with a join per pair of sets (thro
 | from_z | DATE |     | Y        |             |
 | thru_z | DATE |     | Y        |             |
 
-#### Query: X_UNION → X (milestoning: business_date_range)
+#### Query: X_SET0 → X (set: x0, milestoning: business_date_range)
 
 ```sql
-SELECT pk, fk, 0 AS setNo, from_z, thru_z FROM X0
-UNION ALL
-SELECT pk, fk, 1 AS setNo, from_z, thru_z FROM X1
+SELECT pk, fk, from_z, thru_z FROM X0
 ```
 
 | Column | Type | Key | Nullable | Property ID  |
 |--------|------|-----|----------|--------------|
-| pk     | INT  |     | Y        | pk           |
+| pk     | INT  | PK  | N        | pk           |
 | fk     | INT  |     | Y        |              |
-| setNo  | INT  |     | Y        |              |
 | from_z | DATE |     | Y        | businessFrom |
 | thru_z | DATE |     | Y        | businessThru |
 
-#### Association: XY
+#### Query: X_SET1 → X (set: x1, milestoning: business_date_range)
+
+```sql
+SELECT pk, fk, from_z, thru_z FROM X1
+```
+
+| Column | Type | Key | Nullable | Property ID  |
+|--------|------|-----|----------|--------------|
+| pk     | INT  | PK  | N        | pk           |
+| fk     | INT  |     | Y        |              |
+| from_z | DATE |     | Y        | businessFrom |
+| thru_z | DATE |     | Y        | businessThru |
+
+#### Association: XY (source set: x0)
+
+| Source Column | Target Table | Target Column |
+|---|---|---|
+| fk | Y0 | fk |
+
+#### Association: XY (source set: x1)
 
 | Source Column | Target Table | Target Column |
 |---|---|---|
@@ -75,10 +91,10 @@ SELECT pk, fk, 1 AS setNo, from_z, thru_z FROM X1
 
 #### Table: Y0 → Y (milestoning: business_date_range)
 
-| Column | Type | Key | Nullable | Property ID |
-|--------|------|-----|----------|-------------|
-| pk     | INT  | PK  | N        | pk          |
-| fk     | INT  |     | Y        |             |
+| Column | Type | Key | Nullable | Property ID  |
+|--------|------|-----|----------|--------------|
+| pk     | INT  | PK  | N        | pk           |
+| fk     | INT  |     | Y        |              |
 | from_z | DATE |     | Y        | businessFrom |
 | thru_z | DATE |     | Y        | businessThru |
 
@@ -90,9 +106,9 @@ SELECT pk, fk, 1 AS setNo, from_z, thru_z FROM X1
 
 #### Table: Z0 → Z (milestoning: business_date_range)
 
-| Column | Type | Key | Nullable | Property ID |
-|--------|------|-----|----------|-------------|
-| pk     | INT  | PK  | N        | pk          |
-| fk     | INT  |     | Y        |             |
+| Column | Type | Key | Nullable | Property ID  |
+|--------|------|-----|----------|--------------|
+| pk     | INT  | PK  | N        | pk           |
+| fk     | INT  |     | Y        |              |
 | from_z | DATE |     | Y        | businessFrom |
 | thru_z | DATE |     | Y        | businessThru |

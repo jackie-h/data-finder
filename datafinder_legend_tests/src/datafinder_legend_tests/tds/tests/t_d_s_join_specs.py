@@ -52,7 +52,7 @@ T_D_S_JOIN_PERSON_SPECS = FinderSpec(
 
 
 def _person_left_join_firm(f):
-    from joinfirm_finder import JoinFirmFinder  # type: ignore[import-not-found]  # written by the generator
+    from joinfirm_finder import JoinFirmFinder  # pyright: ignore[reportMissingImports]  # written by the generator
     firms = JoinFirmFinder()
     return f.find_all([f.person_id().alias("personID"), f.last_name().alias("personName"), f.employer_id().alias("eID")]).join(
         firms.find_all([firms.legal_name().alias("firmName"), firms.firm_id().alias("fID")], firms.legal_name().length() > 20),

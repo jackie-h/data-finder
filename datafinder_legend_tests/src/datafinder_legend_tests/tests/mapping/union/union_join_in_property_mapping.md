@@ -1,8 +1,7 @@
-# Legend Union Mapping: Join In Property
+# Legend Union With Join In Property Mapping
 
-Source: legend-engine core_relational `tests/mapping/union/testUnion.pure` (`unionMappingWithJoinInProperty`): in the first set the
-last name is read through a join to PersonExtension, in the second it is its own column. (Person's otherNames, a function of it, is not in the model.)
-The join is inside the first select of the union.
+Source: legend-engine core_relational `tests/mapping/union/testUnion.pure` (`unionMappingWithJoinInProperty`).
+In the first set the last name is read through a join to PersonExtension, on its key, inside the query of the set; in the second it is its own column. (Person's otherNames, a function of it, is not in the model.)
 
 ## Model: ../../simple_model.md
 
@@ -10,58 +9,75 @@ The join is inside the first select of the union.
 
 ### Schema: main
 
-#### Table: Firm → Firm
-
-| Column | Type    | Key | Nullable | Property ID |
-|--------|---------|-----|----------|-------------|
-| ID     | INT     | PK  | N        |             |
-| name   | VARCHAR |     | Y        | legalName   |
-
 #### Table: PersonSet1
 
-| Column       | Type    | Key | Nullable | Property ID |
-|--------------|---------|-----|----------|-------------|
-| ID           | INT     | PK  | N        |             |
-| firstName_s1 | VARCHAR |     | Y        |             |
-| lastName_s1  | VARCHAR |     | Y        |             |
-| FirmID       | INT     |     | Y        |             |
-| ADDRESSID    | INT     |     | Y        |             |
+| Column | Type | Key | Nullable | Property ID |
+|---|---|---|---|---|
+| ID | INT | PK | N |  |
+| firstName_s1 | VARCHAR |  | Y |  |
+| lastName_s1 | VARCHAR |  | Y |  |
+| FirmID | INT |  | Y |  |
+| ADDRESSID | INT |  | Y |  |
+| NICKNAME | VARCHAR |  | Y |  |
 
 #### Table: PersonSet2
 
-| Column       | Type    | Key | Nullable | Property ID |
-|--------------|---------|-----|----------|-------------|
-| ID           | INT     | PK  | N        |             |
-| firstName_s2 | VARCHAR |     | Y        |             |
-| lastName_s2  | VARCHAR |     | Y        |             |
-| FirmID       | INT     |     | Y        |             |
-| ADDRESSID    | INT     |     | Y        |             |
+| Column | Type | Key | Nullable | Property ID |
+|---|---|---|---|---|
+| ID | INT | PK | N |  |
+| firstName_s2 | VARCHAR |  | Y |  |
+| lastName_s2 | VARCHAR |  | Y |  |
+| FirmID | INT |  | Y |  |
+| ADDRESSID | INT |  | Y |  |
 
 #### Table: PersonExtension
 
-| Column        | Type    | Key | Nullable | Property ID |
-|---------------|---------|-----|----------|-------------|
-| ID            | INT     | PK  | N        |             |
-| otherLastName | VARCHAR |     | Y        |             |
+| Column | Type | Key | Nullable | Property ID |
+|---|---|---|---|---|
+| ID | INT | PK | N |  |
+| otherLastName | VARCHAR |  | Y |  |
 
-#### Query: PERSON_UNION → Person
+#### Table: Firm → Firm
+
+| Column | Type | Key | Nullable | Property ID |
+|---|---|---|---|---|
+| ID | INT | PK | N |  |
+| name | VARCHAR |  | Y | legalName |
+
+#### Query: PERSON_SET1 → Person (set: set1)
 
 ```sql
-SELECT x.otherLastName AS lastName, s.FirmID
+SELECT s.ID, x.otherLastName AS lastName, s.FirmID
 FROM PersonSet1 s
 LEFT OUTER JOIN PersonExtension x ON s.ID = x.ID
-UNION ALL
-SELECT lastName_s2 AS lastName, FirmID FROM PersonSet2
 ```
 
-| Column     | Type    | Key | Nullable | Property ID |
-|------------|---------|-----|----------|-------------|
-| lastName   | VARCHAR |     | Y        | lastName    |
-| FirmID     | INT     |     | Y        |             |
+| Column | Type | Key | Nullable | Property ID |
+|---|---|---|---|---|
+| ID | INT | PK | N |  |
+| lastName | VARCHAR |  | Y | lastName |
+| FirmID | INT |  | Y |  |
 
+#### Query: PERSON_SET2 → Person (set: set2)
 
-#### Association: PersonFirm
+```sql
+SELECT ID, lastName_s2 AS lastName, FirmID FROM PersonSet2
+```
+
+| Column | Type | Key | Nullable | Property ID |
+|---|---|---|---|---|
+| ID | INT | PK | N |  |
+| lastName | VARCHAR |  | Y | lastName |
+| FirmID | INT |  | Y |  |
+
+#### Association: PersonFirm (source set: set1)
 
 | Source Column | Target Table | Target Column |
-|---------------|--------------|---------------|
-| FirmID        | Firm         | ID            |
+|---|---|---|
+| FirmID | Firm | ID |
+
+#### Association: PersonFirm (source set: set2)
+
+| Source Column | Target Table | Target Column |
+|---|---|---|
+| FirmID | Firm | ID |
