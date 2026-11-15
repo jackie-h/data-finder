@@ -191,6 +191,7 @@ class FinderResult(DataFrame):
         self._query: OrderedQuerySpecification = query
         self._timeout_ms: int = timeout_ms
         self._alias: TableAlias | None = None
+        self._earlier: list['FinderResult'] = []  # the results this one is a change to the select of
 
     @property
     def _as_of(self) -> AsOf:
@@ -210,6 +211,8 @@ class FinderResult(DataFrame):
         """A result of a step written after this one."""
         result = FinderResult.__new__(FinderResult)
         result._start(query, self._timeout_ms)
+        if query.table is self._query.table:  # a change to the same select: this result's columns are that one's too
+            result._earlier = [*self._earlier, self]
         return result
 
     # --- a result as a relation, for what follows it ---------------------------------------------------------------
@@ -362,8 +365,8 @@ class FinderResult(DataFrame):
         """A column of this result, as ``result["name"]`` gives it, is what this result shows under that name: so
         ``result.order_by(result["name"].ascending())`` orders by the column, not by a column of a later query."""
         column = _column_of(element)
-        alias = self._alias
-        if column is None or alias is None or not isinstance(column.owner, TableAlias) or column.owner.name != alias.name:
+        names = {r._alias.name for r in (*self._earlier, self) if r._alias is not None}
+        if column is None or not isinstance(column.owner, TableAlias) or column.owner.name not in names:
             return element
         shown = {_column_name(c): c for c in self._query.columns}
         found = shown.get(column.name)
