@@ -53,29 +53,29 @@ class TestFindForDateRangeValidation:
     def test_none_business_date_from_raises(self):
         with pytest.raises(ValueError, match="business_date_from"):
             convert_inputs_and_select_for_date_range(
-                None, datetime.date(2024, 12, 31), self._PDT, [], self._table(), NoOperation())  # type: ignore[arg-type]
+                None, datetime.date(2024, 12, 31), self._PDT, [], self._table(), NoOperation())  # pyright: ignore[reportArgumentType]
 
     def test_none_business_date_to_raises(self):
         with pytest.raises(ValueError, match="business_date_to"):
             convert_inputs_and_select_for_date_range(
-                datetime.date(2024, 1, 1), None, self._PDT, [], self._table(), NoOperation())  # type: ignore[arg-type]
+                datetime.date(2024, 1, 1), None, self._PDT, [], self._table(), NoOperation())  # pyright: ignore[reportArgumentType]
 
     def test_both_none_raises_on_from(self):
         with pytest.raises(ValueError, match="business_date_from"):
             convert_inputs_and_select_for_date_range(
-                None, None, self._PDT, [], self._table(), NoOperation())  # type: ignore[arg-type]
+                None, None, self._PDT, [], self._table(), NoOperation())  # pyright: ignore[reportArgumentType]
 
     def test_none_processing_datetime_raises_for_a_table_with_processing_columns(self):
         table = MilestonedTable("trades", [], ProcessingTemporalColumns(Column("in_z", "TIMESTAMP"), Column("out_z", "TIMESTAMP")))
         with pytest.raises(ValueError, match="processing_time"):
             convert_inputs_and_select_for_date_range(
                 datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
-                None, [], table, NoOperation())  # type: ignore[arg-type]
+                None, [], table, NoOperation())  # pyright: ignore[reportArgumentType]
 
     def test_no_processing_datetime_is_needed_for_a_single_business_date_table(self):
         table = MilestonedTable("trades", [], SingleBusinessDateColumn(Column("snapshot", "DATE")))
         result = convert_inputs_and_select_for_date_range(
-            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), None, [], table, NoOperation())  # type: ignore[arg-type]
+            datetime.date(2024, 1, 1), datetime.date(2024, 12, 31), None, [], table, NoOperation())  # pyright: ignore[reportArgumentType]
         assert result.to_sql().endswith("WHERE t0.snapshot >= '2024-01-01' AND t0.snapshot <= '2024-12-31'")
 
     def test_valid_dates_returns_finder_result(self):
@@ -142,7 +142,7 @@ class TestOrderByAccumulates:
     @staticmethod
     def _columns(result: FinderResult) -> list[tuple[str, SortDirection]]:
         assert all(isinstance(s.column, ColumnWithJoin) for s in result._query.order_by)
-        return [(s.column.column.name, s.direction) for s in result._query.order_by]  # type: ignore[attr-defined]
+        return [(s.column.column.name, s.direction) for s in result._query.order_by]  # pyright: ignore[reportAttributeAccessIssue]
 
     def test_the_later_call_is_primary(self):
         a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)

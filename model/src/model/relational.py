@@ -29,11 +29,11 @@ class Sortable:
 
     def ascending(self) -> 'SortOperation':
         """Sort by this expression, smallest first."""
-        return SortOperation(self, SortDirection.ASC)  # type: ignore[arg-type]
+        return SortOperation(self, SortDirection.ASC)  # pyright: ignore[reportArgumentType]
 
     def descending(self) -> 'SortOperation':
         """Sort by this expression, largest first."""
-        return SortOperation(self, SortDirection.DESC)  # type: ignore[arg-type]
+        return SortOperation(self, SortDirection.DESC)  # pyright: ignore[reportArgumentType]
 
 
 class Aliasable:
@@ -41,7 +41,7 @@ class Aliasable:
     As in Pure, the name is held by an ``Alias`` that wraps the column."""
 
     def alias(self, name: str) -> 'Alias':
-        return Alias(self, name)  # type: ignore[arg-type]
+        return Alias(self, name)  # pyright: ignore[reportArgumentType]
 
 
 class Aggregates(Generic[AG]):
@@ -56,30 +56,30 @@ class Aggregates(Generic[AG]):
     def _aggregate(self, operator: 'AggregateOperator', label: str,
                    kind: 'type[AggregateOperation] | None' = None) -> 'AggregateOperation':
         kind = kind or getattr(self, '_value_aggregate', None) or UntypedAggregateOperation
-        return kind(self._arithmetic_operand(), operator, label + ' Expression')  # type: ignore[attr-defined]
+        return kind(self._arithmetic_operand(), operator, label + ' Expression')  # pyright: ignore[reportAttributeAccessIssue, reportOptionalCall]
 
     def sum(self) -> AG:
-        return self._aggregate(AggregateOperator.SUM, 'Sum')  # type: ignore[return-value]
+        return self._aggregate(AggregateOperator.SUM, 'Sum')  # pyright: ignore[reportReturnType]
 
     def min(self) -> AG:
-        return self._aggregate(AggregateOperator.MIN, 'Min')  # type: ignore[return-value]
+        return self._aggregate(AggregateOperator.MIN, 'Min')  # pyright: ignore[reportReturnType]
 
     def max(self) -> AG:
-        return self._aggregate(AggregateOperator.MAX, 'Max')  # type: ignore[return-value]
+        return self._aggregate(AggregateOperator.MAX, 'Max')  # pyright: ignore[reportReturnType]
 
     def average(self) -> 'DoubleAggregateOperation':
-        return self._aggregate(AggregateOperator.AVERAGE, 'Average', DoubleAggregateOperation)  # type: ignore[return-value]
+        return self._aggregate(AggregateOperator.AVERAGE, 'Average', DoubleAggregateOperation)  # pyright: ignore[reportReturnType]
 
     def count(self) -> 'IntegerAggregateOperation':
-        return self._aggregate(AggregateOperator.COUNT, 'Count', IntegerAggregateOperation)  # type: ignore[return-value]
+        return self._aggregate(AggregateOperator.COUNT, 'Count', IntegerAggregateOperation)  # pyright: ignore[reportReturnType]
 
     def std(self, ddof: int = 1) -> 'DoubleAggregateOperation':
         return self._aggregate(AggregateOperator.STDDEV_SAMP if _sample(ddof) else AggregateOperator.STDDEV_POP, 'Std',
-                               DoubleAggregateOperation)  # type: ignore[return-value]
+                               DoubleAggregateOperation)  # pyright: ignore[reportReturnType]
 
     def var(self, ddof: int = 1) -> 'DoubleAggregateOperation':
         return self._aggregate(AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP, 'Var',
-                               DoubleAggregateOperation)  # type: ignore[return-value]
+                               DoubleAggregateOperation)  # pyright: ignore[reportReturnType]
 
 
 class Extremes(Generic[AG]):
@@ -87,10 +87,10 @@ class Extremes(Generic[AG]):
     expression's own type: the minimum of an interval is an interval."""
 
     def min(self) -> AG:
-        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MIN, 'Min Expression')  # type: ignore[attr-defined]
+        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MIN, 'Min Expression')  # pyright: ignore[reportAttributeAccessIssue]
 
     def max(self) -> AG:
-        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MAX, 'Max Expression')  # type: ignore[attr-defined]
+        return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MAX, 'Max Expression')  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def _sample(ddof: int) -> bool:
@@ -105,13 +105,13 @@ class BooleanAggregates:
     ``.any()`` where at least one does."""
 
     def __invert__(self) -> 'NotOperation':
-        return NotOperation(self)  # type: ignore[arg-type]
+        return NotOperation(self)  # pyright: ignore[reportArgumentType]
 
     def all(self) -> 'BooleanAggregateOperation':
-        return BooleanAggregateOperation(self, AggregateOperator.BOOL_AND, 'All Expression')  # type: ignore[arg-type]
+        return BooleanAggregateOperation(self, AggregateOperator.BOOL_AND, 'All Expression')  # pyright: ignore[reportArgumentType]
 
     def any(self) -> 'BooleanAggregateOperation':
-        return BooleanAggregateOperation(self, AggregateOperator.BOOL_OR, 'Any Expression')  # type: ignore[arg-type]
+        return BooleanAggregateOperation(self, AggregateOperator.BOOL_OR, 'Any Expression')  # pyright: ignore[reportArgumentType]
 
 
 class Equatable(Generic[T]):
@@ -127,7 +127,7 @@ class Equatable(Generic[T]):
 
     def _compared(self, operator: 'ComparisonOperator', other) -> 'ComparisonOperation':
         right = other._arithmetic_operand() if isinstance(other, RelationalOperationElement) else self._to_constant(other)
-        return ComparisonOperation(self._arithmetic_operand(), operator, right)  # type: ignore[attr-defined]
+        return ComparisonOperation(self._arithmetic_operand(), operator, right)  # pyright: ignore[reportAttributeAccessIssue]
 
     def eq(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':
         """The expression equals a value, or another column or expression."""
@@ -137,10 +137,10 @@ class Equatable(Generic[T]):
         """The expression does not equal a value, or another column or expression."""
         return self._compared(ComparisonOperator.NOT_EQUAL, other)
 
-    def __eq__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':  # type: ignore[override]
+    def __eq__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':  # pyright: ignore[reportIncompatibleMethodOverride]
         return self.eq(other)
 
-    def __ne__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':  # type: ignore[override]
+    def __ne__(self, other: 'T | RelationalOperationElement') -> 'ComparisonOperation':  # pyright: ignore[reportIncompatibleMethodOverride]
         return self.ne(other)
 
     __hash__ = object.__hash__  # defining __eq__ would otherwise make an expression unhashable
@@ -153,11 +153,11 @@ class Equatable(Generic[T]):
 
     def is_in(self, values: 'Iterable[T]') -> 'InOperation':
         """The expression is one of ``values``: ``f.name().substring(0, 4).is_in(["beta", "Hell"])``."""
-        return InOperation(self._arithmetic_operand(), self._constants(values))  # type: ignore[attr-defined]
+        return InOperation(self._arithmetic_operand(), self._constants(values))  # pyright: ignore[reportAttributeAccessIssue]
 
     def is_not_in(self, values: 'Iterable[T]') -> 'NotInOperation':
         """The expression is none of ``values``."""
-        return NotInOperation(self._arithmetic_operand(), self._constants(values))  # type: ignore[attr-defined]
+        return NotInOperation(self._arithmetic_operand(), self._constants(values))  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class Orderable(Equatable[T]):
@@ -239,7 +239,7 @@ class Arithmetic(Generic[K]):
             operand = other._arithmetic_operand()
         else:
             operand = _constant_operand(other)
-        me = self._arithmetic_operand()  # type: ignore[attr-defined]
+        me = self._arithmetic_operand()  # pyright: ignore[reportAttributeAccessIssue]
         left, right = (operand, me) if reflected else (me, operand)
         kind = _arithmetic_result_kind(operator, getattr(self, '_number_kind', None), _number_kind_of(other))
         return _ARITHMETIC_RESULTS[kind](left, operator, right)
@@ -905,15 +905,15 @@ class DateTimeFunctions:
         if isinstance(other, datetime.timedelta):
             return self._timedelta_op(other, is_add=False)
         if isinstance(other, datetime.datetime):
-            return IntervalOperation(self._arithmetic_operand(), DateTimeConstantOperation(other))  # type: ignore[attr-defined]
+            return IntervalOperation(self._arithmetic_operand(), DateTimeConstantOperation(other))  # pyright: ignore[reportAttributeAccessIssue]
         if isinstance(other, DateTimeFunctions) and isinstance(other, RelationalOperationElement):
-            return IntervalOperation(self._arithmetic_operand(), other._arithmetic_operand())  # type: ignore[attr-defined]
+            return IntervalOperation(self._arithmetic_operand(), other._arithmetic_operand())  # pyright: ignore[reportAttributeAccessIssue]
         return NotImplemented
 
     def __rsub__(self, other: datetime.datetime) -> 'IntervalOperation':
         """A datetime minus this: ``datetime.datetime(2005, 1, 1) - ts``, the time between them."""
         if isinstance(other, datetime.datetime):
-            return IntervalOperation(DateTimeConstantOperation(other), self._arithmetic_operand())  # type: ignore[attr-defined]
+            return IntervalOperation(DateTimeConstantOperation(other), self._arithmetic_operand())  # pyright: ignore[reportAttributeAccessIssue]
         return NotImplemented
 
     def _timedelta_op(self, td: datetime.timedelta, is_add: bool):
@@ -959,13 +959,13 @@ class StringPredicates:
     ``f.name().join(",").contains("John")``."""
 
     def _like(self, pattern: str) -> 'ComparisonOperation':
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # type: ignore[attr-defined]
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.LIKE,  # pyright: ignore[reportAttributeAccessIssue]
                                    StringConstantOperation(pattern))
 
     def matches(self, pattern: str) -> 'ComparisonOperation':
         """The text has a match for the regular expression anywhere in it, as Python's ``re.search``:
         ``f.comment().matches("Customer.*Complaints")``."""
-        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # type: ignore[attr-defined]
+        return ComparisonOperation(self._arithmetic_operand(), ComparisonOperator.MATCHES,  # pyright: ignore[reportAttributeAccessIssue]
                                    StringConstantOperation(pattern))
 
     def contains(self, value: str) -> 'ComparisonOperation':
@@ -1098,7 +1098,7 @@ class IsNotNullOperation(UnaryOperation, BooleanAggregates):
 class NotOperation(UnaryOperation, BooleanAggregates):
     """The condition does not hold: ``NOT (element)``. Negating it again gives the condition."""
 
-    def __invert__(self):  # type: ignore[override]
+    def __invert__(self):  # pyright: ignore[reportIncompatibleMethodOverride]
         return self.element
 
 
@@ -1527,7 +1527,7 @@ class _Result:
         return self
 
     def _function_label(self) -> str:
-        return _label_of(self)  # type: ignore[arg-type]
+        return _label_of(self)  # pyright: ignore[reportArgumentType]
 
 
 class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equatable[str], Aggregates[UntypedAggregateOperation],
@@ -1561,14 +1561,14 @@ IntegerConstantOperation._number_type = IntegerFunctionOperation
 FloatConstantOperation._number_type = DoubleFunctionOperation
 DecimalConstantOperation._number_type = DecimalFunctionOperation
 IntegerFunctionOperation._number_type = IntegerFunctionOperation
-IntegerFunctionOperation._number_kind = int  # type: ignore[attr-defined]
-IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
+IntegerFunctionOperation._number_kind = int  # pyright: ignore[reportAttributeAccessIssue]
+IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
 DoubleFunctionOperation._number_type = DoubleFunctionOperation
-DoubleFunctionOperation._number_kind = float  # type: ignore[attr-defined]
-DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
+DoubleFunctionOperation._number_kind = float  # pyright: ignore[reportAttributeAccessIssue]
+DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
 DecimalFunctionOperation._number_type = DecimalFunctionOperation
-DecimalFunctionOperation._number_kind = decimal.Decimal  # type: ignore[attr-defined]
-DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
+DecimalFunctionOperation._number_kind = decimal.Decimal  # pyright: ignore[reportAttributeAccessIssue]
+DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
 
 
 class Relation:
@@ -1773,7 +1773,7 @@ def schema_of(relation: 'Relation | None') -> 'Schema | None':
 
 
 class Table(NamedRelation):
-    columns: Sequence[Column]  # type: ignore[assignment]
+    columns: Sequence[Column]  # pyright: ignore[reportIncompatibleVariableOverride]
     # (a table's columns are Columns: narrower than a relation's elements, never assigned from outside)
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'
@@ -2116,11 +2116,11 @@ class UntypedFunctionOperation(ScalarFunctionOperation, Comparable, Aggregates['
 
 
 # the aggregate that gives an expression's own type: the type of its sum, minimum and maximum
-IntegerArithmeticOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
-DoubleArithmeticOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
-DecimalArithmeticOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
-IntegerConstantOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
-FloatConstantOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
-DecimalConstantOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
-IntervalOperation._value_aggregate = IntervalAggregateOperation  # type: ignore[attr-defined]
-IntervalConstantOperation._value_aggregate = IntervalAggregateOperation  # type: ignore[attr-defined]
+IntegerArithmeticOperation._value_aggregate = IntegerAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+DoubleArithmeticOperation._value_aggregate = DoubleAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+DecimalArithmeticOperation._value_aggregate = DecimalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+IntegerConstantOperation._value_aggregate = IntegerAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+FloatConstantOperation._value_aggregate = DoubleAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+DecimalConstantOperation._value_aggregate = DecimalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+IntervalOperation._value_aggregate = IntervalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]
+IntervalConstantOperation._value_aggregate = IntervalAggregateOperation  # pyright: ignore[reportAttributeAccessIssue]

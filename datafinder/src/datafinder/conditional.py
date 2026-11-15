@@ -26,7 +26,7 @@ def _value(value) -> RelationalOperationElement:
     ]  # bool before int and datetime before date: each is a subclass of the next
     for python_type, constant in constants:
         if isinstance(value, python_type):
-            return constant(value)  # type: ignore[call-arg]
+            return constant(value)  # pyright: ignore[reportCallIssue]
     raise TypeError(f"A branch is a column, an expression or a value, not {type(value).__name__}")
 
 

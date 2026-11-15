@@ -26,11 +26,11 @@ class _MinMax(Generic[A]):
 
     def min(self) -> A:
         """Return the smallest value in the group."""
-        return self._aggregate_type(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())  # type: ignore[attr-defined]
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MIN, 'Min ' + self.display_name())  # pyright: ignore[reportAttributeAccessIssue]
 
     def max(self) -> A:
         """Return the largest value in the group."""
-        return self._aggregate_type(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())  # type: ignore[attr-defined]
+        return self._aggregate_type(self._column_with_join(), AggregateOperator.MAX, 'Max ' + self.display_name())  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def _temporal_constant(value: datetime.datetime | datetime.date):
@@ -127,7 +127,7 @@ class NumericAttribute(NumericFunctions[N], Attribute, Generic[N, A]):
         _aggregate_type: Callable[..., A]
 
     def _coalesce_type(self) -> type[ScalarFunctionOperation]:
-        return self._number_type  # type: ignore[return-value]
+        return self._number_type  # pyright: ignore[reportReturnType]
 
     def sum(self) -> A:
         """Return the sum of all values in the group."""

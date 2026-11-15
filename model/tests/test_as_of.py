@@ -18,7 +18,7 @@ def test_a_query_is_as_of_no_dates_until_it_is_given_some():
 def test_as_of_never_changes():
     as_of = AsOf(business_date=datetime.date(2024, 1, 2))
     with pytest.raises(dataclasses.FrozenInstanceError):
-        as_of.business_date = datetime.date(2025, 1, 1)  # type: ignore[misc]
+        as_of.business_date = datetime.date(2025, 1, 1)  # pyright: ignore[reportAttributeAccessIssue]
     assert dataclasses.replace(as_of, business_date_to=datetime.date(2024, 2, 1)).business_date == datetime.date(2024, 1, 2)
 
 

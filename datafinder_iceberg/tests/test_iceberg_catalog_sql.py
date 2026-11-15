@@ -121,9 +121,9 @@ def finders():
     mapping = load(_MAPPING_FILE, catalog_repo)
     generate(mapping, temp_dir)
 
-    from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
-    from finance.reference_data.instrument_finder import InstrumentFinder  # type: ignore[import]
-    from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
+    from finance.reference_data.account_finder import AccountFinder  # pyright: ignore[reportMissingImports]
+    from finance.reference_data.instrument_finder import InstrumentFinder  # pyright: ignore[reportMissingImports]
+    from finance.trade.trade_finder import TradeFinder  # pyright: ignore[reportMissingImports]
 
     yield {"Account": AccountFinder(), "Instrument": InstrumentFinder(), "Trade": TradeFinder()}
 
@@ -182,8 +182,8 @@ def catalog_mapping_finders():
     mapping = load(_CATALOG_MAPPING_FILE)
     generate(mapping, temp_dir)
 
-    from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
-    from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
+    from finance.reference_data.account_finder import AccountFinder  # pyright: ignore[reportMissingImports]
+    from finance.trade.trade_finder import TradeFinder  # pyright: ignore[reportMissingImports]
 
     yield {"Account": AccountFinder(), "Trade": TradeFinder()}
 

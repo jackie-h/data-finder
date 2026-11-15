@@ -59,8 +59,8 @@ def orgchart_finders():
     generate(mapping, tmp)
     _seed_db()
 
-    from employee_finder import EmployeeFinder  # type: ignore[import]
-    from project_finder import ProjectFinder  # type: ignore[import]
+    from employee_finder import EmployeeFinder  # pyright: ignore[reportMissingImports]
+    from project_finder import ProjectFinder  # pyright: ignore[reportMissingImports]
     yield EmployeeFinder(), ProjectFinder()
 
     if tmp in sys.path:

@@ -84,7 +84,7 @@ class TestIbisOutputTypes:
 
     @pytest.fixture
     def con(self, monkeypatch) -> DuckDBBackend:
-        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # type: ignore[assignment]
+        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # pyright: ignore[reportAssignmentType]
         conn.con.execute(
             "CREATE TABLE widgets (name VARCHAR, quantity INTEGER, price DOUBLE, active BOOLEAN)"
         )
@@ -124,7 +124,7 @@ class TestIbisOutputTypes:
         table, columns = self._columns()
         output = IbisConnect.select(_BUSINESS_DATE, _PROCESSING_DATETIME, columns, table, NoOperation())
         output.to_numpy()
-        assert output._IbisOutput__arrow is not None  # type: ignore[attr-defined]
+        assert output._IbisOutput__arrow is not None  # pyright: ignore[reportAttributeAccessIssue]
 
     def test_null_value_is_pd_na_in_both_pandas_and_numpy(self, con):
         import pandas as pd
@@ -142,7 +142,7 @@ class TestIbisSelectView:
 
     @pytest.fixture
     def view(self, monkeypatch) -> View:
-        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # type: ignore[assignment]
+        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # pyright: ignore[reportAssignmentType]
         monkeypatch.setattr(ibis, 'connect', lambda *a, **kw: conn)
         for statement in [
             "CREATE SCHEMA vt",

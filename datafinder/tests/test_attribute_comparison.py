@@ -180,7 +180,7 @@ def test_a_function_result_has_the_type_the_function_gives():
     assert isinstance(integer.power(2), IntegerFunctionOperation) and integer.power(2).cast == "BIGINT"
     assert isinstance(integer ** 3, IntegerFunctionOperation)
     assert isinstance(integer.power(-1), DoubleFunctionOperation)
-    assert isinstance(integer.power(0.5), DoubleFunctionOperation)  # type: ignore[arg-type]
+    assert isinstance(integer.power(0.5), DoubleFunctionOperation)  # pyright: ignore[reportArgumentType]
     assert isinstance(double.power(2), DoubleFunctionOperation) and isinstance(decimal_.power(2), DoubleFunctionOperation)
     # fill_null keeps the column's type
     assert isinstance(text.fill_null("x"), StringFunctionOperation)
@@ -191,7 +191,7 @@ def test_a_function_result_has_the_type_the_function_gives():
 def test_a_text_function_is_not_ordered_and_a_number_function_is():
     text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
     with pytest.raises(TypeError):
-        text.upper() < "b"  # type: ignore[operator]
+        text.upper() < "b"  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
     assert text.length() < 3
     assert not hasattr(text.upper(), "sqrt") and not hasattr(text.length(), "upper")
 
@@ -269,8 +269,8 @@ def test_an_aggregate_is_ordered_only_if_what_it_gives_is():
     assert DateAttribute("A", "A", "DATE", _OWNER_T).max() >= datetime.date(2020, 1, 1)
     for text_aggregate in (text.min(), text.join(",")):
         with pytest.raises(TypeError):
-            text_aggregate < "b"  # type: ignore[operator]
+            text_aggregate < "b"  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
         assert text_aggregate.eq("a") and text_aggregate.starts_with("a")
     with pytest.raises(TypeError):
-        (integer > 1).all() < True  # type: ignore[operator]
+        (integer > 1).all() < True  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
     assert not hasattr(text.min(), "sum")

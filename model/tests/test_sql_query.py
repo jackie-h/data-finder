@@ -58,16 +58,16 @@ def test_expressions_with_names():
     query = _parse("SELECT ID, 'a' || FIRSTNAME AS tag, CASE WHEN AGE > 30 THEN 'old' ELSE 'young' END AS age_band, "
                    "UPPER(FIRSTNAME) AS shout FROM personTable")
     assert output_names(query) == ["ID", "tag", "age_band", "shout"]
-    assert isinstance(query.columns[1].element, ConcatOperation)  # type: ignore[attr-defined]
-    assert isinstance(query.columns[2].element, CaseOperation)  # type: ignore[attr-defined]
+    assert isinstance(query.columns[1].element, ConcatOperation)  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(query.columns[2].element, CaseOperation)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_is_not_null_is_not_is_null():
     """PostgreSQL reads IS NOT NULL as an IS NULL that is negated, which is not the same condition."""
     from model.relational import ComparisonOperator, IsNotNullOperation, IsNullOperation
-    assert isinstance(_parse("SELECT ID FROM personTable WHERE AGE IS NOT NULL").filter, IsNotNullOperation)  # type: ignore[attr-defined]
-    assert isinstance(_parse("SELECT ID FROM personTable WHERE AGE IS NULL").filter, IsNullOperation)  # type: ignore[attr-defined]
-    like = _parse("SELECT ID FROM personTable WHERE FIRSTNAME NOT LIKE 'A%'").filter  # type: ignore[attr-defined]
+    assert isinstance(_parse("SELECT ID FROM personTable WHERE AGE IS NOT NULL").filter, IsNotNullOperation)  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(_parse("SELECT ID FROM personTable WHERE AGE IS NULL").filter, IsNullOperation)  # pyright: ignore[reportAttributeAccessIssue]
+    like = _parse("SELECT ID FROM personTable WHERE FIRSTNAME NOT LIKE 'A%'").filter  # pyright: ignore[reportAttributeAccessIssue]
     assert isinstance(like, ComparisonOperation) and like.operator == ComparisonOperator.NOT_LIKE
 
 

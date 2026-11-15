@@ -44,7 +44,7 @@ def employee_finder():
     conn.execute(f"INSERT INTO hr.employees SELECT * FROM read_csv_auto('{str(example_path('employees.csv'))}')")
     conn.close()
 
-    from employee_finder import EmployeeFinder  # type: ignore[import]
+    from employee_finder import EmployeeFinder  # pyright: ignore[reportMissingImports]
     yield EmployeeFinder()
 
     if tmp in sys.path:

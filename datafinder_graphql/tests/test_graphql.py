@@ -73,7 +73,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
         price_attr = Attribute("Price", "price", "FLOAT", _OWNER_INSTRUMENTS)
 
-        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # type: ignore[arg-type]
+        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # pyright: ignore[reportArgumentType]
         data = result.to_numpy()
 
         assert_array_equal(data, np.array(
@@ -89,7 +89,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
 
         bd = datetime.date(2024, 1, 10)
-        result = FinderResult(bd, None, [sym_attr], gql_query, None)  # type: ignore[arg-type]
+        result = FinderResult(bd, None, [sym_attr], gql_query, None)  # pyright: ignore[reportArgumentType]
         data = result.to_numpy()
 
         assert data.shape == (3, 1)
@@ -102,7 +102,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
 
         pdt = datetime.datetime(2020, 1, 1, 9, 0, 0)
-        result = FinderResult(None, pdt, [sym_attr], gql_query, None)  # type: ignore[arg-type]
+        result = FinderResult(None, pdt, [sym_attr], gql_query, None)  # pyright: ignore[reportArgumentType]
         data = result.to_numpy()
 
         assert data.shape == (3, 1)
@@ -115,7 +115,7 @@ class TestGraphQLEngine:
         # Dates present but no milestone — no arguments added, still returns all rows
         result = FinderResult(datetime.date(2024, 1, 10),
                                datetime.datetime(2020, 1, 1, 9, 0, 0),
-                               [sym_attr], gql_query, None)  # type: ignore[arg-type]
+                               [sym_attr], gql_query, None)  # pyright: ignore[reportArgumentType]
         data = result.to_numpy()
         assert data.shape == (3, 1)
 
@@ -126,7 +126,7 @@ class TestGraphQLEngine:
         id_attr = Attribute("Id", "id", "INT", _OWNER_ACCOUNTS)
         name_attr = Attribute("Name", "name", "STRING", _OWNER_ACCOUNTS)
 
-        result = FinderResult(None, None, [id_attr, name_attr], gql_query, None)  # type: ignore[arg-type]
+        result = FinderResult(None, None, [id_attr, name_attr], gql_query, None)  # pyright: ignore[reportArgumentType]
         data = result.to_numpy()
 
         assert_array_equal(data, np.array(
@@ -141,7 +141,7 @@ class TestGraphQLEngine:
         sym_attr = Attribute("Symbol", "sym", "STRING", _OWNER_INSTRUMENTS)
         price_attr = Attribute("Price", "price", "FLOAT", _OWNER_INSTRUMENTS)
 
-        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # type: ignore[arg-type]
+        result = FinderResult(None, None, [sym_attr, price_attr], gql_query, None)  # pyright: ignore[reportArgumentType]
         df = result.to_pandas()
 
         assert list(df.columns) == ["Symbol", "Price"]

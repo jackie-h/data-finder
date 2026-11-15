@@ -143,7 +143,7 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
+            from finance.trade.trade_finder import TradeFinder  # pyright: ignore[reportMissingImports]
             assert TradeFinder is not None
         finally:
             sys.path.remove(self.tmp)
@@ -152,7 +152,7 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
+            from finance.reference_data.account_finder import AccountFinder  # pyright: ignore[reportMissingImports]
             finder = AccountFinder()
             assert finder.id_() is not None
             assert finder.name() is not None
@@ -175,7 +175,7 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
+            from finance.reference_data.account_finder import AccountFinder  # pyright: ignore[reportMissingImports]
             result = AccountFinder().trades()
             assert result is not None
         finally:
@@ -185,7 +185,7 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance_mapping_context import FinanceMappingContext  # type: ignore[import]
+            from finance_mapping_context import FinanceMappingContext  # pyright: ignore[reportMissingImports]
             ctx = FinanceMappingContext()
             assert ctx is not None
         finally:
@@ -195,9 +195,9 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from finance_mapping_context import FinanceMappingContext  # type: ignore[import]
-            from finance.reference_data.account_finder_base import AccountFinderBase  # type: ignore[import]
-            from finance.trade.trade_finder_base import TradeFinderBase  # type: ignore[import]
+            from finance_mapping_context import FinanceMappingContext  # pyright: ignore[reportMissingImports]
+            from finance.reference_data.account_finder_base import AccountFinderBase  # pyright: ignore[reportMissingImports]
+            from finance.trade.trade_finder_base import TradeFinderBase  # pyright: ignore[reportMissingImports]
             ctx = FinanceMappingContext()
             assert isinstance(ctx.account, AccountFinderBase)
             assert isinstance(ctx.trade, TradeFinderBase)
@@ -314,7 +314,7 @@ class TestDualAssociationSameTarget:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from employee_finder import EmployeeFinder  # type: ignore[import]
+            from employee_finder import EmployeeFinder  # pyright: ignore[reportMissingImports]
             emp = EmployeeFinder()
             primary = emp.primary_owner_contracts()
             secondary = emp.secondary_owner_contracts()
@@ -393,7 +393,7 @@ class TestCamelCaseReverseAssocMethodName:
         generate(self.mapping, self.tmp)
         sys.path.insert(0, self.tmp)
         try:
-            from entity_finder import EntityFinder  # type: ignore[import]
+            from entity_finder import EntityFinder  # pyright: ignore[reportMissingImports]
             result = EntityFinder().related_entities()
             assert result is not None
         finally:
@@ -507,7 +507,7 @@ class TestJoinsThroughTablesFinder:
                   "people.hr.country_finder", "people.hr.country_finder_base"):
             sys.modules.pop(m, None)
         sys.path.insert(0, self.tmp)
-        from people.hr.employee_finder import EmployeeFinder  # type: ignore[import]
+        from people.hr.employee_finder import EmployeeFinder  # pyright: ignore[reportMissingImports]
         self.finder = EmployeeFinder()
 
     def teardown_method(self):
@@ -544,5 +544,5 @@ class TestJoinsThroughTablesFinder:
         assert "JOIN hr.country_refs" in sql and "t1.name = 'Finland'" in sql
 
     def test_a_property_through_tables_has_no_reverse_accessor(self):
-        from people.hr.country_finder import CountryFinder  # type: ignore[import]
+        from people.hr.country_finder import CountryFinder  # pyright: ignore[reportMissingImports]
         assert not hasattr(CountryFinder(), "citizenship")

@@ -466,7 +466,7 @@ def _op_to_where_clause(op) -> str | None:
             return _nest(field, f"{{ _in: [{values}] }}")
         not_in = _nest(field, f"{{ _nin: [{values}] }}")
         # a server's _nin skips nulls as SQL does, so a nullable field has to match its nulls explicitly
-        if op.element.column.nullable:  # type: ignore[union-attr]  # _field_name checked it is a ColumnWithJoin
+        if op.element.column.nullable:    # _field_name checked it is a ColumnWithJoin  # pyright: ignore[reportAttributeAccessIssue]
             return f"{{ _or: [{not_in}, {_nest(field, '{ _is_null: true }')}] }}"
         return not_in
     if isinstance(op, IsNullOperation):
@@ -703,7 +703,7 @@ def _fetch_rows(table: GraphQLQuery, fields_str: str,
 class GraphQLConnect(QueryRunnerBase):
 
     @staticmethod
-    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,  # type: ignore[override]
+    def select(business_date: datetime.date, processing_datetime: datetime.datetime | datetime.date,  # pyright: ignore[reportIncompatibleMethodOverride]
                columns: list, table: GraphQLQuery, op: Operation,
                order_by: list | None = None, group_by: list | None = None, limit: int | None = None,
                timeout_ms: int = 60_000, business_date_to: datetime.date | None = None,

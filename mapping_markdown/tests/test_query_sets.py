@@ -82,7 +82,7 @@ def test_the_sets_of_a_class_are_one_class_mapping_that_keeps_its_sets(tmp_path)
     firm = _firm(load(str(_mapping(tmp_path))))
     assert [s.id for s in firm.sets] == ["big", "small"]
     assert firm.id == "Firm"  # the union has the id of its class, and its sets their own
-    assert [s.main_relation.name for s in firm.sets] == ["BIG", "SMALL"]  # type: ignore[union-attr]
+    assert [s.main_relation.name for s in firm.sets] == ["BIG", "SMALL"]  # pyright: ignore[reportOptionalMemberAccess]
 
 
 def test_the_union_is_a_union_mapping_that_holds_its_sets_and_a_set_is_an_ordinary_class_mapping(tmp_path):
@@ -100,8 +100,8 @@ def test_the_union_of_the_sets_is_one_query_with_the_number_of_the_set_each_row_
     from model.relational import UnionOperation
     firm = _firm(load(str(_mapping(tmp_path))))
     union = firm.main_relation
-    assert isinstance(union.relation, UnionOperation) and union.relation.all  # type: ignore[union-attr]
-    assert [c.name for c in union.columns] == ["id", "name", "_set"]  # type: ignore[union-attr]
+    assert isinstance(union.relation, UnionOperation) and union.relation.all  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
+    assert [c.name for c in union.columns] == ["id", "name", "_set"]  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess]
     assert [pm.target.name for pm in firm.property_mappings] == ["id", "name"]
     assert all(pm.target.table is union for pm in firm.property_mappings)
 
@@ -291,7 +291,7 @@ def test_the_pairs_of_one_navigation_are_merged_for_the_finder_into_one_join_on_
     assert isinstance(condition, LogicalOperation) and condition.operator == LogicalOperator.OR
     first = condition.left
     assert isinstance(first, LogicalOperation) and first.operator == LogicalOperator.AND
-    assert isinstance(first.left, ComparisonOperation) and first.left.right.value == "big"  # type: ignore[attr-defined]
+    assert isinstance(first.left, ComparisonOperation) and first.left.right.value == "big"  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_pairs_that_join_on_different_columns_are_read_but_the_finder_joins_on_one_pair_of_columns(tmp_path):
@@ -374,6 +374,6 @@ def test_a_property_of_a_set_that_is_not_a_column_is_refused_and_not_dropped_fro
     from model.relational_mapping import RelationalPropertyMapping
     firm = _firm(load(str(_mapping(tmp_path))))
     sets = [firm.sets[0], firm.sets[1]]
-    sets[0].property_mappings.append(RelationalPropertyMapping(firm.clazz.properties["legalName"], object(), "big"))  # type: ignore[arg-type,attr-defined]
+    sets[0].property_mappings.append(RelationalPropertyMapping(firm.clazz.properties["legalName"], object(), "big"))  # pyright: ignore[reportArgumentType, reportAttributeAccessIssue]
     with pytest.raises(ValueError, match="the set 'big' of Firm maps legalName to something other than a column"):
         union_of_sets("Firm", sets)

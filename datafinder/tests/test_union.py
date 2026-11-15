@@ -85,7 +85,7 @@ def test_concatenating_does_not_change_the_results_it_is_made_from():
     left, right = _result([_NAME]), _result([_NAME])
     left.concatenate(right)
     assert left.to_sql() == 'SELECT t0.NAME AS "Name" FROM accounts AS t0'
-    assert isinstance(left.concatenate(right)._table.relation, UnionOperation)  # type: ignore[attr-defined]
+    assert isinstance(left.concatenate(right)._table.relation, UnionOperation)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_the_columns_of_a_union_are_those_of_its_left_side():

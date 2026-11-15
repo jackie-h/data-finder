@@ -37,7 +37,7 @@ def person_finder():
     conn.execute(f"INSERT INTO people SELECT * FROM read_csv_auto('{str(example_path('people_denormalised.csv'))}')")
     conn.close()
 
-    from person_finder import PersonFinder  # type: ignore[import]
+    from person_finder import PersonFinder  # pyright: ignore[reportMissingImports]
     yield PersonFinder()
 
     if tmp in sys.path:

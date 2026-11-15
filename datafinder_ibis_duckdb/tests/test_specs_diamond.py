@@ -48,7 +48,7 @@ def record_finder():
     conn.execute(f"INSERT INTO records.items SELECT * FROM read_csv_auto('{str(example_path('diamond_items.csv'))}')")
     conn.close()
 
-    from record_finder import RecordFinder  # type: ignore[import]
+    from record_finder import RecordFinder  # pyright: ignore[reportMissingImports]
     yield RecordFinder()
 
     if tmp in sys.path:

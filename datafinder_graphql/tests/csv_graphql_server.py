@@ -499,7 +499,7 @@ def start_graphql_server(tables: dict[str, GraphQLTable]) -> HTTPServer:
             self.end_headers()
             self.wfile.write(payload)
 
-        def log_message(self, *args):  # type: ignore[override]
+        def log_message(self, *args):  # pyright: ignore[reportIncompatibleMethodOverride]
             pass
 
     server = HTTPServer(("127.0.0.1", 0), Handler)

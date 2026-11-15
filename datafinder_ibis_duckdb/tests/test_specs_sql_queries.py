@@ -55,14 +55,14 @@ def finders():
     generate(mapping, tmp)
     _seed_db()
 
-    from org.views.firm_finder import FirmFinder  # type: ignore[import]
-    from org.views.firmxperson_finder import FirmXPersonFinder  # type: ignore[import]
-    from org.views.position_finder import PositionFinder  # type: ignore[import]
-    from org.views.holder_finder import HolderFinder  # type: ignore[import]
-    from org.views.quote_finder import QuoteFinder  # type: ignore[import]
-    from org.views.rate_finder import RateFinder  # type: ignore[import]
-    from org.views.shout_finder import ShoutFinder  # type: ignore[import]
-    from org.views.tag_finder import TagFinder  # type: ignore[import]
+    from org.views.firm_finder import FirmFinder  # pyright: ignore[reportMissingImports]
+    from org.views.firmxperson_finder import FirmXPersonFinder  # pyright: ignore[reportMissingImports]
+    from org.views.position_finder import PositionFinder  # pyright: ignore[reportMissingImports]
+    from org.views.holder_finder import HolderFinder  # pyright: ignore[reportMissingImports]
+    from org.views.quote_finder import QuoteFinder  # pyright: ignore[reportMissingImports]
+    from org.views.rate_finder import RateFinder  # pyright: ignore[reportMissingImports]
+    from org.views.shout_finder import ShoutFinder  # pyright: ignore[reportMissingImports]
+    from org.views.tag_finder import TagFinder  # pyright: ignore[reportMissingImports]
     yield {"FirmFinder": FirmFinder(), "PositionFinder": PositionFinder(), "FirmXPersonFinder": FirmXPersonFinder(),
            "TagFinder": TagFinder(), "ShoutFinder": ShoutFinder(), "RateFinder": RateFinder(),
            "QuoteFinder": QuoteFinder(), "HolderFinder": HolderFinder()}
