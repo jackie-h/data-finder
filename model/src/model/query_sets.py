@@ -142,7 +142,7 @@ def _root_key_is_selected(where: str, spec: QuerySpecification, key: list[str]) 
     label = getattr(root, "name", "the table")
     if not names:
         raise ValueError(f"{where} reads {label}, which has no primary key, so nothing says that its rows are different")
-    selected = {item.name for item in spec.columns
+    selected = {item.element.name for item in spec.columns
                 if isinstance(item, Alias) and isinstance(item.element, Column) and item.element.owner is root and item.element.name in names}
     if sorted(selected) != sorted(names) or any(item_name not in key for item_name in _output_names_of(spec, names)):
         raise ValueError(f"{where} does not select the key of {label} ({', '.join(names)}): two of its rows could then be the same")

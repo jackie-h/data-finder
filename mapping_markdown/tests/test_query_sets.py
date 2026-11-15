@@ -189,6 +189,23 @@ def test_a_set_has_the_key_of_its_table(tmp_path):
         load(str(_mapping(tmp_path, big + small)))
 
 
+def test_a_set_can_give_the_key_of_its_table_under_another_name(tmp_path):
+    """The key is the column of the table, wherever the query names it: ``id AS firm_id`` selects the key."""
+    cols = "| Column | Type    | Key | Nullable | Property ID |\n|---|---|---|---|---|\n| firm_id | INT | PK | N | id |\n| name | VARCHAR |  | Y | legalName |\n"
+    big = _query("BIG", " (set: big)", "SELECT id AS firm_id, name FROM big_firms", columns=cols)
+    small = _query("SMALL", " (set: small)", "SELECT id AS firm_id, name FROM small_firms", columns=cols)
+    assert [s.id for s in _firm(load(str(_mapping(tmp_path, big + small)))).sets] == ["big", "small"]
+
+
+def test_a_set_that_gives_the_key_of_its_table_under_another_name_must_mark_it_as_its_key(tmp_path):
+    cols = "| Column | Type    | Key | Nullable | Property ID |\n|---|---|---|---|---|\n| firm_id | INT | PK | N | id |\n| name | VARCHAR |  | Y | legalName |\n"
+    unmarked = "| Column | Type    | Key | Nullable | Property ID |\n|---|---|---|---|---|\n| firm_id | INT |  | N | id |\n| name | VARCHAR | PK | Y | legalName |\n"
+    big = _query("BIG", " (set: big)", "SELECT id AS firm_id, name FROM big_firms", columns=unmarked)
+    small = _query("SMALL", " (set: small)", "SELECT id AS firm_id, name FROM small_firms", columns=cols)
+    with pytest.raises(ValueError, match="does not select the key"):
+        load(str(_mapping(tmp_path, big + small)))
+
+
 def test_a_join_in_a_set_is_to_the_key_of_what_it_joins(tmp_path):
     """Joined on the region's name, a firm can match several regions: its row repeats, and so does its key."""
     sql = "SELECT b.id, b.name FROM big_firms b INNER JOIN regions r ON r.name = b.region"
