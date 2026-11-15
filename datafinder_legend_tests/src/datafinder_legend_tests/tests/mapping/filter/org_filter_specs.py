@@ -7,7 +7,7 @@ as a derived table, so the SQL has a level of select of its own, with the same r
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, CLASS_FILTER_AS_QUERY, SELF_ASSOCIATION_ON_QUERY, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, CLASS_FILTER_AS_QUERY, ported
 
 _SRC = "tests/mapping/filter/testFilterMappingTree.pure"
 
@@ -24,12 +24,14 @@ ORG_FILTER_SPECS = FinderSpec(
                'select "root".name as "name" from orgTable as "root" where "root".filterVal <= 4',
                lambda f: f.find_all([f.name()]),
                known_gaps={BACKEND: CLASS_FILTER_AS_QUERY}),
-        unsupported("testFilterMappingWithProjectionOverlapp", f"{_SRC}::testFilterMappingWithProjectionOverlapp",
+        ported("testFilterMappingWithProjectionOverlapp", f"{_SRC}::testFilterMappingWithProjectionOverlapp",
                'select "root".name as "name", "orgtable_1".name as "p_name", "orgtable_2".name as "p_p_name" from orgTable as "root" left outer join orgTable as "orgtable_1" on ("root".parentId = "orgtable_1".id and "orgtable_1".filterVal <= 4) left outer join (select "orgtable_3".id as id, "orgtable_3".name as name from orgTable as "orgtable_3" where "orgtable_3".filterVal <= 4) as "orgtable_2" on ("orgtable_1".parentId = "orgtable_2".id) where "root".filterVal <= 4',
-               SELF_ASSOCIATION_ON_QUERY),
-        unsupported("testFilterMappingQuery", f"{_SRC}::testFilterMappingQuery",
+               lambda f: f.find_all([f.name(), f.parent().name().alias("p_name"), f.parent().parent().name().alias("p_p_name")]),
+               known_gaps={BACKEND: CLASS_FILTER_AS_QUERY}),
+        ported("testFilterMappingQuery", f"{_SRC}::testFilterMappingQuery",
                'select "root".id as "pk_0", "root".name as "name" from orgTable as "root" left outer join orgTable as "orgtable_1" on ("root".parentId = "orgtable_1".id) where "orgtable_1".filterVal <= 4 and "root".filterVal <= 4 and "orgtable_1".name = \'Firm X\'',
-               SELF_ASSOCIATION_ON_QUERY),
+               lambda f: f.find_all([f.id_(), f.name()], f.parent().name().eq("Firm X")),
+               known_gaps={BACKEND: CLASS_FILTER_AS_QUERY}),
     ],
 )
 
@@ -46,8 +48,9 @@ ORG_FILTER_JOIN_SPECS = FinderSpec(
                'select "root".name as "name" from orgTable as "root" left outer join otherTable as "othertable_0" on ("root".id = "othertable_0".orgTableId) where "othertable_0".filterVal <= 4',
                lambda f: f.find_all([f.name()]),
                known_gaps={BACKEND: CLASS_FILTER_AS_QUERY}),
-        unsupported("testFilterMappingWithProjectionAndJoinAndQuery", f"{_SRC}::testFilterMappingWithProjectionAndJoinAndQuery",
+        ported("testFilterMappingWithProjectionAndJoinAndQuery", f"{_SRC}::testFilterMappingWithProjectionAndJoinAndQuery",
                'select "root".id as "pk_0", "root".name as "name" from orgTable as "root" left outer join otherTable as "othertable_0" on ("root".id = "othertable_0".orgTableId) left outer join orgTable as "orgtable_1" on ("root".parentId = "orgtable_1".id) left outer join otherTable as "othertable_1" on ("orgtable_1".id = "othertable_1".orgTableId) where "othertable_1".filterVal <= 4 and "othertable_0".filterVal <= 4 and "orgtable_1".name = \'Firm X\'',
-               SELF_ASSOCIATION_ON_QUERY),
+               lambda f: f.find_all([f.id_(), f.name()], f.parent().name().eq("Firm X")),
+               known_gaps={BACKEND: CLASS_FILTER_AS_QUERY}),
     ],
 )
