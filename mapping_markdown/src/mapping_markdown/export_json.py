@@ -25,9 +25,9 @@ import os
 from typing import Any
 
 from model.m3 import Association, Class, PrimitiveType, TaggedValue
-from model.mapping import UnionMapping
+from model.mapping import EmbeddedSetMapping, UnionMapping
 from model.relational import Column, MilestoningScheme, Table, TableAlias, query_of
-from model.relational_mapping import EmbeddedSetMapping, Join
+from model.relational_mapping import Join
 from model_markdown import markdown_model
 
 from mapping_markdown import markdown_mapping

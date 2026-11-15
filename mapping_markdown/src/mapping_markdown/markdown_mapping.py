@@ -14,9 +14,9 @@ from mapping_markdown.join_condition import parse_condition
 from model.sql_query import output_names, parse_query_reads
 from model.relational import ComparisonOperation, query_of, schema_of, tables_read_by, BinaryOperation, DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, \
     ForeignKey, Operation, TableAlias, UnaryOperation
-from model.mapping import UnionMapping
+from model.mapping import EmbeddedSetMapping, UnionMapping
 from model.query_sets import union_of_sets
-from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join, EmbeddedSetMapping
+from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
 
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)

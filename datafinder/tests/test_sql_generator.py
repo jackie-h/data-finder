@@ -2019,7 +2019,7 @@ class TestFindForDateRange:
 class TestEmbeddedJoinElision:
     """A joined property with a pre-built join-less alternate (Attribute.embedded / ColumnWithJoin.embedded)
     is only used when *every* reference to that join node has one — otherwise the real join is kept
-    for all of them. See EmbeddedSetMapping / Join.embedded in model.relational_mapping."""
+    for all of them. See EmbeddedSetMapping in model.mapping and Join.embedded in model.relational_mapping."""
 
     def _make_trades_with_account_join(self):
         trades = Table("trading.trades", [])

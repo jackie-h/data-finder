@@ -6,7 +6,7 @@ from jinja2 import Environment, PackageLoader
 
 from model.m3 import Association
 from model.naming import to_python_name, to_snake_case
-from model.mapping import Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
+from model.mapping import EmbeddedSetMapping, Mapping, MilestonePropertyMapping, ProcessingDateMilestonesPropertyMapping, \
     SingleBusinessDateMilestonePropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping, BusinessDateRangeMilestonePropertyMapping, \
     SingleProcessingDatetimeMilestonePropertyMapping
@@ -15,7 +15,7 @@ from model.relational import (
     IsNotNullOperation, IsNullOperation, LogicalOperation, NamedRelation, NotOperation, StringConstantOperation, Table, TableAlias,
 )
 from model.query_sets import merge_set_navigations
-from model.relational_mapping import Join, EmbeddedSetMapping, RelationalClassMapping, RelationalUnionMapping
+from model.relational_mapping import Join, RelationalClassMapping, RelationalUnionMapping
 
 
 def is_primitive(prop: Property) -> bool:

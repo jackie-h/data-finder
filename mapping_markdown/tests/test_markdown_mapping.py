@@ -8,7 +8,8 @@ from model.m3 import Class, ONE_TO_ONE, ZERO_TO_ONE
 from model.relational import Database, Schema, Table, Column
 from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
-from model.relational_mapping import RelationalPropertyMapping, Join, EmbeddedSetMapping
+from model.mapping import EmbeddedSetMapping
+from model.relational_mapping import RelationalPropertyMapping, Join
 
 FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
 EMBEDDED_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping_embedded.md"))
