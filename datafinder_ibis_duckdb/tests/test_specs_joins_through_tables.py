@@ -58,7 +58,7 @@ def finder():
     generate(mapping, tmp)
     _seed_db()
 
-    from people.hr.employee_finder import EmployeeFinder  # type: ignore[import]
+    from people.hr.employee_finder import EmployeeFinder  # pyright: ignore[reportMissingImports]
     yield EmployeeFinder()
 
     if tmp in sys.path:

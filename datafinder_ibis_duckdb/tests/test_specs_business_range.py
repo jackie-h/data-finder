@@ -59,7 +59,7 @@ def rate_finder():
     generate(mapping, tmp)
     _seed_db()
 
-    from rates.market.rate_finder import RateFinder  # type: ignore[import]
+    from rates.market.rate_finder import RateFinder  # pyright: ignore[reportMissingImports]
     yield RateFinder()
 
     if tmp in sys.path:

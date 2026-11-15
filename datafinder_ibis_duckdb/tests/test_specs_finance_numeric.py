@@ -82,7 +82,7 @@ def trade_numeric_finder():
     generate(mapping, tmp)
     _seed_db()
 
-    from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
+    from finance.trade.trade_finder import TradeFinder  # pyright: ignore[reportMissingImports]
     yield TradeFinder()
 
     if tmp in sys.path:

@@ -36,7 +36,7 @@ def test_a_join_is_written_as_the_join_of_the_two_queries(how, word):
 def test_how_is_required_as_a_join_has_no_default_kind():
     trades, accounts = _results()
     with pytest.raises(TypeError, match="how"):
-        trades.join(accounts, lambda t, a: t.account == a.id)  # type: ignore[call-arg]
+        trades.join(accounts, lambda t, a: t.account == a.id)  # pyright: ignore[reportCallIssue]
 
 
 def test_a_condition_of_several_comparisons_is_joined_with_and_or_or():
@@ -88,7 +88,7 @@ def test_how_is_one_of_the_ansi_join_types():
     trades, accounts = _results()
     for how in ("outer", "cross", "semi", "anti"):
         with pytest.raises(ValueError, match="one of"):
-            trades.join(accounts, lambda t, a: t.account == a.id, how=how)  # type: ignore[arg-type]
+            trades.join(accounts, lambda t, a: t.account == a.id, how=how)  # pyright: ignore[reportArgumentType]
 
 
 def test_a_condition_is_a_function_that_gives_a_comparison():

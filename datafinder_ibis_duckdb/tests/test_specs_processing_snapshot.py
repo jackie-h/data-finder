@@ -59,8 +59,8 @@ def finders():
     generate(mapping, tmp)
     _seed_db()
 
-    from snapshots.market.quote_finder import QuoteFinder  # type: ignore[import]
-    from snapshots.market.position_finder import PositionFinder  # type: ignore[import]
+    from snapshots.market.quote_finder import QuoteFinder  # pyright: ignore[reportMissingImports]
+    from snapshots.market.position_finder import PositionFinder  # pyright: ignore[reportMissingImports]
     yield {"QuoteFinder": QuoteFinder(), "PositionFinder": PositionFinder()}
 
     if tmp in sys.path:

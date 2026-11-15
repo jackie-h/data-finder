@@ -61,9 +61,9 @@ def finders():
     generate(mapping, tmp)
     _seed_db()
 
-    from org.staff.firm_finder import FirmFinder  # type: ignore[import]
-    from org.staff.employee_finder import EmployeeFinder  # type: ignore[import]
-    from org.staff.person_finder import PersonFinder  # type: ignore[import]
+    from org.staff.firm_finder import FirmFinder  # pyright: ignore[reportMissingImports]
+    from org.staff.employee_finder import EmployeeFinder  # pyright: ignore[reportMissingImports]
+    from org.staff.person_finder import PersonFinder  # pyright: ignore[reportMissingImports]
     yield {"FirmFinder": FirmFinder(), "PersonFinder": PersonFinder(), "EmployeeFinder": EmployeeFinder()}
 
     if tmp in sys.path:

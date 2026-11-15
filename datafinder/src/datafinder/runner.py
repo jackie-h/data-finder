@@ -170,7 +170,7 @@ def _union_side(result: 'FinderResult', all: bool) -> QuerySpecification:
     if (isinstance(query.table, TableAlias) and isinstance(query.table.relation, UnionOperation) and query.table.relation.all == all
             and isinstance(query.filter, NoOperation) and not (query.group_by or query.distinct or query.having)
             and query.limit is None and query.offset is None and not query.order_by):
-        return query.table.relation  # type: ignore[return-value]
+        return query.table.relation  # pyright: ignore[reportReturnType]
     return labelled(query)
 
 
@@ -205,7 +205,7 @@ class FinderResult(DataFrame):
 
     def _then(self, query: OrderedQuerySpecification) -> 'FinderResult':
         """A result of a step written after this one."""
-        result = FinderResult(None, None, (), None, NoOperation(), query=query)  # type: ignore[arg-type]
+        result = FinderResult(None, None, (), None, NoOperation(), query=query)  # pyright: ignore[reportArgumentType]
         result._timeout_ms = self._timeout_ms
         return result
 
