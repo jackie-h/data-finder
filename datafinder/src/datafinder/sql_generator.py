@@ -547,6 +547,8 @@ def _sort_target(sort_op: SortOperation) -> tuple:
     """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
     own target, so sorting by an expression again adds a sort."""
     column = sort_op.column
+    if isinstance(column, Alias):
+        return ("alias", column.name)
     if not isinstance(column, ColumnWithJoin):
         return ("expression", id(column))
     joins = []
@@ -627,7 +629,7 @@ def _own_sorts(query: QuerySpecification, alias: TableAlias, sorts: Sequence[Sor
         ref = _column_of(sort.column)
         for shown in query.columns:
             element = shown.element if isinstance(shown, Alias) else shown
-            if element is sort.column or (ref is not None and _column_of(element) is ref):
+            if shown is sort.column or element is sort.column or (ref is not None and _column_of(element) is ref):
                 found = shown
                 break
         if found is None:
@@ -1110,7 +1112,9 @@ class SQLQueryGenerator:
         return list(dict.fromkeys([*keys, *grouped]))
 
     def __sort_expression(self, expression: RelationalOperationElement) -> str:
-        """What a sort orders by: a column, or an expression such as an aggregate."""
+        """What a sort orders by: a column, an expression such as an aggregate, or a column of the select by the name it is given there."""
+        if isinstance(expression, Alias):
+            return '"' + expression.name.replace('"', '""') + '"'
         if isinstance(expression, (ColumnWithJoin, Attribute)):
             return self.build_filter(expression)
         return sql_operation_to_string(self.__rewrite_operation(expression))
