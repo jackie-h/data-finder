@@ -69,11 +69,6 @@ GROUP_BY_JOIN_COLUMN = (
     "checks the group by refuses (DuckDB does); the finder joins the product to the query that groups, so it returns the rows Legend means"
 )
 
-SELF_ASSOCIATION_ON_QUERY = (
-    "an association of a class mapped to a query with itself (a parent) joins the query to itself without an alias of the other side, "
-    "so its condition reads the key and the foreign key of one alias, and a related finder one step down has no parent"
-)
-
 HOUR_OF_DATETIME_LITERAL = (
     "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
     "string, which DuckDB cannot run, so there are no rows of Legend's to compare"
