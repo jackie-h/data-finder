@@ -1594,8 +1594,8 @@ def check_view_joins(view: View) -> None:
         build_as_of_join_condition(view.table, node)
 
 
-def view_sql_to_string(view: View, dialect: str | None = None) -> str:
-    """``CREATE OR REPLACE VIEW`` DDL for the view, in generic SQL or transpiled to ``dialect`` (e.g. 'databricks').
+def view_select_to_string(view: View) -> str:
+    """The ``SELECT`` a view is defined by, in generic SQL.
 
     The view's join filters are set here, immediately before rendering, and not when the view is built.
     """
@@ -1603,7 +1603,12 @@ def view_sql_to_string(view: View, dialect: str | None = None) -> str:
     table = view.table
     assert table is not None
     _apply_join_filters(view, lambda node: build_as_of_join_condition(table, node))
-    sql = f"CREATE OR REPLACE VIEW {view.qualified_name} AS " + query_sql_to_string(view, validate_sqlglot=False)
+    return query_sql_to_string(view, validate_sqlglot=False)
+
+
+def view_sql_to_string(view: View, dialect: str | None = None) -> str:
+    """``CREATE OR REPLACE VIEW`` DDL for the view, in generic SQL or transpiled to ``dialect`` (e.g. 'databricks')."""
+    sql = f"CREATE OR REPLACE VIEW {view.qualified_name} AS " + view_select_to_string(view)
     if dialect is None:
         sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
         return sql

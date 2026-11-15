@@ -1,6 +1,7 @@
 """A value that depends on a condition, written as in polars: ``when(f.age() > 30).then("senior").otherwise("junior")``."""
 import datetime
 import decimal
+from typing import Any, Callable
 
 from model.relational import (
     BooleanConstantOperation, CaseOperation, ComparisonOperation, ConstantOperation, DateConstantOperation,
@@ -18,7 +19,7 @@ def _value(value) -> RelationalOperationElement:
     if isinstance(value, RelationalOperationElement):
         column_with_join = getattr(value, "_column_with_join", None)
         return column_with_join() if column_with_join is not None else value
-    constants: list[tuple[type, type[ConstantOperation]]] = [
+    constants: list[tuple[type, Callable[[Any], ConstantOperation]]] = [
         (bool, BooleanConstantOperation), (int, IntegerConstantOperation), (float, FloatConstantOperation),
         (decimal.Decimal, DecimalConstantOperation), (str, StringConstantOperation),
         (datetime.datetime, DateTimeConstantOperation), (datetime.date, DateConstantOperation),
@@ -26,7 +27,7 @@ def _value(value) -> RelationalOperationElement:
     ]  # bool before int and datetime before date: each is a subclass of the next
     for python_type, constant in constants:
         if isinstance(value, python_type):
-            return constant(value)  # pyright: ignore[reportCallIssue]
+            return constant(value)
     raise TypeError(f"A branch is a column, an expression or a value, not {type(value).__name__}")
 
 
