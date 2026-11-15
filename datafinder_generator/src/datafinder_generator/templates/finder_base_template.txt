@@ -2,7 +2,9 @@ from __future__ import annotations
 import datetime
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Union
-from datafinder.typed_attributes import *
+from datafinder.typed_attributes import (
+    BooleanAttribute, DateAttribute, DateTimeAttribute, DecimalAttribute, DoubleAttribute, FloatAttribute, IntegerAttribute,
+    IntervalAttribute, NumericAttribute, StringAttribute)
 from datafinder import FinderResult
 from datafinder.attribute import Attribute
 from model.relational import NoOperation, CountAllOperation, Operation
