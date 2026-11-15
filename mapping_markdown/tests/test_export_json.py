@@ -90,7 +90,7 @@ def sql_queries():
 
 def test_a_query_a_class_is_mapped_to_is_exported_with_its_sql_and_columns(sql_queries):
     queries = {q["name"]: q for q in sql_queries["queries"]}
-    assert set(queries) == {"FIRM_VIEW", "POSITION_VIEW", "FIRM_X_PEOPLE", "TAG_VIEW", "SHOUT_VIEW", "RATE_QUERY", "QUOTE_QUERY"}
+    assert set(queries) == {"FIRM_VIEW", "POSITION_VIEW", "FIRM_X_PEOPLE", "TAG_VIEW", "SHOUT_VIEW", "RATE_QUERY", "QUOTE_QUERY", "UNIT_QUERY"}
     firm = queries["FIRM_VIEW"]
     assert firm["class"] == "Firm"
     assert firm["sql"] == "SELECT DISTINCT firm_id, firm_name\nFROM people"
