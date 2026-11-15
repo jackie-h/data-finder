@@ -4,7 +4,7 @@ import decimal
 from typing import overload
 
 from model.relational import (
-    CountAllOperation,
+    CountAllOperation, CurrentDateOperation, CurrentTimestampOperation, DateTruncOperation, DayOfWeek, RecentDayOfWeekOperation,
     BooleanConstantOperation, ConstantOperation, DateConstantOperation, DateTimeConstantOperation,
     DecimalConstantOperation, FloatConstantOperation, IntegerConstantOperation, IntervalConstantOperation, StringConstantOperation,
 )
@@ -54,3 +54,38 @@ def count_all() -> CountAllOperation:
     """The number of rows in the group, ``COUNT(*)``: ``f.find_all([f.category(), count_all()]).group_by(f.category())``.
     Unlike ``count()`` of a column it also counts rows where that column is missing."""
     return CountAllOperation("")
+
+
+def today() -> CurrentDateOperation:
+    """The date of the day the query runs, to compare a date with or to work out another date from: ``f.trade_date() < today()``."""
+    return CurrentDateOperation()
+
+
+def now() -> CurrentTimestampOperation:
+    """The time the query runs: ``f.settled_at() < now()``."""
+    return CurrentTimestampOperation()
+
+
+def first_day_of_this_month() -> DateTruncOperation:
+    """The first day of the month that today is in."""
+    return today().first_day_of_month()
+
+
+def first_day_of_this_quarter() -> DateTruncOperation:
+    """The first day of the quarter that today is in."""
+    return today().first_day_of_quarter()
+
+
+def first_day_of_this_year() -> DateTruncOperation:
+    """The first day of the year that today is in."""
+    return today().first_day_of_year()
+
+
+def most_recent_day_of_week(day: DayOfWeek) -> RecentDayOfWeekOperation:
+    """The date of ``day`` on or before today."""
+    return today().most_recent_day_of_week(day)
+
+
+def previous_day_of_week(day: DayOfWeek) -> RecentDayOfWeekOperation:
+    """The date of ``day`` before today: a week ago, if today is that day."""
+    return today().previous_day_of_week(day)

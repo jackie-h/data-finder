@@ -22,6 +22,7 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
     ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
+    RecentDayOfWeekOperation, CurrentDateOperation, CurrentTimestampOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, RelationExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation, \
@@ -482,6 +483,7 @@ _CONSTANT_TYPES = {
     IntegerConstantOperation: "BIGINT", FloatConstantOperation: "DOUBLE", StringConstantOperation: "VARCHAR",
     DateConstantOperation: "DATE", DateTimeConstantOperation: "TIMESTAMP", DecimalConstantOperation: "DECIMAL",
     BooleanConstantOperation: "BOOLEAN", IntervalConstantOperation: "INTERVAL",
+    CurrentDateOperation: "DATE", CurrentTimestampOperation: "TIMESTAMP",
 }
 
 
@@ -739,6 +741,10 @@ def constant_value_string(op:ConstantOperation) -> str:
         return "TRUE" if op.value else "FALSE"
     elif isinstance(op, DecimalConstantOperation):
         return str(op.value)
+    elif isinstance(op, CurrentDateOperation):
+        return 'CURRENT_DATE'
+    elif isinstance(op, CurrentTimestampOperation):
+        return 'CURRENT_TIMESTAMP'
     elif isinstance(op, IntervalConstantOperation):
         return "INTERVAL '" + format(op.value.total_seconds(), 'f').rstrip('0').rstrip('.') + "' SECOND"
     else:
@@ -791,6 +797,7 @@ _SCALAR_SQL_NAMES = {
     ScalarFunction.ATAN:      'ATAN',
     ScalarFunction.ATAN2:     'ATAN2',
     ScalarFunction.EXP:       'EXP',
+    ScalarFunction.DAY_NAME:  'DAYNAME',
     ScalarFunction.LOG:       'LN',
 }
 
@@ -904,6 +911,11 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return f'CAST({sql} AS {operation.cast})' if operation.cast else sql
     elif isinstance(operation, DateExtractOperation):
         return 'EXTRACT(' + operation.part.value + ' FROM ' + sql_operation_to_string(operation.element) + ')'
+    elif isinstance(operation, RecentDayOfWeekOperation):
+        date = 'CAST(' + sql_operation_to_string(operation.element) + ' AS DATE)'
+        # the days back to that day of the week: 0 to 6 on or before the date, 1 to 7 before it
+        back = f'((EXTRACT(ISODOW FROM {date}) - {operation.day.value} + {7 if operation.inclusive else 6}) % 7' + ('' if operation.inclusive else ' + 1') + ')'
+        return f'({date} - CAST({back} AS INTEGER))'
     elif isinstance(operation, DateTruncOperation):
         return "CAST(DATE_TRUNC('" + operation.part.value.lower() + "', " + sql_operation_to_string(operation.element) + ') AS DATE)'
     elif isinstance(operation, DateArithmeticOperation):
@@ -1178,6 +1190,8 @@ class SQLQueryGenerator:
             return _RenderedSql(self.build_filter(op))
         elif isinstance(op, DateExtractOperation):
             return DateExtractOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
+        elif isinstance(op, RecentDayOfWeekOperation):
+            return RecentDayOfWeekOperation(self.__rewrite_operation(op.element), op.day, op.inclusive, op.display_name)
         elif isinstance(op, DateTruncOperation):
             return DateTruncOperation(self.__rewrite_operation(op.element), op.part, op.display_name)
         elif isinstance(op, DateArithmeticOperation):

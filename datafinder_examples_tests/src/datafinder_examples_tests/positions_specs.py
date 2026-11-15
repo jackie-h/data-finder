@@ -12,9 +12,11 @@ import datetime
 
 import numpy as np
 
+from datafinder import DayOfWeek, constant, first_day_of_this_month, first_day_of_this_quarter, first_day_of_this_year, now, previous_day_of_week, today
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 POSITIONS_MAPPING = "positions_mapping.md"
+_NO_DATE_FUNCTIONS = {"graphql": "The GraphQL finder has no date functions beyond the parts of a date"}
 
 _D1 = datetime.date(2024, 3, 15)
 _D2 = datetime.date(2024, 7, 20)
@@ -54,6 +56,142 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all([f.trade_date().week()], f.id_().eq(1)),
             expected_columns=["Week Trade Date"],
             expected_result=np.array([[_D1.isocalendar().week]], dtype=object),
+        ),
+        # --- Day of the year, the name of the day, and a datetime as a date ---
+        TestExpectation(
+            name="day_of_year_extract",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().day_of_year()], f.id_().eq(1)),
+            expected_columns=["Day Of Year Trade Date"],
+            expected_result=np.array([[75]], dtype=object),  # 31 + 29 (2024 is a leap year) + 15
+        ),
+        TestExpectation(
+            name="day_of_week_name",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().day_of_week_name()], f.id_().eq(1)),
+            expected_columns=["Day Of Week Name Trade Date"],
+            expected_result=np.array([["Friday"]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_filter_on_the_name_of_the_day",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], f.trade_date().day_of_week_name().eq("Saturday")),
+            expected_columns=["Id"],
+            expected_result=np.array([[2]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_date_of_a_datetime",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([constant(datetime.datetime(2024, 3, 15, 13, 45, 10)).date()], f.id_().eq(1)),
+            expected_columns=["Date 2024-03-15 13:45:10"],
+            expected_result=np.array([[datetime.date(2024, 3, 15)]], dtype=object),
+        ),
+        # --- Weeks and microseconds ---
+        TestExpectation(
+            name="add_weeks",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().add_weeks(1)], f.id_().eq(1)),
+            expected_columns=["Add Weeks Trade Date"],
+            expected_result=np.array([[np.datetime64("2024-03-22", "us")]], dtype=object),
+        ),
+        TestExpectation(
+            name="subtract_weeks",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().subtract_weeks(2)], f.id_().eq(1)),
+            expected_columns=["Subtract Weeks Trade Date"],
+            expected_result=np.array([[np.datetime64("2024-03-01", "us")]], dtype=object),
+        ),
+        TestExpectation(
+            name="add_microseconds_to_a_datetime",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([constant(datetime.datetime(2014, 12, 4, 15, 22, 23)).add_microseconds(123456)], f.id_().eq(1)),
+            expected_columns=["Add Microseconds 2014-12-04 15:22:23"],
+            expected_result=np.array([[np.datetime64("2014-12-04T15:22:23.123456", "us")]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_timedelta_with_microseconds_is_added_to_a_datetime",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([constant(datetime.datetime(2014, 12, 4, 15, 22, 23)) + datetime.timedelta(seconds=1, microseconds=500000)],
+                                       f.id_().eq(1)),
+            expected_columns=["Add Microseconds 2014-12-04 15:22:23"],
+            expected_result=np.array([[np.datetime64("2014-12-04T15:22:24.500000", "us")]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_filter_on_a_date_a_day_later",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], f.trade_date().eq(constant(datetime.date(2024, 3, 14)).add_days(1))),
+            expected_columns=["Id"],
+            expected_result=np.array([[1]], dtype=object),
+        ),
+        # --- The most recent and the previous day of the week ---
+        TestExpectation(
+            name="most_recent_monday",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().most_recent_day_of_week(DayOfWeek.MONDAY)], f.id_().eq(1)),
+            expected_columns=["Most Recent Day Of Week Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 3, 11)]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_most_recent_friday_of_a_friday_is_that_day",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().most_recent_day_of_week(DayOfWeek.FRIDAY)], f.id_().eq(1)),
+            expected_columns=["Most Recent Day Of Week Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 3, 15)]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_previous_friday_of_a_friday_is_a_week_before",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().previous_day_of_week(DayOfWeek.FRIDAY)], f.id_().eq(1)),
+            expected_columns=["Previous Day Of Week Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 3, 8)]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_previous_sunday",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.trade_date().previous_day_of_week(DayOfWeek.SUNDAY)], f.id_().eq(2)),
+            expected_columns=["Previous Day Of Week Trade Date"],
+            expected_result=np.array([[datetime.date(2024, 7, 14)]], dtype=object),
+        ),
+        # --- Relative to now: today(), now() and the first day of this period ---
+        TestExpectation(
+            name="rows_before_today",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], f.trade_date() < today()).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2], [3]], dtype=object),
+            expected_sql={"duckdb": "t0.trade_date < CURRENT_DATE"},
+        ),
+        TestExpectation(
+            name="no_row_is_today",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], f.trade_date().eq(today())),
+            expected_columns=["Id"],
+            expected_result=np.array([], dtype=object).reshape(0, 1),
+        ),
+        TestExpectation(
+            name="rows_before_now",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], f.trade_date() < now()).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2], [3]], dtype=object),
+            expected_sql={"duckdb": "t0.trade_date < CURRENT_TIMESTAMP"},
+        ),
+        TestExpectation(
+            name="rows_before_the_first_day_of_this_month_quarter_and_year",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], (f.trade_date() < first_day_of_this_month())
+                                       .and_(f.trade_date() < first_day_of_this_quarter())
+                                       .and_(f.trade_date() < first_day_of_this_year())).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2], [3]], dtype=object),
+            expected_sql={"duckdb": "DATE_TRUNC('quarter', CURRENT_DATE)"},
+        ),
+        TestExpectation(
+            name="rows_after_the_previous_monday",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], f.trade_date() > previous_day_of_week(DayOfWeek.MONDAY)),
+            expected_columns=["Id"],
+            expected_result=np.array([], dtype=object).reshape(0, 1),
         ),
         # --- First day of the week, month, quarter or year ---
         TestExpectation(

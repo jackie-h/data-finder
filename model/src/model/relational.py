@@ -657,7 +657,36 @@ class NumericFunctions(Generic[N]):
         return self._same_type(ScalarFunction.ROUND, 'Round ' + self._function_label(), second_arg=d)
 
 
-class DateFunctions:
+class _CalendarFunctions:
+    """What a date and a datetime have the same way: the day of the year and the name of the day, a datetime as a date, and the most recent and the previous day of the week. The user of this class provides
+    ``_function_input()`` and ``_function_label()``."""
+
+    if TYPE_CHECKING:  # provided by the class this is mixed into; declared here only, so it does not hide the real one
+        def _function_input(self) -> Any: ...
+        def _function_label(self) -> str: ...
+
+    def day_of_year(self) -> DateExtractOperation:
+        """Extract the day of the year (1–366)."""
+        return DateExtractOperation(self._function_input(), DatePart.DOY, 'Day Of Year ' + self._function_label())
+
+    def day_of_week_name(self) -> 'StringFunctionOperation':
+        """The name of the day of the week: ``Monday`` ... ``Sunday``."""
+        return string_function(self._function_input(), ScalarFunction.DAY_NAME, 'Day Of Week Name ' + self._function_label())
+
+    def date(self) -> DateTruncOperation:
+        """The date part: a datetime without its time of day, as ``dt.date()``."""
+        return DateTruncOperation(self._function_input(), DatePart.DAY, 'Date ' + self._function_label())
+
+    def most_recent_day_of_week(self, day: 'DayOfWeek') -> RecentDayOfWeekOperation:
+        """The date of ``day`` on or before this date: the date itself if it is that day."""
+        return RecentDayOfWeekOperation(self._function_input(), day, True, 'Most Recent Day Of Week ' + self._function_label())
+
+    def previous_day_of_week(self, day: 'DayOfWeek') -> RecentDayOfWeekOperation:
+        """The date of ``day`` before this date: a week before, if it is that day."""
+        return RecentDayOfWeekOperation(self._function_input(), day, False, 'Previous Day Of Week ' + self._function_label())
+
+
+class DateFunctions(_CalendarFunctions):
     """Functions of a date: parts, the first day of a period, days, months and years added or taken away, and the
     difference between two dates. Shared by a date column and a date constant; the user of this class provides
     ``_function_input()`` and ``_function_label()``.
@@ -736,6 +765,14 @@ class DateFunctions:
         """Add ``n`` calendar years."""
         return DateArithmeticOperation(self._function_input(), n, DatePart.YEAR, True, 'Add Years ' + self._function_label())
 
+    def add_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Add ``n`` weeks. Equivalent to ``d + timedelta(weeks=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, True, 'Add Weeks ' + self._function_label())
+
+    def subtract_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Subtract ``n`` weeks."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, False, 'Subtract Weeks ' + self._function_label())
+
     def subtract_days(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
         """Subtract ``n`` days. Equivalent to ``d - timedelta(days=n)``."""
         return DateArithmeticOperation(self._function_input(), n, DatePart.DAY, False, 'Subtract Days ' + self._function_label())
@@ -777,7 +814,7 @@ class DateFunctions:
         return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.YEAR, 'Diff Years ' + self._function_label())
 
 
-class DateTimeFunctions(_Operand):
+class DateTimeFunctions(_Operand, _CalendarFunctions):
     """Functions of a datetime: those of a date, with hour, minute and second granularity. Shared by a datetime column and
     a datetime constant; the user of this class provides ``_function_input()`` and ``_function_label()``.
 
@@ -876,6 +913,22 @@ class DateTimeFunctions(_Operand):
         """Add ``n`` seconds. Equivalent to ``dt + timedelta(seconds=n)``."""
         return DateArithmeticOperation(self._function_input(), n, DatePart.SECOND, True, 'Add Seconds ' + self._function_label())
 
+    def add_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` weeks. Equivalent to ``dt + timedelta(weeks=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, True, 'Add Weeks ' + self._function_label())
+
+    def add_microseconds(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` microseconds. Equivalent to ``dt + timedelta(microseconds=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MICROSECOND, True, 'Add Microseconds ' + self._function_label())
+
+    def subtract_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` weeks."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, False, 'Subtract Weeks ' + self._function_label())
+
+    def subtract_microseconds(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` microseconds."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MICROSECOND, False, 'Subtract Microseconds ' + self._function_label())
+
     def subtract_days(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
         """Subtract ``n`` days. Equivalent to ``dt - timedelta(days=n)``."""
         return DateArithmeticOperation(self._function_input(), n, DatePart.DAY, False, 'Subtract Days ' + self._function_label())
@@ -933,7 +986,10 @@ class DateTimeFunctions(_Operand):
         return NotImplemented
 
     def _timedelta_op(self, td: datetime.timedelta, is_add: bool):
-        total_seconds = int(td.total_seconds())
+        microseconds = (td.days * 86400 + td.seconds) * 1_000_000 + td.microseconds
+        if microseconds % 1_000_000 != 0:  # not a whole number of seconds
+            return self.add_microseconds(microseconds) if is_add else self.subtract_microseconds(microseconds)
+        total_seconds = microseconds // 1_000_000
         if total_seconds % 86400 == 0:
             n = total_seconds // 86400
             return self.add_days(n) if is_add else self.subtract_days(n)
@@ -1057,6 +1113,20 @@ class DateTimeConstantOperation(ConstantOperation, DateTimeFunctions, Orderable[
     def __init__(self, value:datetime.datetime):
         super().__init__()
         self.value = value
+
+class CurrentDateOperation(ConstantOperation, DateFunctions, Orderable[datetime.date]):
+    """The date of the day the query runs, as ``today()`` gives it."""
+
+    def _function_label(self) -> str:
+        return 'Today'
+
+
+class CurrentTimestampOperation(ConstantOperation, DateTimeFunctions, Orderable[datetime.datetime | datetime.date]):
+    """The time the query runs, as ``now()`` gives it."""
+
+    def _function_label(self) -> str:
+        return 'Now'
+
 
 class IntervalConstantOperation(ConstantOperation, Orderable[datetime.timedelta], Extremes['IntervalAggregateOperation']):
     """A fixed length of time, a ``timedelta``."""
@@ -1420,6 +1490,7 @@ class ScalarFunction(Enum):
     ATAN2 = 27
     EXP = 28
     LOG = 29
+    DAY_NAME = 30
 
 
 class WindowFunction(Enum):
@@ -1482,6 +1553,19 @@ class DatePart(Enum):
     QUARTER = 'QUARTER'
     WEEK = 'WEEK'
     DOW = 'DOW'
+    DOY = 'DOY'
+    MICROSECOND = 'MICROSECOND'
+
+
+class DayOfWeek(Enum):
+    """A day of the week, numbered as ISO does: Monday is 1 and Sunday is 7."""
+    MONDAY = 1
+    TUESDAY = 2
+    WEDNESDAY = 3
+    THURSDAY = 4
+    FRIDAY = 5
+    SATURDAY = 6
+    SUNDAY = 7
 
 
 class DateExtractOperation(UnaryOperation, Sortable, Orderable[int]):
@@ -1500,6 +1584,15 @@ class DateTruncOperation(UnaryOperation, Sortable, Orderable[datetime.date]):
         super().__init__(element)
         self.part = part
         self.display_name = display_name
+
+
+class RecentDayOfWeekOperation(DateTruncOperation):
+    """The date of a day of the week on or before a date (``inclusive``: the date itself if it is that day), or strictly before it."""
+
+    def __init__(self, element: RelationalOperationElement, day: DayOfWeek, inclusive: bool, display_name: str | None = None):
+        super().__init__(element, DatePart.DAY, display_name)
+        self.day = day
+        self.inclusive = inclusive
 
 
 class DateArithmeticOperation(UnaryOperation, Sortable, Orderable[T]):
