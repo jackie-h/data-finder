@@ -1,4 +1,5 @@
 import datetime
+from typing import cast
 
 import duckdb
 import ibis
@@ -84,7 +85,7 @@ class TestIbisOutputTypes:
 
     @pytest.fixture
     def con(self, monkeypatch) -> DuckDBBackend:
-        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # pyright: ignore[reportAssignmentType]
+        conn: DuckDBBackend = cast(DuckDBBackend, ibis.connect('duckdb://:memory:'))
         conn.con.execute(
             "CREATE TABLE widgets (name VARCHAR, quantity INTEGER, price DOUBLE, active BOOLEAN)"
         )
@@ -142,7 +143,7 @@ class TestIbisSelectView:
 
     @pytest.fixture
     def view(self, monkeypatch) -> View:
-        conn: DuckDBBackend = ibis.connect('duckdb://:memory:')  # pyright: ignore[reportAssignmentType]
+        conn: DuckDBBackend = cast(DuckDBBackend, ibis.connect('duckdb://:memory:'))
         monkeypatch.setattr(ibis, 'connect', lambda *a, **kw: conn)
         for statement in [
             "CREATE SCHEMA vt",

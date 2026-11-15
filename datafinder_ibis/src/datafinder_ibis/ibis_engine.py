@@ -1,5 +1,5 @@
 import datetime
-from typing import Sequence
+from typing import Sequence, cast
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
 from datafinder.sql_generator import view_sql_to_string
@@ -29,6 +29,11 @@ def sql_for_backend(query: str, backend: str) -> str:
     return sqlglot.transpile(query, read=_SOURCE_DIALECT, write=backend)[0]
 
 
+def _duckdb_connect(url: str) -> DuckDBBackend:
+    """``ibis.connect`` is declared to return the generic backend; a ``duckdb://`` url gives the DuckDB one."""
+    return cast(DuckDBBackend, ibis.connect(url))
+
+
 class IbisConnect(QueryRunnerBase):
 
     @staticmethod
@@ -37,10 +42,7 @@ class IbisConnect(QueryRunnerBase):
                limit: int | None = None, timeout_ms: int = 60_000, business_date_to: datetime.date | None = None, distinct: bool = False,
                offset: int | None = None, having=None,
                processing_datetime_to: datetime.datetime | datetime.date | None = None) -> DataFrame:
-        # We always connect via the duckdb:// scheme; ibis.connect()'s declared return type is
-        # the generic BaseBackend, so annotate the concrete backend explicitly rather than
-        # suppressing attr-defined at every subsequent .con/.sql() use below.
-        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # pyright: ignore[reportAssignmentType]
+        conn: DuckDBBackend = _duckdb_connect('duckdb://test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having, processing_datetime_to=processing_datetime_to)
         query = sql_for_backend(query, conn.name)
         print(query)
@@ -51,13 +53,13 @@ class IbisConnect(QueryRunnerBase):
 
     @staticmethod
     def create_view(view: View) -> None:
-        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # pyright: ignore[reportAssignmentType]
+        conn: DuckDBBackend = _duckdb_connect('duckdb://test.db')
         conn.raw_sql(f"CREATE SCHEMA IF NOT EXISTS {view.schema}")
         conn.raw_sql(view_sql_to_string(view))
 
     @staticmethod
     def select_view(view: View, order_by: list[str] | None = None, timeout_ms: int = 60_000) -> DataFrame:
-        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # pyright: ignore[reportAssignmentType]
+        conn: DuckDBBackend = _duckdb_connect('duckdb://test.db')
         query = f"SELECT * FROM {view.qualified_name}"
         if order_by:
             query += " ORDER BY " + ", ".join('"' + column + '"' for column in order_by)
