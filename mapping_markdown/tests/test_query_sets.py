@@ -272,7 +272,7 @@ def _employees(mapping) -> list[NavigationPropertyMapping]:
     """The property mappings of Firm.employees: one for each pair of sets."""
     pms = [pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees"]
     assert all(isinstance(pm, NavigationPropertyMapping) for pm in pms)
-    return pms  # type: ignore[return-value]
+    return pms  # pyright: ignore[reportReturnType]
 
 
 def test_an_association_from_a_class_of_sets_is_a_property_mapping_for_each_pair_of_sets_and_each_has_its_own_plain_join(tmp_path):

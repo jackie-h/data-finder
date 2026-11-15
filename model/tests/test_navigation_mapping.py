@@ -3,7 +3,7 @@ value is mapped by a PropertyMapping, which has no target."""
 import pytest
 
 from model.m3 import Class, Property, ONE_TO_ONE, ZERO_TO_MANY, PrimitiveType
-from model.mapping import ClassMapping, Mapping, NavigationPropertyMapping, PropertyMapping, UnionMapping
+from model.mapping import ClassMapping, EmbeddedSetMapping, Mapping, NavigationPropertyMapping, PropertyMapping, UnionMapping
 
 _STRING = PrimitiveType("String")
 
@@ -20,7 +20,7 @@ def test_a_property_mapping_has_a_source_and_no_target_and_a_navigation_has_both
     value = PropertyMapping(firm.properties["name"], object(), "Firm")
     assert not hasattr(value, "target_set_id")
     with pytest.raises(TypeError):
-        NavigationPropertyMapping(firm.properties["employees"], object(), "Firm")  # type: ignore[call-arg]
+        NavigationPropertyMapping(firm.properties["employees"], object(), "Firm")  # pyright: ignore[reportCallIssue]
     navigation = NavigationPropertyMapping(firm.properties["employees"], object(), "Firm", "Person")
     assert isinstance(navigation, PropertyMapping) and (navigation.source_set_id, navigation.target_set_id) == ("Firm", "Person")
 
@@ -56,12 +56,12 @@ def test_a_property_that_is_typed_by_a_class_is_mapped_as_a_navigation_and_one_t
         Mapping("m", [ClassMapping(firm, [NavigationPropertyMapping(firm.properties["name"], object(), "Firm", "Person")]), ClassMapping(person, [])])
 
 
-def test_a_navigation_that_is_mapped_in_the_row_reaches_the_embedded_class_mapping():
-    from model.mapping import EmbeddedClassMapping
+def test_a_navigation_that_is_mapped_in_the_row_reaches_the_embedded_set_mapping():
+    """The embedded mapping has an id of its own, which the property mappings in it start from."""
     firm, person = _classes()
-    embedded = EmbeddedClassMapping(person, [PropertyMapping(person.properties["name"], object(), "Firm_employees")], "Firm_employees")
+    embedded = EmbeddedSetMapping(person, [PropertyMapping(person.properties["name"], object(), "Firm_employees")], "Firm_employees")
     Mapping("m", [ClassMapping(firm, [NavigationPropertyMapping(firm.properties["employees"], embedded, "Firm", "Firm_employees")]), ClassMapping(person, [])])
     with pytest.raises(ValueError, match="reaches 'Person', but it is mapped by the embedded class mapping 'Firm_employees'"):
         Mapping("m", [ClassMapping(firm, [NavigationPropertyMapping(firm.properties["employees"], embedded, "Firm", "Person")]), ClassMapping(person, [])])
-    with pytest.raises(ValueError, match="embedded as Firm_employees has the source set id 'Person', not 'Firm_employees'"):
-        EmbeddedClassMapping(person, [PropertyMapping(person.properties["name"], object(), "Person")], "Firm_employees")
+    with pytest.raises(ValueError, match="the property name of Person embedded as Firm_employees has the source set id 'Person', not 'Firm_employees'"):
+        EmbeddedSetMapping(person, [PropertyMapping(person.properties["name"], object(), "Person")], "Firm_employees")

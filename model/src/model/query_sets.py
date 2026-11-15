@@ -14,7 +14,8 @@ from model.relational import (
     Alias, Column, ComparisonOperation, ComparisonOperator, JoinKind, LogicalOperation, LogicalOperator, Operation, QuerySpecification,
     StringConstantOperation, Table, TableAlias, UnionOperation,
 )
-from model.mapping import ClassMapping, EmbeddedClassMapping, NavigationPropertyMapping, PropertyMapping
+from model.m3 import Class
+from model.mapping import ClassMapping, EmbeddedSetMapping, NavigationPropertyMapping, PropertyMapping
 from model.relational_mapping import Join, RelationalClassMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, RelationalUnionMapping
 
 SET_COLUMN = "_set"
@@ -196,11 +197,14 @@ def merge_set_navigations(class_mapping: ClassMapping) -> list[PropertyMapping]:
     are one of the pairs. The finder joins on one pair of key columns, so the pairs must all join on the same ones; a property mapped between no sets
     is as it was."""
     class_name, property_mappings = class_mapping.clazz.name, class_mapping.property_mappings
-    typed_by = lambda pm: pm.property.type.name  # type: ignore[union-attr]  # a navigation is typed by a class
+
+    def typed_by(pm: PropertyMapping) -> str:
+        assert isinstance(pm.property.type, Class)  # a navigation is typed by a class
+        return pm.property.type.name
 
     def between_sets(pm: PropertyMapping) -> bool:
         # from a set of this class, or to a set of another class: the target of a navigation to a class that is not a union is the class
-        return isinstance(pm, NavigationPropertyMapping) and not isinstance(pm.target, EmbeddedClassMapping) and (
+        return isinstance(pm, NavigationPropertyMapping) and not isinstance(pm.target, EmbeddedSetMapping) and (
             pm.source_set_id != class_mapping.id or pm.target_set_id != typed_by(pm))
 
     merged: list[PropertyMapping] = []
