@@ -456,7 +456,7 @@ def build_query_specification(business_date: datetime.date | None, processing_da
 
 def _derive_joins(query: QuerySpecification) -> None:
     """What the joins a query needs add to it, from the columns it reads and the dates it reads them as of: the ON conditions of the
-    joins, and the queries that stand for the steps it only asks the existence of. A step said of a query can read another join."""
+    joins, and the queries that stand for the steps it only asks the existence of. A step folded into a query can read another join."""
     as_of = query.as_of or AsOf()
 
     def milestoning_condition(node):
@@ -474,7 +474,7 @@ def _derive_joins(query: QuerySpecification) -> None:
     _apply_sub_selects(query, as_of.business_date, as_of.business_date_to, as_of.processing_datetime, as_of.processing_datetime_to)
 
 
-# --- the steps written after a query, said as SELECTs ---------------------------------------------------------------------
+# --- the steps written after a query, folded into SELECTs ---------------------------------------------------------------------
 
 _NUMBER_TYPES = {int: "BIGINT", float: "DOUBLE", decimal.Decimal: "DECIMAL"}
 
@@ -577,9 +577,9 @@ def labelled(query: QuerySpecification) -> QuerySpecification:
 
 relation_numbers = itertools.count(1)
 
-# A SELECT says DISTINCT, then the order, then the offset, then the limit, in that order only. A step that comes next, or again, is said by
-# the SELECT it is written after; one that comes earlier than the last one said is a SELECT over the rows that SELECT gives, as every
-# other step is. What a SELECT has said last is read from what it says.
+# A SELECT applies DISTINCT, then the order, then the offset, then the limit, in that order only. A step that comes next, or again, is folded
+# into the SELECT it is written after; one that comes earlier than the last clause applied is a SELECT over the rows that SELECT gives, as
+# every other step is. The last clause a SELECT applies is read from the SELECT.
 _DISTINCT, _SORT, _DROP, _TAKE = 1, 2, 3, 4
 
 
@@ -593,8 +593,9 @@ def _stage(query: QuerySpecification) -> int:
     return _SORT if query.order_by else (_DISTINCT if query.distinct else 0)
 
 
-def said_of_the_rows_a_finder_reads(query: QuerySpecification) -> bool:
-    """Whether nothing has been said of the rows yet that group by and having come before."""
+def accepts_group_by(query: QuerySpecification) -> bool:
+    """Whether group by and having can still be applied: nothing that comes after them (distinct, an order, an offset, a limit) has been
+    applied yet."""
     return _stage(query) == 0
 
 
@@ -642,8 +643,8 @@ def made_distinct(query: OrderedQuerySpecification) -> OrderedQuerySpecification
 
 
 def sorted_by(query: OrderedQuerySpecification, sorts: Sequence[SortOperation]) -> OrderedQuerySpecification:
-    """The rows of the query in the order of ``sorts``, which are of the columns it shows. A column sorted again is sorted as the later sort
-    says, and the earlier sorts order the rows it leaves tied."""
+    """The rows of the query in the order of ``sorts``, which are of the columns it shows. A column sorted again is ordered as the later sort
+    asks, and the earlier sorts order the rows it leaves tied."""
     sorts = list(sorts)
     if _stage(query) > _SORT:
         inner = query

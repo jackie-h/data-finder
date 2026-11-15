@@ -594,10 +594,10 @@ four and skips one of them (three rows); `limit(3)` then `order_by(...)` orders 
 `limit(3)` takes the first three of the order. A step is a new result and leaves the one it was made from as it was, so `rows.limit(2)`
 and `rows.limit(5)` are both of `rows`.
 
-A SELECT says `DISTINCT`, then the order, then `OFFSET`, then `LIMIT`, in that order only. A step that comes next, or again, is said by the
+A SELECT applies `DISTINCT`, then the order, then `OFFSET`, then `LIMIT`, in that order only. A step that comes next, or again, is folded into the
 same SELECT (`offset(2).offset(3)` skips five, `limit(5).limit(2)` takes two); one that comes earlier than the last one written (an order
 after a limit, or `distinct()` after an order) is a SELECT over the rows the one before it gives, as every other step is. A sort after a
-limit or an offset orders by the result's own columns (`rows["id"].ascending()`). `group_by(attributes)` and `having` are said of the rows a
+limit or an offset orders by the result's own columns (`rows["id"].ascending()`). `group_by(attributes)` and `having` apply to the rows a
 finder reads, so they come before `distinct`, `order_by`, `offset` and `limit` and are refused after them;
 `group_by(lambda r: ...).aggregate(...)` groups the rows after them.
 

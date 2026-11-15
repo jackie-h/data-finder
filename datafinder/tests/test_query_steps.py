@@ -1,5 +1,5 @@
 """The steps written after a query (order, offset, limit, distinct) in the order they were written: a step that comes next in a SELECT's
-order is said by the SELECT before it, and one that comes before is a SELECT over it."""
+order is folded into the SELECT before it, and one that comes before is a SELECT over it."""
 import datetime
 
 import pytest
@@ -32,7 +32,7 @@ def _selects(result: FinderResult) -> int:
     (lambda r: r.offset(2).offset(3), "OFFSET 5"),
     (lambda r: r.distinct().order_by(_ID.ascending()), "ORDER BY t0.ID ASC"),
 ])
-def test_a_step_that_comes_next_is_said_by_the_select_before_it(steps, ends_with):
+def test_a_step_that_comes_next_is_folded_into_the_select_before_it(steps, ends_with):
     result = steps(_rows())
     assert _selects(result) == 1 and result.to_sql().endswith(ends_with)
 
@@ -45,7 +45,7 @@ def test_a_step_that_comes_next_is_said_by_the_select_before_it(steps, ends_with
     lambda r: r.limit(3).distinct(),
     lambda r: r.offset(1).distinct(),
 ])
-def test_a_step_that_comes_before_the_last_one_said_is_a_select_over_it(steps):
+def test_a_step_that_comes_before_the_last_one_folded_is_a_select_over_it(steps):
     assert _selects(steps(_rows())) == 2
 
 
@@ -101,18 +101,18 @@ def test_a_result_read_twice_in_a_join_is_two_relations():
     assert sql.count("accounts AS") == 2 and "t1" in sql and "t2" in sql
 
 
-def test_steps_of_a_result_that_is_read_by_a_step_are_said_inside_it():
+def test_steps_of_a_result_that_is_read_by_a_step_are_folded_inside_it():
     taken = _rows().limit(3).order_by(_ID.descending())
     sql = taken.filter(lambda r: r.id > 1).to_sql()
     assert sql.count("SELECT") == 3 and "LIMIT 3) AS" in sql and sql.endswith("WHERE t0.id > 1")
 
 
-def test_group_by_and_having_are_said_of_the_rows_a_finder_reads_and_so_come_first():
+def test_group_by_and_having_apply_to_the_rows_a_finder_reads_and_so_come_first():
     grouped = _rows(_NAME, count_all()).group_by(_NAME).having(count_all() > 1).limit(2)
     assert grouped.to_sql().endswith("GROUP BY t0.NAME HAVING COUNT(*) > 1 LIMIT 2")
-    with pytest.raises(ValueError, match="group_by is said of the rows a finder reads"):
+    with pytest.raises(ValueError, match="group_by applies to the rows a finder reads"):
         _rows(_NAME, count_all()).limit(2).group_by(_NAME)
-    with pytest.raises(ValueError, match="having is said of the rows a finder reads"):
+    with pytest.raises(ValueError, match="having applies to the rows a finder reads"):
         _rows(_NAME, count_all()).group_by(_NAME).order_by(_NAME.ascending()).having(count_all() > 1)
 
 

@@ -183,7 +183,7 @@ class TestDistinct:
     def test_not_distinct_by_default(self):
         assert _make_result()._query.distinct is False
 
-    def test_distinct_is_a_result_that_says_it_and_leaves_the_first_as_it_was(self):
+    def test_distinct_is_a_result_with_it_and_leaves_the_first_as_it_was(self):
         result = _make_result()
         distinct = result.distinct()
         assert distinct._query.distinct is True and result._query.distinct is False

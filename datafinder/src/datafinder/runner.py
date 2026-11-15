@@ -4,7 +4,7 @@ from typing import Any, Callable, Literal, Sequence, Union, overload
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import (
     _column_name, _column_of, _column_type, build_query_specification, check_view_joins, display_alias, dropped, labelled,
-    made_distinct, query_sql_to_string, relation_numbers as _relation_numbers, said_of_the_rows_a_finder_reads, sorted_by, taken,
+    made_distinct, query_sql_to_string, relation_numbers as _relation_numbers, accepts_group_by, sorted_by, taken,
     view_sql_to_string, _with_clauses)
 from datafinder.typed_attributes import typed_attribute
 from model.milestoning import AsOf, ProcessingTemporalColumns, milestoning_columns_of
@@ -343,10 +343,10 @@ class FinderResult(DataFrame):
         return self._then(_with_clauses(self._read("group_by"), group_by=list(keys)))
 
     def _read(self, name: str) -> OrderedQuerySpecification:
-        """The query of the rows a finder reads, which says what it groups and keeps by. That is of the rows it reads, so it cannot
-        follow an order, an offset, a limit or a distinct."""
-        if not said_of_the_rows_a_finder_reads(self._query):
-            raise ValueError(f"{name} is said of the rows a finder reads, so it comes before distinct, order_by, offset and limit: write "
+        """The query of the rows a finder reads, which is what ``group_by`` and ``having`` apply to. They come before a distinct, an order, an
+        offset and a limit, so they cannot follow one."""
+        if not accepts_group_by(self._query):
+            raise ValueError(f"{name} applies to the rows a finder reads, so it comes before distinct, order_by, offset and limit: write "
                              f"{name} first, or group the rows after them with group_by(lambda r: ...).aggregate(...)")
         return self._query
 
