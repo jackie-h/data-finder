@@ -1872,6 +1872,20 @@ def same_relation(a: 'Relation | None', b: 'Relation | None') -> bool:
     return isinstance(a, NamedRelation) and isinstance(b, NamedRelation) and a.qualified_name == b.qualified_name
 
 
+def _alias_of_itself(relation: 'Relation', name: str) -> 'TableAlias':
+    """``relation`` under ``name``, for the far side of a join of it to itself. A query has columns of its own there, so that the two sides can be
+    told apart, and is read as the query it is, not as an alias of an alias."""
+    query = query_of(relation)
+    if query is None:
+        return TableAlias(relation, name)
+    if query.milestoning_columns is not None:
+        raise ValueError(f"{query.name} is milestoned and joined to itself: a milestoned query cannot be associated with itself yet")
+    columns = [Column(c.name, c.type, primary_key=c.primary_key, nullable=c.nullable) for c in query.columns if isinstance(c, Column)]
+    alias = TableAlias(query.relation, name, columns)
+    alias.sql, alias.reads = query.sql, query.reads
+    return alias
+
+
 class JoinOperation:
     """A relation joined on a condition, as ANSI SQL's ``<join type> JOIN <table reference> ON
     <search condition>``: its ``target``, the kind of join and the condition ``operation``.
@@ -1897,7 +1911,7 @@ class JoinOperation:
         """``table`` joined where its ``target`` column equals the ``source`` column of what is joined from. When that is
         the same table, the target is an alias of it named ``name``, so the two sides can be told apart."""
         if same_relation(source.owner_relation, table):
-            alias = TableAlias(table, name or table.name + '_joined')
+            alias = _alias_of_itself(table, name or table.name + '_joined')
             return JoinOperation(name, alias, ComparisonOperation(source, ComparisonOperator.EQUAL,
                                                                   alias.column(target.name, target.type)), kind)
         return JoinOperation(name, table, ComparisonOperation(source, ComparisonOperator.EQUAL, target), kind)

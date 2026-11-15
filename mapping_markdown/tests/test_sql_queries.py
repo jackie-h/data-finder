@@ -111,7 +111,7 @@ def test_every_query_of_the_example_mapping_survives_writing(tmp_path):
     save(str(path), "SQL Queries Mapping", mapping, [str(example_path(_MODEL))])
     again = load(str(path))
     assert queries(again) == queries(mapping)
-    assert set(queries(mapping)) == {"Firm", "Position", "FirmXPerson", "Tag", "Shout", "Rate", "Quote"}
+    assert set(queries(mapping)) == {"Firm", "Position", "FirmXPerson", "Tag", "Shout", "Rate", "Quote", "Unit"}
 
 
 def test_a_query_is_milestoned_by_the_columns_its_sql_gives_and_the_scheme_survives_writing(tmp_path):

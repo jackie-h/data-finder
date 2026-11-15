@@ -27,7 +27,7 @@ class {{rcm.clazz.name}}RelatedFinderBase(ABC):
     @abstractmethod
     def {{to_python_name(rpm.property)}}(self) -> {{rpm.property.type.name}}Attribute: ...
 
-{% elif rpm.property.type.name != rcm.clazz.name %}
+{% else %}
     @abstractmethod
     def {{to_python_name(rpm.property)}}(self, **kwargs) -> {{rpm.property.type.name}}RelatedFinderBase: ...
 

@@ -47,6 +47,13 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Carol"], ["Alice"]], dtype=object),
         ),
         TestExpectation(
+            name="the_manager_of_a_manager",
+            skip_backends={"graphql": "The GraphQL finder does not follow a navigation of a class to itself twice"},
+            query=lambda f: f.find_all([f.name(), f.manager().manager().name()], f.name().eq("Dave")),
+            expected_columns=["Name", "Manager Manager Name"],
+            expected_result=np.array([["Dave", "Alice"]], dtype=object),
+        ),
+        TestExpectation(
             name="fill_null_replaces_a_missing_manager",
             query=lambda f: f.find_all(
                 [f.name(), f.manager().name().fill_null("nobody")]

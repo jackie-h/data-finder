@@ -135,6 +135,8 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% for rpm in rcm.property_mappings %}
 {% if not is_primitive(rpm.property) and rpm.property.type.name != rcm.clazz.name %}
         self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', {{owner_code(rpm.target.lhs.table)}}{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}),Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', {{owner_code(rpm.target.rhs.table)}}{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), {{ parent_expr(rpm.target, 'self.__node') }}, embedded={% if flatten_embedded(rpm.target) %}_embedded_for_{{to_python_name(rpm.property)}}(embedded, self.__node, '{{rpm.property.name}}'){% else %}{k[len('{{rpm.property.id}}.'):]: v for k, v in (embedded or {}).items() if k.startswith('{{rpm.property.id}}.')} or None{% endif %}, many={{ 'True' if rpm.property.multiplicity.is_many() else 'False' }}, optional={{ rpm.property.multiplicity.lower == 0 }}{{condition_kw(rpm.target)}})
+{% elif not is_primitive(rpm.property) %}
+        self.__{{to_python_name(rpm.property)}} = None
 {% endif %}
 {% endfor %}
 {% for pm in rcm.embedded_mappings %}
@@ -159,7 +161,7 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% endif %}
         return self.__{{to_python_name(rpm.property)}}
 
-{% elif rpm.property.type.name != rcm.clazz.name %}
+{% else %}
     def {{to_python_name(rpm.property)}}(self, business_date: Union[datetime.date, str, None] = None,
             processing_time: Union[datetime.datetime, datetime.date, str, None] = None, **kwargs) -> {{rpm.property.type.name}}RelatedFinder:
 {% if rpm.property.tagged_values['doc'] %}
@@ -171,7 +173,13 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
 {% endif %}
         if kwargs or business_date is not None or processing_time is not None:
             return {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', {{owner_code(rpm.target.lhs.table)}}{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', {{owner_code(rpm.target.rhs.table)}}{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), {{ parent_expr(rpm.target, 'self.__node', True) }}, many={{ 'True' if rpm.property.multiplicity.is_many() else 'False' }}, optional={{ rpm.property.multiplicity.lower == 0 }}, business_date=business_date, processing_time=processing_time, **kwargs{{condition_kw(rpm.target)}})
+{% if rpm.property.type.name != rcm.clazz.name %}
         return self.__{{to_python_name(rpm.property)}}
+{% else %}
+        if self.__{{to_python_name(rpm.property)}} is None:
+            self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}RelatedFinder('{{rpm.property.name}}', Column('{{rpm.target.lhs.name}}', '{{rpm.target.lhs.type}}', {{owner_code(rpm.target.lhs.table)}}{% if rpm.target.lhs.primary_key %}, primary_key=True{% endif %}), Column('{{rpm.target.rhs.name}}', '{{rpm.target.rhs.type}}', {{owner_code(rpm.target.rhs.table)}}{% if rpm.target.rhs.primary_key %}, primary_key=True{% endif %}), {{ parent_expr(rpm.target, 'self.__node', True) }}, many={{ 'True' if rpm.property.multiplicity.is_many() else 'False' }}, optional={{ rpm.property.multiplicity.lower == 0 }}{{condition_kw(rpm.target)}})
+        return self.__{{to_python_name(rpm.property)}}
+{% endif %}
 
 {% endif %}
 {% endfor %}

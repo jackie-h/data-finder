@@ -179,3 +179,34 @@ WHERE amount IS NOT NULL
 | out_z  | TIMESTAMP |     | Y        | validTo      |
 | from_z | DATE      |     | Y        | businessFrom |
 | thru_z | DATE      |     | Y        | businessThru |
+
+A class mapped to a query can be associated with itself: the query is joined to a second copy of itself.
+
+#### Table: units
+
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| unit_id   | INT     | PK  | N        |             |
+| name      | VARCHAR |     | Y        |             |
+| parent_id | INT     |     | Y        |             |
+| active    | INT     |     | Y        |             |
+
+#### Query: UNIT_QUERY → Unit
+
+```sql
+SELECT unit_id, name, parent_id
+FROM units
+WHERE active = 1
+```
+
+| Column    | Type    | Key | Nullable | Property ID |
+|-----------|---------|-----|----------|-------------|
+| unit_id   | INT     | PK  | N        | id          |
+| name      | VARCHAR |     | Y        | name        |
+| parent_id | INT     |     | Y        |             |
+
+#### Association: UnitParent
+
+| Source Column | Target Table | Target Column |
+|---------------|--------------|---------------|
+| parent_id     | UNIT_QUERY   | unit_id       |
