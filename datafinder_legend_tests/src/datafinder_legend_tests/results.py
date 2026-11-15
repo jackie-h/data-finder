@@ -8,7 +8,7 @@ import duckdb
 import numpy as np
 import pandas as pd
 import pytest
-from sqlglot import exp
+from sqlglot import exp, parse_one
 
 from datafinder_examples_tests.spec import TestExpectation
 from datafinder_examples_tests.sql_compare import parse
@@ -64,7 +64,8 @@ def _sort_key_positions(legend_sql: str) -> list[int] | None:
 
 def _for_duckdb(legend_sql: str) -> str:
     """Legend's SQL as DuckDB reads it: sqlglot maps functions such as char_length and ``select top N`` to DuckDB's,
-    and a DateTime milestoning date, ``cast(truncate('2015-08-26 02:00:00') as date)``, becomes a cast of the text."""
+    a DateTime milestoning date, ``cast(truncate('2015-08-26 02:00:00') as date)``, becomes a cast of the text, and ``dateadd`` and the day of the
+    week, which H2 numbers from Sunday = 1, are written as DuckDB has them."""
     tree = parse(legend_sql, to_run=True)
     for cast in list(tree.find_all(exp.Cast)):
         call = cast.this
@@ -72,6 +73,15 @@ def _for_duckdb(legend_sql: str) -> str:
                 isinstance(call, exp.Anonymous) and call.name.lower() == "truncate")):
             arg = call.this if isinstance(call, exp.Trunc) else call.expressions[0]
             cast.set("this", arg.copy())
+    for call in list(tree.find_all(exp.DayOfWeek)):  # H2 and MySQL number the days from Sunday = 1, DuckDB from Sunday = 0
+        call.replace(exp.Paren(this=exp.Add(this=exp.Anonymous(this="DAYOFWEEK", expressions=[exp.Cast(this=call.this.copy(), to=exp.DataType.build("DATE"))]), expression=exp.Literal.number(1))))
+    for call in list(tree.find_all(exp.Anonymous)):
+        if call.name.upper() == "FORMATDATETIME" and len(call.expressions) == 2 and call.expressions[1].name == "EEEE":  # the name of the day
+            call.replace(exp.Anonymous(this="DAYNAME", expressions=[call.expressions[0].copy()]))
+    for call in reversed(list(tree.find_all(exp.Anonymous))):  # the innermost first
+        if call.name.upper() == "DATEADD" and len(call.expressions) == 3:  # dateadd(unit, count, date), which DuckDB does not have
+            unit, count, moved = (e.sql(dialect="duckdb") for e in call.expressions)
+            call.replace(parse_one(f"(CAST({moved} AS TIMESTAMP) + INTERVAL ({count}) {unit})", read="duckdb"))
     return tree.sql(dialect="duckdb")
 
 

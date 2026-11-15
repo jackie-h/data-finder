@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, DAY_NAME_FUNCTION, ported, unsupported
 
 _SRC = "tests/query/testWithFunction.pure"
 
@@ -14,9 +14,10 @@ WITH_FUNCTION_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testDayOfWeekFunction", f"{_SRC}::testDayOfWeekFunction",
+        ported("testDayOfWeekFunction", f"{_SRC}::testDayOfWeekFunction",
                     'select formatdatetime("root".tradeDate, \'EEEE\') as "Day Of Week Name" from tradeTable as "root" where formatdatetime("root".tradeDate, \'EEEE\') is distinct from \'Monday\'',
-                    'no adjust, day-of-week names, or dates relative to now'),
+                    lambda f: f.find_all([f.date().day_of_week_name().alias("Day Of Week Name")], f.date().day_of_week_name() != "Monday"),
+                    known_gaps={BACKEND: DAY_NAME_FUNCTION}),
         unsupported("testDayOfWeekNumberFunction", f"{_SRC}::testDayOfWeekNumberFunction",
                     'select extract(dow from "root".tradeDate) as "Day Of Week Number" from tradeTable as "root" where extract(isodow from "root".tradeDate) is distinct from \'2\'',
                     'no adjust, day-of-week names, or dates relative to now'),

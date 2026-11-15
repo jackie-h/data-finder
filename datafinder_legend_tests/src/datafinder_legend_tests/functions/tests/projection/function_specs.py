@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION, DATE_PART_TRUNCATE
 
 _SRC = "functions/tests/projection/testFunction.pure"
 
@@ -56,9 +56,10 @@ FUNCTION_TRADE_SPECS = FinderSpec(
         ported("testAbs", f"{_SRC}::testAbs",
                'select abs("root".quantity) as "quantity" from tradeTable as "root" where "root".quantity <= 45',
                lambda f: f.find_all([f.quantity().abs()], f.quantity() <= 45)),
-        unsupported("testDatePartWithZeroToOne", f"{_SRC}::testDatePartWithZeroToOne",
+        ported("testDatePartWithZeroToOne", f"{_SRC}::testDatePartWithZeroToOne",
                     'select cast(truncate("root".settlementDateTime) as date) as "settlementDateTime" from tradeTable as "root" where "root".ID in (9, 10)',
-                    'no datePart (truncate to a date)'),
+                    lambda f: f.find_all([f.settlement_date_time().date().alias("settlementDateTime")], f.id_().is_in([9, 10])),
+                    known_gaps={BACKEND: DATE_PART_TRUNCATE}),
         ported("testWeekOfYearWithZeroToOne", f"{_SRC}::testWeekOfYearWithZeroToOne",
                'select extract(week from "root".settlementDateTime) as "settlementWeekOfYear" from tradeTable as "root" where "root".ID in (9, 10)',
                lambda f: f.find_all([f.settlement_date_time().week()], f.id_().is_in([9, 10]))),

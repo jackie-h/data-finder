@@ -79,6 +79,19 @@ JOIN_KEPT_AFTER_RESTRICT = (
     "reads, and counts a column where Legend counts rows, which are the same where the column is not null"
 )
 
+DATE_ARITHMETIC_SHAPE = (
+    "Legend writes a date moved or cut to a period with dateadd and day arithmetic, and today as now(); the finder writes INTERVAL, DATE_TRUNC "
+    "and CURRENT_DATE, which are the same dates"
+)
+
+DAY_NAME_FUNCTION = (
+    "Legend writes the name of the day as formatdatetime(x, 'EEEE'); the finder writes DAYNAME(x), which is the same name"
+)
+
+DATE_PART_TRUNCATE = (
+    "Legend writes the date of a datetime as cast(truncate(x) as date); the finder writes cast(date_trunc('day', x) as date), which is the same date"
+)
+
 HOUR_OF_DATETIME_LITERAL = (
     "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
     "string, which DuckDB cannot run, so there are no rows of Legend's to compare"
