@@ -62,6 +62,14 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Dave", "Hello"], ["Carol", "Hello"], ["Bob", "Hello"], ["Alice", "Hello"]], dtype=object),
         ),
         TestExpectation(
+            name="a_result_is_ordered_by_a_column_of_the_result_it_was_made_from",
+            skip_backends={"graphql": "The GraphQL engine does not order the columns of a result"},
+            query=lambda f: (lambda r: r.distinct().order_by(r["employeeName"].descending()))(
+                f.find_all([f.name().alias("employeeName")])),
+            expected_columns=["employeeName"],
+            expected_result=np.array([["Dave"], ["Carol"], ["Bob"], ["Alice"]], dtype=object),
+        ),
+        TestExpectation(
             name="fill_null_replaces_a_missing_manager",
             query=lambda f: f.find_all(
                 [f.name(), f.manager().name().fill_null("nobody")]
