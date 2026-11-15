@@ -2,12 +2,13 @@ import datetime
 from typing import Sequence, cast
 
 from datafinder import Operation, DataFrame, Attribute, to_sql
-from datafinder.sql_generator import view_sql_to_string
+from datafinder.sql_generator import view_select_to_string
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy, interrupt_after
 
 import duckdb
 import ibis
 from ibis.backends.duckdb import Backend as DuckDBBackend
+from ibis.backends import CanCreateDatabase, CanListDatabase
 from ibis.backends.sql import SQLBackend
 import numpy as np
 import pandas as pd
@@ -54,10 +55,12 @@ class IbisConnect(QueryRunnerBase):
 
     @staticmethod
     def create_view(view: View) -> None:
-        # raw_sql is not part of the generic backend, each backend has its own: this runs DuckDB statements
-        conn = cast(DuckDBBackend, _connect('duckdb://test.db'))
-        conn.raw_sql(f"CREATE SCHEMA IF NOT EXISTS {view.schema}")
-        conn.raw_sql(view_sql_to_string(view))
+        conn = _connect('duckdb://test.db')
+        # ibis calls a schema a database; force would replace a schema that has views in it, so create it only when it is missing
+        if isinstance(conn, CanCreateDatabase) and not (isinstance(conn, CanListDatabase) and view.schema in conn.list_databases()):
+            conn.create_database(view.schema)
+        select = sql_for_backend(view_select_to_string(view), conn.name)
+        conn.create_view(view.name, conn.sql(select), database=view.schema, overwrite=True)
 
     @staticmethod
     def select_view(view: View, order_by: list[str] | None = None, timeout_ms: int = 60_000) -> DataFrame:
