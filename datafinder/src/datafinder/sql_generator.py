@@ -1,3 +1,6 @@
+import copy
+import decimal
+import itertools
 import re
 import datetime
 from functools import reduce
@@ -12,6 +15,7 @@ from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, Sin
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.milestoning import milestoning_columns_of
+from model.naming import to_snake_case
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableAlias, QueryExpression, UnionOperation, Operation, LogicalOperator, LogicalOperation, RelationalOperationElement, \
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
@@ -21,7 +25,7 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, RelationExistsOperation, \
     OrderedQuerySpecification, QuerySpecification, BinaryOperation, ArithmeticOperation, ArithmeticOperator, ConcatOperation, CaseOperation, IntervalOperation, IntervalConstantOperation, \
-    JoinKind
+    JoinKind, StringFunctionOperation
 
 _JOIN_WORDS = {JoinKind.INNER: 'INNER', JoinKind.LEFT: 'LEFT OUTER', JoinKind.RIGHT: 'RIGHT OUTER', JoinKind.FULL: 'FULL OUTER'}
 
@@ -432,33 +436,234 @@ def build_query_specification(business_date: datetime.date | None, processing_da
                          distinct: bool = False, offset: int | None = None,
                          having: Operation | None = None,
                          processing_datetime_to: datetime.datetime | datetime.date | None = None) -> OrderedQuerySpecification:
+    """The query for the rows asked of ``table``, as of the dates. ``filter`` of the query is the ``op`` that was asked, and what the
+    dates add to it, by the milestoning of the table, is its ``as_of_filter``."""
+    as_of = None
     if milestoning_columns_of(table) is not None:
         assert isinstance(table, (MilestonedTable, TableAlias))
         if business_date_to is not None or processing_datetime_to is not None:
-            milestoned_op = build_milestoning_filter_operation_for_date_range(
+            as_of = build_milestoning_filter_operation_for_date_range(
                 business_date, business_date_to, processing_datetime, table,
                 processing_datetime_to=processing_datetime_to)
         else:
-            milestoned_op = build_milestoning_filter_operation(business_date, processing_datetime, table)
-        if milestoned_op is not None:
-            op = milestoned_op if isinstance(op, NoOperation) else LogicalOperation(op, LogicalOperator.AND, milestoned_op)
+            as_of = build_milestoning_filter_operation(business_date, processing_datetime, table)
 
     query = OrderedQuerySpecification(columns, op, order_by or [], group_by or [], limit, table, distinct, offset, having)
+    query.business_date, query.business_date_to = business_date, business_date_to
+    query.processing_datetime, query.processing_datetime_to = processing_datetime, processing_datetime_to
+    query.as_of_filter = as_of
+    _derive_joins(query)
+    return query
 
+
+def _derive_joins(query: QuerySpecification) -> None:
+    """What the joins a query needs add to it, from the columns it reads and the dates it reads them as of: the ON conditions of the
+    joins, and the queries that stand for the steps it only asks the existence of. A step said of a query can read another join."""
     def milestoning_condition(node):
         if milestoning_columns_of(node.join.table) is None:
             return None
         assert isinstance(node.join.table, (MilestonedTable, TableAlias))
-        bd, bd_to, pdt, pdt_to = _dates_for_node(node, business_date, business_date_to, processing_datetime,
-                                                 processing_datetime_to)
+        bd, bd_to, pdt, pdt_to = _dates_for_node(node, query.business_date, query.business_date_to, query.processing_datetime,
+                                                 query.processing_datetime_to)
         if bd_to is not None or pdt_to is not None:
             return build_milestoning_filter_operation_for_date_range(bd, bd_to, pdt, node.join.table, node,
                                                                      processing_datetime_to=pdt_to)
         return build_milestoning_filter_operation(bd, pdt, node.join.table, node)
 
     _apply_join_filters(query, milestoning_condition)
-    _apply_sub_selects(query, business_date, business_date_to, processing_datetime, processing_datetime_to)
-    return query
+    _apply_sub_selects(query, query.business_date, query.business_date_to, query.processing_datetime, query.processing_datetime_to)
+
+
+# --- the steps written after a query, said as SELECTs ---------------------------------------------------------------------
+
+_NUMBER_TYPES = {int: "BIGINT", float: "DOUBLE", decimal.Decimal: "DECIMAL"}
+
+_CONSTANT_TYPES = {
+    IntegerConstantOperation: "BIGINT", FloatConstantOperation: "DOUBLE", StringConstantOperation: "VARCHAR",
+    DateConstantOperation: "DATE", DateTimeConstantOperation: "TIMESTAMP", DecimalConstantOperation: "DECIMAL",
+    BooleanConstantOperation: "BOOLEAN", IntervalConstantOperation: "INTERVAL",
+}
+
+
+def _column_name(element: RelationalOperationElement) -> str:
+    """The name a column of a result has for the step after it: the name it was given, or its display name in snake_case
+    (as a view names its columns)."""
+    return element.name if isinstance(element, Alias) else to_snake_case(display_alias(element))
+
+
+def _column_type(element: RelationalOperationElement) -> str:
+    """The database type of what a result column holds, so a query over the result can compare it as that type."""
+    if isinstance(element, Alias):
+        return _column_type(element.element)
+    if isinstance(element, Attribute):
+        return element.column().type
+    if isinstance(element, ColumnWithJoin):
+        return element.column.type
+    if isinstance(element, Column):
+        return element.type
+    if isinstance(element, CountAllOperation):
+        return "BIGINT"
+    if isinstance(element, IntervalOperation):  # before the number kinds: it is arithmetic's subclass, but not a number
+        return "INTERVAL"
+    # a number of a known kind: an integer, double or decimal arithmetic result, function, aggregate or constant
+    kind = getattr(element, "_number_kind", None)
+    if kind in _NUMBER_TYPES:
+        return _NUMBER_TYPES[kind]
+    if isinstance(element, AggregateOperation):
+        if element.operator in (AggregateOperator.COUNT, AggregateOperator.COUNT_DISTINCT):
+            return "BIGINT"
+        if element.operator == AggregateOperator.STRING_AGG:
+            return "VARCHAR"
+        if element.operator in (AggregateOperator.MIN, AggregateOperator.MAX, AggregateOperator.SUM):
+            return _column_type(element.element)
+        if element.operator in (AggregateOperator.BOOL_AND, AggregateOperator.BOOL_OR):
+            return "BOOLEAN"
+        return "DOUBLE"
+    if isinstance(element, WindowFunctionOperation):
+        return _column_type(element.element) if element.element is not None else "BIGINT"
+    if isinstance(element, ConstantOperation):
+        return _CONSTANT_TYPES.get(type(element), "VARCHAR")
+    if isinstance(element, CaseOperation):
+        return _column_type(element.then)
+    if isinstance(element, (ConcatOperation, StringFunctionOperation)):
+        return "VARCHAR"
+    if isinstance(element, (DateExtractOperation, DateDiffOperation)):
+        return "BIGINT"
+    if isinstance(element, (DateArithmeticOperation, DateTruncOperation)):
+        return _column_type(element.element)
+    if isinstance(element, ScalarFunctionOperation):  # an untyped one, such as fill_null: what it is applied to
+        return _column_type(element.element)
+    if isinstance(element, ArithmeticOperation):  # one of unknown kind
+        return "DOUBLE"
+    return "VARCHAR"
+
+
+
+def _sort_target(sort_op: SortOperation) -> tuple:
+    """What a sort orders by: a column and the joins to reach it. Any other expression, such as an aggregate, is its
+    own target, so sorting by an expression again adds a sort."""
+    column = sort_op.column
+    if not isinstance(column, ColumnWithJoin):
+        return ("expression", id(column))
+    joins = []
+    node = column.parent
+    while node is not None:
+        joins.append(node.join.name)
+        node = node.parent
+    return column.column.owner_name, column.column.name, tuple(joins)
+
+
+
+def _column_of(element) -> 'Column | None':
+    """The column an attribute, or a column reached through joins, reads; none for any other expression."""
+    if isinstance(element, Attribute):
+        return element.column()
+    if isinstance(element, ColumnWithJoin):
+        return element.column
+    return None
+
+
+def display_columns(columns: Sequence) -> list[Alias]:
+    """The columns of a query that something reads from, each under the name that reads it."""
+    return [c if isinstance(c, Alias) else Alias(c, _column_name(c)) for c in columns]
+
+
+def labelled(query: QuerySpecification) -> QuerySpecification:
+    """The query as something reads from it: its columns under the names that read them."""
+    result = copy.copy(query)
+    result.columns = display_columns(query.columns)
+    return result
+
+
+relation_numbers = itertools.count(1)
+
+# A SELECT says DISTINCT, then the order, then the offset, then the limit, in that order only. A step that comes next, or again, is said by
+# the SELECT it is written after; one that comes earlier than the last one said is a SELECT over the rows that SELECT gives, as every
+# other step is. What a SELECT has said last is read from what it says.
+_DISTINCT, _SORT, _DROP, _TAKE = 1, 2, 3, 4
+
+
+def _stage(query: QuerySpecification) -> int:
+    if not isinstance(query, OrderedQuerySpecification):
+        return _DISTINCT if query.distinct else 0
+    if query.limit is not None:
+        return _TAKE
+    if query.offset is not None:
+        return _DROP
+    return _SORT if query.order_by else (_DISTINCT if query.distinct else 0)
+
+
+def said_of_the_rows_a_finder_reads(query: QuerySpecification) -> bool:
+    """Whether nothing has been said of the rows yet that group by and having come before."""
+    return _stage(query) == 0
+
+
+def _more_said(query: OrderedQuerySpecification, **changes) -> OrderedQuerySpecification:
+    """The query with more said of it. A sort can read a join the query did not, so what the joins add is worked out again."""
+    result = copy.copy(query)
+    for name, value in changes.items():
+        setattr(result, name, value)
+    _derive_joins(result)
+    return result
+
+
+def select_over(query: QuerySpecification) -> tuple[OrderedQuerySpecification, TableAlias]:
+    """A SELECT of every column of ``query``, which it reads under a name of its own."""
+    alias = TableAlias(labelled(query), f"relation{next(relation_numbers)}")
+    columns = [Alias(alias.column(_column_name(c), _column_type(c)), _column_name(c)) for c in query.columns]
+    return build_query_specification(None, None, columns, alias, NoOperation()), alias
+
+
+def _own_sorts(query: QuerySpecification, alias: TableAlias, sorts: Sequence[SortOperation]) -> list[SortOperation]:
+    """The sorts, which are of the columns ``query`` shows, as a SELECT over it reads them: the columns of ``alias``."""
+    result = []
+    for sort in sorts:
+        found = None
+        ref = _column_of(sort.column)
+        for shown in query.columns:
+            element = shown.element if isinstance(shown, Alias) else shown
+            if element is sort.column or (ref is not None and _column_of(element) is ref):
+                found = shown
+                break
+        if found is None:
+            names = [_column_name(c) for c in query.columns]
+            raise ValueError(f"The rows after a limit or an offset are ordered by the columns of the result: {names} "
+                             "(result[\"name\"].ascending())")
+        name = _column_name(found)
+        result.append(SortOperation(ColumnWithJoin(alias.column(name, _column_type(found)), None), sort.direction))
+    return result
+
+
+def made_distinct(query: OrderedQuerySpecification) -> OrderedQuerySpecification:
+    """Each distinct row of the query once."""
+    if _stage(query) > _DISTINCT:
+        query = select_over(query)[0]
+    return _more_said(query, distinct=True)
+
+
+def sorted_by(query: OrderedQuerySpecification, sorts: Sequence[SortOperation]) -> OrderedQuerySpecification:
+    """The rows of the query in the order of ``sorts``, which are of the columns it shows. A column sorted again is sorted as the later sort
+    says, and the earlier sorts order the rows it leaves tied."""
+    sorts = list(sorts)
+    if _stage(query) > _SORT:
+        inner = query
+        query, alias = select_over(inner)
+        sorts = _own_sorts(inner, alias, sorts)
+    resorted = {_sort_target(s) for s in sorts}
+    return _more_said(query, order_by=[*sorts, *(s for s in query.order_by if _sort_target(s) not in resorted)])
+
+
+def dropped(query: OrderedQuerySpecification, count: int) -> OrderedQuerySpecification:
+    """The rows of the query after the first ``count`` of them."""
+    if _stage(query) >= _TAKE:
+        query = select_over(query)[0]
+    return _more_said(query, offset=count if query.offset is None else query.offset + count)
+
+
+def taken(query: OrderedQuerySpecification, count: int) -> OrderedQuerySpecification:
+    """The first ``count`` rows of the query."""
+    return _more_said(query, limit=count if query.limit is None else min(query.limit, count))
+
 
 def sql_format_datetime(value:datetime.datetime) -> str:
     return value.strftime("'%Y-%m-%d %H:%M:%S'")
@@ -847,7 +1052,10 @@ class SQLQueryGenerator:
         ordered = isinstance(query, OrderedQuerySpecification)
         order_by = query.order_by if ordered else []
         self.select(query.columns)
-        self._where = self.build_filter(self.__guarded(query.filter))
+        asked = query.filter
+        if query.as_of_filter is not None:
+            asked = query.as_of_filter if isinstance(asked, NoOperation) else LogicalOperation(asked, LogicalOperator.AND, query.as_of_filter)
+        self._where = self.build_filter(self.__guarded(asked))
         required_joins: dict = {}
         for group_by_expr in query.group_by:
             self.__collect_required_joins(group_by_expr, required_joins)

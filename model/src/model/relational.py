@@ -2063,10 +2063,17 @@ class QuerySpecification(QueryExpression):
         # Steps the query only asks the existence of, each as the query that stands for its table, keyed by id(node):
         # the query joins to that instead of to the table, so a parent is not repeated for each row that matches.
         self.sub_selects: dict[int, 'OrderedQuerySpecification'] = {}
+        # The dates the rows are read as of. ``filter`` is what was asked of the rows; ``as_of_filter`` is what the dates and the
+        # table's milestoning add to it, which is written with it (the two are separate so that what was asked can be given again).
+        self.business_date: datetime.date | None = None
+        self.business_date_to: datetime.date | None = None
+        self.processing_datetime: datetime.datetime | datetime.date | None = None
+        self.processing_datetime_to: datetime.datetime | datetime.date | None = None
+        self.as_of_filter: Operation | None = None
 
     def expressions(self) -> list[RelationalOperationElement]:
         """Every expression of the query, in the order they are rendered."""
-        return [*self.columns, *self.group_by, self.filter]
+        return [*self.columns, *self.group_by, self.filter, *([] if self.as_of_filter is None else [self.as_of_filter])]
 
 
 class OrderedQuerySpecification(QuerySpecification):
@@ -2086,7 +2093,8 @@ class OrderedQuerySpecification(QuerySpecification):
         self.offset = offset
 
     def expressions(self) -> list[RelationalOperationElement]:
-        return [*self.columns, *self.group_by, *self.order_by, self.filter]
+        return [*self.columns, *self.group_by, *self.order_by, self.filter,
+                *([] if self.as_of_filter is None else [self.as_of_filter])]
 
 
 class UnionOperation(QueryExpression):
