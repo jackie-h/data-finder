@@ -10,7 +10,7 @@ from datafinder.typed_attributes import typed_attribute
 from model.milestoning import AsOf, ProcessingTemporalColumns, milestoning_columns_of
 from model.naming import to_snake_case
 from model.relational import (
-    Alias, JoinKind, JoinOperation, NoOperation, OrderedQuerySpecification, QuerySpecification, Relation, RelationExistsOperation,
+    Alias, JoinKind, JoinOperation, NoOperation, OrderedQuerySpecification, QueryExpression, QuerySpecification, Relation, RelationExistsOperation,
     RelationalOperationElement, SortOperation, Table, TableAlias, UnionOperation)
 from model.view import View, ViewDefinitionError, contains_aggregate
 
@@ -163,14 +163,14 @@ class GroupedRows:
         return self._result._step([*self._keys, *aggregates], group_by=keys)
 
 
-def _union_side(result: 'FinderResult', all: bool) -> QuerySpecification:
+def _union_side(result: 'FinderResult', all: bool) -> QueryExpression:
     """A result as one side of a union. A union of the same operator is that union itself, not a SELECT over it, so
     ``a.concatenate(b).concatenate(c)`` is one flat chain of unions."""
     query = result._query
     if (isinstance(query.table, TableAlias) and isinstance(query.table.relation, UnionOperation) and query.table.relation.all == all
             and isinstance(query.filter, NoOperation) and not (query.group_by or query.distinct or query.having)
             and query.limit is None and query.offset is None and not query.order_by):
-        return query.table.relation  # pyright: ignore[reportReturnType]
+        return query.table.relation
     return labelled(query)
 
 

@@ -71,7 +71,7 @@ def test_an_expression_of_unknown_kind_is_untyped_and_takes_any_comparison():
 def test_text_is_not_arithmetic():
     text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
     with pytest.raises(TypeError):
-        text - 1  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+        _ = text - 1  # pyright: ignore[reportOperatorIssue]
 
 
 def test_an_aggregate_of_arithmetic_has_the_type_of_the_arithmetic():
@@ -161,11 +161,11 @@ def test_a_constant_has_arithmetic_and_comparisons_of_its_kind():
     assert constant("a").eq("a") and constant(True).ne(False)
     for unordered in (constant("a"), constant(True)):
         with pytest.raises(TypeError):
-            unordered < 1  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+            _ = unordered < 1  # pyright: ignore[reportOperatorIssue]
     # a text constant is not a number: it is repeated by * (as a text column is), and takes no other arithmetic
     with pytest.raises(TypeError):
-        constant("a") - 2  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+        _ = constant("a") - 2  # pyright: ignore[reportOperatorIssue]
     with pytest.raises(TypeError):
-        constant("a") / 2  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+        _ = constant("a") / 2  # pyright: ignore[reportOperatorIssue]
     with pytest.raises(TypeError):
-        constant(datetime.date(2020, 1, 1)) + 1  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+        _ = constant(datetime.date(2020, 1, 1)) + 1  # pyright: ignore[reportOperatorIssue]

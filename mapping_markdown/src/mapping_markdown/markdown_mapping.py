@@ -1148,8 +1148,7 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                     continue  # the associations of a class of sets are those of its union, written once
                 rcm = union or section
                 for pm in rcm.property_mappings:
-                    if isinstance(pm, NavigationPropertyMapping) and isinstance(pm.target, Join) and (pm.source_set_id != rcm.id or pm.target_set_id != pm.property.type.name):  # pyright: ignore[reportOptionalMemberAccess]
-                        assert isinstance(pm.property.type, Class)
+                    if isinstance(pm, NavigationPropertyMapping) and isinstance(pm.target, Join) and isinstance(pm.property.type, Class) and (pm.source_set_id != rcm.id or pm.target_set_id != pm.property.type.name):
                         assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
                         target = next(r for r in mapping.mappings if isinstance(r, RelationalClassMapping) and r.clazz is pm.property.type)
                         options = ", ".join(o for o in (f"source set: {pm.source_set_id}" if pm.source_set_id != rcm.id else "",

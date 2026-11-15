@@ -1,3 +1,4 @@
+from typing import Any
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -39,7 +40,7 @@ class _GraphQLHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def log_message(self, *args):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def log_message(self, format: str, *args: Any) -> None:
         pass
 
 

@@ -11,6 +11,7 @@ import shutil
 import sys
 import tempfile
 import threading
+from typing import Any
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import datetime
@@ -137,7 +138,7 @@ class _FinanceGraphQLHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def log_message(self, *args):  # pyright: ignore[reportIncompatibleMethodOverride]
+    def log_message(self, format: str, *args: Any) -> None:
         pass
 
 

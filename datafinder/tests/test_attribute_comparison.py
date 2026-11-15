@@ -191,7 +191,7 @@ def test_a_function_result_has_the_type_the_function_gives():
 def test_a_text_function_is_not_ordered_and_a_number_function_is():
     text = StringAttribute("S", "S", "VARCHAR", _OWNER_T)
     with pytest.raises(TypeError):
-        text.upper() < "b"  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+        _ = text.upper() < "b"  # pyright: ignore[reportOperatorIssue]
     assert text.length() < 3
     assert not hasattr(text.upper(), "sqrt") and not hasattr(text.length(), "upper")
 
@@ -269,8 +269,8 @@ def test_an_aggregate_is_ordered_only_if_what_it_gives_is():
     assert DateAttribute("A", "A", "DATE", _OWNER_T).max() >= datetime.date(2020, 1, 1)
     for text_aggregate in (text.min(), text.join(",")):
         with pytest.raises(TypeError):
-            text_aggregate < "b"  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+            _ = text_aggregate < "b"  # pyright: ignore[reportOperatorIssue]
         assert text_aggregate.eq("a") and text_aggregate.starts_with("a")
     with pytest.raises(TypeError):
-        (integer > 1).all() < True  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
+        _ = (integer > 1).all() < True  # pyright: ignore[reportOperatorIssue]
     assert not hasattr(text.min(), "sum")

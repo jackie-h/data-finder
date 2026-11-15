@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable
 
 from model.relational import Aliasable, Column, Relation, Operation, RelationalOperationElement, \
     ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, UntypedFunctionOperation, SortOperation, SortDirection, IntegerAggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
@@ -172,7 +172,7 @@ class Attribute(RelationalOperationElement, Aliasable):
         return self._coalesce_type()(self._column_with_join(), ScalarFunction.COALESCE,
                                      'Fill Null ' + self.__display_name, extra_args=[default])
 
-    def _coalesce_type(self) -> type[ScalarFunctionOperation]:
+    def _coalesce_type(self) -> Callable[..., ScalarFunctionOperation]:
         """The operation that holds ``fill_null``'s result: one of the column's own type where there is one."""
         return UntypedFunctionOperation
 
