@@ -1,5 +1,21 @@
+import datetime
+from dataclasses import dataclass
 from typing import Sequence
-from model.relational import Column, Relation, Table, TableAlias
+from model.relational import Column, Operation, Relation, Table, TableAlias
+
+
+@dataclass(frozen=True)
+class AsOf:
+    """The dates a query reads its rows as of, and what they add to it. A date is a point in time, or the start of a range when it has an
+    end (``business_date_to``, ``processing_datetime_to``). ``filter`` is the predicate that the dates and the milestoning of the table
+    add to what was asked of the rows; it is none for a table that is not milestoned. The joins a query needs read their tables as of the
+    same dates, unless a step of a navigation was given others, so they are kept for working those out again."""
+    business_date: datetime.date | None = None
+    business_date_to: datetime.date | None = None
+    processing_datetime: datetime.datetime | datetime.date | None = None
+    processing_datetime_to: datetime.datetime | datetime.date | None = None
+    filter: Operation | None = None
+
 
 
 def milestoning_columns_of(relation: Relation | None) -> 'MilestoningColumns | None':

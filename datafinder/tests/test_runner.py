@@ -83,14 +83,14 @@ class TestFindForDateRangeValidation:
             datetime.date(2024, 1, 1), datetime.date(2024, 12, 31),
             self._PDT, [], self._table(), NoOperation())
         assert isinstance(result, FinderResult)
-        assert result._query.business_date == datetime.date(2024, 1, 1)
-        assert result._query.business_date_to == datetime.date(2024, 12, 31)
+        assert result._as_of.business_date == datetime.date(2024, 1, 1)
+        assert result._as_of.business_date_to == datetime.date(2024, 12, 31)
 
     def test_string_dates_are_converted(self):
         result = convert_inputs_and_select_for_date_range(
             "2024-01-01", "2024-12-31", "2024-06-01 00:00:00", [], self._table(), NoOperation())
-        assert result._query.business_date == datetime.date(2024, 1, 1)
-        assert result._query.business_date_to == datetime.date(2024, 12, 31)
+        assert result._as_of.business_date == datetime.date(2024, 1, 1)
+        assert result._as_of.business_date_to == datetime.date(2024, 12, 31)
 
 
 class TestConvertDateTime:
@@ -128,8 +128,8 @@ class TestConvertDateTime:
 
     def test_find_all_keeps_a_date_processing_date(self):
         result = convert_inputs_and_select(None, "2024-06-01", [], Table("trades", []), NoOperation())
-        assert result._query.processing_datetime == datetime.date(2024, 6, 1)
-        assert not isinstance(result._query.processing_datetime, datetime.datetime)
+        assert result._as_of.processing_datetime == datetime.date(2024, 6, 1)
+        assert not isinstance(result._as_of.processing_datetime, datetime.datetime)
 
 
 class TestOrderByAccumulates:

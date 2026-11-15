@@ -7,7 +7,7 @@ from datafinder.sql_generator import (
     made_distinct, query_sql_to_string, relation_numbers as _relation_numbers, said_of_the_rows_a_finder_reads, sorted_by, taken,
     view_sql_to_string, _more_said)
 from datafinder.typed_attributes import typed_attribute
-from model.milestoning import ProcessingTemporalColumns, milestoning_columns_of
+from model.milestoning import AsOf, ProcessingTemporalColumns, milestoning_columns_of
 from model.naming import to_snake_case
 from model.relational import (
     Alias, JoinKind, JoinOperation, NoOperation, OrderedQuerySpecification, QuerySpecification, Relation, RelationExistsOperation,
@@ -188,6 +188,13 @@ class FinderResult(DataFrame):
             processing_datetime_to=processing_datetime_to)
         self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
         self._alias: TableAlias | None = None
+
+    @property
+    def _as_of(self) -> AsOf:
+        """The dates the rows are read as of."""
+        as_of = self._query.as_of
+        assert as_of is not None
+        return as_of
 
     @property
     def _table(self) -> Relation:
@@ -401,11 +408,11 @@ class FinderResult(DataFrame):
         return self
 
     def _execute(self) -> DataFrame:
-        q = self._query
+        q, a = self._query, self._as_of
         return QueryRunnerBase.get_runner().select(
-            q.business_date, q.processing_datetime, q.columns, q.table, q.filter, list(q.order_by), list(q.group_by), q.limit,
-            self._timeout_ms, business_date_to=q.business_date_to, distinct=q.distinct, offset=q.offset,
-            having=q.having, processing_datetime_to=q.processing_datetime_to,
+            a.business_date, a.processing_datetime, q.columns, q.table, q.filter, list(q.order_by), list(q.group_by), q.limit,
+            self._timeout_ms, business_date_to=a.business_date_to, distinct=q.distinct, offset=q.offset,
+            having=q.having, processing_datetime_to=a.processing_datetime_to,
         )
 
     def to_view(self, name: str, schema: str) -> 'ViewDefinition':
@@ -417,9 +424,9 @@ class FinderResult(DataFrame):
         has no ORDER BY or row limit; to order the rows you read back use ``ViewDefinition.result().order_by()``.
         Each column is named after its display name in snake_case, e.g. "Account Name" becomes ``account_name``.
         """
-        q = self._query
-        if (q.business_date is not None or q.business_date_to is not None
-                or q.processing_datetime is not None or q.processing_datetime_to is not None):
+        q, a = self._query, self._as_of
+        if (a.business_date is not None or a.business_date_to is not None
+                or a.processing_datetime is not None or a.processing_datetime_to is not None):
             raise ViewDefinitionError(
                 "A view has no dates: pass None for the business date and processing time, and the view will "
                 "expose the milestoning columns instead")

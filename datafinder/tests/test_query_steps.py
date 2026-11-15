@@ -120,12 +120,12 @@ def test_the_arguments_a_runner_is_given_say_the_same_sql_as_the_result_does():
     union = _rows(_ID).concatenate(_rows(_ID), all=True)
     taken = union.order_by(union["id"].descending()).limit(3)
     result = taken.order_by(taken["id"].ascending())
-    q = result._query
-    assert to_sql(q.business_date, q.processing_datetime, q.columns, q.table, q.filter, list(q.order_by), list(q.group_by), q.limit) \
+    q, a = result._query, result._as_of
+    assert to_sql(a.business_date, a.processing_datetime, q.columns, q.table, q.filter, list(q.order_by), list(q.group_by), q.limit) \
         == result.to_sql()
 
 
 def test_the_dates_a_query_reads_as_of_are_part_of_it_and_a_step_keeps_them():
     day = datetime.date(2024, 1, 2)
     rows = FinderResult(day, None, [_ID], _TABLE, NoOperation()).order_by(_ID.ascending()).limit(1)
-    assert rows._query.business_date == day and rows._query.as_of_filter is None   # a table with no milestoning adds nothing
+    assert rows._as_of.business_date == day and rows._as_of.filter is None   # a table with no milestoning adds nothing

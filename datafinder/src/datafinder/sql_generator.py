@@ -11,7 +11,7 @@ import sqlglot.errors
 
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
-from model.milestoning import MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
+from model.milestoning import AsOf, MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
 from model.milestoning import milestoning_columns_of
@@ -437,7 +437,7 @@ def build_query_specification(business_date: datetime.date | None, processing_da
                          having: Operation | None = None,
                          processing_datetime_to: datetime.datetime | datetime.date | None = None) -> OrderedQuerySpecification:
     """The query for the rows asked of ``table``, as of the dates. ``filter`` of the query is the ``op`` that was asked, and what the
-    dates add to it, by the milestoning of the table, is its ``as_of_filter``."""
+    dates add to it, by the milestoning of the table, is ``as_of.filter``."""
     as_of = None
     if milestoning_columns_of(table) is not None:
         assert isinstance(table, (MilestonedTable, TableAlias))
@@ -449,9 +449,7 @@ def build_query_specification(business_date: datetime.date | None, processing_da
             as_of = build_milestoning_filter_operation(business_date, processing_datetime, table)
 
     query = OrderedQuerySpecification(columns, op, order_by or [], group_by or [], limit, table, distinct, offset, having)
-    query.business_date, query.business_date_to = business_date, business_date_to
-    query.processing_datetime, query.processing_datetime_to = processing_datetime, processing_datetime_to
-    query.as_of_filter = as_of
+    query.as_of = AsOf(business_date, business_date_to, processing_datetime, processing_datetime_to, as_of)
     _derive_joins(query)
     return query
 
@@ -459,19 +457,21 @@ def build_query_specification(business_date: datetime.date | None, processing_da
 def _derive_joins(query: QuerySpecification) -> None:
     """What the joins a query needs add to it, from the columns it reads and the dates it reads them as of: the ON conditions of the
     joins, and the queries that stand for the steps it only asks the existence of. A step said of a query can read another join."""
+    as_of = query.as_of or AsOf()
+
     def milestoning_condition(node):
         if milestoning_columns_of(node.join.table) is None:
             return None
         assert isinstance(node.join.table, (MilestonedTable, TableAlias))
-        bd, bd_to, pdt, pdt_to = _dates_for_node(node, query.business_date, query.business_date_to, query.processing_datetime,
-                                                 query.processing_datetime_to)
+        bd, bd_to, pdt, pdt_to = _dates_for_node(node, as_of.business_date, as_of.business_date_to, as_of.processing_datetime,
+                                                 as_of.processing_datetime_to)
         if bd_to is not None or pdt_to is not None:
             return build_milestoning_filter_operation_for_date_range(bd, bd_to, pdt, node.join.table, node,
                                                                      processing_datetime_to=pdt_to)
         return build_milestoning_filter_operation(bd, pdt, node.join.table, node)
 
     _apply_join_filters(query, milestoning_condition)
-    _apply_sub_selects(query, query.business_date, query.business_date_to, query.processing_datetime, query.processing_datetime_to)
+    _apply_sub_selects(query, as_of.business_date, as_of.business_date_to, as_of.processing_datetime, as_of.processing_datetime_to)
 
 
 # --- the steps written after a query, said as SELECTs ---------------------------------------------------------------------
@@ -1053,8 +1053,8 @@ class SQLQueryGenerator:
         order_by = query.order_by if ordered else []
         self.select(query.columns)
         asked = query.filter
-        if query.as_of_filter is not None:
-            asked = query.as_of_filter if isinstance(asked, NoOperation) else LogicalOperation(asked, LogicalOperator.AND, query.as_of_filter)
+        if query.as_of is not None and query.as_of.filter is not None:
+            asked = query.as_of.filter if isinstance(asked, NoOperation) else LogicalOperation(asked, LogicalOperator.AND, query.as_of.filter)
         self._where = self.build_filter(self.__guarded(asked))
         required_joins: dict = {}
         for group_by_expr in query.group_by:
