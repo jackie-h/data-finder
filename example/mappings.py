@@ -4,7 +4,7 @@ from datafinder_generator.generator import generate
 from model.m3 import Class, Property, String, Float, Package, Integer, Date, TaggedValue, DateTime, ONE_TO_ONE, ZERO_TO_ONE
 from model.mapping import Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping
 from model.relational import Table, Schema, Database
-from model.relational_mapping import RelationalEmbeddedSetMapping, RelationalPropertyMapping, RelationalClassMapping, Join
+from model.relational_mapping import RelationalEmbeddedSetMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, RelationalClassMapping, Join
 
 
 def create_description(text: str) -> TaggedValue:
@@ -80,10 +80,10 @@ def create_mappings_normalized() -> Mapping:
     )
     pm1 = RelationalPropertyMapping(trade_c.property('symbol'), c3, 'Trade')
     pm2 = RelationalPropertyMapping(trade_c.property('price'), c4, 'Trade')
-    pm3 = RelationalPropertyMapping(trade_c.property('account'), Join(c2, ac1, embedded=account_name_embedded), 'Trade')
+    pm3 = RelationalNavigationPropertyMapping(trade_c.property('account'), Join(c2, ac1, embedded=account_name_embedded), 'Trade', 'Account')
     pm4 = RelationalPropertyMapping(trade_c.property('validFrom'), c5, 'Trade')
     pm5 = RelationalPropertyMapping(trade_c.property('validTo'), c6, 'Trade')
-    pm6 = RelationalPropertyMapping(trade_c.property('instrument'), Join(c3,ic1), 'Trade')
+    pm6 = RelationalNavigationPropertyMapping(trade_c.property('instrument'), Join(c3,ic1), 'Trade', 'Instrument')
     mpm = ProcessingDateMilestonesPropertyMapping(pm4, pm5)
     rm_t = RelationalClassMapping(trade_c, [pm1, pm2, pm3, pm4, pm5, pm6], mpm)
 
@@ -101,7 +101,7 @@ def create_mappings_normalized() -> Mapping:
     cpm1 = RelationalPropertyMapping(c_position_c.property('businessDate'), p1, 'ContractualPosition')
     cpm2 = RelationalPropertyMapping(c_position_c.property('quantity'), p4, 'ContractualPosition')
     cpm3 = RelationalPropertyMapping(c_position_c.property('counterparty'), p3, 'ContractualPosition')
-    cpm4 = RelationalPropertyMapping(c_position_c.property('instrument'), Join(p2,ic1), 'ContractualPosition')
+    cpm4 = RelationalNavigationPropertyMapping(c_position_c.property('instrument'), Join(p2,ic1), 'ContractualPosition', 'Instrument')
     cpm5 = RelationalPropertyMapping(c_position_c.property('npv'), p5, 'ContractualPosition')
     cpm_t = SingleBusinessDateMilestonePropertyMapping(cpm1)
     rm_cp = RelationalClassMapping(c_position_c, [cpm1, cpm2, cpm3, cpm4, cpm5], cpm_t)

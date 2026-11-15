@@ -5,16 +5,24 @@ from model.m3 import Class, Property
 
 
 class PropertyMapping:
-    def __init__(self, property: Property, target: Any, source_set_id: str, target_set_id: str | None = None):
+    """How a property that holds a value is mapped (a column, say). A property typed by a class is mapped by a NavigationPropertyMapping."""
+    def __init__(self, property: Property, target: Any, source_set_id: str):
         self.property = property
         self.target = target
         # The id of the class mapping, or set, the property mapping belongs to: where it starts from. Every property mapping has one, and a Mapping checks that it is
         # the id of the class mapping it is in. For a navigation from a class that is a union of sets it is the id of the set it starts from, and a property joined
         # between several pairs of sets has a mapping for each pair.
         self.source_set_id = source_set_id
-        # For a navigation property (one whose type is a class): the id of the set it reaches, when the class it reaches is a union of sets; None where it is not,
-        # and for a property that is not a navigation.
+
+
+class NavigationPropertyMapping(PropertyMapping):
+    """How a property typed by a class is mapped: where it starts from, and the class mapping it reaches. The ``target_set_id`` is the id of that class mapping, which
+    is the name of its class, or of the set of it when it is a union of sets, or the embedded mapping that holds it in the row. A Mapping checks that it is the id
+    of a class mapping that there is."""
+    def __init__(self, property: Property, target: Any, source_set_id: str, target_set_id: str):
+        super().__init__(property, target, source_set_id)
         self.target_set_id = target_set_id
+
 
 class MilestonePropertyMapping:
     def __init(self):
@@ -135,9 +143,10 @@ def _set_ids(mapping: ClassMapping | None) -> list[str]:
 
 
 def _check_set_ids(mappings: Sequence[ClassMapping]) -> None:
-    """The ids of the class mappings and the sets are all different; a property mapping starts from the class mapping it is in (a navigation from a class that is
-    a union of sets, from one of its sets), and the one that reaches a class that is a union of sets says which of its sets it reaches, as one that does not says
-    nothing: otherwise a join to the union is a join to every set, which is rarely meant, and what it joins is not written anywhere."""
+    """The ids of the class mappings and the sets are all different. A property mapping starts from the class mapping it is in (a navigation from a class that is
+    a union of sets, from one of its sets), and a navigation reaches the class mapping of the class it is typed by (or one of its sets, if that class is a union, or
+    the embedded mapping that holds it in the row, which is the value of the property): otherwise a join to a union is a join to every set, which is rarely meant, and
+    what it joins is not written anywhere."""
     ids: list[str] = []
     for cm in mappings:
         ids += [cm.id, *_set_ids(cm)]
@@ -146,25 +155,38 @@ def _check_set_ids(mappings: Sequence[ClassMapping]) -> None:
             raise ValueError(f"the id '{set_id}' is the id of more than one class mapping")
     by_class = {cm.clazz.name: cm for cm in mappings}
     for cm in mappings:
-        for sets_own in ([cm] + (list(cm.sets) if isinstance(cm, UnionMapping) else [])):
-            for pm in sets_own.property_mappings:
-                navigation = isinstance(pm.property.type, Class)
-                from_a_set = isinstance(cm, UnionMapping) and sets_own is cm and navigation
-                owner = f"the property {pm.property.id} of {cm.clazz.name}"
-                if from_a_set:
-                    if pm.source_set_id not in _set_ids(cm):
-                        raise ValueError(f"'{pm.source_set_id}' is not a set of {cm.clazz.name} ({', '.join(_set_ids(cm))}): {owner} starts from one of them")
-                elif pm.source_set_id != sets_own.id:
-                    raise ValueError(f"{owner} has the source set id '{pm.source_set_id}', but the class mapping it belongs to is '{sets_own.id}'")
-                if not navigation:
-                    if pm.target_set_id:
-                        raise ValueError(f"{owner} is not a navigation: it has no target set id")
-                    continue
-                target = by_class.get(pm.property.type.name)  # pyright: ignore[reportOptionalMemberAccess]
-                target_ids = _set_ids(target)
-                if target_ids and pm.target_set_id is None:
-                    raise ValueError(f"{owner} reaches a union of sets: it needs a target set id, one of {', '.join(target_ids)}")
-                if target_ids and pm.target_set_id not in target_ids:
-                    raise ValueError(f"'{pm.target_set_id}' is not a set of {pm.property.type.name} ({', '.join(target_ids)})")  # pyright: ignore[reportOptionalMemberAccess]
-                if not target_ids and pm.target_set_id is not None and target is not None:
-                    raise ValueError(f"{pm.property.type.name} is not a union of sets: {owner.split(' of ')[0]} has no target set id")  # pyright: ignore[reportOptionalMemberAccess]
+        for holder in ([cm] + (list(cm.sets) if isinstance(cm, UnionMapping) else [])):
+            _check_property_mappings(holder, cm, by_class)
+
+
+def _check_property_mappings(holder: InstanceSetMapping, owner: ClassMapping, by_class: dict[str, ClassMapping]) -> None:
+    """The property mappings of ``holder``, which is ``owner``, or one of its sets, or an embedded mapping in one of them."""
+    for pm in holder.property_mappings:
+        where = f"the property {pm.property.id} of {holder.clazz.name}"
+        typed_by = pm.property.type
+        from_a_set = isinstance(owner, UnionMapping) and holder is owner and isinstance(typed_by, Class)
+        if from_a_set:
+            if pm.source_set_id not in _set_ids(owner):
+                raise ValueError(f"'{pm.source_set_id}' is not a set of {owner.clazz.name} ({', '.join(_set_ids(owner))}): {where} starts from one of them")
+        elif pm.source_set_id != holder.id:
+            raise ValueError(f"{where} has the source set id '{pm.source_set_id}', but the class mapping it belongs to is '{holder.id}'")
+        if not isinstance(typed_by, Class):
+            if isinstance(pm, NavigationPropertyMapping):
+                raise ValueError(f"{where} is not typed by a class: it is not mapped by a NavigationPropertyMapping")
+            continue
+        if not isinstance(pm, NavigationPropertyMapping):
+            raise ValueError(f"{where} is typed by a class: it is mapped by a NavigationPropertyMapping")
+        if isinstance(pm.target, EmbeddedSetMapping):  # mapped in the row: it reaches the embedded mapping, not the class's own
+            if pm.target_set_id != pm.target.id:
+                raise ValueError(f"{where} reaches '{pm.target_set_id}', but it is mapped by the embedded class mapping '{pm.target.id}'")
+            _check_property_mappings(pm.target, owner, by_class)
+            continue
+        target = by_class.get(typed_by.name)
+        target_ids = _set_ids(target)
+        if target_ids:
+            if pm.target_set_id not in target_ids:
+                raise ValueError(f"{where} reaches '{pm.target_set_id}', which is not a set of {typed_by.name} ({', '.join(target_ids)})")
+        elif pm.target_set_id != (target.id if target is not None else typed_by.name):
+            raise ValueError(f"{where} reaches '{pm.target_set_id}', but " + (
+                f"the class mapping of {typed_by.name} is '{target.id}'" if target is not None else
+                f"{typed_by.name} has no class mapping, so it can only be '{typed_by.name}'"))

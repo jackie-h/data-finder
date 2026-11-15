@@ -14,9 +14,9 @@ from mapping_markdown.join_condition import parse_condition
 from model.sql_query import output_names, parse_query_reads
 from model.relational import ComparisonOperation, query_of, schema_of, tables_read_by, BinaryOperation, DataStore, Database, DataCatalog, Schema, Table, MilestoningScheme, Column, \
     ForeignKey, Operation, TableAlias, UnaryOperation
-from model.mapping import UnionMapping
+from model.mapping import NavigationPropertyMapping, UnionMapping
 from model.query_sets import union_of_sets
-from model.relational_mapping import RelationalClassMapping, RelationalEmbeddedSetMapping, RelationalPropertyMapping, Join
+from model.relational_mapping import RelationalClassMapping, RelationalEmbeddedSetMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, Join
 
 _md_parser = MarkdownIt().enable("table")
 _log = logging.getLogger(__name__)
@@ -454,9 +454,9 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             prop = Property(assoc_def.source_property.name, nav_prop_id, target_cls, assoc_def.source_multiplicity)
                             embedded_entry = embedded_by_nav.pop(nav_prop_id, None)
                             embedded = embedded_entry[1] if embedded_entry is not None else None
-                            pm_list.append(RelationalPropertyMapping(prop, Join(
+                            pm_list.append(RelationalNavigationPropertyMapping(prop, Join(
                                 last_lhs, last_rhs, embedded=embedded, via=via, conditions=conditions,
-                                condition_texts=condition_texts), section_ids[owner_cls_name]))
+                                condition_texts=condition_texts), section_ids[owner_cls_name], target_cls.name))
                         for lhs, rhs in hops:
                             if isinstance(lhs.table, Table):
                                 lhs.table.foreign_keys.append(ForeignKey(lhs, rhs))
@@ -476,7 +476,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     for class_name, (pm_list, _, embedded_by_nav) in class_context.items():
         for nav_prop, embedded in embedded_by_nav.values():
             _check_embedded_joins(nav_prop.id, embedded)
-            pm_list.append(RelationalPropertyMapping(nav_prop, embedded, section_ids[class_name]))
+            pm_list.append(RelationalNavigationPropertyMapping(nav_prop, embedded, section_ids[class_name], embedded.id))
 
     together = _put_sets_together(class_mappings, sections_of_class, named_sets)
     _join_the_sets(set_associations, together, packages, classes_by_name, assoc_nav_lookup)
@@ -557,7 +557,7 @@ def _join_the_sets(set_associations: dict[str, list[tuple[str | None, str | None
             if lhs is None or rhs is None:
                 raise ValueError(f"Association '{assoc_name}': the columns {keys} are not columns of {source_rel.name} and {target_rel.name}")
             assert isinstance(source.property_mappings, list)
-            source.property_mappings.append(RelationalPropertyMapping(prop, Join(lhs, rhs), source_set or source.id, target_set))
+            source.property_mappings.append(RelationalNavigationPropertyMapping(prop, Join(lhs, rhs), source_set or source.id, target_set or target.id))
 
 
 def _sets_of(mapping: ClassMapping) -> list:
@@ -650,6 +650,12 @@ def _resolve_nav_property(cls_name: str, seg: str, classes_by_name: dict, assoc_
     return None
 
 
+def target_cls_name_of(prop: Property) -> str:
+    """The name of the class a navigation property is typed by: the id of its class mapping, unless that is a union of sets."""
+    assert isinstance(prop.type, Class)
+    return prop.type.name
+
+
 def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: dict,
                               assoc_nav_lookup: dict, owner_id: str) -> dict:
     """Group dotted-path (column, segments) rows by their first segment and build nested
@@ -694,7 +700,7 @@ def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: d
                         # ``(embedded in ...)``, gives the join; until then the foreign key column stands in for it
                         pending = Join(col, col)
                         pending.resolved = False
-                        nested_pms.append(RelationalPropertyMapping(nav_leaf, pending, embedded_id))
+                        nested_pms.append(RelationalNavigationPropertyMapping(nav_leaf, pending, embedded_id, target_cls_name_of(nav_leaf)))
                         continue
                 if leaf_prop is None or not isinstance(leaf_prop.type, PrimitiveType):
                     raise ValueError(
@@ -708,7 +714,7 @@ def _build_embedded_mappings(embedded_rows: list, cls: Class, classes_by_name: d
         if deeper:
             nested = _build_embedded_mappings(deeper, target_cls, classes_by_name, assoc_nav_lookup, embedded_id)
             for nested_prop, nested_esm in nested.values():
-                nested_pms.append(RelationalPropertyMapping(nested_prop, nested_esm, embedded_id))
+                nested_pms.append(RelationalNavigationPropertyMapping(nested_prop, nested_esm, embedded_id, nested_esm.id))
 
         result[seg0] = (nav_prop, RelationalEmbeddedSetMapping(target_cls, nested_pms, embedded_id))
     return result
@@ -1142,12 +1148,12 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
                     continue  # the associations of a class of sets are those of its union, written once
                 rcm = union or section
                 for pm in rcm.property_mappings:
-                    if isinstance(pm.target, Join) and (pm.source_set_id != rcm.id or pm.target_set_id):
+                    if isinstance(pm, NavigationPropertyMapping) and isinstance(pm.target, Join) and (pm.source_set_id != rcm.id or pm.target_set_id != pm.property.type.name):  # type: ignore[union-attr]
                         assert isinstance(pm.property.type, Class)
                         assoc_name = _find_association_name(rcm.clazz, pm.property.type, pm.property.id)
                         target = next(r for r in mapping.mappings if isinstance(r, RelationalClassMapping) and r.clazz is pm.property.type)
                         options = ", ".join(o for o in (f"source set: {pm.source_set_id}" if pm.source_set_id != rcm.id else "",
-                                                        f"target set: {pm.target_set_id}" if pm.target_set_id else "") if o)
+                                                        f"target set: {pm.target_set_id}" if pm.target_set_id != pm.property.type.name else "") if o)
                         relation = next((each.main_relation for each in _sets_of(target) if each.id == pm.target_set_id), target.main_relation)
                         named = relation.name if relation is not None else ""
                         lines += [f"#### Association: {assoc_name} ({options})", "",

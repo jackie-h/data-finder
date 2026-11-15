@@ -6,7 +6,7 @@ from typing import Any
 
 from model.m3 import Property, Class
 from model.relational import NamedRelation
-from model.mapping import ClassMapping, PropertyMapping, MilestonePropertyMapping
+from model.mapping import ClassMapping, NavigationPropertyMapping, PropertyMapping, MilestonePropertyMapping
 
 
 class GraphQLFilterConvention:
@@ -69,10 +69,10 @@ class GraphQLPropertyMapping(PropertyMapping):
         super().__init__(property, field, source_set_id)
 
 
-class GraphQLAssociationMapping(GraphQLPropertyMapping):
+class GraphQLAssociationMapping(NavigationPropertyMapping, GraphQLPropertyMapping):
     """A navigation property resolved via a GraphQL nested field rather than a primitive field."""
-    def __init__(self, property: Property, field: GraphQLField, association_name: str, source_set_id: str):
-        super().__init__(property, field, source_set_id)
+    def __init__(self, property: Property, field: GraphQLField, association_name: str, source_set_id: str, target_set_id: str):
+        super().__init__(property, field, source_set_id, target_set_id)
         self.association_name = association_name
 
 

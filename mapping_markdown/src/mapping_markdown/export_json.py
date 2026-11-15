@@ -25,7 +25,7 @@ import os
 from typing import Any
 
 from model.m3 import Association, Class, PrimitiveType, TaggedValue
-from model.mapping import UnionMapping
+from model.mapping import NavigationPropertyMapping, UnionMapping
 from model.relational import Column, MilestoningScheme, Table, TableAlias, query_of
 from model.relational_mapping import Join, RelationalEmbeddedSetMapping
 from model_markdown import markdown_model
@@ -227,9 +227,12 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
             if isinstance(pm.target, Column):
                 column_property[id(pm.target)] = pm.property.id
             elif isinstance(pm.target, Join):
-                joins.append(_join_entry(associations_by_nav.get((cm.clazz.name, pm.property.id)), cm.clazz.name, pm.target,
-                                         pm.source_set_id, pm.target_set_id,
-                                         _query_of_set(cm, pm.source_set_id), _query_of_set(_mapped_class(mapping, pm.property.type), pm.target_set_id)))
+                # the sets a navigation starts from and reaches, for a class that is a union of sets; for any other it starts from and reaches the class mapping
+                source_set = pm.source_set_id if isinstance(cm, UnionMapping) else None
+                target_class = _mapped_class(mapping, pm.property.type)
+                target_set = pm.target_set_id if isinstance(pm, NavigationPropertyMapping) and isinstance(target_class, UnionMapping) else None
+                joins.append(_join_entry(associations_by_nav.get((cm.clazz.name, pm.property.id)), cm.clazz.name, pm.target, source_set, target_set,
+                                         _query_of_set(cm, source_set), _query_of_set(target_class, target_set)))
             elif isinstance(pm.target, RelationalEmbeddedSetMapping):
                 # a property of an object embedded in the row that reaches another table
                 for holder, prop, join, _ in markdown_mapping._embedded_joins(pm.target, [pm.property.id]):

@@ -54,3 +54,14 @@ def test_a_property_that_is_typed_by_a_class_is_mapped_as_a_navigation_and_one_t
         Mapping("m", [ClassMapping(firm, [PropertyMapping(firm.properties["employees"], object(), "Firm")]), ClassMapping(person, [])])
     with pytest.raises(ValueError, match="the property name of Firm is not typed by a class: it is not mapped by a NavigationPropertyMapping"):
         Mapping("m", [ClassMapping(firm, [NavigationPropertyMapping(firm.properties["name"], object(), "Firm", "Person")]), ClassMapping(person, [])])
+
+
+def test_a_navigation_that_is_mapped_in_the_row_reaches_the_embedded_class_mapping():
+    from model.mapping import EmbeddedClassMapping
+    firm, person = _classes()
+    embedded = EmbeddedClassMapping(person, [PropertyMapping(person.properties["name"], object(), "Firm_employees")], "Firm_employees")
+    Mapping("m", [ClassMapping(firm, [NavigationPropertyMapping(firm.properties["employees"], embedded, "Firm", "Firm_employees")]), ClassMapping(person, [])])
+    with pytest.raises(ValueError, match="reaches 'Person', but it is mapped by the embedded class mapping 'Firm_employees'"):
+        Mapping("m", [ClassMapping(firm, [NavigationPropertyMapping(firm.properties["employees"], embedded, "Firm", "Person")]), ClassMapping(person, [])])
+    with pytest.raises(ValueError, match="embedded as Firm_employees has the source set id 'Person', not 'Firm_employees'"):
+        EmbeddedClassMapping(person, [PropertyMapping(person.properties["name"], object(), "Person")], "Firm_employees")

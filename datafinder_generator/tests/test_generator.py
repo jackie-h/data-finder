@@ -245,7 +245,7 @@ class TestDualAssociationSameTarget:
         from model.m3 import Integer
         from model.mapping import Mapping
         from model.relational import Database, Schema, Table, Column, ForeignKey
-        from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+        from model.relational_mapping import RelationalClassMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, Join
 
         pkg = Package("org")
         employee_cls = Class("Employee", [
@@ -281,9 +281,9 @@ class TestDualAssociationSameTarget:
 
         contract_id_pm = RelationalPropertyMapping(contract_cls.property("id"), contract_id_col, contract_cls.name)
         primary_join = Join(primary_fk_col, emp_id_col)
-        primary_pm = RelationalPropertyMapping(contract_cls.property("primaryOwner"), primary_join, contract_cls.name)
+        primary_pm = RelationalNavigationPropertyMapping(contract_cls.property("primaryOwner"), primary_join, contract_cls.name, employee_cls.name)
         secondary_join = Join(secondary_fk_col, emp_id_col)
-        secondary_pm = RelationalPropertyMapping(contract_cls.property("secondaryOwner"), secondary_join, contract_cls.name)
+        secondary_pm = RelationalNavigationPropertyMapping(contract_cls.property("secondaryOwner"), secondary_join, contract_cls.name, employee_cls.name)
         contract_rcm = RelationalClassMapping(contract_cls, [contract_id_pm, primary_pm, secondary_pm])
 
         return Mapping("OrgMapping", [emp_rcm, contract_rcm])
@@ -335,7 +335,7 @@ class TestCamelCaseReverseAssocMethodName:
         from model.m3 import Integer
         from model.mapping import Mapping
         from model.relational import Database, Schema, Table, Column
-        from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+        from model.relational_mapping import RelationalClassMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, Join
 
         pkg = Package("org")
         entity_cls = Class("Entity", [
@@ -363,7 +363,7 @@ class TestCamelCaseReverseAssocMethodName:
 
         tag_id_pm = RelationalPropertyMapping(tag_cls.property("id"), tag_id_col, tag_cls.name)
         join = Join(fk_col, entity_id_col)
-        tag_entity_pm = RelationalPropertyMapping(tag_cls.property("relatedEntity"), join, tag_cls.name)
+        tag_entity_pm = RelationalNavigationPropertyMapping(tag_cls.property("relatedEntity"), join, tag_cls.name, entity_cls.name)
         tag_rcm = RelationalClassMapping(tag_cls, [tag_id_pm, tag_entity_pm])
 
         return Mapping("OrgMapping", [entity_rcm, tag_rcm])
@@ -408,7 +408,7 @@ class TestAssociationPropertyDocstring:
         from model.m3 import Integer
         from model.mapping import Mapping
         from model.relational import Database, Schema, Table, Column
-        from model.relational_mapping import RelationalClassMapping, RelationalPropertyMapping, Join
+        from model.relational_mapping import RelationalClassMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, Join
 
         pkg = Package("finance")
         account_cls = Class("Account", [Property("Id", "id", Integer, ONE_TO_ONE)], pkg)
@@ -431,7 +431,7 @@ class TestAssociationPropertyDocstring:
 
         trade_id_pm = RelationalPropertyMapping(trade_cls.property("id"), trade_id_col, trade_cls.name)
         join = Join(fk_col, acct_id_col)
-        trade_acct_pm = RelationalPropertyMapping(trade_cls.property("account"), join, trade_cls.name)
+        trade_acct_pm = RelationalNavigationPropertyMapping(trade_cls.property("account"), join, trade_cls.name, account_cls.name)
         trade_rcm = RelationalClassMapping(trade_cls, [trade_id_pm, trade_acct_pm])
 
         return Mapping("FinanceMapping", [acct_rcm, trade_rcm])

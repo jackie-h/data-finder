@@ -2,6 +2,7 @@
 import pytest
 
 from mapping_markdown.markdown_mapping import load, save
+from model.mapping import NavigationPropertyMapping
 from model.relational_mapping import RelationalClassMapping, RelationalUnionMapping
 
 _MODEL = "sql_queries_model.md"
@@ -267,16 +268,18 @@ def _assoc(options, source_column="id", target="people", target_column="firm_id"
 """
 
 
-def _employees(mapping):
+def _employees(mapping) -> list[NavigationPropertyMapping]:
     """The property mappings of Firm.employees: one for each pair of sets."""
-    return [pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees"]
+    pms = [pm for pm in _firm(mapping).property_mappings if pm.property.id == "employees"]
+    assert all(isinstance(pm, NavigationPropertyMapping) for pm in pms)
+    return pms  # type: ignore[return-value]
 
 
 def test_an_association_from_a_class_of_sets_is_a_property_mapping_for_each_pair_of_sets_and_each_has_its_own_plain_join(tmp_path):
     mapping = load(str(_mapping(tmp_path, _DEFAULT + _PEOPLE_TABLES.replace("#### Table: people", "#### Table: people → Person") + _assoc(" (source set: big)")
                                 + _assoc(" (source set: small)"))))
     big, small = _employees(mapping)
-    assert [(pm.source_set_id, pm.target_set_id) for pm in (big, small)] == [("big", None), ("small", None)]
+    assert [(pm.source_set_id, pm.target_set_id) for pm in (big, small)] == [("big", "Person"), ("small", "Person")]  # a class that is not a union is reached as itself
     assert big.target is not small.target and big.target.condition is None and small.target.condition is None
 
 

@@ -14,8 +14,8 @@ from model.relational import (
     Alias, Column, ComparisonOperation, ComparisonOperator, JoinKind, LogicalOperation, LogicalOperator, Operation, QuerySpecification,
     StringConstantOperation, Table, TableAlias, UnionOperation,
 )
-from model.mapping import ClassMapping, PropertyMapping
-from model.relational_mapping import Join, RelationalClassMapping, RelationalPropertyMapping, RelationalUnionMapping
+from model.mapping import ClassMapping, EmbeddedClassMapping, NavigationPropertyMapping, PropertyMapping
+from model.relational_mapping import Join, RelationalClassMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, RelationalUnionMapping
 
 SET_COLUMN = "_set"
 
@@ -196,9 +196,12 @@ def merge_set_navigations(class_mapping: ClassMapping) -> list[PropertyMapping]:
     are one of the pairs. The finder joins on one pair of key columns, so the pairs must all join on the same ones; a property mapped between no sets
     is as it was."""
     class_name, property_mappings = class_mapping.clazz.name, class_mapping.property_mappings
+    typed_by = lambda pm: pm.property.type.name  # type: ignore[union-attr]  # a navigation is typed by a class
 
     def between_sets(pm: PropertyMapping) -> bool:
-        return pm.source_set_id != class_mapping.id or pm.target_set_id is not None  # from a set of this class, or to a set of another
+        # from a set of this class, or to a set of another class: the target of a navigation to a class that is not a union is the class
+        return isinstance(pm, NavigationPropertyMapping) and not isinstance(pm.target, EmbeddedClassMapping) and (
+            pm.source_set_id != class_mapping.id or pm.target_set_id != typed_by(pm))
 
     merged: list[PropertyMapping] = []
     done: set[str] = set()
@@ -219,9 +222,12 @@ def merge_set_navigations(class_mapping: ClassMapping) -> list[PropertyMapping]:
                              f"the finder joins on one pair of columns, and then on the sets of the pairs")
         condition: Operation | None = None
         for other in pairs:
+            assert isinstance(other, NavigationPropertyMapping)
             source_set = other.source_set_id if other.source_set_id != class_mapping.id else None  # the class mapping itself is not a set
-            term = set_pair_condition(other.target, source_set, other.target_set_id)
+            target_set = other.target_set_id if other.target_set_id != typed_by(other) else None  # nor is the class mapping that it reaches
+            term = set_pair_condition(other.target, source_set, target_set)
             assert term is not None  # a pair has a set
             condition = term if condition is None else LogicalOperation(condition, LogicalOperator.OR, term)
-        merged.append(RelationalPropertyMapping(pm.property, Join(first.lhs, first.rhs, conditions=[condition], condition_texts=[None]), class_mapping.id))
+        merged.append(RelationalNavigationPropertyMapping(pm.property, Join(first.lhs, first.rhs, conditions=[condition], condition_texts=[None]), class_mapping.id,
+                                                          typed_by(pm)))
     return merged
