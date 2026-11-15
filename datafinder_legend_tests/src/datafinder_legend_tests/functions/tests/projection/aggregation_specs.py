@@ -8,7 +8,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, SUB_AGGREGATION_SHAPE
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, SUB_AGGREGATION_SHAPE, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "functions/tests/projection/testAggregation.pure"
 
@@ -53,12 +53,12 @@ SUB_AGGREGATION_SPECS = FinderSpec(
                'select "root".LEGALNAME as "LegalName", "firmtable_1".aggCol as "IsDistinctFirstName", "firmtable_3".aggCol as "IsDistinctLastName" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, count(distinct("persontable_0".FIRSTNAME)) = count("persontable_0".FIRSTNAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) left outer join (select "firmtable_2".ID as ID, count(distinct("persontable_0".LASTNAME)) = count("persontable_0".LASTNAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_3" on ("root".ID = "firmtable_3".ID) order by "LegalName" desc',
                lambda f: f.find_all([f.legal_name(), (f.employees().first_name().count_distinct() == f.employees().first_name().count()).alias("IsDistinctFirstName"), (f.employees().last_name().count_distinct() == f.employees().last_name().count()).alias("IsDistinctLastName")]).order_by(f.legal_name().descending()),
                known_gaps={BACKEND: SUB_AGGREGATION_SHAPE}),
-        unsupported("testProjectQualifierContainingAggregation", f"{_SRC}::testProjectQualifierContainingAggregation",
+        not_supported("testProjectQualifierContainingAggregation", f"{_SRC}::testProjectQualifierContainingAggregation",
                     'select "root".LEGALNAME as "legalName", "firmtable_1".aggCol as "sum" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, sum("persontable_0".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID)',
-                    'no qualified (derived) properties'),
-        unsupported("testProjectQualifierContainingAggregationWithSubAgg", f"{_SRC}::testProjectQualifierContainingAggregationWithSubAgg",
+                    QUALIFIED_PROPERTIES),
+        not_supported("testProjectQualifierContainingAggregationWithSubAgg", f"{_SRC}::testProjectQualifierContainingAggregationWithSubAgg",
                     'select "root".LEGALNAME as "legalName", "firmtable_1".aggCol as "count", "firmtable_3".aggCol as "sum" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, count("persontable_0".LASTNAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) left outer join (select "firmtable_2".ID as ID, sum("persontable_1".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_1" on ("firmtable_2".ID = "persontable_1".FIRMID) group by "firmtable_2".ID) as "firmtable_3" on ("root".ID = "firmtable_3".ID)',
-                    'no qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
         ported("testDeepSubAggregation", f"{_SRC}::testDeepSubAggregation",
                'select "root".LEGALNAME as "c", "firmtable_1".aggCol as "b", "firmtable_3".aggCol as "a" from firmTable as "root" left outer join (select "firmtable_2".ID as ID, count("addresstable_0".NAME) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_0" on ("firmtable_2".ID = "persontable_0".FIRMID) left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "persontable_0".ADDRESSID) group by "firmtable_2".ID) as "firmtable_1" on ("root".ID = "firmtable_1".ID) left outer join (select "firmtable_4".ID as ID, avg(1.0 * "persontable_1".AGE) as aggCol from firmTable as "firmtable_4" left outer join personTable as "persontable_1" on ("firmtable_4".ID = "persontable_1".FIRMID) group by "firmtable_4".ID) as "firmtable_3" on ("root".ID = "firmtable_3".ID)',
                lambda f: f.find_all([f.legal_name(), f.employees().address().name().count(), f.employees().age().average()]).group_by(f.legal_name()),

@@ -7,7 +7,7 @@ everything else (Legend's ``Otherwise``). Mapping: tests/mapping/embedded/embedd
 from datafinder import constant, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, EMBEDDED_WITH_JOIN
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, EMBEDDED_WITH_JOIN, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "tests/mapping/embedded/testEmbeddedOtherwiseMapping.pure"
 
@@ -40,18 +40,18 @@ OTHERWISE_SPECS = FinderSpec(
         unsupported("testProjectionOtherwiseNonPrimitive", f"{_SRC}::testProjectionOtherwiseNonPrimitive",
                     'select "root".PRODUCT_NAME as "name", "party_0".name as "holder", "bondclassificationtable_0".type as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) left outer join Party as "party_0" on ("bond_detail_0".HOLDERID = "party_0".id) left outer join BondClassificationTable as "bondclassificationtable_0" on ("root".PRODUCT_ID = "bondclassificationtable_0".PRODUCT_ID)',
                     'this test uses a second mapping, with a join to a classification table'),
-        unsupported("otherwiseTestQualifierProperty", f"{_SRC}::otherwiseTestQualifierProperty",
+        not_supported("otherwiseTestQualifierProperty", f"{_SRC}::otherwiseTestQualifierProperty",
                     'select "root".PRODUCT_NAME as "name", case when "bond_detail_0".TYPE like \'5%\' then 5 else 0 end as "duration" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where case when "bond_detail_0".TYPE like \'5%\' then 5 else 0 end = \'5\'',
-                    'no qualified (derived) properties'),
-        unsupported("otherwiseTestQualifierPropertyExpressionWithPropertyInJoinOnly", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithPropertyInJoinOnly",
+                    QUALIFIED_PROPERTIES),
+        not_supported("otherwiseTestQualifierPropertyExpressionWithPropertyInJoinOnly", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithPropertyInJoinOnly",
                     'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where "bond_detail_0".TYPE like \'5%\'',
-                    'no qualified (derived) properties'),
-        unsupported("otherwiseTestQualifierPropertyExpressionWithEmbeddedProperty", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithEmbeddedProperty",
+                    QUALIFIED_PROPERTIES),
+        not_supported("otherwiseTestQualifierPropertyExpressionWithEmbeddedProperty", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithEmbeddedProperty",
                     'select "root".PRODUCT_NAME as "name", concat(\'la\', "root".BOND_DETAILS) as "description" from PRODUCT_DENORM as "root" where concat(\'\', "root".BOND_DETAILS) is distinct from \'2\'',
-                    'no qualified (derived) properties'),
-        unsupported("otherwiseTestQualifierPropertyExpressionWithEmbeddedPropertyandJoinProperty", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithEmbeddedPropertyandJoinProperty",
+                    QUALIFIED_PROPERTIES),
+        not_supported("otherwiseTestQualifierPropertyExpressionWithEmbeddedPropertyandJoinProperty", f"{_SRC}::otherwiseTestQualifierPropertyExpressionWithEmbeddedPropertyandJoinProperty",
                     'select concat("bond_detail_0".TYPE, \' \', "root".BOND_DETAILS) as "fullName" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID)',
-                    'no qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
         unsupported("otherwiseTestComplexExpression", f"{_SRC}::otherwiseTestComplexExpression",
                     'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where case when "bond_detail_0".TYPE like \'5%\' then true else false end',
                     'no conditional as a filter'),

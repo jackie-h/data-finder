@@ -7,7 +7,7 @@ Mapping: tests/mapping/embedded/denorm_mapping.md.
 from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "tests/mapping/embedded/testEmbeddedMapping.pure"
 
@@ -27,18 +27,18 @@ EMBEDDED_SPECS = FinderSpec(
         unsupported("testDenormMappingOneToManyProjectWithFilterOnEnumRight", f"{_SRC}::testDenormMappingOneToManyProjectWithFilterOnEnumRight",
                     'select "root".PERSON_FIRSTNAME as "firstName", "root".PERSON_ADDRESS_TYPE as "address" from PERSON_FIRM_DENORM as "root" where "root".PERSON_ADDRESS_TYPE = 1',
                     'enumeration mappings (`type` maps integer codes to an enumeration)'),
-        unsupported("testDenormMappingOneToManyProjectEmbeddedQualifier", f"{_SRC}::testDenormMappingOneToManyProjectEmbeddedQualifier",
+        not_supported("testDenormMappingOneToManyProjectEmbeddedQualifier", f"{_SRC}::testDenormMappingOneToManyProjectEmbeddedQualifier",
                     'select "root".PERSON_FIRSTNAME as "firstName", concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) as "nameAndAddress" from PERSON_FIRM_DENORM as "root"',
-                    'qualified (derived) properties'),
-        unsupported("testDenormMappingWithQualifierWithIfAndEquals", f"{_SRC}::testDenormMappingWithQualifierWithIfAndEquals",
+                    QUALIFIED_PROPERTIES),
+        not_supported("testDenormMappingWithQualifierWithIfAndEquals", f"{_SRC}::testDenormMappingWithQualifierWithIfAndEquals",
                     'select "root".PERSON_FIRSTNAME as "name", case when "root".FIRM_LEGALNAME = \'Firm X\' then \'Yes\' else \'No\' end as "FirmX" from PERSON_FIRM_DENORM as "root"',
-                    'qualified (derived) properties'),
-        unsupported("testFilterWithEmbeddedQualifier", f"{_SRC}::testFilterWithEmbeddedQualifier",
+                    QUALIFIED_PROPERTIES),
+        not_supported("testFilterWithEmbeddedQualifier", f"{_SRC}::testFilterWithEmbeddedQualifier",
                     'select "root".PERSON_FIRSTNAME as "firstName", concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) as "nameAndAddress" from PERSON_FIRM_DENORM as "root" where concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) is not null and concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) like \'Firm X%\'',
-                    'qualified (derived) properties'),
-        unsupported("testMapEmbeddedQualifierWithIfTwoEmbeddedProperties", f"{_SRC}::testMapEmbeddedQualifierWithIfTwoEmbeddedProperties",
+                    QUALIFIED_PROPERTIES),
+        not_supported("testMapEmbeddedQualifierWithIfTwoEmbeddedProperties", f"{_SRC}::testMapEmbeddedQualifierWithIfTwoEmbeddedProperties",
                     'select case when "root".FIRM_LEGALNAME = \'Firm X\' then concat("root".FIRM_LEGALNAME, \' , Top Secret\') else concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) end as "nameAndMaskedAddress" from PERSON_FIRM_DENORM as "root" where concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) is not null and concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) like \'Firm X%\'',
-                    'qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
         unsupported("testOptionalPropertyEmbedded", f"{_SRC}::testOptionalPropertyEmbedded",
                     '???',
                     'no optional-property test in the finder: a missing embedded object is not distinguishable from one with null columns'),

@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, DAY_NAME_FUNCTION, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, DAY_NAME_FUNCTION, ported, unsupported, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "tests/query/testWithFunction.pure"
 
@@ -29,11 +29,11 @@ WITH_FUNCTION_SPECS_2 = FinderSpec(
     finder_name="PersonFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testFilterUsingRoundFunctionWithScale", f"{_SRC}::testFilterUsingRoundFunctionWithScale",
+        not_supported("testFilterUsingRoundFunctionWithScale", f"{_SRC}::testFilterUsingRoundFunctionWithScale",
                     'select round((1.0 * "root".quantity) / 3, 2) as "roundedQuantity" from tradeTable as "root" where round((1.0 * "root".quantity) / 3, 2) > 10',
-                    'functions of an arithmetic expression, or qualified properties'),
-        unsupported("testFilterTimesWithManyOperands", f"{_SRC}::testFilterTimesWithManyOperands",
+                    QUALIFIED_PROPERTIES + ' Also: functions of an arithmetic expression, or qualified properties'),
+        not_supported("testFilterTimesWithManyOperands", f"{_SRC}::testFilterTimesWithManyOperands",
                     'select "root".LASTNAME as "name", "root".AGE * 2 * "firmtable_1".aggCol as "ages" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) left outer join (select "firmtable_2".ID as ID, sum("persontable_1".AGE) as aggCol from firmTable as "firmtable_2" left outer join personTable as "persontable_1" on ("firmtable_2".ID = "persontable_1".FIRMID) group by "firmtable_2".ID) as "firmtable_1" on ("firmtable_0".ID = "firmtable_1".ID)',
-                    'functions of an arithmetic expression, or qualified properties'),
+                    QUALIFIED_PROPERTIES + ' Also: functions of an arithmetic expression, or qualified properties'),
     ],
 )

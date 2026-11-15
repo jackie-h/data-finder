@@ -6,7 +6,7 @@ Mapping: tests/mapping/embedded/inline_product_mapping.md.
 from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "tests/mapping/embedded/testInlineEmbeddedMapping.pure"
 
@@ -30,9 +30,9 @@ INLINE_EMBEDDED_MAPPING_SPECS = FinderSpec(
         ported("testGroupByComplexAgg", f"{_SRC}::testGroupByComplexAgg",
                'select "root".BOND_TYPE as "Bond Type", sum(case when "root".BOND_TYPE like \'5%\' then 5.0 else 1.0 end) as "sum" from PRODUCT_DENORM as "root" group by "Bond Type"',
                lambda f: f.find_all([f.bond_details().type_(), when(f.bond_details().type_().starts_with("5")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().type_())),
-        unsupported("testQualifierProperty", f"{_SRC}::testQualifierProperty",
+        not_supported("testQualifierProperty", f"{_SRC}::testQualifierProperty",
                     'select "root".PRODUCT_NAME as "name", case when "root".BOND_TYPE like \'5%\' then 5 else 0 end as "duration" from PRODUCT_DENORM as "root" where case when "root".BOND_TYPE like \'5%\' then 5 else 0 end = \'5\'',
-                    'no qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
         unsupported("testInlineEmbeddedMappingWithAssociationFromRootMapping", f"{_SRC}::testInlineEmbeddedMappingWithAssociationFromRootMapping",
                     'select "root".PRODUCT_NAME as "name", "bondclassificationtable_0".type as "bondClassification" from PRODUCT_DENORM as "root" left outer join BondClassificationTable as "bondclassificationtable_0" on ("root".PRODUCT_ID = "bondclassificationtable_0".PRODUCT_ID) where "root".PRODUCT_NAME = \'Product 1\'',
                     'a join from an embedded object (bondDetails.bondClassification) to a table'),

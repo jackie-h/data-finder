@@ -5,7 +5,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported
+from datafinder_legend_tests.legend import ported, unsupported, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "functions/tests/projection/testIn.pure"
 
@@ -64,11 +64,11 @@ IN_PERSON_SPECS = FinderSpec(
         ported("testContainsWithListVariable", f"{_SRC}::testContainsWithListVariable",
                'select "root".LASTNAME as "lastName" from personTable as "root" where "root".FIRSTNAME in (\'John\', \'Peter\')',
                lambda f: f.find_all([f.last_name()], f.first_name().is_in(["John", "Peter"]))),
-        unsupported("testInWithDynaFunction", f"{_SRC}::testInWithDynaFunction",
+        not_supported("testInWithDynaFunction", f"{_SRC}::testInWithDynaFunction",
                     'select "root".ID as "id", case when "root".active = \'Y\' then \'true\' else \'false\' end as "active" from interactionTable as "root" where case when "root".active = \'Y\' then \'true\' else \'false\' end in (\'false\', \'something\') and "root".ID = 4',
-                    'Interaction is not in the model, and its active flag is a derived property'),
-        unsupported("testQualifierWithInThroughJoin", f"{_SRC}::testQualifierWithInThroughJoin",
+                    QUALIFIED_PROPERTIES + ' Also: Interaction is not in the model, and its active flag is a derived property'),
+        not_supported("testQualifierWithInThroughJoin", f"{_SRC}::testQualifierWithInThroughJoin",
                     'select "accounttable_0".name as "name", case when "accounttable_0".name in (\'Account 1\', \'Account 2\') then \'A\' else \'B\' end as "cat" from tradeTable as "root" left outer join accountTable as "accounttable_0" on ("root".accountID = "accounttable_0".ID) where "root".ID = 10 or "root".ID = 11',
-                    'no qualified (derived) properties'),
+                    QUALIFIED_PROPERTIES),
     ],
 )
