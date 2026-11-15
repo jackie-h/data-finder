@@ -14,7 +14,7 @@ class Join(RelationalOperationElement):
     with only its keys. It is a condition over the columns of the two tables of that hop, so it reads the same from either
     end of the join; ``condition_texts`` is how it was written."""
 
-    def __init__(self, lhs: Column, rhs: Column, embedded: 'EmbeddedSetMapping | None' = None,
+    def __init__(self, lhs: Column, rhs: Column, embedded: 'RelationalEmbeddedSetMapping | None' = None,
                  via: 'list[tuple[Column, Column]] | None' = None,
                  conditions: 'list[Operation | None] | None' = None, condition_texts: 'list[str | None] | None' = None):
         super().__init__()
@@ -40,7 +40,7 @@ class Join(RelationalOperationElement):
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: RelationalOperationElement | EmbeddedSetMapping, source_set_id: str, target_set_id: str | None = None):
+    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str, target_set_id: str | None = None):
         super().__init__(property, target, source_set_id, target_set_id)
 
 
@@ -71,3 +71,13 @@ class RelationalUnionMapping(UnionMapping[RelationalClassMapping], RelationalCla
     def __init__(self, clazz: Class, sets: list[RelationalClassMapping], property_mappings: list[RelationalPropertyMapping],
                  milestone_mapping: MilestonePropertyMapping | None = None, id: str | None = None):
         super().__init__(clazz, sets, property_mappings, milestone_mapping, id)
+
+
+class RelationalEmbeddedSetMapping(EmbeddedSetMapping, RelationalOperationElement):
+    """A class embedded in the row of a table: its properties are columns of that row, further embedded mappings, or joins to other tables, as the property mappings
+    of a relational class mapping are. A relational property mapping can have it as its target."""
+    property_mappings: list[RelationalPropertyMapping]  # type: ignore[assignment]
+
+    def __init__(self, clazz: Class, property_mappings: list[RelationalPropertyMapping], id: str):
+        EmbeddedSetMapping.__init__(self, clazz, property_mappings, id)
+        RelationalOperationElement.__init__(self)
