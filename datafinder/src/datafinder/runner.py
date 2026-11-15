@@ -11,7 +11,7 @@ from model.milestoning import AsOf, ProcessingTemporalColumns, milestoning_colum
 from model.naming import to_snake_case
 from model.relational import (
     Alias, JoinKind, JoinOperation, NoOperation, OrderedQuerySpecification, QuerySpecification, Relation, RelationExistsOperation,
-    SortOperation, Table, TableAlias, UnionOperation)
+    RelationalOperationElement, SortOperation, Table, TableAlias, UnionOperation)
 from model.view import View, ViewDefinitionError, contains_aggregate
 
 
@@ -355,7 +355,7 @@ class FinderResult(DataFrame):
         ``rows.aggregate(total=lambda r: r.salary.sum())``."""
         return GroupedRows(self, ()).aggregate(**columns)
 
-    def _own(self, element):
+    def _own(self, element: RelationalOperationElement) -> RelationalOperationElement:
         """A column of this result, as ``result["name"]`` gives it, is what this result shows under that name: so
         ``result.order_by(result["name"].ascending())`` orders by the column, not by a column of a later query."""
         column = _column_of(element)
@@ -363,7 +363,9 @@ class FinderResult(DataFrame):
         if column is None or alias is None or not isinstance(column.owner, TableAlias) or column.owner.name != alias.name:
             return element
         shown = {_column_name(c): c.element if isinstance(c, Alias) else c for c in self._query.columns}
-        found = shown.get(column.name, element)
+        found = shown.get(column.name)
+        if found is None:
+            return element
         return found._column_with_join() if isinstance(found, Attribute) else found
 
     def order_by(self, *sort_ops: SortOperation) -> 'FinderResult':
