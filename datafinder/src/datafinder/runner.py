@@ -235,7 +235,7 @@ class FinderResult(DataFrame):
         left, right = self.columns(), other.columns()
         if left != right:
             raise ValueError(f"Concatenated results need the same columns: {left} and {right} differ")
-        return self._of(TableAlias(UnionOperation(_union_side(self, all), _union_side(other, all), all),  # type: ignore[arg-type]
+        return self._of(TableAlias(UnionOperation(_union_side(self, all), _union_side(other, all), all),
                                    f"relation{next(_relation_numbers)}"))
 
     def _of(self, alias: TableAlias) -> 'FinderResult':

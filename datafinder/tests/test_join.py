@@ -94,7 +94,7 @@ def test_how_is_one_of_the_ansi_join_types():
 def test_a_condition_is_a_function_that_gives_a_comparison():
     trades, accounts = _results()
     with pytest.raises(TypeError, match="function of a row"):
-        trades.join(accounts, trades["account"] == accounts["id"], how="inner")  # type: ignore[arg-type]
+        trades.join(accounts, trades["account"] == accounts["id"], how="inner")
     with pytest.raises(TypeError, match="comparison"):
         trades.join(accounts, lambda t, a: t.account, how="inner")
 

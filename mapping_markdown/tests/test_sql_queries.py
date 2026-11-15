@@ -44,7 +44,7 @@ def _mapping(tmp_path, query_sql, table_columns="| firm_id   | INT     | PK  | N
 
 def _alias(mapping, class_name):
     rcm = next(r for r in mapping.mappings if r.clazz.name == class_name)
-    return rcm.property_mappings[0].target.table  # type: ignore[attr-defined]
+    return rcm.property_mappings[0].target.table
 
 
 def test_a_query_is_read_into_a_table_alias_that_knows_its_sql(tmp_path):
@@ -101,8 +101,8 @@ def test_every_query_of_the_example_mapping_survives_writing(tmp_path):
     from datafinder_examples import example_path
 
     def queries(mapping):
-        return {r.clazz.name: r.property_mappings[0].target.table.sql  # type: ignore[attr-defined]
-                for r in mapping.mappings if getattr(r.property_mappings[0].target.table, "sql", None)}  # type: ignore[attr-defined]
+        return {r.clazz.name: r.property_mappings[0].target.table.sql
+                for r in mapping.mappings if getattr(r.property_mappings[0].target.table, "sql", None)}
 
     mapping = load(str(example_path("sql_queries_mapping.md")))
     path = tmp_path / "again.md"
@@ -127,6 +127,6 @@ def test_a_query_is_milestoned_by_the_columns_its_sql_gives_and_the_scheme_survi
     assert "#### Query: RATE_QUERY → Rate (milestoning: business_date_range)" in text
     assert "#### Query: QUOTE_QUERY → Quote (milestoning: bitemporal)" in text
     again = load(str(path))
-    assert _alias(again, "Quote").milestoning_scheme.name == "bitemporal"  # type: ignore[union-attr]
+    assert _alias(again, "Quote").milestoning_scheme.name == "bitemporal"
     # the scheme's columns are columns of the query, which the section lists
-    assert {c.name for c in rate.columns} >= {"from_z", "thru_z"}  # type: ignore[attr-defined]
+    assert {c.name for c in rate.columns} >= {"from_z", "thru_z"}

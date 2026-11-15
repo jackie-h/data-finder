@@ -102,8 +102,8 @@ def test_the_union_of_the_sets_is_one_query_with_the_number_of_the_set_each_row_
     union = firm.main_relation
     assert isinstance(union.relation, UnionOperation) and union.relation.all  # type: ignore[union-attr]
     assert [c.name for c in union.columns] == ["id", "name", "_set"]  # type: ignore[union-attr]
-    assert [pm.target.name for pm in firm.property_mappings] == ["id", "name"]  # type: ignore[attr-defined]
-    assert all(pm.target.table is union for pm in firm.property_mappings)  # type: ignore[attr-defined]
+    assert [pm.target.name for pm in firm.property_mappings] == ["id", "name"]
+    assert all(pm.target.table is union for pm in firm.property_mappings)
 
 
 # --- names are unique, and a class that has sets has them all named ----------------------------------------------------------------------
@@ -277,7 +277,7 @@ def test_an_association_from_a_class_of_sets_is_a_property_mapping_for_each_pair
                                 + _assoc(" (source set: small)"))))
     big, small = _employees(mapping)
     assert [(pm.source_set_id, pm.target_set_id) for pm in (big, small)] == [("big", None), ("small", None)]
-    assert big.target is not small.target and big.target.condition is None and small.target.condition is None  # type: ignore[attr-defined]
+    assert big.target is not small.target and big.target.condition is None and small.target.condition is None
 
 
 def test_the_pairs_of_one_navigation_are_merged_for_the_finder_into_one_join_on_the_sets_of_the_pairs(tmp_path):
@@ -287,7 +287,7 @@ def test_the_pairs_of_one_navigation_are_merged_for_the_finder_into_one_join_on_
         _assoc(" (source set: small, target set: contractors)", target="CONTRACTORS_Q")
     merged = [pm for pm in merge_set_navigations(_firm(load(str(_mapping(tmp_path, text))))) if pm.property.id == "employees"]
     assert len(merged) == 1
-    condition = merged[0].target.condition  # type: ignore[attr-defined]
+    condition = merged[0].target.condition
     assert isinstance(condition, LogicalOperation) and condition.operator == LogicalOperator.OR
     first = condition.left
     assert isinstance(first, LogicalOperation) and first.operator == LogicalOperator.AND

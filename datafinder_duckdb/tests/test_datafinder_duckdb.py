@@ -25,10 +25,10 @@ class TestDataFinderDuckDb:
     def test_queries(self):
         self.setup()
         # Import after generation, so we get the latest version
-        from trade_finder import TradeFinder  # type: ignore[import]
+        from trade_finder import TradeFinder
         tf = TradeFinder()
         queries.find_trades(tf)
-        from account_finder import AccountFinder  # type: ignore[import]
+        from account_finder import AccountFinder
         af = AccountFinder()
         np_accts = af \
             .find_all([af.id_(), af.name()], af.id_().eq(211978)) \

@@ -65,7 +65,7 @@ def test_the_model_of_exists_is_a_condition_over_a_relation_that_negates_with_no
 def test_the_condition_is_a_function_that_gives_a_comparison():
     trades, accounts = _results()
     with pytest.raises(TypeError, match="function of a row"):
-        exists(accounts, accounts["id"] == trades["account"])  # type: ignore[arg-type]
+        exists(accounts, accounts["id"] == trades["account"])
     with pytest.raises(TypeError, match="comparison"):
         exists(accounts, lambda a: a.id)
 
