@@ -187,10 +187,11 @@ class FinderResult(DataFrame):
             business_date, processing_datetime, columns, table, op, business_date_to=business_date_to,
             processing_datetime_to=processing_datetime_to))
 
-    def _start(self, query: OrderedQuerySpecification, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> None:
+    def _start(self, query: OrderedQuerySpecification, timeout_ms: int = _DEFAULT_TIMEOUT_MS, relation_name: str | None = None) -> None:
         self._query: OrderedQuerySpecification = query
         self._timeout_ms: int = timeout_ms
-        self._alias: TableAlias | None = None
+        # the query as a relation that a step reads, which the columns of this result belong to
+        self._alias: TableAlias = TableAlias(labelled(query), relation_name or f"relation{next(_relation_numbers)}")
 
     @property
     def _as_of(self) -> AsOf:
@@ -209,15 +210,14 @@ class FinderResult(DataFrame):
     def _then(self, query: OrderedQuerySpecification) -> 'FinderResult':
         """A result of a step written after this one."""
         result = FinderResult.__new__(FinderResult)
-        result._start(query, self._timeout_ms)
+        # a change to the same select shows the columns of this result, so it is the same relation
+        result._start(query, self._timeout_ms, self._alias.name if query.table is self._query.table else None)
         return result
 
     # --- a result as a relation, for what follows it ---------------------------------------------------------------
 
     def _relation(self) -> tuple[TableAlias, dict[str, Any]]:
         """This result as a relation: its query, with each column named for what reads it."""
-        if self._alias is None:
-            self._alias = TableAlias(labelled(self._query), f"relation{next(_relation_numbers)}")
         return self._alias, _attributes(self._alias)
 
     def columns(self) -> list[str]:
@@ -362,8 +362,7 @@ class FinderResult(DataFrame):
         """A column of this result, as ``result["name"]`` gives it, is what this result shows under that name: so
         ``result.order_by(result["name"].ascending())`` orders by the column, not by a column of a later query."""
         column = _column_of(element)
-        alias = self._alias
-        if column is None or alias is None or not isinstance(column.owner, TableAlias) or column.owner.name != alias.name:
+        if column is None or not isinstance(column.owner, TableAlias) or column.owner.name != self._alias.name:
             return element
         shown = {_column_name(c): c for c in self._query.columns}
         found = shown.get(column.name)
