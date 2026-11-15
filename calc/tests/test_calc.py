@@ -36,7 +36,7 @@ class TestCalc:
         cpf = ContractualPositionFinder()
         input_data = cpf.find_all(datetime.date(2024,1,10),
                                   datetime.datetime.strptime('2020-01-01 09:00:00', '%Y-%m-%d %H:%M:%S'),
-                                  inputs).to_numpy()  # type: ignore[arg-type]
+                                  inputs).to_numpy()
 
         output = calc.calculate(input_data)
 
