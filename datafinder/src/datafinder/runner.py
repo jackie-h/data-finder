@@ -5,7 +5,7 @@ from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import (
     _column_name, _column_of, _column_type, build_query_specification, check_view_joins, display_alias, dropped, labelled,
     made_distinct, query_sql_to_string, relation_numbers as _relation_numbers, said_of_the_rows_a_finder_reads, sorted_by, taken,
-    view_sql_to_string, _more_said)
+    view_sql_to_string, _with_clauses)
 from datafinder.typed_attributes import typed_attribute
 from model.milestoning import AsOf, ProcessingTemporalColumns, milestoning_columns_of
 from model.naming import to_snake_case
@@ -340,7 +340,7 @@ class FinderResult(DataFrame):
             return GroupedRows(self, keys)
         if any(functions):
             raise TypeError("group_by takes finder attributes, or functions of a row (lambda r: r.dept), not both")
-        return self._then(_more_said(self._read("group_by"), group_by=list(keys)))
+        return self._then(_with_clauses(self._read("group_by"), group_by=list(keys)))
 
     def _read(self, name: str) -> OrderedQuerySpecification:
         """The query of the rows a finder reads, which says what it groups and keeps by. That is of the rows it reads, so it cannot
@@ -397,7 +397,7 @@ class FinderResult(DataFrame):
         having = read.having
         for condition in conditions:
             having = condition if having is None else having.and_(condition)
-        return self._then(_more_said(read, having=having))
+        return self._then(_with_clauses(read, having=having))
 
     def distinct(self) -> 'FinderResult':
         """Return each distinct row once: ``SELECT DISTINCT``."""

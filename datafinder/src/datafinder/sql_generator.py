@@ -598,8 +598,8 @@ def said_of_the_rows_a_finder_reads(query: QuerySpecification) -> bool:
     return _stage(query) == 0
 
 
-def _more_said(query: OrderedQuerySpecification, **changes) -> OrderedQuerySpecification:
-    """The query with more said of it. A sort can read a join the query did not, so what the joins add is worked out again."""
+def _with_clauses(query: OrderedQuerySpecification, **changes) -> OrderedQuerySpecification:
+    """The query with some of its clauses changed (``order_by``, ``limit``, ``offset``, ``distinct``, ``group_by``, ``having``). A sort can read a join the query did not, so what the joins add is worked out again."""
     result = copy.copy(query)
     for name, value in changes.items():
         setattr(result, name, value)
@@ -638,7 +638,7 @@ def made_distinct(query: OrderedQuerySpecification) -> OrderedQuerySpecification
     """Each distinct row of the query once."""
     if _stage(query) > _DISTINCT:
         query = select_over(query)[0]
-    return _more_said(query, distinct=True)
+    return _with_clauses(query, distinct=True)
 
 
 def sorted_by(query: OrderedQuerySpecification, sorts: Sequence[SortOperation]) -> OrderedQuerySpecification:
@@ -650,19 +650,19 @@ def sorted_by(query: OrderedQuerySpecification, sorts: Sequence[SortOperation]) 
         query, alias = select_over(inner)
         sorts = _own_sorts(inner, alias, sorts)
     resorted = {_sort_target(s) for s in sorts}
-    return _more_said(query, order_by=[*sorts, *(s for s in query.order_by if _sort_target(s) not in resorted)])
+    return _with_clauses(query, order_by=[*sorts, *(s for s in query.order_by if _sort_target(s) not in resorted)])
 
 
 def dropped(query: OrderedQuerySpecification, count: int) -> OrderedQuerySpecification:
     """The rows of the query after the first ``count`` of them."""
     if _stage(query) >= _TAKE:
         query = select_over(query)[0]
-    return _more_said(query, offset=count if query.offset is None else query.offset + count)
+    return _with_clauses(query, offset=count if query.offset is None else query.offset + count)
 
 
 def taken(query: OrderedQuerySpecification, count: int) -> OrderedQuerySpecification:
     """The first ``count`` rows of the query."""
-    return _more_said(query, limit=count if query.limit is None else min(query.limit, count))
+    return _with_clauses(query, limit=count if query.limit is None else min(query.limit, count))
 
 
 def sql_format_datetime(value:datetime.datetime) -> str:
