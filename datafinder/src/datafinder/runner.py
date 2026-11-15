@@ -183,10 +183,13 @@ class FinderResult(DataFrame):
                  business_date_to: datetime.date | None = None,
                  processing_datetime_to: datetime.datetime | datetime.date | None = None,
                  *, query: OrderedQuerySpecification | None = None):
-        self._query: OrderedQuerySpecification = query if query is not None else build_query_specification(
+        self._start(query if query is not None else build_query_specification(
             business_date, processing_datetime, columns, table, op, business_date_to=business_date_to,
-            processing_datetime_to=processing_datetime_to)
-        self._timeout_ms: int = _DEFAULT_TIMEOUT_MS
+            processing_datetime_to=processing_datetime_to))
+
+    def _start(self, query: OrderedQuerySpecification, timeout_ms: int = _DEFAULT_TIMEOUT_MS) -> None:
+        self._query: OrderedQuerySpecification = query
+        self._timeout_ms: int = timeout_ms
         self._alias: TableAlias | None = None
 
     @property
@@ -205,8 +208,8 @@ class FinderResult(DataFrame):
 
     def _then(self, query: OrderedQuerySpecification) -> 'FinderResult':
         """A result of a step written after this one."""
-        result = FinderResult(None, None, (), None, NoOperation(), query=query)  # pyright: ignore[reportArgumentType]
-        result._timeout_ms = self._timeout_ms
+        result = FinderResult.__new__(FinderResult)
+        result._start(query, self._timeout_ms)
         return result
 
     # --- a result as a relation, for what follows it ---------------------------------------------------------------

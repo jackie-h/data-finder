@@ -24,16 +24,22 @@ class RelationalOperationElement:
         return self
 
 
+def _element(mixed_in: object) -> 'RelationalOperationElement':
+    """The expression a mixin (Sortable, Aliasable, BooleanAggregates) is part of: they are only mixed into relational elements."""
+    assert isinstance(mixed_in, RelationalOperationElement), f"{type(mixed_in).__name__} is not a relational element"
+    return mixed_in
+
+
 class Sortable:
     """Something the result can be ordered by: ``f.id_().count().ascending()``."""
 
     def ascending(self) -> 'SortOperation':
         """Sort by this expression, smallest first."""
-        return SortOperation(self, SortDirection.ASC)  # pyright: ignore[reportArgumentType]
+        return SortOperation(_element(self), SortDirection.ASC)
 
     def descending(self) -> 'SortOperation':
         """Sort by this expression, largest first."""
-        return SortOperation(self, SortDirection.DESC)  # pyright: ignore[reportArgumentType]
+        return SortOperation(_element(self), SortDirection.DESC)
 
 
 class Aliasable:
@@ -41,7 +47,7 @@ class Aliasable:
     As in Pure, the name is held by an ``Alias`` that wraps the column."""
 
     def alias(self, name: str) -> 'Alias':
-        return Alias(self, name)  # pyright: ignore[reportArgumentType]
+        return Alias(_element(self), name)
 
 
 class Aggregates(Generic[AG]):
@@ -105,13 +111,13 @@ class BooleanAggregates:
     ``.any()`` where at least one does."""
 
     def __invert__(self) -> 'NotOperation':
-        return NotOperation(self)  # pyright: ignore[reportArgumentType]
+        return NotOperation(_element(self))
 
     def all(self) -> 'BooleanAggregateOperation':
-        return BooleanAggregateOperation(self, AggregateOperator.BOOL_AND, 'All Expression')  # pyright: ignore[reportArgumentType]
+        return BooleanAggregateOperation(_element(self), AggregateOperator.BOOL_AND, 'All Expression')
 
     def any(self) -> 'BooleanAggregateOperation':
-        return BooleanAggregateOperation(self, AggregateOperator.BOOL_OR, 'Any Expression')  # pyright: ignore[reportArgumentType]
+        return BooleanAggregateOperation(_element(self), AggregateOperator.BOOL_OR, 'Any Expression')
 
 
 class Equatable(Generic[T]):
@@ -1527,7 +1533,8 @@ class _Result:
         return self
 
     def _function_label(self) -> str:
-        return _label_of(self)  # pyright: ignore[reportArgumentType]
+        assert isinstance(self, ScalarFunctionOperation), f"{type(self).__name__} is not a scalar function"
+        return _label_of(self)
 
 
 class StringFunctionOperation(_Result, StringFunctions, StringPredicates, Equatable[str], Aggregates[UntypedAggregateOperation],
