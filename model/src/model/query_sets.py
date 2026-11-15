@@ -16,7 +16,9 @@ from model.relational import (
 )
 from model.m3 import Class
 from model.mapping import ClassMapping, EmbeddedSetMapping, NavigationPropertyMapping, PropertyMapping
-from model.relational_mapping import Join, RelationalClassMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, RelationalUnionMapping
+from model.relational_mapping import (
+    Join, RelationalClassMapping, RelationalEmbeddedSetMapping, RelationalNavigationPropertyMapping, RelationalPropertyMapping, RelationalUnionMapping,
+)
 
 SET_COLUMN = "_set"
 
@@ -61,6 +63,46 @@ def _agree(class_name: str, first: RelationalClassMapping, other: RelationalClas
         return {pm.target.name: pm.property.id for pm in rcm.property_mappings if isinstance(pm.target, Column)}
     if properties(first) != properties(other):
         raise ValueError(f"{pair} map the columns to different properties: {properties(first)} and {properties(other)}")
+    if _embedded_columns(first) != _embedded_columns(other):
+        raise ValueError(f"{pair} map the columns to different properties of the objects embedded in their rows: "
+                         f"{_embedded_columns(first)} and {_embedded_columns(other)}")
+
+
+def _embedded_columns(rcm: RelationalClassMapping) -> dict[str, str]:
+    """The column each property of an object embedded in the row of the set is read from, by the path to the property: ``applicant.address.name``."""
+    found: dict[str, str] = {}
+
+    def walk(path: str, property_mappings) -> None:
+        for pm in property_mappings:
+            here = f"{path}{pm.property.id}"
+            if isinstance(pm.target, Column):
+                found[here] = pm.target.name
+            elif isinstance(pm.target, RelationalEmbeddedSetMapping):
+                walk(here + ".", pm.target.property_mappings)
+            else:
+                raise ValueError(f"the set '{rcm.id}' maps {here} of an embedded object to something other than a column: an object embedded in "
+                                 f"a set is read from the columns of the set's query")
+
+    for pm in rcm.property_mappings:
+        if isinstance(pm.target, RelationalEmbeddedSetMapping):
+            walk(f"{pm.property.id}.", pm.target.property_mappings)
+    return found
+
+
+def _on_union(pm: RelationalNavigationPropertyMapping, by_name: dict[str, Column], owner_id: str) -> RelationalNavigationPropertyMapping:
+    """The embedded object of a set as the union has it: the same properties, read from the columns of the union, under ids of the union's."""
+    source = pm.target
+    assert isinstance(source, RelationalEmbeddedSetMapping)
+    embedded_id = f"{owner_id}_{pm.property.id}"
+    mappings: list = []
+    for each in source.property_mappings:
+        if isinstance(each.target, Column):
+            mappings.append(RelationalPropertyMapping(each.property, by_name[each.target.name], embedded_id))
+        else:
+            assert isinstance(each, RelationalNavigationPropertyMapping)
+            mappings.append(_on_union(each, by_name, embedded_id))
+    embedded = RelationalEmbeddedSetMapping(source.clazz, mappings, embedded_id)
+    return RelationalNavigationPropertyMapping(pm.property, embedded, owner_id, embedded.id)
 
 
 def _check_key(class_name: str, rcm: RelationalClassMapping) -> None:
@@ -159,14 +201,16 @@ def union_of_sets(class_name: str, sets: Sequence[RelationalClassMapping]) -> Re
     on the columns of the union."""
     check_sets(class_name, sets)
     for each in sets:
-        other = [pm.property.id for pm in each.property_mappings if not isinstance(pm.target, Column)]
+        other = [pm.property.id for pm in each.property_mappings if not isinstance(pm.target, (Column, RelationalEmbeddedSetMapping))]
         if other:
             raise ValueError(f"the set '{each.id}' of {class_name} maps {', '.join(other)} to something other than a column: the properties of a union are "
                              f"its columns, and a navigation between sets is said by an association that names them")
     alias = union_alias(f"{class_name.upper()}_SETS", [(_alias(each), each.id or "") for each in sets], f"{class_name}")
     by_name = {c.name: c for c in alias.columns if isinstance(c, Column)}
-    mappings = [RelationalPropertyMapping(pm.property, by_name[pm.target.name], class_name) for pm in sets[0].property_mappings
-                if isinstance(pm.target, Column)]
+    mappings: list = [RelationalPropertyMapping(pm.property, by_name[pm.target.name], class_name) for pm in sets[0].property_mappings
+                      if isinstance(pm.target, Column)]
+    mappings.extend(_on_union(pm, by_name, class_name) for pm in sets[0].property_mappings
+                    if isinstance(pm, RelationalNavigationPropertyMapping) and isinstance(pm.target, RelationalEmbeddedSetMapping))
     return RelationalUnionMapping(sets[0].clazz, list(sets), mappings, milestone_mapping=sets[0].milestone_mapping)
 
 

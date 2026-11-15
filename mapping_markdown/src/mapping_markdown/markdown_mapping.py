@@ -250,6 +250,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
     class_context: dict[str, tuple] = {}
     sections_of_class: dict[str, list[tuple[bool, RelationalClassMapping]]] = {}  # each class's Table and Query sections, in order
     named_sets: set[int] = set()  # the sections that are a set: the ones that say so in their heading
+    set_embedded: list[tuple[RelationalClassMapping, list, dict]] = []  # the objects embedded in the row of each set
     section_ids: dict[str, str] = {}  # the id of each class's last section: where a property mapping that its association gives starts from
     set_associations: dict[str, list[tuple[str | None, str | None, list[dict]]]] = {}  # each association's sections that name sets
     queries_of_class: dict[str, list[tuple[str, str | None]]] = {}  # each class's queries, by name and set, before any of them is read
@@ -381,6 +382,8 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 sections_of_class.setdefault(cls.name, []).append((is_query, section))
                 class_mappings.append(section)
                 class_context[cls.name] = (property_mappings, cols_by_name, embedded_by_nav)
+                if set_name:
+                    set_embedded.append((section, property_mappings, embedded_by_nav))
                 continue
 
             elif level == "h4" and text.startswith("Association:"):
@@ -473,10 +476,17 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
     # An embedded mapping with no Association section has nothing to fall back to: the properties live in the
     # class's own row, so the navigation property maps straight to the embedded columns.
+    in_a_set = {id(pm_list) for _, pm_list, _ in set_embedded}
     for class_name, (pm_list, _, embedded_by_nav) in class_context.items():
+        if id(pm_list) in in_a_set:
+            continue  # the sets of a class each hold their own, below
         for nav_prop, embedded in embedded_by_nav.values():
             _check_embedded_joins(nav_prop.id, embedded)
             pm_list.append(RelationalNavigationPropertyMapping(nav_prop, embedded, section_ids[class_name], embedded.id))
+    for section, pm_list, embedded_by_nav in set_embedded:
+        for nav_prop, embedded in embedded_by_nav.values():
+            _check_embedded_joins(nav_prop.id, embedded)
+            pm_list.append(RelationalNavigationPropertyMapping(nav_prop, embedded, section.id, embedded.id))
 
     together = _put_sets_together(class_mappings, sections_of_class, named_sets)
     _join_the_sets(set_associations, together, packages, classes_by_name, assoc_nav_lookup)
@@ -734,6 +744,18 @@ def _flatten_embedded_rows(esm: RelationalEmbeddedSetMapping, prefix: str) -> li
         elif isinstance(pm.target, RelationalEmbeddedSetMapping):
             rows.extend(_flatten_embedded_rows(pm.target, dotted))
     return rows
+
+
+def _embedded_columns(esm: RelationalEmbeddedSetMapping, path: str) -> list[tuple[str, Column]]:
+    """The column of each property of the object embedded in a row, by the dotted path to the property: ``applicant.address.name``."""
+    found: list[tuple[str, Column]] = []
+    for pm in esm.property_mappings:
+        here = f"{path}.{pm.property.id}"
+        if isinstance(pm.target, Column):
+            found.append((here, pm.target))
+        elif isinstance(pm.target, RelationalEmbeddedSetMapping):
+            found.extend(_embedded_columns(pm.target, here))
+    return found
 
 
 def _embedded_joins(esm: RelationalEmbeddedSetMapping, path: list[str]) -> list[tuple[RelationalEmbeddedSetMapping, Property, Join, list[str]]]:

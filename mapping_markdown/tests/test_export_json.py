@@ -201,3 +201,12 @@ def test_the_sets_of_a_class_are_exported_each_as_a_query_with_its_set_and_the_c
 
 def test_a_query_that_is_not_a_set_has_no_set(sql_queries):
     assert all(q["set"] is None for q in sql_queries["queries"])
+
+
+def test_a_column_of_an_object_embedded_in_the_row_of_a_set_is_exported_with_the_path_of_its_property():
+    exported = export_json.export_mapping(os.path.join(EXAMPLES, "sql_query_sets_embedded_mapping.md"), "sql_query_sets_embedded_mapping.md", EXAMPLES)
+    queries = {q["name"]: q for q in exported["queries"]}
+    for name in ("AGENCY_ONE", "AGENCY_TWO"):
+        assert {c["name"]: c["property"] for c in queries[name]["columns"]} == {
+            "id": "id", "source": "source", "applicant_first_name": "applicant.firstName", "applicant_nick_name": "applicant.nickName",
+            "applicant_home": "applicant.address.name", "firm_legal_name": "firm.legalName"}

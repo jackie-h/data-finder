@@ -164,7 +164,9 @@ def _check_property_mappings(holder: InstanceSetMapping, owner: ClassMapping, by
     for pm in holder.property_mappings:
         where = f"the property {pm.property.id} of {holder.clazz.name}"
         typed_by = pm.property.type
-        from_a_set = isinstance(owner, UnionMapping) and holder is owner and isinstance(typed_by, Class)
+        # an object embedded in the row is of the union, as its properties are; a navigation to another class is from one of its sets
+        from_a_set = (isinstance(owner, UnionMapping) and holder is owner and isinstance(typed_by, Class)
+                      and not isinstance(pm.target, EmbeddedSetMapping))
         if from_a_set:
             if pm.source_set_id not in _set_ids(owner):
                 raise ValueError(f"'{pm.source_set_id}' is not a set of {owner.clazz.name} ({', '.join(_set_ids(owner))}): {where} starts from one of them")
