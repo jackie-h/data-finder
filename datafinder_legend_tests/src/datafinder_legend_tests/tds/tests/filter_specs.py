@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DECIMAL_LITERAL_CAST
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DECIMAL_LITERAL_CAST, CHAINED_RESULT_SUBSELECT
 
 _SRC = "tds/tests/testTDSFilter.pure"
 
@@ -74,9 +74,10 @@ TDS_FILTER_SPECS = FinderSpec(
                'select cast(1.0 as Decimal(32,16)) as "decimal" from personTable as "root" where cast(1.0 as Decimal(32,16)) = cast(2.0 as Decimal(32,16))',
                lambda f: f.find_all([constant(1.0)], constant(1.0).eq(2.0)),
                known_gaps={BACKEND: DECIMAL_LITERAL_CAST}),
-        unsupported("testInOnColumnInSubselect", f"{_SRC}::testInOnColumnInSubselect",
+        ported("testInOnColumnInSubselect", f"{_SRC}::testInOnColumnInSubselect",
                     'select "subselect"."name" as "name", "subselect"."age" as "age", "subselect"."rank" as "rank" from (select "root".FIRSTNAME as "name", "root".AGE as "age", rank() over (partition by "root".FIRSTNAME order by "root".AGE desc) as "rank" from personTable as "root") as "subselect" where "subselect"."name" in (\'John\', \'Peter\')',
-                    'a filter on a window function column is nested in a subselect'),
+                    lambda f: f.find_all([f.first_name().alias("name"), f.age().alias("age")]).extend(rank=lambda r: r.age.rank(partition_by=[r.name], order_by=[r.age.descending()])).filter(lambda r: r.name.is_in(["John", "Peter"])),
+               known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
         ported("testFilterOnRootClassAggValueAfterGroupBy", f"{_SRC}::testFilterOnRootClassAggValueAfterGroupBy",
                'select "root".AGE as "age", listagg("root".FIRSTNAME, \',\') as "firstNamesWithSameAge" from personTable as "root" group by "age" having listagg("root".FIRSTNAME, \',\') like \'%John%\'',
                lambda f: f.find_all([f.age(), f.first_name().join(",")]).group_by(f.age()).having(f.first_name().join(",").contains("John"))),
