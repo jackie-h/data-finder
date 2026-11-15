@@ -32,3 +32,8 @@ Drop table if exists PersonFirmSet2;
 Create Table PersonFirmSet2 (ID INT, lastName_s2 VARCHAR(200), Firm2 VARCHAR(200));
 insert into PersonFirmSet2 (ID, lastName_s2, Firm2) values (1, 'Taylor', 'Firm X');
 insert into PersonFirmSet2 (ID, lastName_s2, Firm2) values (2, 'Wright', 'Firm X');
+Drop table if exists PersonFirmSet1Firm;
+Create Table PersonFirmSet1Firm(id INT, FirmJ1 VARCHAR(200));
+insert into PersonFirmSet1Firm (id, FirmJ1) values (1, 'Firm X');
+insert into PersonFirmSet1Firm (id, FirmJ1) values (2, 'Firm X');
+insert into PersonFirmSet1Firm (id, FirmJ1) values (3, 'Firm A');
