@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, UNION_WITH_KEY_COLUMNS, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, UNION_SETS_BY_NUMBER, UNION_WITH_KEY_COLUMNS, ported, unsupported
 
 _SRC = "tests/mapping/union/testUnion.pure"
 
@@ -24,10 +24,7 @@ UNION_SPECS = FinderSpec(
         unsupported("testProjectEmbeddedMappingUnionWithSameColumnsNamesDeep", f"{_SRC}::testProjectEmbeddedMappingUnionWithSameColumnsNamesDeep",
                     'select "unionBase"."ApplicationsSet1date_ApplicationsSet2date" as "date", "unionBase"."ApplicationsSet1person_address_s1_ApplicationsSet2person_address_s2" as "applicant.adress", "unionBase"."ApplicationsSet1firm_address_s1_ApplicationsSet2firm_address_s2" as "firm.address" from (select "root".date as "pk_0_0", "root".personID as "pk_1_0", "root".firmID as "pk_2_0", null as "pk_0_1", null as "pk_1_1", null as "pk_2_1", null as "pk_3_1", "root".date as "ApplicationsSet1date_ApplicationsSet2date", "root".person_address_s1 as "ApplicationsSet1person_address_s1_ApplicationsSet2person_address_s2", "root".firm_address_s1 as "ApplicationsSet1firm_address_s1_ApplicationsSet2firm_address_s2" from ApplicationsSet1 as "root" union all select null as "pk_0_0", null as "pk_1_0", null as "pk_2_0", "root".date as "pk_0_1", "root".firstName as "pk_1_1", "root".lastName as "pk_2_1", "root".firm_legalName as "pk_3_1", "root".date as "ApplicationsSet1date_ApplicationsSet2date", "root".person_address_s2 as "ApplicationsSet1person_address_s1_ApplicationsSet2person_address_s2", "root".firm_address_s2 as "ApplicationsSet1firm_address_s1_ApplicationsSet2firm_address_s2" from ApplicationsSet2 as "root") as "unionBase"',
                     'union class mappings (Operation_SetImplementation)'),
-        unsupported("testProjectMappingWithSameColumnsNames", f"{_SRC}::testProjectMappingWithSameColumnsNames",
-                    'select "root".date as "date", "personset1_0".nickName as "applicant.name", "firmset1_0".nickName as "firm.name" from ApplicationsSet1 as "root" left outer join PersonSet1 as "personset1_0" on ("root".personID = "personset1_0".ID) left outer join FirmSet1 as "firmset1_0" on ("root".firmID = "firmset1_0".ID)',
-                    'union class mappings (Operation_SetImplementation)'),
-        unsupported("testProjectAndFilterSamePropertySameJoinInUnion", f"{_SRC}::testProjectAndFilterSamePropertySameJoinInUnion",
+                unsupported("testProjectAndFilterSamePropertySameJoinInUnion", f"{_SRC}::testProjectAndFilterSamePropertySameJoinInUnion",
                     'select "unionBase"."PersonMasterlastName_PersonMasterlastName" as "lastName", "unionBase"."PersonMasterPersonAdditionalPersonAdditionalotherName_PersonMasterPersonAdditionalPersonAdditionalotherName" as "otherNames", "unionalias_1"."FirmSet1name_FirmSet2name" as "extraInformation", "unionBase"."PersonMasterPersonAdditionalPersonAdditionalextrainfo_PersonMasterPersonAdditionalPersonAdditionalextrainfo" as "firmName" from (select "personadditional_0".extrainfo as "PersonMasterPersonAdditionalPersonAdditionalextrainfo_PersonMasterPersonAdditionalPersonAdditionalextrainfo", "root".FirmID as FirmID_0, null as FirmID_1, "root".ID as "pk_0_0", null as "pk_0_1", "root".lastName as "PersonMasterlastName_PersonMasterlastName", "personadditional_0".otherName as "PersonMasterPersonAdditionalPersonAdditionalotherName_PersonMasterPersonAdditionalPersonAdditionalotherName" from PersonMaster as "root" left outer join PersonAdditional as "personadditional_0" on ("root".ID = "personadditional_0".ID) union all select "personadditional_0".extrainfo as "PersonMasterPersonAdditionalPersonAdditionalextrainfo_PersonMasterPersonAdditionalPersonAdditionalextrainfo", null as FirmID_0, "root".FirmID as FirmID_1, null as "pk_0_0", "root".ID as "pk_0_1", "root".lastName as "PersonMasterlastName_PersonMasterlastName", "personadditional_0".otherName as "PersonMasterPersonAdditionalPersonAdditionalotherName_PersonMasterPersonAdditionalPersonAdditionalotherName" from PersonMaster as "root" left outer join PersonAdditional as "personadditional_0" on ("root".ID = "personadditional_0".ID)) as "unionBase" left outer join (select "root".ID as ID_0, null as ID_1, "root".name as "FirmSet1name_FirmSet2name" from FirmSet1 as "root" union all select null as ID_0, "root".ID as ID_1, "root".name as "FirmSet1name_FirmSet2name" from FirmSet2 as "root") as "unionalias_1" on ("unionBase".FirmID_0 = "unionalias_1".ID_0 or "unionBase".FirmID_1 = "unionalias_1".ID_1) where "unionBase"."PersonMasterPersonAdditionalPersonAdditionalextrainfo_PersonMasterPersonAdditionalPersonAdditionalextrainfo" = \'Not Available\' and not "unionalias_1"."FirmSet1name_FirmSet2name" is null',
                     'union class mappings (Operation_SetImplementation)'),
         unsupported("testUnionOfViewsWithFilterInQualifiedProperty", f"{_SRC}::testUnionOfViewsWithFilterInQualifiedProperty",
@@ -36,10 +33,7 @@ UNION_SPECS = FinderSpec(
         unsupported("testUnionOfViewsWithFilterInQualifiedPropertyAndNonOverlappingJoinSequnece", f"{_SRC}::testUnionOfViewsWithFilterInQualifiedPropertyAndNonOverlappingJoinSequnece",
                     'select "firmextension_1".aggCol as "Employees Last Name" from firmExtension as "root" left outer join (select "firmextension_2".firmId as firmId, listagg("unionalias_0"."PersonExtensionView1lastName_PersonExtensionView2lastName", \',\') as aggCol from firmExtension as "firmextension_2" left outer join (select "root".firm as firm_0, null as firm_1, "personextensionview1_0".lastName as "PersonExtensionView1lastName_PersonExtensionView2lastName" from (select "root".personId as person, "root".firmId as firm from midTable as "root") as "root" inner join (select "root".id, "root".firstName, "root".lastName, "root".birthdate from (select "root".ID as id, "root".FIRSTNAME as firstName, "root".LASTNAME as lastName, "root".birthdate as birthdate from PersonExtensionT1 as "root") as "root") as "personextensionview1_0" on ("root".person = "personextensionview1_0".id) union all select null as firm_0, "root".firm as firm_1, "personextensionview2_0".lastName as "PersonExtensionView1lastName_PersonExtensionView2lastName" from (select "root".personId as person, "root".firmId as firm from midTable as "root") as "root" inner join (select "root".id, "root".firstName, "root".lastName, "root".birthdate from (select "root".ID as id, "root".FIRSTNAME as firstName, "root".LASTNAME as lastName, "root".birthdate as birthdate from PersonExtensionT2 as "root") as "root") as "personextensionview2_0" on ("root".person = "personextensionview2_0".id)) as "unionalias_0" on ("firmextension_2".firmId = "unionalias_0".firm_0 or "firmextension_2".firmId = "unionalias_0".firm_1) group by "firmextension_2".firmId) as "firmextension_1" on ("root".firmId = "firmextension_1".firmId)',
                     'union class mappings (Operation_SetImplementation)'),
-        unsupported("testUnionWithSinglePropertyMapping", f"{_SRC}::testUnionWithSinglePropertyMapping",
-                    'select "unionBase"."PersonSet1lastName_s1_PersonSet1lastName_s1" as "name", "firm_0".name as "firmName" from (select "root".ID as "pk_0_0", null as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet1lastName_s1", "root".FirmID as FirmID_0, null as FirmID_1 from PersonSet1 as "root" union all select null as "pk_0_0", "root".ID as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet1lastName_s1", null as FirmID_0, "root".FirmID as FirmID_1 from PersonSet1 as "root") as "unionBase" left outer join Firm as "firm_0" on ("unionBase".FirmID_0 = "firm_0".ID or "unionBase".FirmID_1 = "firm_0".ID)',
-                    'union class mappings (Operation_SetImplementation)'),
-    ],
+            ],
 )
 
 
@@ -51,5 +45,28 @@ UNION_FILTER_SPECS = FinderSpec(
                'select "unionBase"."PersonSet1lastName_s1_PersonSet2lastName_s2" as "Lastname" from (select "root".ID as "pk_0_0", null as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet2lastName_s2" from PersonSet1 as "root" where "root".FirmID = 1 union all select null as "pk_0_0", "root".ID as "pk_0_1", "root".lastName_s2 as "PersonSet1lastName_s1_PersonSet2lastName_s2" from PersonSet2 as "root" where "root".FirmID = 1) as "unionBase"',
                lambda f: f.find_all([f.last_name().alias("Lastname")]),
                known_gaps={BACKEND: UNION_WITH_KEY_COLUMNS}),
+    ],
+)
+
+
+UNION_SINGLE_PROPERTY_SPECS = FinderSpec(
+    finder_name="PersonFinder",
+    mapping_file="tests/mapping/union/union_single_property_mapping.md",
+    expectations=[
+        ported("testUnionWithSinglePropertyMapping", f"{_SRC}::testUnionWithSinglePropertyMapping",
+               'select "unionBase"."PersonSet1lastName_s1_PersonSet1lastName_s1" as "name", "firm_0".name as "firmName" from (select "root".ID as "pk_0_0", null as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet1lastName_s1", "root".FirmID as FirmID_0, null as FirmID_1 from PersonSet1 as "root" union all select null as "pk_0_0", "root".ID as "pk_0_1", "root".lastName_s1 as "PersonSet1lastName_s1_PersonSet1lastName_s1", null as FirmID_0, "root".FirmID as FirmID_1 from PersonSet1 as "root") as "unionBase" left outer join Firm as "firm_0" on ("unionBase".FirmID_0 = "firm_0".ID or "unionBase".FirmID_1 = "firm_0".ID)',
+               lambda f: f.find_all([f.last_name().alias("name"), f.firm().legal_name().alias("firmName")]),
+               known_gaps={BACKEND: UNION_SETS_BY_NUMBER}),
+    ],
+)
+
+
+APPLICATION_SPECS = FinderSpec(
+    finder_name="ApplicationFinder",
+    mapping_file="tests/mapping/union/union_application_mapping.md",
+    expectations=[
+        ported("testProjectMappingWithSameColumnsNames", f"{_SRC}::testProjectMappingWithSameColumnsNames",
+               'select "root".date as "date", "personset1_0".nickName as "applicant.name", "firmset1_0".nickName as "firm.name" from ApplicationsSet1 as "root" left outer join PersonSet1 as "personset1_0" on ("root".personID = "personset1_0".ID) left outer join FirmSet1 as "firmset1_0" on ("root".firmID = "firmset1_0".ID)',
+               lambda f: f.find_all([f.date().alias("date"), f.applicant().nick_name().alias("applicant.name"), f.firm().nick_name().alias("firm.name")])),
     ],
 )

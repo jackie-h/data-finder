@@ -52,6 +52,12 @@ LIMIT_OF_LIMIT = (
     "limit in a subselect and limits that, which returns the same rows"
 )
 
+SPECIAL_UNION_FILTERS = (
+    "Legend selects only the columns the query reads from each set and writes a filter or a join on the union into each of its "
+    "selects; the finder's union selects each set's key columns and its set id, and the filter and the join are over the union, "
+    "which keeps the same rows"
+)
+
 HOUR_OF_DATETIME_LITERAL = (
     "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
     "string, which DuckDB cannot run, so there are no rows of Legend's to compare"
