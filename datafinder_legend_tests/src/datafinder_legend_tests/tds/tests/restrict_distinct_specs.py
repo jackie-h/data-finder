@@ -25,7 +25,7 @@ RESTRICT_DISTINCT_SPECS = FinderSpec(
                     lambda f: f.find_all([f.first_name().alias("firstName"), f.firm().legal_name().alias("firmName")]).limit(1000).select("firstName").distinct()),
         ported("testRestrictDistinct_NoOptimization_NotRestrictFollowedByDistinct", f"{_SRC}::testRestrictDistinct_NoOptimization_NotRestrictFollowedByDistinct",
                     'select distinct "root".FIRSTNAME as "firstName" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) order by "firstName" asc',
-                    lambda f: (lambda r: (lambda d: d.order_by(d["firstName"].ascending()))(r.distinct()))(f.find_all([f.first_name().alias("firstName"), f.firm().legal_name().alias("firmName")]).select("firstName")),
+                    lambda f: (lambda r: r.distinct().order_by(r["firstName"].ascending()))(f.find_all([f.first_name().alias("firstName"), f.firm().legal_name().alias("firmName")]).select("firstName")),
                known_gaps={BACKEND: JOIN_KEPT_AFTER_RESTRICT}),
         ported("testRestrictDistinct_NoJoinCutDown", f"{_SRC}::testRestrictDistinct_NoJoinCutDown",
                'select distinct "firmtable_0".LEGALNAME as "firmName", "root".LASTNAME as "lastName" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID)',

@@ -10,7 +10,7 @@ import datetime
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, ORDER_BY_CONSTANT, RESTRICT_AFTER_GROUP_BY, CHAINED_RESULT_SUBSELECT
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, RESTRICT_AFTER_GROUP_BY, CHAINED_RESULT_SUBSELECT
 
 _SRC = "tds/tests/testTDSRestrict.pure"
 
@@ -48,8 +48,7 @@ RESTRICT_SPECS = FinderSpec(
                known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
         ported("testLowerProjectColsNotEliminatedWithSort", f"{_SRC}::testLowerProjectColsNotEliminatedWithSort",
                     'select "persontable_0"."firstName" as "firstName" from (select "root".FIRSTNAME as "firstName", \'Hello\' as "Hello" from personTable as "root" order by "Hello" asc, "firstName" asc) as "persontable_0"',
-                    lambda f: (lambda r: r.order_by(r["Hello"].ascending(), r["firstName"].ascending()).select("firstName"))(f.find_all([f.first_name().alias("firstName"), constant("Hello").alias("Hello")])),
-                    known_gaps={ROWS: ORDER_BY_CONSTANT}),
+                    lambda f: (lambda r: r.order_by(r["Hello"].ascending(), r["firstName"].ascending()).select("firstName"))(f.find_all([f.first_name().alias("firstName"), constant("Hello").alias("Hello")]))),
         unsupported("testRestrictWithPostProcessor", f"{_SRC}::testRestrictWithPostProcessor",
                     'select "persontable_0"."firstName" as "firstName" from (select "root".FIRSTNAME as "firstName", \'Hello\' as "Hello" from personTable as "root" order by "Hello" asc, "firstName" asc) as "persontable_0"',
                     'a restrict after a sort wraps the query in a subselect'),
