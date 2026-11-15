@@ -131,13 +131,13 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         trade_finder_path = os.path.join(self.tmp, "finance", "trade", "trade_finder.py")
         content = open(trade_finder_path).read()
-        assert "from finance.reference_data.account_finder import AccountRelatedFinder" in content  # type: ignore[import]
+        assert "from finance.reference_data.account_finder import AccountRelatedFinder" in content
 
     def test_generated_finder_imports_own_base(self):
         generate(self.mapping, self.tmp)
         trade_finder_path = os.path.join(self.tmp, "finance", "trade", "trade_finder.py")
         content = open(trade_finder_path).read()
-        assert "from finance.trade.trade_finder_base import TradeFinderBase, TradeRelatedFinderBase" in content  # type: ignore[import]
+        assert "from finance.trade.trade_finder_base import TradeFinderBase, TradeRelatedFinderBase" in content
 
     def test_generated_finder_is_importable(self):
         generate(self.mapping, self.tmp)
@@ -169,7 +169,7 @@ class TestGeneratePackageStructure:
         generate(self.mapping, self.tmp)
         account_finder_path = os.path.join(self.tmp, "finance", "reference_data", "account_finder.py")
         content = open(account_finder_path).read()
-        assert "from finance.trade.trade_finder import TradeRelatedFinder" in content  # type: ignore[import]
+        assert "from finance.trade.trade_finder import TradeRelatedFinder" in content
 
     def test_reverse_association_is_callable(self):
         generate(self.mapping, self.tmp)

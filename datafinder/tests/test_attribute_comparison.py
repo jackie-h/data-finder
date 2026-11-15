@@ -220,7 +220,7 @@ def test_joined_text_is_compared_for_equality_only():
     name = first + " " + last
     for compare in (lambda n: n < "b", lambda n: n >= "b"):
         with pytest.raises(TypeError):
-            compare(name)  # type: ignore[operator]
+            compare(name)
     assert "IN ('Ann Lee')" in to_sql(None, None, [first], table, name.is_in(["Ann Lee"]))
     assert "NOT IN ('Ann Lee')" in to_sql(None, None, [first], table, name.is_not_in(["Ann Lee"]))
     assert "WHERE t0.F || ' ' || t0.L = 'Ann Lee'" in to_sql(None, None, [first], table, name.eq("Ann Lee"))

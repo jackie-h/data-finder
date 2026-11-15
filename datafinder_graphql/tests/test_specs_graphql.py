@@ -217,7 +217,7 @@ def make_finder():
         if scenario_id not in servers:
             servers[scenario_id] = start_graphql_server(scenario.tables())
         endpoint = GraphQLEndpoint(endpoint_url(servers[scenario_id]), _FILTER_CONVENTION)  # type: ignore[arg-type]
-        return classes[scenario.mapping_file][finder_name](endpoint)  # type: ignore[call-arg]
+        return classes[scenario.mapping_file][finder_name](endpoint)
 
     yield make
 

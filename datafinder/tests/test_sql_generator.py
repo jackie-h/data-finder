@@ -1400,7 +1400,7 @@ class TestIf:
         from datafinder import when
         a, _ = self._ab()
         with pytest.raises(TypeError, match="condition"):
-            when(a)  # type: ignore[arg-type]
+            when(a)
 
     def test_a_branch_must_be_a_value(self):
         from datafinder import when

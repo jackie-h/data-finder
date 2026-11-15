@@ -1557,16 +1557,16 @@ class DecimalFunctionOperation(_Result, NumericFunctions['DecimalFunctionOperati
     """A function that gives a decimal (``abs`` of a decimal column)."""
 
 
-IntegerConstantOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
-FloatConstantOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
-DecimalConstantOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
-IntegerFunctionOperation._number_type = IntegerFunctionOperation  # type: ignore[attr-defined]
+IntegerConstantOperation._number_type = IntegerFunctionOperation
+FloatConstantOperation._number_type = DoubleFunctionOperation
+DecimalConstantOperation._number_type = DecimalFunctionOperation
+IntegerFunctionOperation._number_type = IntegerFunctionOperation
 IntegerFunctionOperation._number_kind = int  # type: ignore[attr-defined]
 IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation  # type: ignore[attr-defined]
-DoubleFunctionOperation._number_type = DoubleFunctionOperation  # type: ignore[attr-defined]
+DoubleFunctionOperation._number_type = DoubleFunctionOperation
 DoubleFunctionOperation._number_kind = float  # type: ignore[attr-defined]
 DoubleFunctionOperation._value_aggregate = DoubleAggregateOperation  # type: ignore[attr-defined]
-DecimalFunctionOperation._number_type = DecimalFunctionOperation  # type: ignore[attr-defined]
+DecimalFunctionOperation._number_type = DecimalFunctionOperation
 DecimalFunctionOperation._number_kind = decimal.Decimal  # type: ignore[attr-defined]
 DecimalFunctionOperation._value_aggregate = DecimalAggregateOperation  # type: ignore[attr-defined]
 
@@ -1741,7 +1741,7 @@ class TableAlias(NamedRelation):
             if isinstance(column, Column) and column.name == name:
                 return column
         column = Column(name, type, self)
-        column.table = self.relation if isinstance(self.relation, Table) else self  # type: ignore[assignment]
+        column.table = self.relation if isinstance(self.relation, Table) else self
         self.columns = [*self.columns, column]
         return column
 
@@ -1773,7 +1773,7 @@ def schema_of(relation: 'Relation | None') -> 'Schema | None':
 
 
 class Table(NamedRelation):
-    columns: Sequence[Column]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    columns: Sequence[Column]  # type: ignore[assignment]
     # (a table's columns are Columns: narrower than a relation's elements, never assigned from outside)
     schema: 'Schema | None'
     foreign_keys: 'list[ForeignKey]'

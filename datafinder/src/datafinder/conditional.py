@@ -56,7 +56,7 @@ class Then(CaseOperation):
         """Another case, tried when the ones before it do not hold."""
         return When(_condition(condition), self._branches)
 
-    def otherwise(self, value) -> CaseOperation:  # type: ignore[override]
+    def otherwise(self, value) -> CaseOperation:
         """The value when none of the cases hold."""
         return _chain(self._branches, _value(value))
 

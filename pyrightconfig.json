@@ -23,5 +23,6 @@
     "datafinder_graphql/tests",
     "datafinder_examples/src",
     "datafinder_examples_tests/src"
-  ]
+  ],
+  "reportUnnecessaryTypeIgnoreComment": "error"
 }

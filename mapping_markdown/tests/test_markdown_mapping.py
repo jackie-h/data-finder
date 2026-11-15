@@ -448,7 +448,7 @@ class TestInfiniteDatetimeMarkdownParsing:
 
     def setup_method(self):
         from mapping_markdown.markdown_mapping import _md_parser, _build_repository_from_content, _loads_from_nodes
-        from markdown_it.tree import SyntaxTreeNode  # type: ignore
+        from markdown_it.tree import SyntaxTreeNode
         root = SyntaxTreeNode(_md_parser.parse(self._MAPPING_WITH_INFINITE))
         nodes = root.children
         repo = _build_repository_from_content(nodes)
@@ -466,7 +466,7 @@ class TestInfiniteDatetimeMarkdownParsing:
 
     def test_infinite_datetime_flows_to_milestone_mapping(self):
         from mapping_markdown.markdown_mapping import _md_parser, _build_repository_from_content, _loads_from_nodes
-        from markdown_it.tree import SyntaxTreeNode  # type: ignore
+        from markdown_it.tree import SyntaxTreeNode
         from model.mapping import ProcessingDateMilestonesPropertyMapping
         root = SyntaxTreeNode(_md_parser.parse(self._MAPPING_WITH_INFINITE))
         nodes = root.children
