@@ -15,26 +15,6 @@ class PropertyMapping:
         # and for a property that is not a navigation.
         self.target_set_id = target_set_id
 
-class EmbeddedSetMapping:
-    """A partial class mapping embedded inline in the owning (root) table.
-
-    Represents a chained property (e.g. account.name) satisfied by a flat column on the
-    root table, avoiding the join that would normally be required to reach it. Nested
-    property_mappings entries may themselves target a Column (leaf) or a further nested
-    EmbeddedSetMapping (e.g. account.branch.city) — all such columns live on the root table —
-    or a Join, for a property of the embedded class that reaches another table (e.g.
-    classification.system), whose first column is a column of the root table.
-    """
-    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], id: str):
-        self.clazz = clazz
-        self.property_mappings = property_mappings
-        # The id the property mappings in it start from: that of the class mapping that holds it, and the path to it, ``Trade_account``.
-        self.id = id
-        for pm in property_mappings:
-            if pm.source_set_id != id:
-                raise ValueError(f"the property {pm.property.id} of {clazz.name} embedded as {id} has the source set id '{pm.source_set_id}', not '{id}'")
-
-
 class MilestonePropertyMapping:
     def __init(self):
         pass
@@ -89,6 +69,26 @@ class ClassMapping:
         self.property_mappings = property_mappings
         self.milestone_mapping = milestone_mapping
         self.id: str = id or clazz.name
+
+
+class EmbeddedSetMapping:
+    """A partial class mapping embedded inline in the owning (root) table.
+
+    Represents a chained property (e.g. account.name) satisfied by a flat column on the
+    root table, avoiding the join that would normally be required to reach it. Nested
+    property_mappings entries may themselves target a Column (leaf) or a further nested
+    EmbeddedSetMapping (e.g. account.branch.city) — all such columns live on the root table —
+    or a Join, for a property of the embedded class that reaches another table (e.g.
+    classification.system), whose first column is a column of the root table.
+    """
+    def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], id: str):
+        self.clazz = clazz
+        self.property_mappings = property_mappings
+        # The id the property mappings in it start from: that of the class mapping that holds it, and the path to it, ``Trade_account``.
+        self.id = id
+        for pm in property_mappings:
+            if pm.source_set_id != id:
+                raise ValueError(f"the property {pm.property.id} of {clazz.name} embedded as {id} has the source set id '{pm.source_set_id}', not '{id}'")
 
 
 S = TypeVar("S", bound="ClassMapping")
