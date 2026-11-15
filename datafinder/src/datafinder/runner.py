@@ -375,7 +375,15 @@ class FinderResult(DataFrame):
         """Order the rows. Calls accumulate: the sorts of the latest call take priority and earlier ones order the
         rows it leaves tied, as in ``df.sort_values(a).sort_values(b)``. Sorting a column again replaces its earlier
         direction. Rows that are already dropped or taken are ordered after that, as a step over them."""
-        return self._then(sorted_by(self._query, [SortOperation(self._own(s.column), s.direction) for s in sort_ops]))
+        sorts = [SortOperation(self._own(s.column), s.direction) for s in sort_ops]
+        source = self._query.table
+        if isinstance(source, TableAlias) and source.name.startswith("relation"):  # a step over a result, not over a mapped query
+            for sort in sorts:
+                column = _column_of(sort.column)
+                if column is not None and isinstance(column.owner, Table):
+                    raise ValueError(f"The rows of a step are ordered by the columns of the result before it: {list(self.columns())} "
+                                     f"(result[\"{column.name}\"].ascending()), not by a column of the table it was first read from")
+        return self._then(sorted_by(self._query, sorts))
 
     def limit(self, n: int) -> 'FinderResult':
         """The first ``n`` rows. Taking again takes from the rows taken."""

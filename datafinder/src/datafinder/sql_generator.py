@@ -488,7 +488,11 @@ _CONSTANT_TYPES = {
 def _column_name(element: RelationalOperationElement) -> str:
     """The name a column of a result has for the step after it: the name it was given, or its display name in snake_case
     (as a view names its columns)."""
-    return element.name if isinstance(element, Alias) else to_snake_case(display_alias(element))
+    if isinstance(element, Alias):
+        return element.name
+    if isinstance(element, Attribute) and isinstance(element.column().owner, TableAlias):
+        return element.column().name  # a column that a result already named: it keeps that name
+    return to_snake_case(display_alias(element))
 
 
 def _column_type(element: RelationalOperationElement) -> str:
