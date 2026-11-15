@@ -192,8 +192,8 @@ def test_the_sets_of_a_class_are_exported_each_as_a_query_with_its_set_and_the_c
     queries = {q["name"]: q for q in mapping["queries"]}
     assert set(queries) == {"RETAIL", "CORPORATE"}
     assert [(q["class"], q["set"]) for q in queries.values()] == [("Customer", "retail"), ("Customer", "corporate")]
-    assert queries["RETAIL"]["sql"] == "SELECT id, name FROM retail_customers"
-    assert {c["name"]: c["property"] for c in queries["CORPORATE"]["columns"]} == {"id": "id", "name": "name"}
+    assert queries["RETAIL"]["sql"] == "SELECT id AS customer_id, name FROM retail_customers"
+    assert {c["name"]: c["property"] for c in queries["CORPORATE"]["columns"]} == {"customer_id": "id", "name": "name"}
     [orders] = mapping["associations"]
     assert (orders["name"], orders["sourceSet"], orders["targetSet"]) == ("CustomerOrders", "retail", None)
     assert orders["rows"][0]["sourceIsQuery"] and orders["rows"][0]["sourceTable"] == "RETAIL"  # the query of the set, which the export lists, not the union
