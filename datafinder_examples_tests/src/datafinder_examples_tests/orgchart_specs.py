@@ -28,6 +28,25 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_result=np.array([["Bob", "Alice"]], dtype=object),
         ),
         TestExpectation(
+            name="a_step_keeps_the_name_a_column_was_given",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["employeeName"].ascending()))(
+                f.find_all([f.name().alias("employeeName")]).distinct()
+                 .extend(size=lambda r: r.employeeName.length())
+                 .filter(lambda r: r.size > 4)
+                 .select("employeeName", "size")),
+            expected_columns=["employeeName", "size"],
+            expected_result=np.array([["Alice", 5], ["Carol", 5]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_step_is_ordered_by_a_column_of_the_result_before_it",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["employeeName"].descending()))(
+                f.find_all([f.name().alias("employeeName")]).limit(3).filter(lambda r: r.employeeName != "Bob")),
+            expected_columns=["employeeName"],
+            expected_result=np.array([["Carol"], ["Alice"]], dtype=object),
+        ),
+        TestExpectation(
             name="fill_null_replaces_a_missing_manager",
             query=lambda f: f.find_all(
                 [f.name(), f.manager().name().fill_null("nobody")]
