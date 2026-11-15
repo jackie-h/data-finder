@@ -82,8 +82,12 @@ def parse_condition(text: str, tables: list[Table], where: str) -> Operation:
             return FloatConstantOperation(float(number)) if "e" in node.name.lower() else DecimalConstantOperation(number)
         if isinstance(node, exp.Neg) and isinstance(node.this, exp.Literal) and not node.this.is_string:
             inner = operand(node.this)
-            if isinstance(inner, (IntegerConstantOperation, FloatConstantOperation, DecimalConstantOperation)):
-                return type(inner)(-inner.value)  # pyright: ignore[reportArgumentType]
+            if isinstance(inner, IntegerConstantOperation):
+                return IntegerConstantOperation(-inner.value)
+            if isinstance(inner, FloatConstantOperation):
+                return FloatConstantOperation(-inner.value)
+            if isinstance(inner, DecimalConstantOperation):
+                return DecimalConstantOperation(-inner.value)
         if isinstance(node, exp.Func):
             raise ValueError(f"{where}: a function in a join condition is not supported: {node.sql()!r} in {text!r}")
         raise ValueError(f"{where}: {node.sql()!r} in {text!r} is not a column or a literal")
