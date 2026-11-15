@@ -658,8 +658,7 @@ class NumericFunctions(Generic[N]):
 
 
 class _CalendarFunctions:
-    """What a date and a datetime have the same way: the day of the year and the name of the day, a datetime as a date, a date moved by
-    a count of any unit with ``adjust``, and the most recent and the previous day of the week. The user of this class provides
+    """What a date and a datetime have the same way: the day of the year and the name of the day, a datetime as a date, and the most recent and the previous day of the week. The user of this class provides
     ``_function_input()`` and ``_function_label()``."""
 
     if TYPE_CHECKING:  # provided by the class this is mixed into; declared here only, so it does not hide the real one
@@ -674,14 +673,9 @@ class _CalendarFunctions:
         """The name of the day of the week: ``Monday`` ... ``Sunday``."""
         return string_function(self._function_input(), ScalarFunction.DAY_NAME, 'Day Of Week Name ' + self._function_label())
 
-    def to_date(self) -> DateTruncOperation:
-        """The date part: a datetime without its time of day."""
+    def date(self) -> DateTruncOperation:
+        """The date part: a datetime without its time of day, as ``dt.date()``."""
         return DateTruncOperation(self._function_input(), DatePart.DAY, 'Date ' + self._function_label())
-
-    def adjust(self, n: int, unit: 'DurationUnit') -> 'DateArithmeticOperation[Any]':
-        """Move by ``n`` of ``unit``, back in time if ``n`` is negative: ``d.adjust(1, DurationUnit.DAYS)``,
-        ``ts.adjust(123456, DurationUnit.MICROSECONDS)``."""
-        return DateArithmeticOperation(self._function_input(), abs(n), unit.value, n >= 0, 'Adjust ' + self._function_label())
 
     def most_recent_day_of_week(self, day: 'DayOfWeek') -> RecentDayOfWeekOperation:
         """The date of ``day`` on or before this date: the date itself if it is that day."""
@@ -770,6 +764,14 @@ class DateFunctions(_CalendarFunctions):
     def add_years(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
         """Add ``n`` calendar years."""
         return DateArithmeticOperation(self._function_input(), n, DatePart.YEAR, True, 'Add Years ' + self._function_label())
+
+    def add_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Add ``n`` weeks. Equivalent to ``d + timedelta(weeks=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, True, 'Add Weeks ' + self._function_label())
+
+    def subtract_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
+        """Subtract ``n`` weeks."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, False, 'Subtract Weeks ' + self._function_label())
 
     def subtract_days(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
         """Subtract ``n`` days. Equivalent to ``d - timedelta(days=n)``."""
@@ -911,6 +913,22 @@ class DateTimeFunctions(_Operand, _CalendarFunctions):
         """Add ``n`` seconds. Equivalent to ``dt + timedelta(seconds=n)``."""
         return DateArithmeticOperation(self._function_input(), n, DatePart.SECOND, True, 'Add Seconds ' + self._function_label())
 
+    def add_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` weeks. Equivalent to ``dt + timedelta(weeks=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, True, 'Add Weeks ' + self._function_label())
+
+    def add_microseconds(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Add ``n`` microseconds. Equivalent to ``dt + timedelta(microseconds=n)``."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MICROSECOND, True, 'Add Microseconds ' + self._function_label())
+
+    def subtract_weeks(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` weeks."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.WEEK, False, 'Subtract Weeks ' + self._function_label())
+
+    def subtract_microseconds(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
+        """Subtract ``n`` microseconds."""
+        return DateArithmeticOperation(self._function_input(), n, DatePart.MICROSECOND, False, 'Subtract Microseconds ' + self._function_label())
+
     def subtract_days(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
         """Subtract ``n`` days. Equivalent to ``dt - timedelta(days=n)``."""
         return DateArithmeticOperation(self._function_input(), n, DatePart.DAY, False, 'Subtract Days ' + self._function_label())
@@ -968,7 +986,10 @@ class DateTimeFunctions(_Operand, _CalendarFunctions):
         return NotImplemented
 
     def _timedelta_op(self, td: datetime.timedelta, is_add: bool):
-        total_seconds = int(td.total_seconds())
+        microseconds = (td.days * 86400 + td.seconds) * 1_000_000 + td.microseconds
+        if microseconds % 1_000_000 != 0:  # not a whole number of seconds
+            return self.add_microseconds(microseconds) if is_add else self.subtract_microseconds(microseconds)
+        total_seconds = microseconds // 1_000_000
         if total_seconds % 86400 == 0:
             n = total_seconds // 86400
             return self.add_days(n) if is_add else self.subtract_days(n)
@@ -1533,21 +1554,7 @@ class DatePart(Enum):
     WEEK = 'WEEK'
     DOW = 'DOW'
     DOY = 'DOY'
-    MILLISECOND = 'MILLISECOND'
     MICROSECOND = 'MICROSECOND'
-
-
-class DurationUnit(Enum):
-    """A unit of time that a date or datetime is moved by with ``adjust``."""
-    YEARS = DatePart.YEAR
-    MONTHS = DatePart.MONTH
-    WEEKS = DatePart.WEEK
-    DAYS = DatePart.DAY
-    HOURS = DatePart.HOUR
-    MINUTES = DatePart.MINUTE
-    SECONDS = DatePart.SECOND
-    MILLISECONDS = DatePart.MILLISECOND
-    MICROSECONDS = DatePart.MICROSECOND
 
 
 class DayOfWeek(Enum):

@@ -7,5 +7,5 @@ from .conditional import when
 from .runner import *
 from .sql_generator import to_sql, query_sql_to_string, build_query_specification, view_sql_to_string
 from .runner import FinderResult, exists, convert_inputs_and_select_for_date_range, convert_inputs_and_select_for_processing_range
-from model.relational import DayOfWeek, DurationUnit, JoinOperation, WindowFunction, WindowFunctionOperation, WindowSpecification
+from model.relational import DayOfWeek, JoinOperation, WindowFunction, WindowFunctionOperation, WindowSpecification
 from model.view import ViewDefinitionError

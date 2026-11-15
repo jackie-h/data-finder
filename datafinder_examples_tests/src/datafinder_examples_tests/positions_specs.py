@@ -12,7 +12,7 @@ import datetime
 
 import numpy as np
 
-from datafinder import DayOfWeek, DurationUnit, constant, first_day_of_this_month, first_day_of_this_quarter, first_day_of_this_year, now, previous_day_of_week, today
+from datafinder import DayOfWeek, constant, first_day_of_this_month, first_day_of_this_quarter, first_day_of_this_year, now, previous_day_of_week, today
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 POSITIONS_MAPPING = "positions_mapping.md"
@@ -80,46 +80,46 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
-            name="a_datetime_as_a_date",
+            name="the_date_of_a_datetime",
             skip_backends=_NO_DATE_FUNCTIONS,
-            query=lambda f: f.find_all([constant(datetime.datetime(2024, 3, 15, 13, 45, 10)).to_date()], f.id_().eq(1)),
+            query=lambda f: f.find_all([constant(datetime.datetime(2024, 3, 15, 13, 45, 10)).date()], f.id_().eq(1)),
             expected_columns=["Date 2024-03-15 13:45:10"],
             expected_result=np.array([[datetime.date(2024, 3, 15)]], dtype=object),
         ),
-        # --- adjust: a date or datetime moved by a count of any unit ---
+        # --- Weeks and microseconds ---
         TestExpectation(
-            name="adjust_by_days",
+            name="add_weeks",
             skip_backends=_NO_DATE_FUNCTIONS,
-            query=lambda f: f.find_all([f.trade_date().adjust(1, DurationUnit.DAYS)], f.id_().eq(1)),
-            expected_columns=["Adjust Trade Date"],
-            expected_result=np.array([[np.datetime64("2024-03-16", "us")]], dtype=object),
+            query=lambda f: f.find_all([f.trade_date().add_weeks(1)], f.id_().eq(1)),
+            expected_columns=["Add Weeks Trade Date"],
+            expected_result=np.array([[np.datetime64("2024-03-22", "us")]], dtype=object),
         ),
         TestExpectation(
-            name="adjust_back_by_weeks",
+            name="subtract_weeks",
             skip_backends=_NO_DATE_FUNCTIONS,
-            query=lambda f: f.find_all([f.trade_date().adjust(-2, DurationUnit.WEEKS)], f.id_().eq(1)),
-            expected_columns=["Adjust Trade Date"],
+            query=lambda f: f.find_all([f.trade_date().subtract_weeks(2)], f.id_().eq(1)),
+            expected_columns=["Subtract Weeks Trade Date"],
             expected_result=np.array([[np.datetime64("2024-03-01", "us")]], dtype=object),
         ),
         TestExpectation(
-            name="adjust_by_months",
+            name="add_microseconds_to_a_datetime",
             skip_backends=_NO_DATE_FUNCTIONS,
-            query=lambda f: f.find_all([f.trade_date().adjust(14, DurationUnit.MONTHS)], f.id_().eq(1)),
-            expected_columns=["Adjust Trade Date"],
-            expected_result=np.array([[np.datetime64("2025-05-15", "us")]], dtype=object),
-        ),
-        TestExpectation(
-            name="adjust_a_datetime_by_microseconds",
-            skip_backends=_NO_DATE_FUNCTIONS,
-            query=lambda f: f.find_all([constant(datetime.datetime(2014, 12, 4, 15, 22, 23)).adjust(123456, DurationUnit.MICROSECONDS)],
-                                       f.id_().eq(1)),
-            expected_columns=["Adjust 2014-12-04 15:22:23"],
+            query=lambda f: f.find_all([constant(datetime.datetime(2014, 12, 4, 15, 22, 23)).add_microseconds(123456)], f.id_().eq(1)),
+            expected_columns=["Add Microseconds 2014-12-04 15:22:23"],
             expected_result=np.array([[np.datetime64("2014-12-04T15:22:23.123456", "us")]], dtype=object),
         ),
         TestExpectation(
-            name="a_filter_on_a_date_adjusted",
+            name="a_timedelta_with_microseconds_is_added_to_a_datetime",
             skip_backends=_NO_DATE_FUNCTIONS,
-            query=lambda f: f.find_all([f.id_()], f.trade_date().eq(constant(datetime.date(2024, 3, 14)).adjust(1, DurationUnit.DAYS))),
+            query=lambda f: f.find_all([constant(datetime.datetime(2014, 12, 4, 15, 22, 23)) + datetime.timedelta(seconds=1, microseconds=500000)],
+                                       f.id_().eq(1)),
+            expected_columns=["Add Microseconds 2014-12-04 15:22:23"],
+            expected_result=np.array([[np.datetime64("2014-12-04T15:22:24.500000", "us")]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_filter_on_a_date_a_day_later",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([f.id_()], f.trade_date().eq(constant(datetime.date(2024, 3, 14)).add_days(1))),
             expected_columns=["Id"],
             expected_result=np.array([[1]], dtype=object),
         ),
