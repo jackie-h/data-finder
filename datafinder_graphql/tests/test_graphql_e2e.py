@@ -137,7 +137,7 @@ class _FinanceGraphQLHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def log_message(self, *args):  # type: ignore[override]
+    def log_message(self, *args):  # pyright: ignore[reportIncompatibleMethodOverride]
         pass
 
 

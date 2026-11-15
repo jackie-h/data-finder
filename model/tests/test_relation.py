@@ -75,7 +75,7 @@ def test_a_columns_owner_is_a_relation():
 def test_a_name_is_not_an_owner():
     import pytest
     with pytest.raises(TypeError, match="owned by a Relation"):
-        Column("ID", "INT", "accounts")  # type: ignore[arg-type]
+        Column("ID", "INT", "accounts")  # pyright: ignore[reportArgumentType]
 
 
 def test_a_table_is_the_owner_of_its_columns():

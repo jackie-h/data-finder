@@ -40,7 +40,7 @@ class IbisConnect(QueryRunnerBase):
         # We always connect via the duckdb:// scheme; ibis.connect()'s declared return type is
         # the generic BaseBackend, so annotate the concrete backend explicitly rather than
         # suppressing attr-defined at every subsequent .con/.sql() use below.
-        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
+        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # pyright: ignore[reportAssignmentType]
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having, processing_datetime_to=processing_datetime_to)
         query = sql_for_backend(query, conn.name)
         print(query)
@@ -51,13 +51,13 @@ class IbisConnect(QueryRunnerBase):
 
     @staticmethod
     def create_view(view: View) -> None:
-        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
+        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # pyright: ignore[reportAssignmentType]
         conn.raw_sql(f"CREATE SCHEMA IF NOT EXISTS {view.schema}")
         conn.raw_sql(view_sql_to_string(view))
 
     @staticmethod
     def select_view(view: View, order_by: list[str] | None = None, timeout_ms: int = 60_000) -> DataFrame:
-        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # type: ignore[assignment]
+        conn: DuckDBBackend = ibis.connect('duckdb://test.db')  # pyright: ignore[reportAssignmentType]
         query = f"SELECT * FROM {view.qualified_name}"
         if order_by:
             query += " ORDER BY " + ", ".join('"' + column + '"' for column in order_by)

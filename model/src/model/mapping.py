@@ -133,11 +133,11 @@ def _check_set_ids(mappings: Sequence[ClassMapping]) -> None:
                     if pm.target_set_id:
                         raise ValueError(f"{owner} is not a navigation: it has no target set id")
                     continue
-                target = by_class.get(pm.property.type.name)  # type: ignore[union-attr]
+                target = by_class.get(pm.property.type.name)  # pyright: ignore[reportOptionalMemberAccess]
                 target_ids = _set_ids(target)
                 if target_ids and pm.target_set_id is None:
                     raise ValueError(f"{owner} reaches a union of sets: it needs a target set id, one of {', '.join(target_ids)}")
                 if target_ids and pm.target_set_id not in target_ids:
-                    raise ValueError(f"'{pm.target_set_id}' is not a set of {pm.property.type.name} ({', '.join(target_ids)})")  # type: ignore[union-attr]
+                    raise ValueError(f"'{pm.target_set_id}' is not a set of {pm.property.type.name} ({', '.join(target_ids)})")  # pyright: ignore[reportOptionalMemberAccess]
                 if not target_ids and pm.target_set_id is not None and target is not None:
-                    raise ValueError(f"{pm.property.type.name} is not a union of sets: {owner.split(' of ')[0]} has no target set id")  # type: ignore[union-attr]
+                    raise ValueError(f"{pm.property.type.name} is not a union of sets: {owner.split(' of ')[0]} has no target set id")  # pyright: ignore[reportOptionalMemberAccess]

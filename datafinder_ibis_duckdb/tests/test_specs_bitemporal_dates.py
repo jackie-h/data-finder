@@ -59,7 +59,7 @@ def quote_finder():
     generate(mapping, tmp)
     _seed_db()
 
-    from quotes.dated.quote_finder import QuoteFinder  # type: ignore[import]
+    from quotes.dated.quote_finder import QuoteFinder  # pyright: ignore[reportMissingImports]
     yield QuoteFinder()
 
     if tmp in sys.path:

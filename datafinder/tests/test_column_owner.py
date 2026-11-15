@@ -15,7 +15,7 @@ def test_an_attribute_takes_the_relation_that_owns_its_column():
 
 def test_an_attribute_cannot_be_given_a_name_as_its_owner():
     with pytest.raises(TypeError, match="owned by a Relation"):
-        StringAttribute("Name", "NAME", "VARCHAR", "accounts")  # type: ignore[arg-type]
+        StringAttribute("Name", "NAME", "VARCHAR", "accounts")  # pyright: ignore[reportArgumentType]
 
 
 def test_attributes_of_tables_with_the_same_name_share_an_alias():
@@ -40,7 +40,7 @@ def test_the_generator_names_each_relation_it_reads_with_a_table_alias():
     generator = SQLQueryGenerator()
     generator.generate(query)
     assert all(isinstance(alias, TableAlias) for alias in generator._from)
-    assert [(alias.name, alias.relation.name) for alias in generator._from] == [("t0", "accounts")]  # type: ignore[attr-defined]
+    assert [(alias.name, alias.relation.name) for alias in generator._from] == [("t0", "accounts")]  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_reading_a_column_that_belongs_to_no_relation_is_a_clear_error():

@@ -40,7 +40,7 @@ def position_finder():
     conn.execute(f"INSERT INTO positions SELECT * FROM read_csv_auto('{str(example_path('positions_date.csv'))}')")
     conn.close()
 
-    from position_finder import PositionFinder  # type: ignore[import]
+    from position_finder import PositionFinder  # pyright: ignore[reportMissingImports]
     yield PositionFinder()
 
     if tmp in sys.path:

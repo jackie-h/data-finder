@@ -1041,13 +1041,13 @@ class TestArithmetic:
     def test_a_string_is_not_a_number(self):
         a, _ = self._ab()
         with pytest.raises(TypeError):
-            a + "x"  # type: ignore[operator]
+            a + "x"  # pyright: ignore[reportOperatorIssue, reportUnusedExpression]
         with pytest.raises(TypeError):
-            a * True  # type: ignore[operator]
+            a * True  # pyright: ignore[reportUnusedExpression]
 
     def test_a_function_that_gives_text_is_not_a_number(self):
         with pytest.raises(TypeError, match="Text is joined with text"):
-            StringAttribute("Name", "name", "VARCHAR", _OWNER_T).upper() + 1  # type: ignore[operator]
+            StringAttribute("Name", "name", "VARCHAR", _OWNER_T).upper() + 1  # pyright: ignore[reportUnusedExpression]
 
 
 class TestConcat:
@@ -1083,7 +1083,7 @@ class TestConcat:
     def test_a_number_is_not_text(self):
         a, _ = self._ab()
         with pytest.raises(TypeError, match="Text is joined with text"):
-            a + 1  # type: ignore[operator]
+            a + 1  # pyright: ignore[reportUnusedExpression]
 
     def test_numbers_still_add(self):
         n = IntegerAttribute("N", "n", "INT", _OWNER_T)
@@ -1175,7 +1175,7 @@ class TestExpressionFilters:
     def test_a_value_to_compare_with_must_be_simple(self):
         _, n = self._cols()
         with pytest.raises(TypeError, match="value to compare"):
-            n.upper().eq([1])  # type: ignore[arg-type]
+            n.upper().eq([1])  # pyright: ignore[reportArgumentType]
 
     def test_an_expression_is_still_hashable_and_distinct(self):
         _, n = self._cols()
@@ -1297,7 +1297,7 @@ class TestConstantColumns:
     def test_other_types_are_refused(self):
         from datafinder import constant
         with pytest.raises(TypeError):
-            constant([1])  # type: ignore[arg-type]
+            constant([1])  # pyright: ignore[reportArgumentType, reportCallIssue]
 
 
 class TestFillNull:
@@ -1314,7 +1314,7 @@ class TestFillNull:
 
     def test_a_default_is_a_string_number_or_bool(self):
         with pytest.raises(TypeError):
-            StringAttribute("Name", "name", "VARCHAR", _OWNER_T).fill_null(datetime.date(2020, 1, 1))  # type: ignore[arg-type]
+            StringAttribute("Name", "name", "VARCHAR", _OWNER_T).fill_null(datetime.date(2020, 1, 1))  # pyright: ignore[reportArgumentType]
 
 
 class TestDistinct:

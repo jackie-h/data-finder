@@ -54,8 +54,8 @@ def test_a_query_is_read_into_a_table_alias_that_knows_its_sql(tmp_path):
     assert isinstance(alias.relation, QuerySpecification) and alias.relation.distinct
     assert alias.sql == "SELECT DISTINCT firm_id, firm_name FROM people"
     assert [r.name for r in alias.reads] == ["people"] and isinstance(alias.reads[0], Table)
-    assert [(c.name, c.type, c.primary_key) for c in alias.columns] == [("firm_id", "INT", True), ("firm_name", "VARCHAR", False)]  # type: ignore[attr-defined]
-    assert all(c.owner is alias and c.table is alias for c in alias.columns)  # type: ignore[attr-defined]
+    assert [(c.name, c.type, c.primary_key) for c in alias.columns] == [("firm_id", "INT", True), ("firm_name", "VARCHAR", False)]  # pyright: ignore[reportAttributeAccessIssue]
+    assert all(c.owner is alias and c.table is alias for c in alias.columns)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_a_query_is_in_the_data_stores_queries_and_in_no_schema(tmp_path):

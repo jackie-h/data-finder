@@ -18,8 +18,8 @@ def _parse(text):
 def test_is_null_and_is_not_null_of_each_table():
     op = _parse("firmTable.FLAG IS NULL AND personTable.FLAG IS NOT NULL")
     assert isinstance(op, LogicalOperation) and op.operator == LogicalOperator.AND
-    assert isinstance(op.left, IsNullOperation) and op.left.element.owner_relation is _FIRM  # type: ignore[attr-defined]
-    assert isinstance(op.right, IsNotNullOperation) and op.right.element.owner_relation is _PERSON  # type: ignore[attr-defined]
+    assert isinstance(op.left, IsNullOperation) and op.left.element.owner_relation is _FIRM  # pyright: ignore[reportAttributeAccessIssue]
+    assert isinstance(op.right, IsNotNullOperation) and op.right.element.owner_relation is _PERSON  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_an_or_group_of_comparisons_with_string_literals():
@@ -39,23 +39,23 @@ def test_not_equal_and_a_negative_number(text):
 def test_a_schema_qualified_column():
     table = Table("hr.personTable", [("ID", "INT")])
     op = parse_condition("hr.personTable.ID = 1", [table], "J")
-    assert isinstance(op, ComparisonOperation) and op.left.owner_relation is table  # type: ignore[attr-defined]
+    assert isinstance(op, ComparisonOperation) and op.left.owner_relation is table  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_target_in_a_join_of_a_table_to_itself_is_an_alias_of_the_table():
     from model.relational import TableAlias
     op = parse_condition("personTable.MANAGERID = {target}.ID AND {target}.FLAG IS NULL", [_PERSON, _PERSON], "J")
     assert isinstance(op, LogicalOperation)
-    assert op.left.left.owner_relation is _PERSON  # type: ignore[attr-defined]  # the side the join starts from
-    alias = op.left.right.owner_relation  # type: ignore[attr-defined]
+    assert op.left.left.owner_relation is _PERSON    # the side the join starts from  # pyright: ignore[reportAttributeAccessIssue]
+    alias = op.left.right.owner_relation  # pyright: ignore[reportAttributeAccessIssue]
     assert isinstance(alias, TableAlias) and alias.relation is _PERSON
-    assert op.right.element.owner_relation is alias  # type: ignore[attr-defined]  # one alias for every {target}
+    assert op.right.element.owner_relation is alias    # one alias for every {target}  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_target_in_a_join_to_another_table_is_that_table():
     op = parse_condition("{target}.FLAG IS NULL AND personTable.FLAG IS NOT NULL", [_PERSON, _FIRM], "J")
     assert isinstance(op, LogicalOperation)
-    assert op.left.element.owner_relation is _FIRM  # type: ignore[attr-defined]
+    assert op.left.element.owner_relation is _FIRM  # pyright: ignore[reportAttributeAccessIssue]
 
 
 @pytest.mark.parametrize("text,message", [

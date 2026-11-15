@@ -20,7 +20,7 @@ class PositionNPVCalc(DomainAwareCalc):
         return [_position_finder.quantity(),
                 _position_finder.instrument().price()]
 
-    def calculate(self, inputs: np.ndarray) -> np.ndarray:  # type: ignore[override]
+    def calculate(self, inputs: np.ndarray) -> np.ndarray:  # pyright: ignore[reportIncompatibleMethodOverride]
         return npv(inputs[0][0], inputs[0][1])
 
     def output_spec(self) -> Attribute:

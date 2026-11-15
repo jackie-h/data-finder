@@ -40,7 +40,7 @@ def company_missing_finder():
     conn.execute(f"INSERT INTO companies SELECT * FROM read_csv_auto('{str(example_path('companies_missing_category.csv'))}')")
     conn.close()
 
-    from company_finder import CompanyFinder as CF  # type: ignore[import]
+    from company_finder import CompanyFinder as CF  # pyright: ignore[reportMissingImports]
     yield CF()
 
     if tmp in sys.path:

@@ -111,11 +111,11 @@ def finance_finders():
     generate(mapping, tmp)
     _seed_db()
 
-    from finance.reference_data.account_finder import AccountFinder  # type: ignore[import]
-    from finance.reference_data.branch_finder import BranchFinder  # type: ignore[import]
-    from finance.reference_data.desk_finder import DeskFinder  # type: ignore[import]
-    from finance.trade.trade_finder import TradeFinder  # type: ignore[import]
-    from finance.trade.contractualposition_finder import ContractualPositionFinder  # type: ignore[import]
+    from finance.reference_data.account_finder import AccountFinder  # pyright: ignore[reportMissingImports]
+    from finance.reference_data.branch_finder import BranchFinder  # pyright: ignore[reportMissingImports]
+    from finance.reference_data.desk_finder import DeskFinder  # pyright: ignore[reportMissingImports]
+    from finance.trade.trade_finder import TradeFinder  # pyright: ignore[reportMissingImports]
+    from finance.trade.contractualposition_finder import ContractualPositionFinder  # pyright: ignore[reportMissingImports]
 
     yield AccountFinder(), TradeFinder(), ContractualPositionFinder(), BranchFinder(), DeskFinder()
 
@@ -177,7 +177,7 @@ def test_trade_one_way_association(expectation, finance_finders):
 
 def test_one_way_association_has_no_accessor_back(finance_finders):
     """TradeInstrument names no target property, so the instrument gets no way back to its trades."""
-    from finance.reference_data.instrument_finder import InstrumentFinder  # type: ignore[import]
+    from finance.reference_data.instrument_finder import InstrumentFinder  # pyright: ignore[reportMissingImports]
     assert hasattr(finance_finders[1], "instrument")
     assert not hasattr(InstrumentFinder(), "trades")
 

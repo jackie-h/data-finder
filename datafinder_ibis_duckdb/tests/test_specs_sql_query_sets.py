@@ -44,7 +44,7 @@ def finders():
     generate(load(str(example_path(SQL_QUERY_SETS_MAPPING))), tmp)
     _seed_db()
 
-    from org.sets.customer_finder import CustomerFinder  # type: ignore[import]
+    from org.sets.customer_finder import CustomerFinder  # pyright: ignore[reportMissingImports]
     yield {"CustomerFinder": CustomerFinder()}
 
     if tmp in sys.path:

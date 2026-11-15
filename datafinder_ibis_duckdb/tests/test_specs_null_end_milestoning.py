@@ -59,7 +59,7 @@ def price_finder():
     generate(mapping, tmp)
     _seed_db()
 
-    from prices.market.price_finder import PriceFinder  # type: ignore[import]
+    from prices.market.price_finder import PriceFinder  # pyright: ignore[reportMissingImports]
     yield PriceFinder()
 
     if tmp in sys.path:

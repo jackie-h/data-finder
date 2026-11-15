@@ -14,7 +14,7 @@ def _firm():
 def test_a_property_mapping_needs_its_source_set_id():
     firm = _firm()
     with pytest.raises(TypeError):
-        PropertyMapping(firm.properties["name"], object())  # type: ignore[call-arg]
+        PropertyMapping(firm.properties["name"], object())  # pyright: ignore[reportCallIssue]
     assert PropertyMapping(firm.properties["name"], object(), "Firm").source_set_id == "Firm"
 
 

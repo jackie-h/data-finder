@@ -216,13 +216,13 @@ def make_finder():
                 scenario.mapping_file, directory, f"graphql_{Path(scenario.mapping_file).stem}")
         if scenario_id not in servers:
             servers[scenario_id] = start_graphql_server(scenario.tables())
-        endpoint = GraphQLEndpoint(endpoint_url(servers[scenario_id]), _FILTER_CONVENTION)  # type: ignore[arg-type]
+        endpoint = GraphQLEndpoint(endpoint_url(servers[scenario_id]), _FILTER_CONVENTION)  # pyright: ignore[reportArgumentType]
         return classes[scenario.mapping_file][finder_name](endpoint)
 
     yield make
 
     for server in servers.values():
-        server.shutdown()  # type: ignore[attr-defined]
+        server.shutdown()  # pyright: ignore[reportAttributeAccessIssue]
     for name in [n for n in sys.modules if n.startswith("graphql_") and n.endswith("_finder")]:
         sys.modules.pop(name, None)
     shutil.rmtree(tmp, ignore_errors=True)
