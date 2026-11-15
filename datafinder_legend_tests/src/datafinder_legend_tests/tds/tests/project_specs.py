@@ -6,10 +6,10 @@ Mapping: tests/simple_mapping.md.
 """
 import datetime
 
-from datafinder import constant
+from datafinder import constant, now
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, LIMIT_OF_LIMIT, ROWS, HOUR_OF_DATETIME_LITERAL, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DATE_ARITHMETIC_SHAPE, LIMIT_OF_LIMIT, ROWS, HOUR_OF_DATETIME_LITERAL, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL
 
 _SRC = "tds/tests/testTDSProject.pure"
 
@@ -86,12 +86,14 @@ TDS_PROJECT_SPECS = FinderSpec(
                'select "root".FIRSTNAME as "firstName", hour(\'2016-08-10 08:55:00.0\') as "hour" from personTable as "root"',
                lambda f: f.find_all([f.first_name().alias("firstName"), constant(datetime.datetime(2016, 8, 10, 8, 55)).hour().alias("hour")]),
                known_gaps={BACKEND: HOUR_OF_DATETIME_LITERAL, ROWS: HOUR_OF_DATETIME_LITERAL}),
-        unsupported("testProjectEnumFromOpenVariable", f"{_SRC}::testProjectEnumFromOpenVariable",
+        ported("testProjectEnumFromOpenVariable", f"{_SRC}::testProjectEnumFromOpenVariable",
                     'select "root".FIRSTNAME as "firstName", dateadd(day, 1, now()) > now() as "tomorrowGreaterThanToday" from personTable as "root"',
-                    'no adjust, day-of-week names, or dates relative to now'),
-        unsupported("testProjectWithAdjustFunction", f"{_SRC}::testProjectWithAdjustFunction",
+                    lambda f: f.find_all([f.first_name().alias("firstName"), (now().add_days(1) > now()).alias("tomorrowGreaterThanToday")]),
+                    known_gaps={BACKEND: DATE_ARITHMETIC_SHAPE}),
+        ported("testProjectWithAdjustFunction", f"{_SRC}::testProjectWithAdjustFunction",
                     'select "root".FIRSTNAME as "firstName", dateadd(day, 1, now()) > now() as "tomorrowGreaterThanToday" from personTable as "root"',
-                    'no adjust, day-of-week names, or dates relative to now'),
+                    lambda f: f.find_all([f.first_name().alias("firstName"), (now().add_days(1) > now()).alias("tomorrowGreaterThanToday")]),
+                    known_gaps={BACKEND: DATE_ARITHMETIC_SHAPE}),
         ported("testFilterAfterLimit2", f"{_SRC}::testFilterAfterLimit2",
                     'select "subselect"."age" as "age" from (select top 3 "root".AGE as "age" from personTable as "root") as "subselect" where "subselect"."age" > 25 order by "age" asc',
                     lambda f: (lambda r: r.order_by(r["age"].ascending()))(f.find_all([f.age().alias("age")]).limit(3).filter(lambda r: r.age > 25))),
