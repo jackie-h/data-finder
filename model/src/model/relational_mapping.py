@@ -40,7 +40,7 @@ class Join(RelationalOperationElement):
 
 
 class RelationalPropertyMapping(PropertyMapping):
-    def __init__(self, property: Property, target: RelationalOperationElement, source_set_id: str, target_set_id: str | None = None):
+    def __init__(self, property: Property, target: RelationalOperationElement | EmbeddedSetMapping, source_set_id: str, target_set_id: str | None = None):
         super().__init__(property, target, source_set_id, target_set_id)
 
 

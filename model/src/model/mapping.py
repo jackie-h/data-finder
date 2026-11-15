@@ -1,7 +1,6 @@
 from typing import Any, Generic, Sequence, TypeVar
 
 from model.m3 import Class, Property
-from model.relational import RelationalOperationElement
 
 
 class PropertyMapping:
@@ -16,7 +15,7 @@ class PropertyMapping:
         # and for a property that is not a navigation.
         self.target_set_id = target_set_id
 
-class EmbeddedSetMapping(RelationalOperationElement):
+class EmbeddedSetMapping:
     """A partial class mapping embedded inline in the owning (root) table.
 
     Represents a chained property (e.g. account.name) satisfied by a flat column on the
@@ -27,7 +26,6 @@ class EmbeddedSetMapping(RelationalOperationElement):
     classification.system), whose first column is a column of the root table.
     """
     def __init__(self, clazz: Class, property_mappings: Sequence[PropertyMapping], id: str):
-        super().__init__()
         self.clazz = clazz
         self.property_mappings = property_mappings
         # The id the property mappings in it start from: that of the class mapping that holds it, and the path to it, ``Trade_account``.
