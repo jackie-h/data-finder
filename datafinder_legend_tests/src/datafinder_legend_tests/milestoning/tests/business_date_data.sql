@@ -1,7 +1,7 @@
 -- Test data from legend-engine core_relational businessDateMilestoningSetUp.pure::initDatabase
 -- Tables: OrderTable, ProductTable, ProductClassificationTable, ProductSynonymTable, ProductExchangeTable, OrderToSystemADescriptions, SystemAOrderDescriptionTable, OrderDescriptionTable
 drop table if exists OrderTable;
-create table OrderTable (orderDate TIMESTAMP, id Integer, prodFk Integer);
+create table OrderTable (orderDate DATE, id Integer, prodFk Integer);
 insert into OrderTable values('2015-8-26 00:00:00', 1, 1);
 insert into OrderTable values('2015-8-26 00:00:00', 2, 2);
 drop table if exists ProductTable;
@@ -42,3 +42,8 @@ drop table if exists OrderDescriptionTable;
 create table OrderDescriptionTable (id Integer, description VARCHAR(200));
 insert into OrderDescriptionTable values(1,'order description 1');
 insert into OrderDescriptionTable values(2,'order description 2');
+drop table if exists StockProductTable;
+create table StockProductTable (id Integer, from_z DATE, thru_z DATE);
+insert into StockProductTable values(1, '2015-8-15', '2015-8-26');
+insert into StockProductTable values(2, '2015-8-26', '2015-10-16');
+insert into StockProductTable values(2, '2015-10-16', '9999-12-31');

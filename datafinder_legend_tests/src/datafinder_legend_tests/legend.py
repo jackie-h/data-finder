@@ -151,6 +151,16 @@ ISOLATED_MILESTONED_JOIN = (
     "milestoning filter; the finder puts that filter in the join's ON clause, which keeps the same rows because the "
     "join is a left outer join"
 )
+ISOLATED_JOIN_DATE_ADDED = (
+    ISOLATED_MILESTONED_JOIN + "; and a date that is the milestoning date plus a day Legend writes as dateadd(DAY, 1, date), where the finder writes the date it is"
+)
+
+MAP_NAVIGATION = (
+    "Legend reads the class a navigation reaches (map) as a join with the milestoning of the class in the WHERE, and names its aliases after the "
+    "dates; the finder reads the navigation as a left outer join that has the milestoning in its ON, and the rows of the class that are there "
+    "are those that have one"
+)
+
 LEFT_JOIN_ORDER = (
     "Legend writes the left joins of a query in the order its filter and projection first reach them; the finder writes "
     "them in the order of the projection and then the filter. Left joins that do not depend on one another return the "

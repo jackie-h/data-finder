@@ -16,6 +16,7 @@ association, apart from Order and Product, which Legend relates both ways (`orde
 | Property | Id | Type    | Multiplicity | Key | Description |
 |----------|----|---------|--------------|-----|-------------|
 | Id       | id | Integer | 1            | Y   |             |
+| OrderDate | orderDate | Date | 0..1        |     |             |
 
 ### Class: Product
 
@@ -121,3 +122,9 @@ association, apart from Order and Product, which Legend relates both ways (`orde
 | Name                   | Source | Source Property Name | Source Property ID | Source Multiplicity | Target                  | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |------------------------|--------|----------------------|--------------------|---------------------|-------------------------|----------------------|--------------------|---------------------|-------------|
 | OrderSystemADescription | Order  | SystemADescription   | systemADescription | 1                   | SystemAOrderDescription |                      |                    | *                   |             |
+
+### Association: OrderStockProduct
+
+| Name              | Source | Source Property Name | Source Property ID | Source Multiplicity | Target  | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|-------------------|--------|----------------------|--------------------|---------------------|---------|----------------------|--------------------|---------------------|-------------|
+| OrderStockProduct | Order  | StockProduct         | stockProduct       | 0..1                | Product |                      |                    | *                   |             |

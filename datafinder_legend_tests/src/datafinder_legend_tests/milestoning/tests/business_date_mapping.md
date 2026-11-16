@@ -19,6 +19,7 @@ but not including `thru_z`, and the infinity date is 9999-12-31. Order has no mi
 | Column | Type | Key | Nullable | Property ID |
 |--------|------|-----|----------|-------------|
 | id | INT | PK | N | id |
+| orderDate | DATE |  | Y | orderDate |
 | prodFk | INT | FK | Y | product |
 
 #### Association: OrderProduct
@@ -125,3 +126,20 @@ but not including `thru_z`, and the infinity date is 9999-12-31. Order has no mi
 |---------------|-----------------------------|----------------------|
 | id            | OrderToSystemADescriptions  | orderId              |
 | systemADescriptionId | SystemAOrderDescriptionTable | descriptionId |
+
+A product that is of the stock type has a row in StockProductTable, which is milestoned as the product is and is not a class: an order's stock product is the product of that row.
+
+#### Table: StockProductTable (milestoning: business_date_range)
+
+| Column | Type | Key | Nullable | Property ID |
+|--------|------|-----|----------|-------------|
+| id     | INT  | PK  | N        |             |
+| from_z | DATE |     | Y        |             |
+| thru_z | DATE |     | Y        |             |
+
+#### Association: OrderStockProduct
+
+| Source Column | Target Table      | Target Column |
+|---------------|-------------------|---------------|
+| prodFk        | StockProductTable | id            |
+| id            | ProductTable      | id            |
