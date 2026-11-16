@@ -341,6 +341,10 @@ class FinderResult(DataFrame):
         missing = [n for n in names if n not in attributes]
         if missing:
             raise KeyError(f"No column {missing} in this result: its columns are {list(attributes)}")
+        shown = self._shown()
+        if shown is not None:  # the columns of the select that are asked for, in the order asked for
+            by_name = {_column_name(c): c for c in self._query.columns}
+            return self._folded(shown, columns=[by_name[n] for n in names])
         return self._step([attributes[n] for n in names])
 
     def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation],

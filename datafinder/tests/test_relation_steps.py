@@ -44,13 +44,13 @@ def test_a_window_does_not_group_the_rows_it_is_added_to():
 def test_extend_adds_a_column_worked_out_from_the_others():
     trades = _trades()
     sql = trades.extend(double=lambda r: r.price * 2.0).select("sym", "double").to_sql()
-    assert 't0.sym AS "sym",t0.double AS "double"' in sql and '* 2.0 AS "double"' in sql
+    assert sql == 'SELECT t0.SYM AS "sym",t0.PRICE * 2.0 AS "double" FROM trades AS t0'
 
 
 def test_select_keeps_only_the_columns_asked_for_and_extend_names_a_new_one():
     trades = _trades()
     sql = trades.extend(cost=lambda r: r.price).select("sym", "cost").to_sql()
-    assert sql.startswith('SELECT t0.sym AS "sym",t0.cost AS "cost" FROM (SELECT')
+    assert sql == 'SELECT t0.SYM AS "sym",t0.PRICE AS "cost" FROM trades AS t0'
 
 
 def test_a_step_can_be_ordered_by_a_column_of_it():
