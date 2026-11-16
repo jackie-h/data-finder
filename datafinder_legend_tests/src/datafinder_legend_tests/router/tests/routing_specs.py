@@ -17,6 +17,6 @@ ROUTING_SPECS = FinderSpec(
     expectations=[
         unsupported("testRoutingWithSubtypePropagation", f"{_SRC}::testRoutingWithSubtypePropagation",
                     'select concat("persontable_1".FIRSTNAME, \' \', "persontable_1".LASTNAME) as "managerName" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) left outer join personTable as "persontable_1" on ("persontable_0".MANAGERID = "persontable_1".ID)',
-                    'a mapping that the port does not load'),
+                    "subtype classes (PersonExtension), which the port's model does not have"),
     ],
 )

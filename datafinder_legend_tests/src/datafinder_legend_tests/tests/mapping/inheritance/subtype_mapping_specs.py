@@ -17,6 +17,6 @@ SUBTYPE_MAPPING_SPECS = FinderSpec(
     expectations=[
         unsupported("testSubTypeMappingValidWhenMappedExplicitly", f"{_SRC}::testSubTypeMappingValidWhenMappedExplicitly",
                     'select "product_rating_1".RATING as "description" from PRODUCT_RATING as "root" left outer join productSchema.productTable as "producttable_0" on ("producttable_0".ID = "root".PRODUCT_ID) left outer join PRODUCT_RATING as "product_rating_1" on ("producttable_0".ID = "product_rating_1".PRODUCT_ID)',
-                    'a mapping that the port does not load'),
+                    'a subtype mapping: a class mapped as a subtype of another (inheritance of class mappings)'),
     ],
 )

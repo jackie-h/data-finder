@@ -17,9 +17,9 @@ UNION_WITH_PARTIAL_FOREIGN_KEY_USAGE_SPECS = FinderSpec(
     expectations=[
         unsupported("testUnionWithPartialForeignKeyUsage1", f"{_SRC}::testUnionWithPartialForeignKeyUsage1",
                     '',
-                    'a mapping that the port does not load'),
+                    'Legend marks this test ToFix: it asserts an empty SQL'),
         unsupported("testUnionWithPartialForeignKeyUsage2", f"{_SRC}::testUnionWithPartialForeignKeyUsage2",
                     '',
-                    'a mapping that the port does not load'),
+                    'Legend marks this test ToFix: it asserts an empty SQL'),
     ],
 )

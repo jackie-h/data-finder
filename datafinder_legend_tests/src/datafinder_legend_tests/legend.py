@@ -215,6 +215,12 @@ QUALIFIED_PROPERTIES = (
 )
 
 
+USER_DEFINED_FUNCTIONS = (
+    "a user defined function (a function written in Pure that the test calls) is deliberately not supported, as a qualified property is: what is computed "
+    "is written where it is used"
+)
+
+
 def not_supported(name: str, source: str, legend_sql: str, reason: str) -> TestExpectation:
     """A Legend test of something the finder deliberately does not do, and so will never pass: kept so that it is counted apart from the
     tests that are only not done yet."""

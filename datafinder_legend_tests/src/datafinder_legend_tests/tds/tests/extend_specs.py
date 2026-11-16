@@ -60,6 +60,6 @@ EXTEND_SPECS = FinderSpec(
                     'Legend writes the empty branch as `else null`; the finder leaves the else out'),
         unsupported("testExtendsWithInClause", f"{_SRC}::testExtendsWithInClause",
                     'select "root".FIRSTNAME as "firstName", "root".AGE as "age", DATE\'2021-01-01\' as "dt", "root".AGE is not null and "root".AGE > 50 as "ageGreaterThan50", "root".FIRSTNAME in (\'Peter\') as "stringExtends1", "root".FIRSTNAME in (\'Peter\', \'John\') as "stringExtends2", "root".AGE in (22, 23) as "numberExtends", DATE\'2021-01-01\' in (DATE\'2021-01-01\', DATE\'2021-01-02\') as "dateExtends", ("root".AGE is not null and "root".AGE > 50) in (true, false) as "booleanExtends" from personTable as "root"',
-                    'a mapping that the port does not load'),
+                    "a condition that is a column of a result is typed as text, so IN of booleans fails (fixed in a pull request that is not merged yet)"),
     ],
 )

@@ -32,7 +32,7 @@ FUNCTION_PERSON_SPECS = FinderSpec(
                known_gaps={BACKEND: CONCAT_FUNCTION}),
         unsupported("testSameBehaviorForNestedAddAndPlus", f"{_SRC}::testSameBehaviorForNestedAddAndPlus",
                     'select "root".quantity + "root".quantity + 3 as "pnl", ("root".quantity + "root".quantity + 3) * 3 as "scaledPnl" from orderTable as "root"',
-                    'a mapping that the port does not load'),
+                    'a property mapped to an expression (a nested add) in its own mapping (simpleRelationalMappingWithNestedAdd)'),
     ],
 )
 

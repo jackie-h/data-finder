@@ -17,6 +17,6 @@ MAP_SPECS = FinderSpec(
     expectations=[
         unsupported("testSequenceMapWithConfusingSetImplementation", f"{_SRC}::testSequenceMapWithConfusingSetImplementation",
                     'select "root".name as "name", \'ok\' as "p_name", "orgtable_1".name as "p_p_name" from orgTable as "root" left outer join orgTable as "orgtable_1" on ("root".parentId = "orgtable_1".id and "orgtable_1".filterVal <= 4) where "root".filterVal <= 4',
-                    'a mapping that the port does not load'),
+                    'an embedded mapping whose set implementations share a class (embeddedWithConsfusingSetImpl), and a navigation followed by map'),
     ],
 )
