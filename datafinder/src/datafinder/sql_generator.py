@@ -541,6 +541,8 @@ def _column_type(element: RelationalOperationElement) -> str:
         return _column_type(element.element)
     if isinstance(element, ArithmeticOperation):  # one of unknown kind
         return "DOUBLE"
+    if _is_condition(element):  # a comparison, a test for null, an IN ...: true or false
+        return "BOOLEAN"
     return "VARCHAR"
 
 
