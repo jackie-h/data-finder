@@ -96,20 +96,20 @@ def test_select_of_a_name_that_is_not_there_says_which_are():
 def test_group_by_a_column_and_aggregate_the_rows_of_each_group():
     trades = _trades()
     sql = trades.group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum(), n=lambda r: r.price.count()).to_sql()
-    assert sql.startswith('SELECT t0.account AS "account",SUM(t0.price) AS "total",COUNT(t0.price) AS "n" FROM (SELECT ')
-    assert sql.endswith("GROUP BY t0.account")
+    # the rows of a result that is a plain select are grouped in that select
+    assert sql == 'SELECT t0.ACCOUNT AS "account",SUM(t0.PRICE) AS "total",COUNT(t0.PRICE) AS "n" FROM trades AS t0 GROUP BY t0.ACCOUNT'
 
 
 def test_group_by_several_columns_by_a_tuple():
     trades = _trades()
     sql = trades.group_by(lambda r: (r.account, r.sym)).aggregate(total=lambda r: r.price.sum()).to_sql()
-    assert sql.endswith("GROUP BY t0.account, t0.sym") and 't0.account AS "account",t0.sym AS "sym"' in sql
+    assert sql.endswith("GROUP BY t0.ACCOUNT, t0.SYM") and 't0.ACCOUNT AS "account",t0.SYM AS "sym"' in sql
 
 
 def test_group_by_an_expression_that_is_named():
     trades = _trades()
     sql = trades.group_by(lambda r: r.sym.upper().alias("symbol")).aggregate(n=lambda r: r.price.count()).to_sql()
-    assert 'UPPER(t0.sym) AS "symbol"' in sql and sql.endswith("GROUP BY UPPER(t0.sym)")
+    assert 'UPPER(t0.SYM) AS "symbol"' in sql and sql.endswith("GROUP BY UPPER(t0.SYM)")
 
 
 def test_a_group_by_key_that_is_an_expression_needs_a_name():
@@ -120,14 +120,13 @@ def test_a_group_by_key_that_is_an_expression_needs_a_name():
 def test_aggregate_with_no_group_by_is_one_row_for_the_whole_result():
     trades = _trades()
     sql = trades.aggregate(total=lambda r: r.price.sum(), highest=lambda r: r.price.max()).to_sql()
-    assert sql.startswith('SELECT SUM(t0.price) AS "total",MAX(t0.price) AS "highest" FROM (SELECT ')
-    assert "GROUP BY" not in sql
+    assert sql == 'SELECT SUM(t0.PRICE) AS "total",MAX(t0.PRICE) AS "highest" FROM trades AS t0'
 
 
 def test_an_aggregate_can_be_worked_on():
     trades = _trades()
     sql = trades.aggregate(per_unit=lambda r: r.price.sum() / 7.0).to_sql()
-    assert 'SUM(t0.price) / 7.0 AS "per_unit"' in sql and "GROUP BY" not in sql
+    assert 'SUM(t0.PRICE) / 7.0 AS "per_unit"' in sql and "GROUP BY" not in sql
 
 
 def test_an_aggregated_step_can_be_filtered_and_ordered_like_any_other():

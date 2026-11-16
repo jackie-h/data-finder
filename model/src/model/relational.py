@@ -1221,6 +1221,14 @@ class BooleanOperation:
     def __init__(self):
         pass
 
+    def is_in(self, values: 'Iterable[bool]') -> 'InOperation':
+        """The condition is one of ``values``: ``(f.age() > 50).alias("old")`` then ``r.old.is_in([True, False])``."""
+        return InOperation(self, [_value_operand(v) for v in values])  # pyright: ignore[reportArgumentType]
+
+    def is_not_in(self, values: 'Iterable[bool]') -> 'NotInOperation':
+        """The condition is none of ``values``."""
+        return NotInOperation(self, [_value_operand(v) for v in values])  # pyright: ignore[reportArgumentType]
+
 
 class ComparisonOperator(Enum):
     EQUAL = 1

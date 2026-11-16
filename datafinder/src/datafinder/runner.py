@@ -126,18 +126,40 @@ class GroupedRows:
 
     def __init__(self, result: 'FinderResult', keys: Sequence[Callable[['Row'], Any]]):
         self._result = result
-        row = result._row()
-        self._keys: list = []
+        self._functions = list(keys)
+        self._keys_of(result._row(), None)  # a key that is not a column or a named expression is refused when the grouping is written
+
+    def _keys_of(self, row: 'Row', names: dict[int, str] | None) -> list:
+        """The keys, read from ``row``. ``names`` are the names of the columns of a select, when the row is of what they are made of: a key that is
+        one of those is named as the column is."""
+        keys: list = []
+        for function in self._functions:
+            found = function(row)
+            for key in (found if isinstance(found, (tuple, list)) else [found]):
+                if names is not None and id(key) in names:
+                    key = Alias(key, names[id(key)])
+                keys.append(key)
         for key in keys:
-            found = key(row)
-            self._keys.extend(found if isinstance(found, (tuple, list)) else [found])
-        for key in self._keys:
             if isinstance(key, Attribute):
                 continue
             if isinstance(key, Alias) and not isinstance(key.element, Alias):
                 continue
             raise ValueError("A group_by key is a column, or an expression named with alias(): "
                              "group_by(lambda r: r.ship_date.year().alias(\"year\"))")
+        return keys
+
+    def _aggregates_of(self, row: 'Row', keys: list, columns: dict[str, Callable[['Row'], Any]]) -> list[Alias]:
+        shown = [key.name if isinstance(key, Alias) else key.display_name() for key in keys]
+        aggregates: list[Alias] = []
+        for name, function in columns.items():
+            expression = function(row)
+            if not contains_aggregate(expression):
+                raise TypeError(f"The column '{name}' is not an aggregate of the rows of a group (sum, count, average, min, "
+                                "max, ...), so it has no one value for the group")
+            if name in shown or any(name == existing.name for existing in aggregates):
+                raise ValueError(f"The column '{name}' is named twice in this aggregate")
+            aggregates.append(Alias(expression, name))
+        return aggregates
 
     def aggregate(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
         """The keys, and a column for each keyword that is an aggregate of the rows of its group::
@@ -147,21 +169,22 @@ class GroupedRows:
         """
         if not columns:
             raise ValueError("aggregate needs at least one column: aggregate(total=lambda r: r.price.sum())")
-        row = self._result._row()
-        shown = [key.name if isinstance(key, Alias) else key.display_name() for key in self._keys]
-        aggregates: list = []
         for name, function in columns.items():
             if not callable(function):
                 raise TypeError(f"The column '{name}' is a function of a row: aggregate({name}=lambda r: r.price.sum())")
-            expression = function(row)
-            if not contains_aggregate(expression):
-                raise TypeError(f"The column '{name}' is not an aggregate of the rows of a group (sum, count, average, min, "
-                                "max, ...), so it has no one value for the group")
-            if name in shown or any(name == existing.name for existing in aggregates):
-                raise ValueError(f"The column '{name}' is named twice in this aggregate")
-            aggregates.append(Alias(expression, name))
-        keys = [key.element if isinstance(key, Alias) else key for key in self._keys]
-        return self._result._step([*self._keys, *aggregates], group_by=keys)
+        result = self._result
+        shown = result._shown()
+        if shown is not None:  # the rows are grouped in the select they are read in
+            try:
+                keys = self._keys_of(Row(shown), {id(element): name for name, element in shown.items()})
+                aggregates = self._aggregates_of(Row(shown), keys, columns)
+            except AttributeError:
+                pass  # a column of the select is something that has not what a column of a relation has: read it as a column of the select
+            else:
+                return result._grouped(keys, aggregates)
+        keys = self._keys_of(result._row(), None)
+        aggregates = self._aggregates_of(result._row(), keys, columns)
+        return result._step([*keys, *aggregates], group_by=[key.element if isinstance(key, Alias) else key for key in keys])
 
 
 def _union_side(result: 'FinderResult', all: bool) -> QueryExpression:
@@ -270,6 +293,10 @@ class FinderResult(DataFrame):
                 return None  # a name twice is refused when a step reads this result as a relation
             shown[name] = element
         return shown
+
+    def _grouped(self, keys: list, aggregates: list[Alias]) -> 'FinderResult':
+        """This result's rows grouped by ``keys``, with ``aggregates`` over each group, in its own select."""
+        return self._then(_with_clauses(self._query, columns=[*keys, *aggregates], group_by=[key.element if isinstance(key, Alias) else key for key in keys]))
 
     def _folded(self, shown: dict[str, RelationalOperationElement], **changes) -> 'FinderResult':
         """This result with a step added to its select."""
