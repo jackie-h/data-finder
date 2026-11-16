@@ -76,7 +76,7 @@ def test_a_column_of_intervals_is_read_as_one_by_the_step_after_it():
     lengths = FinderResult(None, None, [(end - start).alias("length")], result._table, NoOperation())
     assert lengths["length"].column().type == "INTERVAL"
     assert isinstance(lengths["length"], IntervalAttribute)
-    assert "WHERE t0.length > INTERVAL '86400' SECOND" in lengths.filter(lambda r: r.length > _DAY).to_sql()
+    assert "WHERE t0.END_TIME - t0.START_TIME > INTERVAL '86400' SECOND" in lengths.filter(lambda r: r.length > _DAY).to_sql()
 
 
 def test_typed_attribute_makes_an_interval_attribute_for_an_interval_column():
