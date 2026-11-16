@@ -57,6 +57,16 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             expected_columns=["Week Trade Date"],
             expected_result=np.array([[_D1.isocalendar().week]], dtype=object),
         ),
+        # --- A condition is a boolean column of a result ---
+        TestExpectation(
+            name="a_condition_that_is_a_column_of_a_result_is_a_boolean_that_can_be_tested_in_a_list",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["id"].ascending()))(
+                f.find_all([f.id_().alias("id"), (f.npv() > 600.0).alias("big")])
+                 .extend(listed=lambda r: r.big.is_in([True, False]), only_true=lambda r: r.big.is_in([True]))),
+            expected_columns=["id", "big", "listed", "only_true"],
+            expected_result=np.array([[1, False, True, False], [2, True, True, True], [3, True, True, True]], dtype=object),
+        ),
         # --- Day of the year, the name of the day, and a datetime as a date ---
         TestExpectation(
             name="day_of_year_extract",
