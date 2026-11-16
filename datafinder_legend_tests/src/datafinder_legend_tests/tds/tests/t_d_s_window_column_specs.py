@@ -17,9 +17,9 @@ T_D_S_WINDOW_COLUMN_SPECS = FinderSpec(
     expectations=[
         unsupported("testDistinctBeforeWindowFunction", f"{_SRC}::testDistinctBeforeWindowFunction",
                     'select "subselect"."source" as "source", "subselect"."target" as "target", count("subselect"."target") over (partition by "subselect"."source") as "testCol1" from (select distinct "persontable_0".FIRSTNAME as "source", "persontable_1".FIRSTNAME as "target" from interactionTable as "root" left outer join personTable as "persontable_0" on ("root".sourceId = "persontable_0".ID) left outer join personTable as "persontable_1" on ("root".targetId = "persontable_1".ID)) as "subselect"',
-                    'a mapping that the port does not load'),
+                    "the Interaction class is not in the port's model"),
         unsupported("testDistinctAfterWindowFunction", f"{_SRC}::testDistinctAfterWindowFunction",
                     'select distinct "subselect"."source" as "source", "subselect"."target" as "target", "subselect"."testCol1" as "testCol1" from (select "persontable_0".FIRSTNAME as "source", "persontable_1".FIRSTNAME as "target", count("persontable_1".FIRSTNAME) over (partition by "persontable_0".FIRSTNAME) as "testCol1" from interactionTable as "root" left outer join personTable as "persontable_0" on ("root".sourceId = "persontable_0".ID) left outer join personTable as "persontable_1" on ("root".targetId = "persontable_1".ID)) as "subselect"',
-                    'a mapping that the port does not load'),
+                    "the Interaction class is not in the port's model"),
     ],
 )

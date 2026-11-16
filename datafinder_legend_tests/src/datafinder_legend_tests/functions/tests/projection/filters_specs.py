@@ -6,7 +6,7 @@ features the simple subset does not have. Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, TDS_FILTER_OPTIONAL_PROPERTY
+from datafinder_legend_tests.legend import QUALIFIED_PROPERTIES, not_supported, ported, unsupported, BACKEND, TDS_FILTER_OPTIONAL_PROPERTY
 
 _FILTERS = "functions/tests/projection/testFilters.pure"
 _FILTER = "functions/tests/projection/testFilter.pure"
@@ -42,11 +42,11 @@ FILTERS_PERSON_SPECS = FinderSpec(
         unsupported("testCompressSQLforINFilter2", f"{_SRC}::testCompressSQLforINFilter2",
                     'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "Name", "locationtable_0".PLACE as "place", "locationtable_1".date as "CD" from personTable as "root" left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID and "locationtable_0".PLACE = \'New York\') left outer join locationTable as "locationtable_1" on ("root".ID = "locationtable_1".PERSONID and "locationtable_1".PLACE in (\'New York\', \'Hoboken\'))',
                     'no filter inside a navigation'),
-        unsupported("testSavedRootPropogatedCorrectlyThroughFilter", f"{_SRC}::testSavedRootPropogatedCorrectlyThroughFilter",
+        not_supported("testSavedRootPropogatedCorrectlyThroughFilter", f"{_SRC}::testSavedRootPropogatedCorrectlyThroughFilter",
                     'select "root".LEGALNAME as "firm", "persontable_0".FIRSTNAME as "targetEmployee" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID and "persontable_0".FIRSTNAME = \'Peter\' and "persontable_0".LASTNAME = \'Smith\')',
-                    'a mapping that the port does not load'),
+                    QUALIFIED_PROPERTIES),
         unsupported("testChainedFiltersProject", f"{_SRC}::testChainedFiltersProject",
                     'select "root".LEGALNAME as "firm", "locationtable_0".PLACE as "targetEmployee" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID and "persontable_0".LASTNAME = \'Smith\') left outer join (select "locationtable_1".PERSONID as PERSONID, "locationtable_1".PLACE as PLACE from locationTable as "locationtable_1" where "locationtable_1".PLACE = \'Hoboken\') as "locationtable_0" on ("persontable_0".ID = "locationtable_0".PERSONID)',
-                    'a mapping that the port does not load'),
+                    'a filter inside a navigation (a filter on a to-many step, then another step and a filter)'),
     ],
 )
