@@ -161,6 +161,11 @@ MAP_NAVIGATION = (
     "are those that have one"
 )
 
+UNION_SECOND_JOIN_DUPLICATES = (
+    "Legend joins a milestoned property of a union twice, once for the filter and once for the column, and each row of the union meets each row of the other, "
+    "so a row repeats once for each row of the join of the filter; the finder joins the property once, and reads both from it"
+)
+
 LEFT_JOIN_ORDER = (
     "Legend writes the left joins of a query in the order its filter and projection first reach them; the finder writes "
     "them in the order of the projection and then the filter. Left joins that do not depend on one another return the "
