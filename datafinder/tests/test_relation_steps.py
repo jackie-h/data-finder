@@ -17,14 +17,14 @@ def _trades() -> FinderResult:
 def test_filter_reads_the_columns_of_the_query_before_it():
     trades = _trades()
     sql = trades.filter(lambda r: r.price > 250.0).to_sql()
-    assert sql.startswith('SELECT t0.account AS "account",t0.sym AS "sym",t0.price AS "price" FROM (SELECT ')
-    assert "AS t0 WHERE t0.price > 250.0" in sql
+    # a result that is a plain select has the step in its own: the condition is over the columns it reads
+    assert sql == 'SELECT t0.ACCOUNT AS "account",t0.SYM AS "sym",t0.PRICE AS "price" FROM trades AS t0 WHERE t0.PRICE > 250.0'
 
 
 def test_several_conditions_are_all_required():
     trades = _trades()
     sql = trades.filter(lambda r: r.price > 1.0, lambda r: r.price < 9.0).to_sql()
-    assert "WHERE t0.price > 1.0 AND t0.price < 9.0" in sql
+    assert "WHERE t0.PRICE > 1.0 AND t0.PRICE < 9.0" in sql
 
 
 def test_a_window_over_a_result_can_be_filtered_on_which_where_alone_cannot_do():
@@ -44,27 +44,28 @@ def test_a_window_does_not_group_the_rows_it_is_added_to():
 def test_extend_adds_a_column_worked_out_from_the_others():
     trades = _trades()
     sql = trades.extend(double=lambda r: r.price * 2.0).select("sym", "double").to_sql()
-    assert 't0.sym AS "sym",t0.double AS "double"' in sql and '* 2.0 AS "double"' in sql
+    assert sql == 'SELECT t0.SYM AS "sym",t0.PRICE * 2.0 AS "double" FROM trades AS t0'
 
 
 def test_select_keeps_only_the_columns_asked_for_and_extend_names_a_new_one():
     trades = _trades()
     sql = trades.extend(cost=lambda r: r.price).select("sym", "cost").to_sql()
-    assert sql.startswith('SELECT t0.sym AS "sym",t0.cost AS "cost" FROM (SELECT')
+    assert sql == 'SELECT t0.SYM AS "sym",t0.PRICE AS "cost" FROM trades AS t0'
 
 
 def test_a_step_can_be_ordered_by_a_column_of_it():
     trades = _trades()
     step = trades.filter(lambda r: r.price > 1.0)
-    assert step.order_by(step["price"].descending()).to_sql().endswith("ORDER BY t0.price DESC")
+    assert step.order_by(step["price"].descending()).to_sql().endswith("ORDER BY t0.PRICE DESC")
 
 
 def test_the_steps_of_a_chain_number_their_tables_from_the_outside_in():
     trades = _trades()
-    step = trades.filter(lambda r: r.price > 1.0)
-    step = step.filter(lambda r: r.price < 9.0)
+    # a window column is read over the select that made it, so each of these is a select of its own
+    step = trades.extend(top=lambda r: r.price.max().over(partition_by=[r.account]))
+    step = step.filter(lambda r: r.price == r.top)
     sql = step.to_sql()
-    assert sql.count("AS t") >= 3 and "AS t0 WHERE" in sql
+    assert sql.count("AS t") >= 2 and "AS t0 WHERE" in sql and "AS t1" in sql
 
 
 def test_a_column_that_is_not_there_says_which_are():

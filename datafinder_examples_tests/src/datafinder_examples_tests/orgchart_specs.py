@@ -69,6 +69,71 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             expected_columns=["employeeName"],
             expected_result=np.array([["Dave"], ["Carol"], ["Bob"], ["Alice"]], dtype=object),
         ),
+        # --- a step over a result is part of the select the result is, as far as it can be ---
+        TestExpectation(
+            name="a_filter_of_a_result_is_in_its_select",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["employeeName"].ascending()))(
+                f.find_all([f.name().alias("employeeName")]).filter(lambda r: r.employeeName != "Bob")),
+            expected_columns=["employeeName"],
+            expected_result=np.array([["Alice"], ["Carol"], ["Dave"]], dtype=object),
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="an_extend_and_a_filter_on_the_column_it_made_are_in_one_select",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["employeeName"].ascending()))(
+                f.find_all([f.name().alias("employeeName")])
+                 .extend(size=lambda r: r.employeeName.length())
+                 .filter(lambda r: r.size > 4, lambda r: r.employeeName != "Alice")),
+            expected_columns=["employeeName", "size"],
+            expected_result=np.array([["Carol", 5]], dtype=object),
+            expected_sql={"duckdb": "LENGTH(t0.name) > 4"},
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="a_filter_of_a_filter_is_one_where",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["employeeName"].ascending()))(
+                f.find_all([f.name().alias("employeeName")]).filter(lambda r: r.employeeName != "Bob").filter(lambda r: r.employeeName != "Dave")),
+            expected_columns=["employeeName"],
+            expected_result=np.array([["Alice"], ["Carol"]], dtype=object),
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="a_select_of_the_columns_of_a_result_is_in_its_select",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["size"].ascending(), r["employeeName"].ascending()))(
+                f.find_all([f.name().alias("employeeName"), f.id_().alias("id")])
+                 .extend(size=lambda r: r.employeeName.length())
+                 .select("size", "employeeName")),
+            expected_columns=["size", "employeeName"],
+            expected_result=np.array([[3, "Bob"], [4, "Dave"], [5, "Alice"], [5, "Carol"]], dtype=object),
+            expected_sql={"duckdb": "LENGTH(t0.name) AS \"size\""},
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="a_column_renamed_by_extend_and_select_is_in_one_select",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["First Name"].ascending()))(
+                f.find_all([f.name().alias("firstName")])
+                 .extend(**{"First Name": lambda r: r.firstName})
+                 .select("First Name")),
+            expected_columns=["First Name"],
+            expected_result=np.array([["Alice"], ["Bob"], ["Carol"], ["Dave"]], dtype=object),
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="a_filter_on_a_window_column_is_still_over_the_select_that_made_it",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["employeeName"].ascending()))(
+                f.find_all([f.name().alias("employeeName"), f.id_().alias("id")])
+                 .extend(newest=lambda r: r.id.max().over())
+                 .filter(lambda r: r.id == r.newest)),
+            expected_columns=["employeeName", "id", "newest"],
+            expected_result=np.array([["Dave", 4, 4]], dtype=object),
+            expected_sql={"duckdb": "(SELECT"},
+        ),
         TestExpectation(
             name="fill_null_replaces_a_missing_manager",
             query=lambda f: f.find_all(

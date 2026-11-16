@@ -1,9 +1,9 @@
 import datetime
-from typing import Any, Callable, Literal, Sequence, Union, overload
+from typing import Any, Callable, Literal, Mapping, Sequence, Union, overload
 
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import (
-    _column_name, _column_of, _column_type, build_query_specification, check_view_joins, display_alias, dropped, labelled,
+    _column_name, _column_of, _column_type, _stage, build_query_specification, check_view_joins, display_alias, dropped, labelled,
     made_distinct, query_sql_to_string, relation_numbers as _relation_numbers, accepts_group_by, sorted_by, taken,
     view_sql_to_string, _with_clauses)
 from datafinder.typed_attributes import typed_attribute
@@ -11,8 +11,9 @@ from model.milestoning import AsOf, ProcessingTemporalColumns, milestoning_colum
 from model.naming import to_snake_case
 from model.relational import (
     Alias, JoinKind, JoinOperation, NoOperation, OrderedQuerySpecification, QueryExpression, QuerySpecification, Relation, RelationExistsOperation,
-    RelationalOperationElement, SortOperation, Table, TableAlias, UnionOperation)
-from model.view import View, ViewDefinitionError, contains_aggregate
+    RelationalOperationElement, SortOperation, Table, TableAlias, UnionOperation, LogicalOperation, LogicalOperator, ConstantOperation,
+    ArithmeticOperation, ScalarFunctionOperation, ColumnWithJoin, Column, ComparisonOperation)
+from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 
 
 #TODO revisit this, don't want this to be static per class as need to be able to switch them
@@ -87,7 +88,7 @@ class Row:
     """A row of a result as a function of it reads it: its columns are attributes, ``r.price``. The
     columns are known when the query is built, so a name that is not one is refused then, with the columns there are."""
 
-    def __init__(self, attributes: dict[str, Attribute]):
+    def __init__(self, attributes: Mapping[str, Any]):
         object.__setattr__(self, "_columns", attributes)
 
     def __getattr__(self, name: str) -> Any:
@@ -248,6 +249,32 @@ class FinderResult(DataFrame):
     def _row(self) -> 'Row':
         return Row(self._relation()[1])
 
+    def _shown(self) -> dict[str, RelationalOperationElement] | None:
+        """What this result shows, by the name that reads it, when a step can be part of its select: each column is what it is worked out from,
+        so a condition or a column made of them is written over the columns of the select and not over a select of it. Nothing when the select
+        has gone beyond what a step can be added to: it groups, is distinct, is ordered, offset or limited (a step comes after those), or shows
+        an aggregate, a window or something that is not a column, a constant, arithmetic or a function (what could hold one is not known)."""
+        query = self._query
+        if _stage(query) != 0 or query.group_by or query.having is not None:
+            return None
+        shown: dict[str, RelationalOperationElement] = {}
+        for column in query.columns:
+            element = column
+            while isinstance(element, Alias):
+                element = element.element
+            if not isinstance(element, (Attribute, ColumnWithJoin, Column, ConstantOperation, ArithmeticOperation, ScalarFunctionOperation,
+                                        ComparisonOperation, LogicalOperation)) or contains_aggregate_or_window(element):
+                return None
+            name = _column_name(column)
+            if name in shown:
+                return None  # a name twice is refused when a step reads this result as a relation
+            shown[name] = element
+        return shown
+
+    def _folded(self, shown: dict[str, RelationalOperationElement], **changes) -> 'FinderResult':
+        """This result with a step added to its select."""
+        return self._then(_with_clauses(self._query, **changes))
+
     def _step(self, display: Sequence, op: Operation | None = None, group_by: Sequence = ()) -> 'FinderResult':
         """A result that reads from this one: a query over this result's query."""
         return self._then(build_query_specification(
@@ -260,13 +287,27 @@ class FinderResult(DataFrame):
 
             rows.filter(lambda r: r.price > 250.0)
         """
-        row = self._row()
-        op: Operation | None = None
         for condition in conditions:
             if not callable(condition):
                 raise TypeError("A filter condition is a function of a row: filter(lambda r: r.price > 250.0)")
-            op = condition(row) if op is None else op.and_(condition(row))
-        return self._step(list(self._relation()[1].values()), op)
+
+        def together(row: 'Row') -> Operation | None:
+            op: Operation | None = None
+            for condition in conditions:
+                op = condition(row) if op is None else op.and_(condition(row))
+            return op
+
+        shown = self._shown()
+        if shown is not None:
+            try:
+                op = together(Row(shown))
+            except AttributeError:
+                pass  # a column of the select is something that has not what a column of a relation has: read it as a column of the select
+            else:
+                if op is not None:
+                    asked = self._query.filter
+                    return self._folded(shown, filter=op if isinstance(asked, NoOperation) else asked.and_(op))
+        return self._step(list(self._relation()[1].values()), together(self._row()))
 
     def extend(self, **columns: Callable[['Row'], Any]) -> 'FinderResult':
         """This result with more columns, each named by its keyword and worked out from a row.
@@ -275,12 +316,23 @@ class FinderResult(DataFrame):
             rows.extend(double=lambda r: r.price * 2.0,
                         top=lambda r: r.price.max().over(partition_by=[r.account]))
         """
-        row = self._row()
         for name, expression in columns.items():
             if not callable(expression):
                 raise TypeError(f"The column '{name}' is a function of a row: extend({name}=lambda r: ...)")
-        return self._step([*self._relation()[1].values(),
-                           *(Alias(expression(row), name) for name, expression in columns.items())])
+
+        def made_of(row: 'Row') -> list[Alias]:
+            return [Alias(expression(row), name) for name, expression in columns.items()]
+
+        shown = self._shown()
+        if shown is not None and not set(columns) & set(shown):
+            try:
+                made = made_of(Row(shown))
+            except AttributeError:
+                pass  # a column of the select is something that has not what a column of a relation has: read it as a column of the select
+            else:
+                if not any(contains_aggregate(m) for m in made):  # a window keeps every row, so it is a column of this select, though nothing after it can fold
+                    return self._folded(shown, columns=[*self._query.columns, *made])
+        return self._step([*self._relation()[1].values(), *made_of(self._row())])
 
     def select(self, *names: str) -> 'FinderResult':
         """Only some of this result's columns, by name. To rename or work out a
@@ -289,6 +341,10 @@ class FinderResult(DataFrame):
         missing = [n for n in names if n not in attributes]
         if missing:
             raise KeyError(f"No column {missing} in this result: its columns are {list(attributes)}")
+        shown = self._shown()
+        if shown is not None:  # the columns of the select that are asked for, in the order asked for
+            by_name = {_column_name(c): c for c in self._query.columns}
+            return self._folded(shown, columns=[by_name[n] for n in names])
         return self._step([attributes[n] for n in names])
 
     def join(self, other: 'FinderResult', condition: Callable[['Row', 'Row'], Operation],

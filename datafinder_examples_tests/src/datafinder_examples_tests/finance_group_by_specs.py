@@ -179,7 +179,8 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
             expected_columns=["account", "sym", "price"],
             expected_result=np.array(
                 [["Beta Fund", "MSFT", 300.0], ["Beta Fund", "TSLA", 400.0], ["Gamma Fund", "GS", 500.0]], dtype=object),
-            expected_sql={"duckdb": "FROM (SELECT"},
+            expected_sql={"duckdb": "WHERE t0.price > 250.0"},
+            unexpected_sql={"duckdb": "FROM (SELECT"},
         ),
         TestExpectation(
             name="chain_window_then_filter_on_it",
