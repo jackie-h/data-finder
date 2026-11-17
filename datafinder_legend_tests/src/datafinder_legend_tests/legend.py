@@ -166,6 +166,11 @@ UNION_SECOND_JOIN_DUPLICATES = (
     "so a row repeats once for each row of the join of the filter; the finder joins the property once, and reads both from it"
 )
 
+RENAME_IN_THE_SELECT = (
+    "Legend wraps renameColumns in a select of its own, selecting each column again under its new name; the finder names the columns in the select that "
+    "reads them, so it has one level fewer, which keeps the same rows"
+)
+
 LEFT_JOIN_ORDER = (
     "Legend writes the left joins of a query in the order its filter and projection first reach them; the finder writes "
     "them in the order of the projection and then the filter. Left joins that do not depend on one another return the "
