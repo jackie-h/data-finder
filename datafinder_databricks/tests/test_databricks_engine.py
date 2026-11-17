@@ -97,3 +97,68 @@ class TestDatabricksConnectRegistryIntegration:
         df = output.to_pandas()
         assert list(df["Name"]) == ["Acme"]
         mock_connect.assert_called_once_with(server_hostname="host", http_path="path", access_token="token")
+
+
+class TestTimeoutCancelsTheQuery:
+    """A query that times out is cancelled on Databricks, and not only no longer waited for."""
+
+    def _select(self, cursor, timeout_ms=50):
+        conn = MagicMock()
+        conn.cursor.return_value.__enter__.return_value = cursor
+        table, attr = _make_table_and_attr()
+        DatabricksConnect.configure("host", "path", "token")
+        QueryRunnerBase.register(DatabricksConnect)
+        with patch("databricks.sql.connect") as connect:
+            connect.return_value.__enter__.return_value = conn
+            return QueryRunnerBase.get_runner().select(None, None, [attr], table, NoOperation(), timeout_ms=timeout_ms)
+
+    def test_a_query_that_times_out_is_cancelled(self):
+        import threading
+        import time
+        cancelled = threading.Event()
+        cursor = MagicMock()
+        cursor.active_command_id = object()  # the server has taken the query
+        cursor.execute.side_effect = lambda query: cancelled.wait(10)  # runs until it is cancelled
+        cursor.cancel.side_effect = cancelled.set
+        started = time.monotonic()
+        with pytest.raises(TimeoutError, match="50ms"):
+            self._select(cursor)
+        assert cancelled.is_set() and cursor.cancel.called
+        assert time.monotonic() - started < 5
+
+    def test_the_cancel_waits_until_the_server_has_the_query(self):
+        import threading
+        cancelled = threading.Event()
+        cursor = MagicMock()
+        cursor.active_command_id = None  # a cancel now would do nothing, and be logged
+
+        def execute(query):
+            threading.Timer(0.2, lambda: setattr(cursor, "active_command_id", object())).start()
+            cancelled.wait(10)
+
+        cursor.execute.side_effect = execute
+        cursor.cancel.side_effect = cancelled.set
+        with pytest.raises(TimeoutError):
+            self._select(cursor)
+        assert cursor.cancel.call_count >= 1 and cancelled.is_set()
+
+    def test_a_cancel_that_fails_does_not_hide_the_timeout(self):
+        import threading
+        finished = threading.Event()
+        cursor = MagicMock()
+        cursor.active_command_id = object()
+
+        def cancel():
+            finished.set()
+            raise RuntimeError("the connection is gone")
+
+        cursor.execute.side_effect = lambda query: finished.wait(10)
+        cursor.cancel.side_effect = cancel
+        with pytest.raises(TimeoutError):
+            self._select(cursor)
+
+    def test_a_query_that_finishes_in_time_is_not_cancelled(self):
+        cursor = MagicMock()
+        cursor.fetchall_arrow.return_value = pa.table({"Name": ["Acme"]})
+        self._select(cursor, timeout_ms=60_000)
+        cursor.cancel.assert_not_called()

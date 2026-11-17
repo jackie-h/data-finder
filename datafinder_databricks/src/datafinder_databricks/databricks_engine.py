@@ -1,5 +1,7 @@
 import datetime
+import logging
 import threading
+import time
 from typing import Sequence
 
 import sqlglot
@@ -11,6 +13,27 @@ from model.relational import Relation
 import numpy as np
 import pandas as pd
 import pyarrow as pa
+
+_log = logging.getLogger(__name__)
+# how long a timed out query is given to stop after it has been cancelled, before it is left to the server to end
+_CANCEL_GRACE_SECONDS = 10.0
+
+
+def _cancel_until_stopped(cursor_of_query: list, worker: threading.Thread) -> None:
+    """Cancel the running query, again every few milliseconds until the thread that runs it has stopped (or for the grace period). A
+    cancel that comes before the server has taken the query does nothing, and the query then runs to the end, so it is repeated
+    once the cursor has a command to cancel."""
+    deadline = time.monotonic() + _CANCEL_GRACE_SECONDS
+    while worker.is_alive() and time.monotonic() < deadline:
+        cursor = cursor_of_query[0]
+        if cursor is not None and getattr(cursor, "active_command_id", None) is not None:
+            try:
+                cursor.cancel()
+            except Exception:  # a cancel that fails must not hide the timeout: the query is then ended by the server
+                _log.warning("Cancelling the timed out Databricks query failed", exc_info=True)
+        worker.join(0.005)
+    if worker.is_alive():
+        _log.warning("The timed out Databricks query was still running %s seconds after it was cancelled", _CANCEL_GRACE_SECONDS)
 
 
 def _to_databricks_sql(business_date: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
@@ -62,6 +85,7 @@ class DatabricksConnect(QueryRunnerBase):
                                    processing_datetime_to=processing_datetime_to)
         result: list = [None]
         error: list = [None]
+        cursor_of_query: list = [None]  # the cursor that runs the query, which a timeout cancels
 
         def run():
             try:
@@ -72,6 +96,7 @@ class DatabricksConnect(QueryRunnerBase):
                     access_token=DatabricksConnect._access_token,
                 ) as conn:
                     with conn.cursor() as cursor:
+                        cursor_of_query[0] = cursor
                         cursor.execute(query)
                         # PyArrow carries the query's own schema (from the SQL aliases and
                         # Databricks' native column types), rather than an untyped list of
@@ -84,6 +109,8 @@ class DatabricksConnect(QueryRunnerBase):
         thread.start()
         thread.join(timeout=timeout_ms / 1000)
         if thread.is_alive():
+            # stop the query on Databricks too, and not only stop waiting for it: it would otherwise keep running, and costing, to the end
+            _cancel_until_stopped(cursor_of_query, thread)
             raise TimeoutError(f"Query exceeded {timeout_ms}ms timeout")
         if error[0] is not None:
             raise error[0]
