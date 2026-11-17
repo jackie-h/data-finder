@@ -124,6 +124,55 @@ ORGCHART_FINDER_SPECS = FinderSpec(
             unexpected_sql={"duckdb": "(SELECT"},
         ),
         TestExpectation(
+            name="an_aggregate_of_a_filtered_result_is_in_one_select",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["small"].ascending()))(
+                f.find_all([f.name().alias("employeeName"), f.id_().alias("id")])
+                 .filter(lambda r: r.employeeName != "Dave")
+                 .extend(small=lambda r: r.id < 3)
+                 .group_by(lambda r: r.small)
+                 .aggregate(total=lambda r: r.id.sum())),
+            expected_columns=["small", "total"],
+            expected_result=np.array([[False, 3], [True, 3]], dtype=object),
+            expected_sql={"duckdb": "GROUP BY t0.id < 3"},
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="an_aggregate_of_the_whole_result_is_in_one_select",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: f.find_all([f.id_().alias("id")]).filter(lambda r: r.id > 1).aggregate(total=lambda r: r.id.sum(), n=lambda r: r.id.count()),
+            expected_columns=["total", "n"],
+            expected_result=np.array([[9, 3]], dtype=object),
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="a_filter_on_an_aggregate_is_over_the_select_that_made_it",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: f.find_all([f.id_().alias("id")]).aggregate(total=lambda r: r.id.sum()).filter(lambda r: r.total > 5),
+            expected_columns=["total"],
+            expected_result=np.array([[10]], dtype=object),
+            expected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="distinct_after_an_order_is_in_the_select_that_orders",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["employeeName"].descending()).distinct())(
+                f.find_all([f.name().alias("employeeName")])),
+            expected_columns=["employeeName"],
+            expected_result=np.array([["Dave"], ["Carol"], ["Bob"], ["Alice"]], dtype=object),
+            expected_sql={"duckdb": "SELECT DISTINCT"},
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
+            name="a_column_that_is_a_condition_can_be_tested_in_a_list_in_the_select",
+            skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
+            query=lambda f: (lambda r: r.order_by(r["id"].ascending()))(
+                f.find_all([f.id_().alias("id"), (f.id_() > 2).alias("big")]).extend(listed=lambda r: r.big.is_in([True]))),
+            expected_columns=["id", "big", "listed"],
+            expected_result=np.array([[1, False, False], [2, False, False], [3, True, True], [4, True, True]], dtype=object),
+            unexpected_sql={"duckdb": "(SELECT"},
+        ),
+        TestExpectation(
             name="a_filter_on_a_window_column_is_still_over_the_select_that_made_it",
             skip_backends={"graphql": "The GraphQL engine does not run steps over a result"},
             query=lambda f: (lambda r: r.order_by(r["employeeName"].ascending()))(

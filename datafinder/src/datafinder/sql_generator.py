@@ -645,9 +645,20 @@ def _own_sorts(query: QuerySpecification, alias: TableAlias, sorts: Sequence[Sor
     return result
 
 
+def _orders_by_what_it_shows(query: OrderedQuerySpecification) -> bool:
+    """Whether every sort of the query is of a column it shows, as SELECT DISTINCT ... ORDER BY needs."""
+    for sort in query.order_by:
+        ref = _column_of(sort.column)
+        if not any((shown.element if isinstance(shown, Alias) else shown) is sort.column
+                   or (ref is not None and _column_of(shown.element if isinstance(shown, Alias) else shown) is ref) for shown in query.columns):
+            return False
+    return True
+
+
 def made_distinct(query: OrderedQuerySpecification) -> OrderedQuerySpecification:
-    """Each distinct row of the query once."""
-    if _stage(query) > _DISTINCT:
+    """Each distinct row of the query once. A SELECT is distinct and ordered at once, so a query that is only ordered, by columns it shows, is distinct in
+    its own select."""
+    if _stage(query) > _DISTINCT and not (_stage(query) == _SORT and _orders_by_what_it_shows(query)):
         query = select_over(query)[0]
     return _with_clauses(query, distinct=True)
 
@@ -1133,6 +1144,11 @@ class SQLQueryGenerator:
             return self.build_filter(expression)
         return sql_operation_to_string(self.__rewrite_operation(expression))
 
+    def __in_operand(self, element: RelationalOperationElement) -> str:
+        """What IN is of: a condition is bracketed, as a comparison and an AND are looser than IN."""
+        sql = self.build_filter(element)
+        return '(' + sql + ')' if _is_condition(element) and not isinstance(element, (InOperation, NotInOperation)) else sql
+
     def __attr_to_col_string(self, attr: 'Attribute | ColumnWithJoin | Column') -> str:
         if isinstance(attr, Column):
             return _column_reference(self.__table_alias_for_table(attr.owner_relation).name, attr.name)
@@ -1346,9 +1362,9 @@ class SQLQueryGenerator:
             col = op.node.join.keys()[1]
             return self.build_filter(ColumnWithJoin(col, op.node)) + ' IS NULL'
         elif isinstance(op, InOperation):
-            return self.build_filter(op.element) + ' IN (' + ', '.join(constant_value_string(v) for v in op.values) + ')'
+            return self.__in_operand(op.element) + ' IN (' + ', '.join(constant_value_string(v) for v in op.values) + ')'
         elif isinstance(op, NotInOperation):
-            column = self.build_filter(op.element)
+            column = self.__in_operand(op.element)
             sql = column + ' NOT IN (' + ', '.join(constant_value_string(v) for v in op.values) + ')'
             # NULL NOT IN (...) is not true in SQL, so a nullable column has to match its NULLs explicitly
             if isinstance(op.element, ColumnWithJoin) and self.__resolve(op.element)[0].nullable:

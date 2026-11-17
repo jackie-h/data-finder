@@ -41,12 +41,16 @@ def test_a_step_that_comes_next_is_folded_into_the_select_before_it(steps, ends_
     lambda r: r.limit(3).offset(1),
     lambda r: r.limit(3).order_by(_ID.ascending()),
     lambda r: r.offset(1).order_by(_ID.ascending()),
-    lambda r: r.order_by(_ID.ascending()).distinct(),
     lambda r: r.limit(3).distinct(),
     lambda r: r.offset(1).distinct(),
 ])
 def test_a_step_that_comes_before_the_last_one_folded_is_a_select_over_it(steps):
     assert _selects(steps(_rows())) == 2
+
+
+def test_distinct_after_an_order_by_a_column_it_shows_is_one_select():
+    sql = _rows().order_by(_ID.ascending()).distinct().to_sql()
+    assert _selects(_rows().order_by(_ID.ascending()).distinct()) == 1 and "SELECT DISTINCT" in sql and "ORDER BY" in sql
 
 
 def test_taking_then_sorting_orders_the_rows_taken_and_sorting_then_taking_takes_the_first_of_the_order():
