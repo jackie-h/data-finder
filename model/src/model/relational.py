@@ -1740,6 +1740,38 @@ class MilestoningScheme:
         # a single datetime column that holds the processing time a row was taken at (a processing snapshot)
         self.processing_datetime = processing_datetime
 
+    def kind(self) -> str:
+        """Which of the supported milestonings the columns of this scheme are: ``processing_only``, ``business_date``,
+        ``business_date_processing``, ``bitemporal``, ``business_date_range`` or ``processing_snapshot``. Any other set of columns is
+        refused: a range has both its ends, a business date is not beside a business range, and a processing snapshot is not beside
+        any other column."""
+        processing = (self.processing_start is not None, self.processing_end is not None)
+        business_range = (self.business_date_from is not None, self.business_date_to is not None)
+        if len(set(processing)) == 2:
+            raise ValueError(f"milestoning scheme '{self.name}': a processing range has both processing_start and processing_end")
+        if len(set(business_range)) == 2:
+            raise ValueError(f"milestoning scheme '{self.name}': a business range has both business_date_from and business_date_to")
+        has_processing, has_range, has_date = processing[0], business_range[0], self.business_date is not None
+        if has_date and has_range:
+            raise ValueError(f"milestoning scheme '{self.name}': a business date (business_date) or a business range "
+                             f"(business_date_from and business_date_to), not both")
+        if self.processing_datetime is not None:
+            others = [name for name, value in (
+                ("processing_start", self.processing_start), ("processing_end", self.processing_end), ("business_date", self.business_date),
+                ("business_date_from", self.business_date_from), ("business_date_to", self.business_date_to)) if value is not None]
+            if others:
+                raise ValueError(f"milestoning scheme '{self.name}' has a processing_datetime, a processing snapshot, which cannot be "
+                                 f"combined with {', '.join(others)}")
+            return "processing_snapshot"
+        if has_processing:
+            return "bitemporal" if has_range else "business_date_processing" if has_date else "processing_only"
+        if has_range:
+            return "business_date_range"
+        if has_date:
+            return "business_date"
+        raise ValueError(f"milestoning scheme '{self.name}' has no columns: it is one of processing_only, business_date, "
+                         f"business_date_processing, bitemporal, business_date_range or processing_snapshot")
+
 
 from abc import ABC, abstractmethod
 

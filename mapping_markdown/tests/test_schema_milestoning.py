@@ -71,3 +71,15 @@ def test_the_json_export_has_the_schemes_of_each_schema():
     assert [(m["name"], m["processingStart"], m["businessInfiniteDatetime"]) for m in schemas["mkt"]["milestoningSchemes"]] == [
         ("bitemporal", "recorded_from", "9999-12-31")]
     assert schemas["ref"]["milestoningSchemes"] == []
+
+
+def test_a_scheme_that_is_not_one_of_the_supported_milestonings_is_refused(tmp_path):
+    source = example_path("schema_milestoning_mapping.md").read_text()
+    row = "| bitemporal | recorded_from    | recorded_to    |               | valid_from         | valid_to         |                              | 9999-12-31                 |"
+    assert row in source
+    odd = "| odd        | recorded_from    |                |               | valid_from         |                  |                              |                            |"
+    path = tmp_path / "mapping.md"
+    path.write_text(source.replace(row, row + "\n" + odd).replace("## Model: schema_milestoning_model.md",
+                                                                  f"## Model: {example_path('schema_milestoning_model.md')}"))
+    with pytest.raises(ValueError, match="Schema 'mkt': milestoning scheme 'odd': a processing range has both processing_start and processing_end"):
+        load(str(path))

@@ -326,6 +326,8 @@ That property takes a date like any other: `employee.home().country(business_dat
 
 Milestoning lets you query data as it was at a specific point in time. Declare named milestoning schemes on the `DataStore` and reference them per table. A `### Schema:` section can define schemes of its own, in the same table right after its heading, and its tables use those before the data store's: a schema whose tables keep their milestoning columns under other names, or end an axis differently, defines `bitemporal` itself, while the other schemas use the data store's. A name is defined once in each section.
 
+A scheme's columns must be one of the supported milestonings in the table below: a processing range has both its columns, a business range has both its ends, a business date is not beside a business range, and a `processing_datetime` is on its own. Any other set of columns is an error where the scheme is read. The name is only a label, and is the one tables refer to.
+
 A class with a scheme has a `find_all` that takes the dates of its scheme. A class with no milestoning has a `find_all` that takes none, `find_all(columns, filter)`: a query of it has no dates of its own. To read a milestoned class it reaches as of a date, give the date to the property that reaches it, as in `branch.find_all([branch.city(), branch.accounts(processing_time=at).name()])`. A date given to a property applies to that class and to the classes below it, unless one of them is given its own.
 
 | Scheme | Required columns | find_all signature |

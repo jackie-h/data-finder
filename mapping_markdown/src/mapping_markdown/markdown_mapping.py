@@ -234,7 +234,7 @@ def _read_schemes(node: SyntaxTreeNode, into: list, where: str) -> None:
             continue
         if any(each.name == name for each in into):
             raise ValueError(f"{where}: the milestoning scheme '{name}' is defined twice")
-        into.append(MilestoningScheme(
+        scheme = MilestoningScheme(
             name=name,
             processing_start=row.get("processing_start", "").strip() or None,
             processing_end=row.get("processing_end", "").strip() or None,
@@ -243,7 +243,12 @@ def _read_schemes(node: SyntaxTreeNode, into: list, where: str) -> None:
             business_date_to=row.get("business_date_to", "").strip() or None,
             **_infinities(row),
             processing_datetime=row.get("processing_datetime", "").strip() or None,
-        ))
+        )
+        try:
+            scheme.kind()  # one of the supported milestonings, and not any set of columns
+        except ValueError as error:
+            raise ValueError(f"{where}: {error}") from error
+        into.append(scheme)
 
 
 def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Mapping:
