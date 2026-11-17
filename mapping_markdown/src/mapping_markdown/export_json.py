@@ -145,6 +145,7 @@ def _milestoning_scheme(scheme: MilestoningScheme) -> dict[str, Any]:
     """A milestoning scheme as it is written in the DataStore or Schema section: the columns that hold each axis, and what an open end holds."""
     return {
         "name": scheme.name,
+        "kind": scheme.kind(),
         "processingStart": scheme.processing_start,
         "processingEnd": scheme.processing_end,
         "processingDatetime": scheme.processing_datetime,

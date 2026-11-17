@@ -182,9 +182,15 @@ def test_a_join_with_no_condition_says_so(finance):
 
 def test_the_milestoning_schemes_of_the_data_store_are_exported(finance):
     schemes = {m["name"]: m for m in finance["dataStore"]["milestoningSchemes"]}
-    assert schemes and all(set(m) == {"name", "processingStart", "processingEnd", "processingDatetime", "processingInfiniteDatetime",
+    assert schemes and all(set(m) == {"name", "kind", "processingStart", "processingEnd", "processingDatetime", "processingInfiniteDatetime",
                                       "businessDate", "businessDateFrom", "businessDateTo", "businessInfiniteDatetime"}
                            for m in schemes.values())
+
+
+def test_each_exported_scheme_says_which_milestoning_it_is(finance):
+    kinds = {m["name"]: m["kind"] for m in finance["dataStore"]["milestoningSchemes"]}
+    assert kinds and set(kinds.values()) <= {"processing_only", "business_date", "business_date_processing", "bitemporal",
+                                            "business_date_range", "processing_snapshot"}
 
 
 def test_the_sets_of_a_class_are_exported_each_as_a_query_with_its_set_and_the_class():

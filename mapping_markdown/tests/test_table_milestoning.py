@@ -117,3 +117,12 @@ def test_each_table_survives_writing(tmp_path):
     assert (rate._date_from.target.name, rate.business_infinite_datetime) == ("valid_from", "9999-12-31")
     assert (fee._date.target.name, fee._in.target.name) == ("fee_date", "in_z")
     assert _milestone(again, "Quote", BiTemporalMilestonePropertyMapping)._date_from.target.name == "from_z"
+
+
+def test_the_scheme_a_table_makes_of_its_own_columns_is_one_of_the_supported_milestonings(tmp_path):
+    # a snapshot replaces the processing range of the scheme, which still has its business range: a snapshot is a scheme on its own
+    source = _source().replace("| in_z       | TIMESTAMP |     | Y        | validFrom    |\n| out_z      | TIMESTAMP |     | Y        | validTo      |\n",
+                               "| taken_at   | TIMESTAMP |     | Y        | processingDatetime |\n")
+    with pytest.raises(ValueError, match="Table 'rates' → 'Rate': milestoning scheme 'bitemporal' has a processing_datetime, a processing snapshot, "
+                                         "which cannot be combined with business_date_from, business_date_to"):
+        _mapping_of(source, tmp_path)
