@@ -142,7 +142,7 @@ def _query_entry(query: TableAlias, class_name: str | None, column_property: dic
 
 
 def _milestoning_scheme(scheme: MilestoningScheme) -> dict[str, Any]:
-    """A milestoning scheme as it is written in the DataStore section: the columns that hold each axis, and what an open end holds."""
+    """A milestoning scheme as it is written in the DataStore or Schema section: the columns that hold each axis, and what an open end holds."""
     return {
         "name": scheme.name,
         "processingStart": scheme.processing_start,
@@ -248,6 +248,7 @@ def export_mapping(path: str, name: str, dir: str) -> dict[str, Any]:
                       "milestoningSchemes": [_milestoning_scheme(m) for m in datastore.milestoning_schemes]},
         "schemas": [{
             "name": schema.name,
+            "milestoningSchemes": [_milestoning_scheme(m) for m in schema.milestoning_schemes],
             "tables": [{
                 "name": table.name,
                 "class": table_class.get(id(table)),

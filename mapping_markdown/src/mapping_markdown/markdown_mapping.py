@@ -225,6 +225,27 @@ def _infinities(row: dict) -> dict:
             "business_infinite_datetime": row.get("business_infinite_datetime", "").strip() or shared}
 
 
+def _read_schemes(node: SyntaxTreeNode, into: list, where: str) -> None:
+    """The milestoning schemes in a table of the DataStore section or of a Schema section, added to ``into``. A name is the scheme
+    of one scope once."""
+    for row in _parse_ast_table(node):
+        name = row.get("Scheme", "").strip()
+        if not name:
+            continue
+        if any(each.name == name for each in into):
+            raise ValueError(f"{where}: the milestoning scheme '{name}' is defined twice")
+        into.append(MilestoningScheme(
+            name=name,
+            processing_start=row.get("processing_start", "").strip() or None,
+            processing_end=row.get("processing_end", "").strip() or None,
+            business_date=row.get("business_date", "").strip() or None,
+            business_date_from=row.get("business_date_from", "").strip() or None,
+            business_date_to=row.get("business_date_to", "").strip() or None,
+            **_infinities(row),
+            processing_datetime=row.get("processing_datetime", "").strip() or None,
+        ))
+
+
 def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Mapping:
 
     classes_by_name = {
@@ -244,6 +265,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
     title = "Mapping"
     class_mappings: list = []
+    current_schema: Schema | None = None  # the schema whose section is being read, whose schemes its tables use first
 
     # class_name → (property_mappings, cols_by_name) built as Table sections are processed.
     # Association sections use this to resolve joins without relying on ordering.
@@ -274,21 +296,21 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
             elif level == "h2" and text.startswith("DataStore:"):
                 i += 1
                 if i < len(nodes) and nodes[i].type == "table":
-                    for row in _parse_ast_table(nodes[i]):
-                        name = row.get("Scheme", "").strip()
-                        if name:
-                            repository.milestoning_schemes.append(MilestoningScheme(
-                                name=name,
-                                processing_start=row.get("processing_start", "").strip() or None,
-                                processing_end=row.get("processing_end", "").strip() or None,
-                                business_date=row.get("business_date", "").strip() or None,
-                                business_date_from=row.get("business_date_from", "").strip() or None,
-                                business_date_to=row.get("business_date_to", "").strip() or None,
-                                **_infinities(row),
-                                processing_datetime=row.get("processing_datetime", "").strip() or None,
-                            ))
+                    _read_schemes(nodes[i], repository.milestoning_schemes, f"DataStore '{repository.name}'")
                     i += 1
                 continue
+
+            elif level == "h3" and text.startswith("Schema:"):
+                # the schemes of the tables of this schema: a table of a schema uses these before the data store's
+                current_schema = next((each for each in repository.schemas if each.name == text[len("Schema:"):].strip()), None)
+                i += 1
+                if current_schema is not None and i < len(nodes) and nodes[i].type == "table":
+                    _read_schemes(nodes[i], current_schema.milestoning_schemes, f"Schema '{current_schema.name}'")
+                    i += 1
+                continue
+
+            elif level == "h3":
+                current_schema = None  # the queries are in no schema
 
             elif level == "h4" and (text.startswith("Table:") or text.startswith("Query:")):
                 is_query = text.startswith("Query:")  # its SQL fence follows the heading, then the columns as a table has them
@@ -308,7 +330,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                     # its rows are milestoned if they are
                     link = tables_by_name.get(table_name)
                     if link is not None and scheme_name:
-                        link.milestoning_scheme = next((sc for sc in repository.milestoning_schemes if sc.name == scheme_name), None)
+                        link.milestoning_scheme = repository.milestoning_scheme_named(scheme_name, current_schema)
                         if link.milestoning_scheme is None:
                             raise ValueError(f"Table '{table_name}': milestoning scheme '{scheme_name}' is not defined")
                     i += 2 if i + 1 < len(nodes) and nodes[i + 1].type == "table" else 1
@@ -322,7 +344,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
                 if is_query and scheme_name and isinstance(table, TableAlias):
                     # a query's rows are milestoned by the columns its SQL gives, as a table's by its own
-                    table.milestoning_scheme = next((sc for sc in repository.milestoning_schemes if sc.name == scheme_name), None)
+                    table.milestoning_scheme = repository.milestoning_scheme_named(scheme_name, current_schema)
                     if table.milestoning_scheme is None:
                         raise ValueError(f"Query '{table_name}': milestoning scheme '{scheme_name}' is not defined")
                 cols_by_name = {col.name: col for col in table.columns if isinstance(col, Column)}
@@ -353,7 +375,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             continue
                         prop = all_props.get(prop_name)
                         if prop is None:
-                            prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name or "", repository)
+                            prop = _synthetic_milestoning_property(prop_name, col_name, scheme_name or "", repository, current_schema)
                         if prop is None:
                             nav = assoc_nav_lookup.get((cls.name, prop_name))
                             if nav is not None:
@@ -374,7 +396,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                 )
 
                 milestone_mapping = _build_milestone_mapping(scheme_name, property_mappings, repository,
-                                                              table_name=table_name, class_name=class_name)
+                                                              table_name=table_name, class_name=class_name, schema=current_schema)
                 section = RelationalClassMapping(cls, property_mappings, milestone_mapping=milestone_mapping, id=set_name)
                 section_ids[cls.name] = section.id
                 if set_name:
@@ -882,11 +904,11 @@ def _camel_to_display_name(s: str) -> str:
     return result[0].upper() + result[1:]
 
 
-def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: str, repository) -> Property | None:
+def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: str, repository, schema: Schema | None = None) -> Property | None:
     """Return a synthetic Property for a milestoning column not defined in the model, or None."""
     if not scheme_name or repository is None:
         return None
-    scheme = next((s for s in repository.milestoning_schemes if s.name == scheme_name), None)
+    scheme = repository.milestoning_scheme_named(scheme_name, schema)
     if scheme is None:
         return None
     milestoning_cols = {
@@ -903,14 +925,14 @@ def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme_name: 
     return None
 
 
-def _build_milestone_mapping(scheme_name, property_mappings, repository, table_name: str, class_name: str):
+def _build_milestone_mapping(scheme_name, property_mappings, repository, table_name: str, class_name: str, schema: Schema | None = None):
     if not scheme_name:
         return None
-    scheme = next((s for s in repository.milestoning_schemes if s.name == scheme_name), None)
+    scheme = repository.milestoning_scheme_named(scheme_name, schema)
     if scheme is None:
         raise ValueError(
             f"Table '{table_name}' → '{class_name}': "
-            f"milestoning scheme '{scheme_name}' not found in DataStore"
+            f"milestoning scheme '{scheme_name}' not found in its Schema or DataStore"
         )
     pm_by_col = {pm.target.name: pm for pm in property_mappings if isinstance(pm.target, Column)}
 
@@ -966,48 +988,50 @@ def _build_milestone_mapping(scheme_name, property_mappings, repository, table_n
     return None
 
 
-def _milestone_scheme_name(rcm: RelationalClassMapping, repo: DataStore) -> Optional[str]:
+def _milestone_scheme_name(rcm: RelationalClassMapping, repo: DataStore, schema: Schema | None = None) -> Optional[str]:
+    """The name of the scheme that has the columns of the class's milestoning: one of the schema's first, then the data store's."""
     mm = rcm.milestone_mapping
     if mm is None or repo is None:
         return None
+    schemes = repo.milestoning_schemes_of(schema)
     if isinstance(mm, BiTemporalMilestonePropertyMapping):
         date_from_col = mm._date_from.target.name if isinstance(mm._date_from.target, Column) else None
         date_to_col = mm._date_to.target.name if isinstance(mm._date_to.target, Column) else None
         in_col = mm._in.target.name if isinstance(mm._in.target, Column) else None
         out_col = mm._out.target.name if isinstance(mm._out.target, Column) else None
-        for s in repo.milestoning_schemes:
+        for s in schemes:
             if s.business_date_from == date_from_col and s.business_date_to == date_to_col \
                     and s.processing_start == in_col and s.processing_end == out_col:
                 return s.name
     elif isinstance(mm, BusinessDateRangeMilestonePropertyMapping):
         date_from_col = mm._date_from.target.name if isinstance(mm._date_from.target, Column) else None
         date_to_col = mm._date_to.target.name if isinstance(mm._date_to.target, Column) else None
-        for s in repo.milestoning_schemes:
+        for s in schemes:
             if s.business_date_from == date_from_col and s.business_date_to == date_to_col and not s.processing_start:
                 return s.name
     elif isinstance(mm, BusinessDateAndProcessingMilestonePropertyMapping):
         date_col = mm._date.target.name if isinstance(mm._date.target, Column) else None
         in_col = mm._in.target.name if isinstance(mm._in.target, Column) else None
         out_col = mm._out.target.name if isinstance(mm._out.target, Column) else None
-        for s in repo.milestoning_schemes:
+        for s in schemes:
             if s.business_date == date_col and s.processing_start == in_col \
                     and s.processing_end == out_col and not s.business_date_from:
                 return s.name
     elif isinstance(mm, ProcessingDateMilestonesPropertyMapping):
         in_col = mm._in.target.name if isinstance(mm._in.target, Column) else None
         out_col = mm._out.target.name if isinstance(mm._out.target, Column) else None
-        for s in repo.milestoning_schemes:
+        for s in schemes:
             if s.processing_start == in_col and s.processing_end == out_col \
                     and not s.business_date and not s.business_date_from:
                 return s.name
     elif isinstance(mm, SingleProcessingDatetimeMilestonePropertyMapping):
         datetime_col = mm._datetime.target.name if isinstance(mm._datetime.target, Column) else None
-        for s in repo.milestoning_schemes:
+        for s in schemes:
             if s.processing_datetime == datetime_col:
                 return s.name
     elif isinstance(mm, SingleBusinessDateMilestonePropertyMapping):
         date_col = mm._date.target.name if isinstance(mm._date.target, Column) else None
-        for s in repo.milestoning_schemes:
+        for s in schemes:
             if s.business_date == date_col and not s.processing_start and not s.business_date_from:
                 return s.name
     return None
@@ -1110,13 +1134,17 @@ def to_markdown(title: str, mapping: Mapping, model_paths: list[str] | None = No
         for schema_name, rcms in sorted(repo_schema_map[repo_name].items(), key=lambda item: item[0] == _QUERIES):
             lines.append("### Queries" if schema_name == _QUERIES else f"### Schema: {schema_name}")
             lines.append("")
+            schema = next((each for each in repo.schemas if each.name == schema_name), None) if schema_name != _QUERIES else None
+            if schema is not None and schema.milestoning_schemes:
+                lines.append(_scheme_table(schema.milestoning_schemes))
+                lines.append("")
 
             for rcm in rcms:
                 table = _primary_table(rcm)
                 if table is None:
                     continue
                 heading = f"#### {'Query' if query_of(table) else 'Table'}: {table.name} → {rcm.clazz.name}"
-                scheme_name = _milestone_scheme_name(rcm, repo)
+                scheme_name = _milestone_scheme_name(rcm, repo, schema)
                 options = ([f"set: {rcm.id}"] if id(rcm) in union_of else []) + ([f"milestoning: {scheme_name}"] if scheme_name else [])
                 if options:
                     heading += f" ({', '.join(options)})"
@@ -1214,6 +1242,9 @@ def draft_from_repository(title: str, repo: DataStore) -> str:
     for schema in repo.schemas:
         lines.append(f"### Schema: {schema.name}")
         lines.append("")
+        if schema.milestoning_schemes:
+            lines.append(_scheme_table(schema.milestoning_schemes))
+            lines.append("")
         for table in schema.tables:
             lines.append(f"#### Table: {table.name} → ?")
             lines.append("")

@@ -1755,6 +1755,16 @@ class DataStore(ABC):
     def namespace(self, schema_name: str) -> str:
         pass
 
+    def milestoning_schemes_of(self, schema: 'Schema | None' = None) -> list:
+        """The schemes a table of ``schema`` (or a query, which has none) can use: the schema's own, then the data store's
+        that the schema has not got one of the same name for."""
+        own = schema.milestoning_schemes if schema is not None else []
+        return own + [each for each in self.milestoning_schemes if each.name not in {s.name for s in own}]
+
+    def milestoning_scheme_named(self, name: str, schema: 'Schema | None' = None) -> 'MilestoningScheme | None':
+        """The scheme of that name for a table of ``schema``: the schema's own before the data store's."""
+        return next((each for each in self.milestoning_schemes_of(schema) if each.name == name), None)
+
 
 class Database(DataStore):
     def __init__(self, name: str, location: str | None = None):
@@ -1778,6 +1788,8 @@ class Schema:
         self.name = name
         self.datastore = datastore
         self.tables: list = []
+        # the milestoning schemes of this schema's tables: one of a name that the data store has as well is the one its tables use
+        self.milestoning_schemes: list = []
         if datastore is not None:
             datastore.schemas.append(self)
 
