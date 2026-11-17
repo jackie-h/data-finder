@@ -954,6 +954,17 @@ def _table_scheme(scheme_name: str | None, rows: list[dict], infinities: dict[st
     if named is None and not own:
         raise ValueError(f"{where}: an infinity is given for a table that is not milestoned: name a milestoning scheme, or map the columns of its milestoning")
     scheme = copy.copy(named) if named is not None else MilestoningScheme(name="(own columns)")
+    if own:
+        # what a table maps replaces what its scheme has of that dimension: a business date in place of a business range, a processing snapshot in place of a
+        # processing range, and the other way round; two that the table maps together are an error
+        for fields, other, what in ((("business_date",), ("business_date_from", "business_date_to"), "a business date (businessDate) or a business range (businessFrom, businessThru)"),
+                                    (("processing_datetime",), ("processing_start", "processing_end"), "a processing snapshot (processingDatetime) or a processing range (validFrom, validTo)")):
+            if any(f in own for f in fields) and any(f in own for f in other):
+                raise ValueError(f"{where}: a table has {what}, not both")
+            for kept, dropped in ((fields, other), (other, fields)):
+                if any(f in own for f in kept):
+                    for f in dropped:
+                        setattr(scheme, f, None)
     for field, column in own.items():
         setattr(scheme, field, column)
     for field, value in infinities.items():
@@ -963,8 +974,6 @@ def _table_scheme(scheme_name: str | None, rows: list[dict], infinities: dict[st
                                  ("business_date_from", "business_date_to", "a business range: businessFrom and businessThru")):
             if bool(getattr(scheme, start)) != bool(getattr(scheme, end)):
                 raise ValueError(f"{where}: {what} are both needed, and only one is mapped")
-        if scheme.business_date and scheme.business_date_from:
-            raise ValueError(f"{where}: a table has a business date or a business range, and businessDate is mapped beside businessFrom")
     return scheme
 
 
@@ -1084,16 +1093,24 @@ def _milestone_columns(mm) -> dict[str, str]:
 
 
 def _scheme_with_the_columns_of(rcm: RelationalClassMapping, schemes: list) -> Optional[str]:
-    """The scheme every column of which is a column of the table's milestoning, when the others are mapped to the ids that give a table's
-    own columns: a table that has a business dimension of its own beside the processing dimension of a scheme."""
-    mm = rcm.milestone_mapping
-    columns = _milestone_columns(mm)
+    """The scheme a table's milestoning is the scheme's with some of its own columns: each dimension, processing and business, either has the
+    columns of the scheme or is mapped to the ids that give a table's own, and at least one has the scheme's."""
+    columns = _milestone_columns(rcm.milestone_mapping)
     property_of = {pm.target.name: pm.property.id for pm in rcm.property_mappings if isinstance(pm.target, Column)}
     id_of = {field: each for each, field in _MILESTONE_IDS.items()}
+    dimensions = (("processing_start", "processing_end", "processing_datetime"), ("business_date", "business_date_from", "business_date_to"))
     for scheme in schemes:
-        fields = [f for f in _MILESTONE_IDS.values() if getattr(scheme, f)]
-        if fields and all(columns.get(f) == getattr(scheme, f) for f in fields) \
-                and all(property_of.get(column) == id_of[f] for f, column in columns.items() if f not in fields):
+        shared, fits = False, True
+        for fields in dimensions:
+            from_scheme = {f: getattr(scheme, f) for f in fields if getattr(scheme, f)}
+            own = {f: columns[f] for f in fields if f in columns}
+            if from_scheme and from_scheme == own:
+                shared = True
+            elif own:
+                fits = fits and all(property_of.get(column) == id_of[f] for f, column in own.items())  # its own, which the ids say
+            else:
+                fits = fits and not from_scheme  # a table cannot be without a dimension its scheme has
+        if shared and fits:
             return scheme.name
     return None
 

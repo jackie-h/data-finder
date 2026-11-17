@@ -6,7 +6,7 @@
 
 | Name  | Description                         |
 |-------|-------------------------------------|
-| Quote | A quote with a business range       |
+| Quote | A quote, milestoned as its scheme says |
 
 | Property | Id     | Type   | Multiplicity | Key | Description |
 |----------|--------|--------|--------------|-----|-------------|
@@ -17,7 +17,7 @@
 
 | Name | Description                       |
 |------|-----------------------------------|
-| Rate | A rate with a business date       |
+| Rate | A rate, whose business range is in columns of its own |
 
 | Property | Id   | Type   | Multiplicity | Key | Description |
 |----------|------|--------|--------------|-----|-------------|
@@ -28,7 +28,7 @@
 
 | Name | Description                                                          |
 |------|----------------------------------------------------------------------|
-| Fee  | A fee, whose table keeps its processing columns under other names    |
+| Fee  | A fee, which has a business date in place of a business range |
 
 | Property | Id     | Type   | Multiplicity | Key | Description |
 |----------|--------|--------|--------------|-----|-------------|
