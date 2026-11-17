@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, CHAINED_RESULT_SUBSELECT, JOIN_KEPT_AFTER_RESTRICT, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, JOIN_KEPT_AFTER_RESTRICT, ported, unsupported
 
 _SRC = "tds/tests/testTDSRestrictDistinct.pure"
 

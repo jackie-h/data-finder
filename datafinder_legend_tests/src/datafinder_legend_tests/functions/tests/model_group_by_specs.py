@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, CHAINED_RESULT_SUBSELECT, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import COUNT_OF_ONE, ported, unsupported, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER, QUALIFIED_PROPERTIES, not_supported
 import datetime
 
 _SRC = "functions/tests/testModelGroupBy.pure"
@@ -68,7 +68,7 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
         ported("testGroupByWithUnion", f"{_SRC}::testGroupByWithUnion",
                'select "subselect"."sum" as "sum" from (select sum("unionalias_1"."Quantity") as "sum", count(1) as "count" from (select "root".quantity as "Quantity" from tradeTable as "root" union all select "root".quantity as "Quantity" from tradeTable as "root") as "unionalias_1") as "subselect" where "subselect"."count" > 0',
                lambda f: f.find_all([f.quantity().alias("Quantity")]).concatenate(f.find_all([f.quantity().alias("Quantity")]), all=True).aggregate(sum=lambda r: r.Quantity.sum(), count=lambda r: count_all()).filter(lambda r: r.count > 0).select("sum"),
-               known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
+               known_gaps={BACKEND: COUNT_OF_ONE}),
         not_supported("testGroupByAndFilterIsolatedJoinMerge", f"{_SRC}::testGroupByAndFilterIsolatedJoinMerge",
                     'select "synonymtable_0".NAME as "Cusip", sum("root".quantity) as "Total Quantity" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join (select "synonymtable_0".PRODID as PRODID, "synonymtable_0".NAME as NAME from productSchema.synonymTable as "synonymtable_0" where "synonymtable_0".TYPE = \'CUSIP\') as "synonymtable_0" on ("synonymtable_0".PRODID = "producttable_0".ID) left outer join productSchema.synonymTable as "synonymtable_1" on ("synonymtable_1".PRODID = "producttable_0".ID and "synonymtable_1".TYPE = \'CUSIP\') where "synonymtable_1".NAME = \'CUSIP1\' group by "Cusip"',
                     QUALIFIED_PROPERTIES),
@@ -156,8 +156,7 @@ MODEL_GROUP_BY_FIRM_SPECS = FinderSpec(
                lambda f: f.find_all([f.legal_name().count()])),
         ported("testGroupByEmptyColsNonTerminalOperation", f"{_SRC}::testGroupByEmptyColsNonTerminalOperation",
                     'select "subselect"."Firm Count" as "Firm Count" from (select count("root".LEGALNAME) as "Firm Count" from firmTable as "root") as "subselect" where "subselect"."Firm Count" > 10',
-                    lambda f: f.find_all([f.legal_name().count().alias("FirmCount")]).filter(lambda r: r.FirmCount > 10),
-               known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
+                    lambda f: f.find_all([f.legal_name().count().alias("Firm Count")]).filter(lambda r: getattr(r, "Firm Count") > 10)),
         unsupported("testAggToManyWithMaxInteger", f"{_SRC}::testAggToManyWithMaxInteger",
                     'select "addresstable_0".TYPE as "Address Type", max("persontable_0".AGE) as "Max Age of Employees" from firmTable as "root" left outer join addressTable as "addresstable_0" on ("addresstable_0".ID = "root".ADDRESSID) left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "Address Type"',
                     'address type is an enumeration, which the model does not have'),

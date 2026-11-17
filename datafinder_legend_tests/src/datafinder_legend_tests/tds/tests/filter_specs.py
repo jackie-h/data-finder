@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DECIMAL_LITERAL_CAST, CHAINED_RESULT_SUBSELECT
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DECIMAL_LITERAL_CAST
 
 _SRC = "tds/tests/testTDSFilter.pure"
 

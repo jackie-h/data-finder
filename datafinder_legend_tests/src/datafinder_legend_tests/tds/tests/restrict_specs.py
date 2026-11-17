@@ -10,7 +10,7 @@ import datetime
 from datafinder import constant
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, RESTRICT_AFTER_GROUP_BY, CHAINED_RESULT_SUBSELECT
+from datafinder_legend_tests.legend import UNUSED_AGGREGATE_DROPPED, ported, unsupported, BACKEND, RESTRICT_AFTER_GROUP_BY
 
 _SRC = "tds/tests/testTDSRestrict.pure"
 
@@ -54,6 +54,6 @@ RESTRICT_SPECS = FinderSpec(
         ported("testRestrictOnGroupByEleminatesUnnecessaryAggsWithDistinct", f"{_SRC}::testRestrictOnGroupByEleminatesUnnecessaryAggsWithDistinct",
                     'select "persontable_0"."Firm" as "Firm", "persontable_0"."People count" as "People count" from (select distinct "firmtable_0".LEGALNAME as "Firm", count("root".FIRSTNAME) as "People count" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) group by "Firm" order by "Firm" asc) as "persontable_0"',
                     lambda f: f.find_all([f.firm().legal_name().alias("Firm"), f.first_name().count().alias("People count"), f.age().max().alias("Max Age")]).group_by(f.firm().legal_name()).order_by(f.firm().legal_name().ascending()).distinct().select("Firm", "People count"),
-                    known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
+                    known_gaps={BACKEND: UNUSED_AGGREGATE_DROPPED}),
     ],
 )

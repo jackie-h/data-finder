@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, CHAINED_RESULT_SUBSELECT, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "tds/tests/testGroupBy.pure"
 
@@ -102,8 +102,7 @@ GROUP_BY_FIRM_SPECS = FinderSpec(
     expectations=[
         ported("testTDSGroupByEmptyColsNonTerminalOperation", f"{_SRC}::testTDSGroupByEmptyColsNonTerminalOperation",
                     'select "subselect"."Firm Count" as "Firm Count" from (select count(*) as "Firm Count" from firmTable as "root") as "subselect" where "subselect"."Firm Count" > 10',
-                    lambda f: f.find_all([f.legal_name().alias("LegalName")]).aggregate(FirmCount=lambda r: r.LegalName.count()).filter(lambda r: r.FirmCount > 10),
-               known_gaps={BACKEND: CHAINED_RESULT_SUBSELECT}),
+                    lambda f: f.find_all([f.legal_name().alias("Legal Name")]).aggregate(**{"Firm Count": lambda r: count_all()}).filter(lambda r: getattr(r, "Firm Count") > 10)),
         ported("simpleGroupByWithAssociationWithJoinStrings", f"{_SRC}::simpleGroupByWithAssociationWithJoinStrings",
                'select "root".LEGALNAME as "legalName", listagg("persontable_0".LASTNAME, \'*\') as "lastNames" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID) group by "legalName"',
                lambda f: f.find_all([f.legal_name(), f.employees().last_name().join("*")]).group_by(f.legal_name())),

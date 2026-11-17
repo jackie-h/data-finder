@@ -42,11 +42,6 @@ FILTER_REPEATED_IN_CLASS_FILTER = (
     "finder writes it once, outside, which keeps the same rows"
 )
 
-CHAINED_RESULT_SUBSELECT = (
-    "a step on a result that is already a query (a filter on a concatenation) reads it as a derived table of its own; Legend adds the "
-    "step to the query's outer select, so the finder has one more level of subselect, which keeps the same rows"
-)
-
 LIMIT_OF_LIMIT = (
     "a limit on rows that were already limited or offset is the one limit of the rows kept, in one select; Legend nests the first "
     "limit in a subselect and limits that, which returns the same rows"
@@ -169,6 +164,23 @@ UNION_SECOND_JOIN_DUPLICATES = (
 RENAME_IN_THE_SELECT = (
     "Legend wraps renameColumns in a select of its own, selecting each column again under its new name; the finder names the columns in the select that "
     "reads them, so it has one level fewer, which keeps the same rows"
+)
+
+COUNT_OF_ONE = (
+    "Legend counts the rows of a select as count(1); the finder writes count(*), which is the same count"
+)
+
+DATE_IN_LIST_UNTYPED = (
+    "Legend writes the dates of an IN list as DATE'...' literals; the finder writes them as text, which compares as the same dates"
+)
+
+UNUSED_AGGREGATE_DROPPED = (
+    "Legend drops an aggregate that a restrict does not keep (max age) from the select that groups; the finder keeps the columns of the group by and "
+    "selects the ones that are kept over it"
+)
+
+JOIN_SELECT_STAR = (
+    "Legend reads the two sides of a join with select *; the finder lists the columns of each side, which are the same columns"
 )
 
 LEFT_JOIN_ORDER = (
