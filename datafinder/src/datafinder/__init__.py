@@ -5,7 +5,7 @@ from .expressions import (constant, count_all, today, now, first_day_of_this_mon
                           most_recent_day_of_week, previous_day_of_week)
 from .conditional import when
 from .runner import *
-from .sql_generator import to_sql, query_sql_to_string, build_query_specification, view_sql_to_string
+from .sql_generator import to_sql, query_sql_to_string, build_query_specification, view_sql_to_string, sql_for_dialect, SOURCE_DIALECT
 from .runner import FinderResult, exists, convert_inputs_and_select_for_date_range, convert_inputs_and_select_for_processing_range
 from model.relational import DayOfWeek, JoinOperation, WindowFunction, WindowFunctionOperation, WindowSpecification
 from model.view import ViewDefinitionError

@@ -88,24 +88,35 @@ def test_a_value_is_still_a_constant():
     assert "t0.A < '2024-01-02'" in _sql(left, left < datetime.date(2024, 1, 2))
 
 
-@pytest.mark.parametrize("method, unit", [("diff_days", "day"), ("diff_months", "month"), ("diff_years", "year")])
-def test_a_date_difference_with_a_column(method, unit):
+_DATE_DIFFS = {
+    "diff_days": "(CAST(t0.B AS DATE) - CAST(t0.A AS DATE))",
+    "diff_months": "((EXTRACT(YEAR FROM CAST(t0.B AS DATE)) - EXTRACT(YEAR FROM CAST(t0.A AS DATE))) * 12 + "
+                   "EXTRACT(MONTH FROM CAST(t0.B AS DATE)) - EXTRACT(MONTH FROM CAST(t0.A AS DATE)))",
+    "diff_years": "(EXTRACT(YEAR FROM CAST(t0.B AS DATE)) - EXTRACT(YEAR FROM CAST(t0.A AS DATE)))",
+}
+
+
+@pytest.mark.parametrize("method", list(_DATE_DIFFS))
+def test_a_date_difference_with_a_column(method):
     start, end, _ = _attrs()["date"]
     sql = _sql(getattr(start, method)(end), NoOperation())
-    assert f"DATE_DIFF('{unit}', t0.A, t0.B)" in sql
+    assert _DATE_DIFFS[method] in sql
+    assert "DATE_DIFF" not in sql  # DuckDB's own function
 
 
 @pytest.mark.parametrize("method, unit", [("diff_hours", "hour"), ("diff_minutes", "minute"), ("diff_seconds", "second")])
 def test_a_datetime_difference_with_a_column(method, unit):
     start, end, _ = _attrs()["datetime"]
     sql = _sql(getattr(start, method)(end), NoOperation())
-    assert f"DATE_DIFF('{unit}', t0.U, t0.V)" in sql
+    seconds = {"hour": 3600, "minute": 60, "second": 1}[unit]
+    assert (f"CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('{unit}', CAST(t0.V AS TIMESTAMP)) - "
+            f"DATE_TRUNC('{unit}', CAST(t0.U AS TIMESTAMP)))) / {seconds} AS BIGINT)") in sql
 
 
-def test_a_date_difference_with_a_value_is_unchanged():
+def test_a_date_difference_with_a_value_has_the_value_as_a_date():
     start, _, _ = _attrs()["date"]
     sql = _sql(start.diff_days(datetime.date(2024, 6, 15)), NoOperation())
-    assert "DATE_DIFF('day', t0.A, '2024-06-15')" in sql
+    assert "(CAST('2024-06-15' AS DATE) - CAST(t0.A AS DATE))" in sql
 
 
 def test_a_condition_is_negated_with_a_tilde():
@@ -128,13 +139,13 @@ def test_a_negated_ordering_comparison_is_not_guarded_against_a_missing_value():
 
 def test_matches_searches_for_a_regular_expression_anywhere_in_the_text():
     name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
-    assert "REGEXP_MATCHES(t0.N, 'Customer.*Complaints')" in _sql(name, name.matches("Customer.*Complaints"))
-    assert "NOT (REGEXP_MATCHES(t0.N, 'a.b'))" in _sql(name, ~name.matches("a.b"))
+    assert "t0.N ~ 'Customer.*Complaints'" in _sql(name, name.matches("Customer.*Complaints"))
+    assert "NOT (t0.N ~ 'a.b')" in _sql(name, ~name.matches("a.b"))
 
 
 def test_matches_a_function_of_a_column():
     name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
-    assert "REGEXP_MATCHES(UPPER(t0.N), 'AC.*E')" in _sql(name, name.upper().matches("AC.*E"))
+    assert "UPPER(t0.N) ~ 'AC.*E'" in _sql(name, name.upper().matches("AC.*E"))
 
 
 def test_only_a_type_with_an_order_can_be_compared_with_less_than():

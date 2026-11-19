@@ -597,12 +597,12 @@ class TestDateDiff:
     def test_diff_days_produces_date_diff(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr.diff_days(datetime.date(2024, 1, 1))], table, NoOperation())
-        assert "DATE_DIFF('day'," in sql
+        assert "(CAST('2024-01-01' AS DATE) - CAST(" in sql and "DATE_DIFF" not in sql
 
     def test_diff_months_uses_month_part(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr.diff_months(datetime.date(2024, 1, 1))], table, NoOperation())
-        assert "DATE_DIFF('month'," in sql
+        assert "EXTRACT(MONTH FROM CAST('2024-01-01' AS DATE))" in sql and "DATE_DIFF" not in sql
 
     def test_diff_days_includes_date_literal(self):
         table, attr = _make_date_attr()
@@ -612,8 +612,7 @@ class TestDateDiff:
     def test_diff_datetime_formats_as_timestamp(self):
         table, attr = _make_datetime_attr()
         sql = to_sql(None, None, [attr.diff_hours(datetime.datetime(2024, 1, 1, 12, 0, 0))], table, NoOperation())
-        assert "DATE_DIFF('hour'," in sql
-        assert "2024-01-01 12:00:00" in sql
+        assert "DATE_TRUNC('hour', CAST('2024-01-01 12:00:00' AS TIMESTAMP))" in sql and "DATE_DIFF" not in sql
 
 
 class TestStringScalarFunctions:

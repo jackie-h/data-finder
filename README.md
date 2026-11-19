@@ -759,6 +759,8 @@ view.to_sql(dialect="databricks")   # transpiled with sqlglot
 view.result().to_pandas()           # create the view on the registered backend and read its rows
 ```
 
+The SQL the generator writes is PostgreSQL, which is ANSI SQL wherever ANSI has the construct: intervals use the ANSI units (a week is 7 days, a microsecond a millionth of a second), a regular expression is `~`, and a difference between dates is written with `EXTRACT`, `DATE_TRUNC` and `CAST` and not a function of one database. Each engine translates it with sqlglot to the SQL of its own database, DuckDB and Databricks included, and `to_sql(dialect=…)` does the same for a view.
+
 Joins, the filter, `group_by`, aggregates and window functions all work as they do in `find_all`. Each column is
 named after its display name in snake_case (`account_name`, `symbol`, `sum_price`), and the root's milestoning
 columns (e.g. `in_z`, `out_z`) are added. Display names say how a column was reached, one relation per hop:

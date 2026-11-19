@@ -1,7 +1,7 @@
 import datetime
 from typing import Sequence, cast
 
-from datafinder import Operation, DataFrame, Attribute, to_sql
+from datafinder import Operation, DataFrame, Attribute, to_sql, sql_for_dialect
 from datafinder.sql_generator import view_select_to_string
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy, interrupt_after
 
@@ -20,15 +20,10 @@ from model.relational import Relation
 from model.view import View
 
 
-_SOURCE_DIALECT = "duckdb"  # the SQL the finders generate runs as written on DuckDB
-
-
 def sql_for_backend(query: str, backend: str) -> str:
-    """The query in the SQL dialect of ``backend`` (Ibis' backend name, e.g. ``duckdb`` or ``snowflake``): functions such
-    as ``DATE_DIFF`` and ``DATE_TRUNC`` are written the way that backend spells them. DuckDB's own SQL is unchanged."""
-    if backend == _SOURCE_DIALECT:
-        return query
-    return sqlglot.transpile(query, read=_SOURCE_DIALECT, write=backend)[0]
+    """The query in the SQL dialect of ``backend`` (Ibis' backend name, e.g. ``duckdb`` or ``snowflake``): the finders generate Postgres
+    SQL, and functions such as ``STRING_AGG`` and the regular expression match are written the way that backend spells them."""
+    return sql_for_dialect(query, backend)
 
 
 def _connect(url: str) -> SQLBackend:
