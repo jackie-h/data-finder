@@ -84,7 +84,7 @@ def test_view_does_not_change_when_reference_data_changes(con):
     m = _Model()
     view = View("trade_account", "reporting", m.trades,
                 [Alias(m.symbol, "symbol"), Alias(m.account_name, "account_name")])
-    con.execute(view_sql_to_string(view))
+    con.execute(view_sql_to_string(view, 'duckdb'))
     query = "SELECT symbol, account_name FROM reporting.trade_account ORDER BY symbol, in_z"
     before = _rows(con, query)
 
@@ -96,7 +96,7 @@ def test_view_does_not_change_when_reference_data_changes(con):
 def test_an_ancestor_that_nothing_projects_is_pinned_too(con):
     m = _Model()
     view = View("trade_city", "reporting", m.trades, [Alias(m.symbol, "symbol"), Alias(m.city, "city")])
-    con.execute(view_sql_to_string(view))
+    con.execute(view_sql_to_string(view, 'duckdb'))
     assert _rows(con, "SELECT symbol, city FROM reporting.trade_city ORDER BY symbol") == \
         [("AAPL", "London"), ("GOOG", "London"), ("IBM", "Paris")]
 
@@ -104,7 +104,7 @@ def test_an_ancestor_that_nothing_projects_is_pinned_too(con):
 def test_filter(con):
     m = _Model()
     view = View("goog", "reporting", m.trades, [Alias(m.account_name, "account_name")], filter=m.symbol.eq("GOOG"))
-    con.execute(view_sql_to_string(view))
+    con.execute(view_sql_to_string(view, 'duckdb'))
     assert _rows(con, "SELECT account_name FROM reporting.goog") == [("Acme Old",)]
 
 

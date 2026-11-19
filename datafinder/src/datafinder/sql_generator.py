@@ -766,6 +766,56 @@ def constant_value_string(op:ConstantOperation) -> str:
 _PLAIN_IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*$')
 
 
+# The SQL the generator writes is Postgres SQL (which is ANSI SQL where ANSI has the construct). Every engine translates it to the SQL of
+# its own database with sqlglot, reading it as this dialect.
+SOURCE_DIALECT = "postgres"
+
+
+def sql_for_dialect(sql: str, dialect: str) -> str:
+    """The generated SQL as ``dialect`` (a sqlglot dialect: ``duckdb``, ``databricks``, ...) spells it."""
+    return sqlglot.transpile(sql, read=SOURCE_DIALECT, write=dialect)[0]
+
+
+_DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
+
+
+def _date_diff_string(unit: DatePart, element: str, other: str) -> str:
+    """The number of ``unit`` from ``element`` to ``other``: boundaries crossed for a year, quarter, month, day, hour, minute or second (a day is a
+    change of date, an hour a change of hour), and whole weeks for a week, as DuckDB's DATE_DIFF counts them, in standard
+    operators and EXTRACT, DATE_TRUNC and CAST, which Postgres and the other databases all have, where DATE_DIFF is DuckDB's own."""
+    if unit in (DatePart.YEAR, DatePart.QUARTER, DatePart.MONTH):
+        a, b = f'CAST({element} AS DATE)', f'CAST({other} AS DATE)'
+        years = f'(EXTRACT(YEAR FROM {b}) - EXTRACT(YEAR FROM {a}))'
+        if unit == DatePart.YEAR:
+            return years
+        per_year, part = (4, 'QUARTER') if unit == DatePart.QUARTER else (12, 'MONTH')
+        return f'({years} * {per_year} + EXTRACT({part} FROM {b}) - EXTRACT({part} FROM {a}))'
+    if unit == DatePart.DAY:
+        return f'(CAST({other} AS DATE) - CAST({element} AS DATE))'
+    if unit == DatePart.WEEK:
+        days = f'(CAST({other} AS DATE) - CAST({element} AS DATE))'
+        return f'CAST(SIGN({days}) * FLOOR(ABS({days}) / 7.0) AS BIGINT)'  # whole weeks, as a week is 7 days
+    if unit in (DatePart.HOUR, DatePart.MINUTE, DatePart.SECOND):
+        part, seconds = unit.value.lower(), {DatePart.HOUR: 3600, DatePart.MINUTE: 60, DatePart.SECOND: 1}[unit]
+        return (f"CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('{part}', CAST({other} AS TIMESTAMP)) - "
+                f"DATE_TRUNC('{part}', CAST({element} AS TIMESTAMP)))) / {seconds} AS BIGINT)")
+    raise ValueError(f"A difference between dates is counted in years, quarters, months, weeks, days, hours, minutes or seconds, not {unit.value}")
+
+
+def _interval_string(n: int, unit: DatePart) -> str:
+    """``INTERVAL '5' DAY`` in the units ANSI has (YEAR, MONTH, DAY, HOUR, MINUTE, SECOND): a week is 7 days, a quarter 3 months and a
+    microsecond a millionth of a second."""
+    if unit == DatePart.WEEK:
+        n, unit = n * 7, DatePart.DAY
+    elif unit == DatePart.QUARTER:
+        n, unit = n * 3, DatePart.MONTH
+    elif unit == DatePart.MICROSECOND:
+        return "INTERVAL '" + format(decimal.Decimal(n).scaleb(-6), 'f') + "' SECOND"
+    elif unit in (DatePart.DOW, DatePart.DOY):
+        raise ValueError(f"A length of time is not counted in {unit.value}")
+    return "INTERVAL '" + str(n) + "' " + unit.value
+
+
 def _column_reference(alias_name: str, column_name: str) -> str:
     """``t0.name``, with the column quoted when its name is not a plain identifier (``"First Name"``): a result's columns have the names
     it was asked to give them."""
@@ -810,7 +860,6 @@ _SCALAR_SQL_NAMES = {
     ScalarFunction.ATAN:      'ATAN',
     ScalarFunction.ATAN2:     'ATAN2',
     ScalarFunction.EXP:       'EXP',
-    ScalarFunction.DAY_NAME:  'DAYNAME',
     ScalarFunction.LOG:       'LN',
 }
 
@@ -913,6 +962,10 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         sql = fn + '(' + ', '.join(parts) + ')'
         sql += ' ' + _window_spec_to_string(operation.window) if operation.window is not None else ' OVER ()'
         return sql
+    elif isinstance(operation, ScalarFunctionOperation) and operation.function == ScalarFunction.DAY_NAME:
+        # the name of the day is spelled out, as there is no standard function for it
+        whens = ' '.join(f"WHEN {number} THEN '{name}'" for number, name in enumerate(_DAY_NAMES, 1))
+        return f'CASE EXTRACT(ISODOW FROM {sql_operation_to_string(operation.element)}) {whens} END'
     elif isinstance(operation, ScalarFunctionOperation):
         fn = _SCALAR_SQL_NAMES[operation.function]
         parts = [sql_operation_to_string(operation.element)]
@@ -933,7 +986,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         return "CAST(DATE_TRUNC('" + operation.part.value.lower() + "', " + sql_operation_to_string(operation.element) + ') AS DATE)'
     elif isinstance(operation, DateArithmeticOperation):
         op = '+' if operation.is_add else '-'
-        return sql_operation_to_string(operation.element) + ' ' + op + " INTERVAL '" + str(operation.n) + "' " + operation.unit.value
+        return sql_operation_to_string(operation.element) + ' ' + op + ' ' + _interval_string(operation.n, operation.unit)
     elif isinstance(operation, DateDiffOperation):
         if isinstance(operation.other, RelationalOperationElement):
             other_sql = sql_operation_to_string(operation.other)
@@ -941,7 +994,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
             other_sql = sql_format_datetime(operation.other)
         else:
             other_sql = sql_format_date(operation.other)
-        return "DATE_DIFF('" + operation.unit.value.lower() + "', " + sql_operation_to_string(operation.element) + ', ' + other_sql + ')'
+        return _date_diff_string(operation.unit, sql_operation_to_string(operation.element), other_sql)
     elif isinstance(operation, CountAllOperation):
         return 'COUNT(*)'
     elif isinstance(operation, ConstantOperation):
@@ -1385,7 +1438,7 @@ class SQLQueryGenerator:
                 right_str = '(' + right_str + ')'
             return left_str + logical_operator_string(op.operator) + right_str
         elif isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.MATCHES:
-            return 'REGEXP_MATCHES(' + self.build_filter(op.left) + ', ' + self.build_filter(op.right) + ')'
+            return self.build_filter(op.left) + ' ~ ' + self.build_filter(op.right)
         elif isinstance(op, ComparisonOperation):
             sql = self.build_filter(op.left) + comparison_operator_string(op.operator) + self.build_filter(op.right)
             if op.operator in (ComparisonOperator.LIKE, ComparisonOperator.NOT_LIKE) \
@@ -1530,7 +1583,7 @@ def query_sql_to_string(query: QuerySpecification, validate_sqlglot: bool = True
     qe.generate(query)
     sql = qe.build_query_string()
     if validate_sqlglot:
-        sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
+        sqlglot.transpile(sql, read=SOURCE_DIALECT, error_level=sqlglot.ErrorLevel.RAISE)
     return sql
 
 
@@ -1650,9 +1703,9 @@ def view_select_to_string(view: View) -> str:
 
 
 def view_sql_to_string(view: View, dialect: str | None = None) -> str:
-    """``CREATE OR REPLACE VIEW`` DDL for the view, in generic SQL or transpiled to ``dialect`` (e.g. 'databricks')."""
+    """``CREATE OR REPLACE VIEW`` DDL for the view, in the SQL the generator writes (Postgres) or transpiled to ``dialect`` (e.g. 'databricks')."""
     sql = f"CREATE OR REPLACE VIEW {view.qualified_name} AS " + view_select_to_string(view)
     if dialect is None:
-        sqlglot.transpile(sql, error_level=sqlglot.ErrorLevel.RAISE)
+        sqlglot.transpile(sql, read=SOURCE_DIALECT, error_level=sqlglot.ErrorLevel.RAISE)
         return sql
-    return sqlglot.transpile(sql, read='', write=dialect)[0]
+    return sql_for_dialect(sql, dialect)

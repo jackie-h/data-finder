@@ -4,9 +4,7 @@ import threading
 import time
 from typing import Sequence
 
-import sqlglot
-
-from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
+from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase, sql_for_dialect
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
 from model.relational import Relation
 
@@ -46,7 +44,7 @@ def _to_databricks_sql(business_date: datetime.date | None, processing_datetime:
                          order_by, group_by, limit, validate_sqlglot=False,
                          business_date_to=business_date_to, distinct=distinct, offset=offset, having=having,
                          processing_datetime_to=processing_datetime_to)
-    return sqlglot.transpile(generic_sql, read='', write='databricks')[0]
+    return sql_for_dialect(generic_sql, 'databricks')
 
 
 class DatabricksConnect(QueryRunnerBase):

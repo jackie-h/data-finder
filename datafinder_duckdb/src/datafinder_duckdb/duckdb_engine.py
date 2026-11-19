@@ -1,7 +1,7 @@
 import datetime
 from typing import Sequence
 
-from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase
+from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase, sql_for_dialect
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy, interrupt_after
 
 import duckdb
@@ -22,6 +22,7 @@ class DuckDbConnect(QueryRunnerBase):
                processing_datetime_to: datetime.datetime | datetime.date | None = None) -> DataFrame:
         conn = duckdb.connect('test.db')
         query = to_sql(business_date, processing_datetime, columns, table, op, order_by, group_by, limit, business_date_to=business_date_to, distinct=distinct, offset=offset, having=having, processing_datetime_to=processing_datetime_to)
+        query = sql_for_dialect(query, 'duckdb')
         print(query)
         # conn.sql() only builds the query plan — nothing executes (and no pandas DataFrame
         # gets built) until DuckDbOutput actually materializes it, driven by which of

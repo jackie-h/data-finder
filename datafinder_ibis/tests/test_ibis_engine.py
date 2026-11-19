@@ -34,16 +34,14 @@ class TestIbisEngine:
 
 class TestSqlForBackend:
 
-    DIFF = "SELECT DATE_DIFF('day', a, b) FROM t"
+    MATCH = "SELECT a FROM t WHERE a ~ 'x'"
     TRUNC = "SELECT CAST(DATE_TRUNC('month', d) AS DATE) FROM t"
 
-    def test_duckdb_sql_is_unchanged(self):
-        assert sql_for_backend(self.DIFF, "duckdb") == self.DIFF
-
-    def test_a_date_difference_is_written_as_the_backend_spells_it(self):
-        assert sql_for_backend(self.DIFF, "snowflake") == "SELECT DATEDIFF(DAY, a, b) FROM t"
-        assert sql_for_backend(self.DIFF, "mssql") == "SELECT DATEDIFF(DAY, a, b) FROM t"
-        assert sql_for_backend(self.DIFF, "bigquery") == "SELECT DATE_DIFF(b, a, DAY) FROM t"
+    def test_the_generated_postgres_sql_is_written_as_each_backend_spells_it(self):
+        assert sql_for_backend(self.MATCH, "postgres") == self.MATCH
+        assert sql_for_backend(self.MATCH, "duckdb") == "SELECT a FROM t WHERE REGEXP_MATCHES(a, 'x')"
+        assert sql_for_backend(self.MATCH, "snowflake") == "SELECT a FROM t WHERE REGEXP_LIKE(a, 'x')"
+        assert sql_for_backend("SELECT STRING_AGG(a, ',') FROM t", "duckdb") == "SELECT LISTAGG(a, ',') FROM t"
 
     def test_a_date_truncation_is_written_as_the_backend_spells_it(self):
         assert sql_for_backend(self.TRUNC, "bigquery") == "SELECT CAST(TIMESTAMP_TRUNC(d, MONTH) AS DATE) FROM t"

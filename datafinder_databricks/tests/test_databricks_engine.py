@@ -1,3 +1,4 @@
+import datetime
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
@@ -162,3 +163,30 @@ class TestTimeoutCancelsTheQuery:
         cursor.fetchall_arrow.return_value = pa.table({"Name": ["Acme"]})
         self._select(cursor, timeout_ms=60_000)
         cursor.cancel.assert_not_called()
+
+
+class TestTheGeneratedSqlIsTranslatedFromPostgres:
+    """The SQL the finders generate is Postgres SQL, and what Databricks gets is sqlglot's translation of it."""
+
+    def _sql(self, column):
+        from model.relational import Table as _Table
+        table = _Table("events", [])
+        return _to_databricks_sql(None, None, [column], table, NoOperation())
+
+    def test_a_regular_expression_is_a_databricks_function(self):
+        from datafinder import StringAttribute
+        name = StringAttribute("Name", "NAME", "VARCHAR", _OWNER_ACCOUNTS)
+        sql = self._sql(name.matches("a.*b"))
+        assert "REGEXP_LIKE(" in sql and " ~ " not in sql
+
+    def test_an_interval_is_in_a_unit_that_databricks_has_in_a_literal(self):
+        from datafinder import DateTimeAttribute
+        created = DateTimeAttribute("Created", "CREATED_AT", "TIMESTAMP", _OWNER_ACCOUNTS)
+        sql = self._sql(created.add_microseconds(5))
+        assert "INTERVAL '0.000005' SECOND" in sql and "MICROSECOND" not in sql
+
+    def test_a_date_difference_is_not_the_function_of_another_database(self):
+        from datafinder import DateAttribute
+        start = DateAttribute("Start", "START_AT", "DATE", _OWNER_ACCOUNTS)
+        sql = self._sql(start.diff_days(datetime.date(2024, 6, 15)))
+        assert "DATE_DIFF" not in sql and "DATEDIFF" not in sql
