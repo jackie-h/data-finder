@@ -6,7 +6,7 @@ features the simple subset does not have. Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import QUALIFIED_PROPERTIES, not_supported, ported, unsupported, BACKEND, TDS_FILTER_OPTIONAL_PROPERTY
+from datafinder_legend_tests.legend import CONCAT_FUNCTION, QUALIFIED_PROPERTIES, not_supported, ported, unsupported, BACKEND, TDS_FILTER_OPTIONAL_PROPERTY
 
 _FILTERS = "functions/tests/projection/testFilters.pure"
 _FILTER = "functions/tests/projection/testFilter.pure"
@@ -36,12 +36,20 @@ FILTERS_PERSON_SPECS = FinderSpec(
                lambda f: f.find_all([f.first_name(), f.age()],
                                     (f.age() > 30).and_(f.age().is_not_none())),
                known_gaps={BACKEND: TDS_FILTER_OPTIONAL_PROPERTY}),
-        unsupported("testCompressSQLforINFilter", f"{_SRC}::testCompressSQLforINFilter",
-                    'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "Name", "locationtable_0".PLACE as "place", "locationtable_0".date as "CD" from personTable as "root" left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID and "locationtable_0".PLACE in (\'Hoboken\', \'New York\'))',
-                    'no filter inside a navigation'),
-        unsupported("testCompressSQLforINFilter2", f"{_SRC}::testCompressSQLforINFilter2",
-                    'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "Name", "locationtable_0".PLACE as "place", "locationtable_1".date as "CD" from personTable as "root" left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID and "locationtable_0".PLACE = \'New York\') left outer join locationTable as "locationtable_1" on ("root".ID = "locationtable_1".PERSONID and "locationtable_1".PLACE in (\'New York\', \'Hoboken\'))',
-                    'no filter inside a navigation'),
+        ported("testCompressSQLforINFilter", f"{_SRC}::testCompressSQLforINFilter",
+               'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "Name", "locationtable_0".PLACE as "place", "locationtable_0".date as "CD" from personTable as "root" left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID and "locationtable_0".PLACE in (\'Hoboken\', \'New York\'))',
+               lambda f: f.find_all([
+                   (f.first_name() + " " + f.last_name()).alias("Name"),
+                   f.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).place().alias("place"),
+                   f.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).censusdate().alias("CD")]),
+               known_gaps={BACKEND: CONCAT_FUNCTION}),
+        ported("testCompressSQLforINFilter2", f"{_SRC}::testCompressSQLforINFilter2",
+               'select concat("root".FIRSTNAME, \' \', "root".LASTNAME) as "Name", "locationtable_0".PLACE as "place", "locationtable_1".date as "CD" from personTable as "root" left outer join locationTable as "locationtable_0" on ("root".ID = "locationtable_0".PERSONID and "locationtable_0".PLACE = \'New York\') left outer join locationTable as "locationtable_1" on ("root".ID = "locationtable_1".PERSONID and "locationtable_1".PLACE in (\'New York\', \'Hoboken\'))',
+               lambda f: f.find_all([
+                   (f.first_name() + " " + f.last_name()).alias("Name"),
+                   f.locations().filter(lambda each: each.place().is_in(["New York"])).place().alias("place"),
+                   f.locations().filter(lambda each: each.place().is_in(["New York", "Hoboken"])).censusdate().alias("CD")]),
+               known_gaps={BACKEND: CONCAT_FUNCTION}),
         not_supported("testSavedRootPropogatedCorrectlyThroughFilter", f"{_SRC}::testSavedRootPropogatedCorrectlyThroughFilter",
                     'select "root".LEGALNAME as "firm", "persontable_0".FIRSTNAME as "targetEmployee" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID and "persontable_0".FIRSTNAME = \'Peter\' and "persontable_0".LASTNAME = \'Smith\')',
                     QUALIFIED_PROPERTIES),
