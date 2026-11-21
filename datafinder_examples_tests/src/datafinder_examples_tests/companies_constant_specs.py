@@ -216,7 +216,7 @@ COMPANIES_CONSTANT_SPECS = FinderSpec(
             ], _THE_FIRST(f)),
             # SQL numbers the days of the week from Sunday, 0
             **_one_row(["year", "month", "day", "quarter", "week", "day_of_week"],
-                       [_D.year, _D.month, _D.day, (_D.month - 1) // 3 + 1, _D.isocalendar().week, (_D.weekday() + 1) % 7]),
+                       [_D.year, _D.month, _D.day, (_D.month - 1) // 3 + 1, _D.isocalendar().week, _D.isoweekday()]),
         ),
         TestExpectation(
             name="date_constant_moved",
@@ -266,7 +266,7 @@ COMPANIES_CONSTANT_SPECS = FinderSpec(
             ], _THE_FIRST(f)),
             **_one_row(["year", "month", "day", "hour", "minute", "second", "quarter", "week", "day_of_week"],
                        [_DT.year, _DT.month, _DT.day, _DT.hour, _DT.minute, _DT.second, (_DT.month - 1) // 3 + 1,
-                        _DT.isocalendar().week, (_DT.weekday() + 1) % 7]),
+                        _DT.isocalendar().week, _DT.isoweekday()]),
         ),
         TestExpectation(
             name="datetime_constant_moved",

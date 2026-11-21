@@ -508,10 +508,10 @@ class TestDateExtract:
         sql = to_sql(None, None, [attr.week()], table, NoOperation())
         assert "EXTRACT(WEEK FROM" in sql
 
-    def test_day_of_week_produces_extract_dow(self):
+    def test_day_of_week_produces_extract_isodow(self):
         table, attr = _make_date_attr()
         sql = to_sql(None, None, [attr.day_of_week()], table, NoOperation())
-        assert "EXTRACT(DOW FROM" in sql
+        assert "EXTRACT(ISODOW FROM" in sql
 
     def test_hour_on_datetime(self):
         table, attr = _make_datetime_attr()

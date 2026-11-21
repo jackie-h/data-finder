@@ -825,7 +825,7 @@ def _interval_string(n: int, unit: DatePart) -> str:
         n, unit = n * 7, DatePart.DAY
     elif unit == DatePart.MICROSECOND:
         return "INTERVAL '" + format(decimal.Decimal(n).scaleb(-6), 'f') + "' SECOND"
-    elif unit in (DatePart.QUARTER, DatePart.DOW, DatePart.DOY):
+    elif unit in (DatePart.QUARTER, DatePart.ISODOW, DatePart.DOY):
         raise ValueError(f"A length of time is not counted in {unit.value}")
     return "INTERVAL '" + str(n) + "' " + unit.value
 

@@ -125,7 +125,7 @@ _DATE_EXTRACT = {
     DatePart.SECOND:  lambda s: s.dt.second,
     DatePart.QUARTER: lambda s: s.dt.quarter,
     DatePart.WEEK:    lambda s: s.dt.isocalendar().week.astype(int),
-    DatePart.DOW:     lambda s: ((s.dt.dayofweek + 1) % 7),  # 0=Sun (DuckDB convention)
+    DatePart.ISODOW:  lambda s: s.dt.dayofweek + 1,  # ISO: Monday is 1 and Sunday is 7 (pandas has Monday as 0)
 }
 
 _ARITH_TIMEDELTA = {

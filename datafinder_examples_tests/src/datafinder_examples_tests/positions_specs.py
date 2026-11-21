@@ -99,6 +99,13 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
         ),
         # every day of the week, from constants: the name of the day is spelled out in SQL, so each of the seven is checked
         TestExpectation(
+            name="the_number_of_each_day_of_the_week_is_the_iso_number",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([constant(day).day_of_week().alias(str(day)) for day in _WEEK], f.id_().eq(1)),
+            expected_columns=[str(day) for day in _WEEK],
+            expected_result=np.array([[day.isoweekday() for day in _WEEK]], dtype=object),  # Monday is 1 and Sunday is 7
+        ),
+        TestExpectation(
             name="the_name_of_each_day_of_the_week",
             skip_backends=_NO_DATE_FUNCTIONS,
             query=lambda f: f.find_all([constant(day).day_of_week_name().alias(str(day)) for day in _WEEK], f.id_().eq(1)),
@@ -328,7 +335,7 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             name="day_of_week",
             query=lambda f: f.find_all([f.trade_date().day_of_week()], f.id_().eq(1)),
             expected_columns=["Day Of Week Trade Date"],
-            # 2024-03-15 is Friday; DuckDB DOW: 0=Sunday → Friday=5
+            # 2024-03-15 is a Friday: ISO day 5 (Monday is 1)
             expected_result=np.array([[5]], dtype=object),
         ),
         TestExpectation(
