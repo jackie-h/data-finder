@@ -122,7 +122,14 @@ def test_a_date_difference_with_a_value_has_the_value_as_a_date():
 def test_a_condition_is_negated_with_a_tilde():
     name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
     assert "NOT (t0.N LIKE 'MEDIUM POLISHED%')" in _sql(name, ~name.starts_with("MEDIUM POLISHED"))
-    assert "NOT (t0.N = 'x' AND t0.N <> 'y')" in _sql(name, ~(name.eq("x").and_(name.ne("y"))))
+    assert "NOT (t0.N LIKE 'a%' AND t0.N LIKE '%b')" in _sql(name, ~(name.starts_with("a").and_(name.ends_with("b"))))
+
+
+def test_a_negated_equality_is_the_other_equality_so_a_missing_value_is_different():
+    name = StringAttribute("N", "N", "VARCHAR", _OWNER_T)
+    assert "WHERE t0.N <> 'x' OR t0.N IS NULL" in _sql(name, ~name.eq("x"))
+    assert "WHERE t0.N = 'x'" in _sql(name, ~name.ne("x"))
+    assert "t0.N <> 'x' OR t0.N IS NULL OR t0.N = 'y'" in _sql(name, ~(name.eq("x").and_(name.ne("y"))))
 
 
 def test_negating_a_negation_is_the_condition_again():

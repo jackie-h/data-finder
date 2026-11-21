@@ -729,6 +729,9 @@ _GUARDED_COMPARISONS = (
 )
 
 
+_NEGATED_EQUALITY = {ComparisonOperator.EQUAL: ComparisonOperator.NOT_EQUAL, ComparisonOperator.NOT_EQUAL: ComparisonOperator.EQUAL}
+
+
 def logical_operator_string(op:LogicalOperator) -> str:
     return LOGICAL_OPERATOR_STR[op]
 
@@ -1143,6 +1146,11 @@ class SQLQueryGenerator:
         the ``<>`` alternative only (``guard=False``): its own ordering comparisons are left as written."""
         if isinstance(op, LogicalOperation):
             return LogicalOperation(self.__guarded(op.left, guard), op.operator, self.__guarded(op.right, guard))
+        if isinstance(op, NotOperation):
+            negated = self.__negated(op.element)
+            if negated is not None:
+                return self.__guarded(negated, guard)
+            return op
         if guard and isinstance(op, ComparisonOperation) and op.operator in _GUARDED_COMPARISONS \
                 and isinstance(op.left, ColumnWithJoin) and self.__resolve_optional(op.left):
             return LogicalOperation(IsNotNullOperation(op.left), LogicalOperator.AND, op)
@@ -1166,6 +1174,24 @@ class SQLQueryGenerator:
             both_missing = LogicalOperation(IsNullOperation(op.left), LogicalOperator.AND, IsNullOperation(op.right))
             return LogicalOperation(op, LogicalOperator.OR, both_missing)
         return op
+
+    def __negated(self, op: RelationalOperationElement) -> RelationalOperationElement | None:
+        """``NOT op`` as a condition with no NOT, when it can be, or ``None``. ``NOT (a = b)`` is ``a <> b``, so that a missing value is
+        different, as the ``<>`` says; ``NOT (a <> b)`` is ``a = b``, and a NOT over AND or OR is pushed in to what they join. A NOT over an
+        ordering or a pattern is left as it is: a missing value is not less than anything, and not greater either."""
+        if isinstance(op, ComparisonOperation) and op.operator in _NEGATED_EQUALITY:
+            return ComparisonOperation(op.left, _NEGATED_EQUALITY[op.operator], op.right)
+        if isinstance(op, NotOperation):
+            return op.element
+        if isinstance(op, LogicalOperation):
+            left, right = self.__negated(op.left), self.__negated(op.right)
+            if left is None and right is None:
+                return None
+            left = NotOperation(op.left) if left is None else left
+            right = NotOperation(op.right) if right is None else right
+            flipped = LogicalOperator.OR if op.operator == LogicalOperator.AND else LogicalOperator.AND
+            return LogicalOperation(left, flipped, right)
+        return None
 
     def __may_be_missing(self, op: RelationalOperationElement) -> bool:
         """Whether ``op`` can be missing: a column that is nullable, or read through a join that can leave it out, can; anything else is taken to."""
