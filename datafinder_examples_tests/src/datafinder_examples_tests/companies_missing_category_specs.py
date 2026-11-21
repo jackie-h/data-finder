@@ -47,6 +47,28 @@ COMPANIES_MISSING_CATEGORY_SPECS = FinderSpec(
             expected_sql={"duckdb": "LENGTH(t0.category) <> 7 OR LENGTH(t0.category) IS NULL"},
         ),
         TestExpectation(
+            name="not_equal_on_a_column_of_a_result_matches_a_missing_value",
+            query=lambda f: f.find_all([f.id_(), f.category().alias("category")])
+            .filter(lambda r: r.category != "Finance").order_by(f.id_().ascending()),
+            expected_columns=["Id", "category"],
+            expected_result=np.array([[1, "Technology"], [2, None], [4, None]], dtype=object),
+        ),
+        TestExpectation(
+            name="not_equal_between_two_columns_matches_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category() != f.name()).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2], [3], [4]], dtype=object),
+            expected_sql={"duckdb": "t0.category <> t0.name OR (t0.category IS NULL AND t0.name IS NOT NULL) OR (t0.category IS NOT NULL AND t0.name IS NULL)"},
+        ),
+        TestExpectation(
+            name="not_equal_in_a_having_matches_a_missing_value",
+            query=lambda f: f.find_all([f.category(), f.id_().sum().alias("total")]).group_by(f.category())
+            .having(f.category().ne("Finance")).order_by(f.id_().sum().ascending()),
+            expected_columns=["Category", "total"],
+            expected_result=np.array([["Technology", 1], [None, 6]], dtype=object),
+            expected_sql={"duckdb": "HAVING t0.category <> 'Finance' OR t0.category IS NULL"},
+        ),
+        TestExpectation(
             name="equal_does_not_match_a_missing_value",
             query=lambda f: f.find_all([f.id_()], f.category().eq("Finance")).order_by(f.id_().ascending()),
             expected_columns=["Id"],

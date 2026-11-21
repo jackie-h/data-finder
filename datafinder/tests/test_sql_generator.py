@@ -2196,7 +2196,7 @@ class TestHaving:
         table = Table("t", [Column("a", "INT", _OWNER_T), Column("s", "VARCHAR", _OWNER_T)])
         result = FinderResult(None, None, [s, a.sum()], table, NoOperation()).group_by(s)
         sql = result.having(a.sum() > 3, s.ne("x")).having(a.max() < 9).to_sql()
-        assert sql.endswith("HAVING SUM(t0.a) > 3 AND t0.s <> 'x' AND MAX(t0.a) < 9")
+        assert sql.endswith("HAVING SUM(t0.a) > 3 AND (t0.s <> 'x' OR t0.s IS NULL) AND MAX(t0.a) < 9")
 
     def test_string_tests_on_a_joined_text(self):
         s = StringAttribute("S", "s", "VARCHAR", _OWNER_T)

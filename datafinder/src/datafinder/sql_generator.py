@@ -1134,15 +1134,16 @@ class SQLQueryGenerator:
                 return self.__resolve(embedded)
         return column, parent
 
-    def __guarded(self, op: RelationalOperationElement) -> RelationalOperationElement:
+    def __guarded(self, op: RelationalOperationElement, guard: bool = True) -> RelationalOperationElement:
         """The condition with an explicit ``IS NOT NULL`` before each ordering or pattern comparison on a value that can
         be missing, for what a query asks of a class. The guard changes no row. A ``<>`` of a column and a value also
-        matches a missing value, for any column or expression: ``<> x OR IS NULL``. It is not added
-        to a join's own filter (its milestoning dates and kwargs) or to HAVING, which are not that, so they are never
-        passed through here."""
+        matches a missing value, for any column or expression: ``<> x OR IS NULL``, and one of two columns that is missing matches
+        the other that is not. It is not added
+        to a join's own filter (its milestoning dates and kwargs), which is not that, so it is never passed through here. HAVING gets
+        the ``<>`` alternative only (``guard=False``): its own ordering comparisons are left as written."""
         if isinstance(op, LogicalOperation):
-            return LogicalOperation(self.__guarded(op.left), op.operator, self.__guarded(op.right))
-        if isinstance(op, ComparisonOperation) and op.operator in _GUARDED_COMPARISONS \
+            return LogicalOperation(self.__guarded(op.left, guard), op.operator, self.__guarded(op.right, guard))
+        if guard and isinstance(op, ComparisonOperation) and op.operator in _GUARDED_COMPARISONS \
                 and isinstance(op.left, ColumnWithJoin) and self.__resolve_optional(op.left):
             return LogicalOperation(IsNotNullOperation(op.left), LogicalOperator.AND, op)
         if isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.NOT_EQUAL \
@@ -1150,6 +1151,14 @@ class SQLQueryGenerator:
             # a missing value is different from any value: <> x OR is null, for a column and for a function or other
             # expression of one, whose value is missing when a column it reads is
             return LogicalOperation(op, LogicalOperator.OR, IsNullOperation(op.left))
+        if isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.NOT_EQUAL \
+                and not isinstance(op.left, ConstantOperation) and not isinstance(op.right, ConstantOperation):
+            # two values are different when one is missing and the other is not, as well as when they differ
+            one_missing = LogicalOperation(
+                LogicalOperation(IsNullOperation(op.left), LogicalOperator.AND, IsNotNullOperation(op.right)),
+                LogicalOperator.OR,
+                LogicalOperation(IsNotNullOperation(op.left), LogicalOperator.AND, IsNullOperation(op.right)))
+            return LogicalOperation(op, LogicalOperator.OR, one_missing)
         return op
 
     def __resolve_optional(self, op: ColumnWithJoin) -> bool:
@@ -1186,7 +1195,7 @@ class SQLQueryGenerator:
             self.__collect_required_joins(having, having_joins)
             for parent in having_joins.values():
                 self.__add_join(parent)
-            self._having = self.build_filter(having)
+            self._having = self.build_filter(self.__guarded(having, guard=False))
         constants = {id(c.element): c.name for c in query.columns if isinstance(c, Alias) and isinstance(c.element, ConstantOperation)}
         self._order_by_parts = [
             # a constant is sorted by the name it is selected under: a literal in ORDER BY is not a column (a number is a position)
