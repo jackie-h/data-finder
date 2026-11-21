@@ -174,6 +174,17 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Category", "Join Name"],
             expected_result=np.array([["Finance", "Gamma LLC,Delta Ltd"]], dtype=object),
         ),
+        TestExpectation(
+            name="two_counts_compared_in_a_select_are_compared_with_a_plain_equals",
+            skip_backends={"graphql": "The GraphQL finder cannot compare two aggregates"},
+            query=lambda f: f.find_all([f.category(), (f.name().count_distinct() == f.name().count()).alias("all distinct")])
+            .group_by(f.category()).order_by(f.category().ascending()),
+            expected_columns=["Category", "all distinct"],
+            expected_result=np.array([["Finance", True], ["Manufacturing", True], ["Technology", True]], dtype=object),
+            # a count is never missing, so there is no IS NULL alternative to a plain =
+            expected_sql={"duckdb": "COUNT(DISTINCT t0.name) = COUNT(t0.name) AS"},
+            unexpected_sql={"duckdb": "IS NULL"},
+        ),
         # --- String tests on an expression ---
         TestExpectation(
             name="starts_with_on_a_function_of_a_column",
