@@ -62,7 +62,7 @@ FUNCTION_TRADE_SPECS = FinderSpec(
                     known_gaps={BACKEND: DATE_PART_TRUNCATE}),
         ported("testWeekOfYearWithZeroToOne", f"{_SRC}::testWeekOfYearWithZeroToOne",
                'select extract(week from "root".settlementDateTime) as "settlementWeekOfYear" from tradeTable as "root" where "root".ID in (9, 10)',
-               lambda f: f.find_all([f.settlement_date_time().week()], f.id_().is_in([9, 10]))),
+               lambda f: f.find_all([f.settlement_date_time().week_of_year()], f.id_().is_in([9, 10]))),
         ported("testMonthNumberZeroToOne", f"{_SRC}::testMonthNumberZeroToOne",
                'select extract(month from "root".settlementDateTime) as "settlementMonthNumber" from tradeTable as "root" where "root".ID in (9, 10)',
                lambda f: f.find_all([f.settlement_date_time().month()], f.id_().is_in([9, 10]))),
