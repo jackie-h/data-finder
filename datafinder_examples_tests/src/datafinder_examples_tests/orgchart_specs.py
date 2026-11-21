@@ -324,7 +324,8 @@ ORGCHART_AGGREGATE_FINDER_SPECS = FinderSpec(
                 [f.manager().name(), f.id_().count()]
             ).group_by(f.manager().name()).order_by(f.manager().name().ascending()),
             expected_columns=["Manager Name", "Id Count"],
-            expected_result=np.array([["Alice", 2], ["Bob", 1], [None, 1]], dtype=object),
+            # the employee with no manager is first: a missing value is the smallest, so it comes first when ascending
+            expected_result=np.array([[None, 1], ["Alice", 2], ["Bob", 1]], dtype=object),
         ),
         TestExpectation(
             name="aggregate_over_a_to_one_association_groups_by_the_plain_columns",
@@ -332,7 +333,8 @@ ORGCHART_AGGREGATE_FINDER_SPECS = FinderSpec(
                 [f.manager().name(), f.id_().count()]
             ).order_by(f.manager().name().ascending()),
             expected_columns=["Manager Name", "Id Count"],
-            expected_result=np.array([["Alice", 2], ["Bob", 1], [None, 1]], dtype=object),
+            # the employee with no manager is first: a missing value is the smallest, so it comes first when ascending
+            expected_result=np.array([[None, 1], ["Alice", 2], ["Bob", 1]], dtype=object),
             expected_sql={"duckdb": "GROUP BY t1.name"},
         ),
     ],

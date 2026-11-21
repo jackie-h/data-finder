@@ -57,7 +57,7 @@ def test_concatenate_needs_the_same_columns():
 def test_a_concatenated_result_is_ordered_and_limited_like_any_other():
     union = _result([_NAME, _ID]).concatenate(_result([_NAME, _ID]))
     ordered = union.order_by(union["name"].ascending(), union["id"].descending()).offset(2).limit(5)
-    assert ordered.to_sql().endswith(") AS t0 ORDER BY t0.name ASC, t0.id DESC LIMIT 5 OFFSET 2")
+    assert ordered.to_sql().endswith(") AS t0 ORDER BY t0.name ASC NULLS FIRST, t0.id DESC NULLS LAST LIMIT 5 OFFSET 2")
     with pytest.raises(KeyError, match="No column 'missing'"):
         union["missing"]
 

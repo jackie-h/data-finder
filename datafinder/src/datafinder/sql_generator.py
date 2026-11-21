@@ -642,7 +642,7 @@ def _own_sorts(query: QuerySpecification, alias: TableAlias, sorts: Sequence[Sor
             raise ValueError(f"The rows after a limit or an offset are ordered by the columns of the result: {names} "
                              "(result[\"name\"].ascending())")
         name = _column_name(found)
-        result.append(SortOperation(ColumnWithJoin(alias.column(name, _column_type(found)), None), sort.direction))
+        result.append(SortOperation(ColumnWithJoin(alias.column(name, _column_type(found)), None), sort.direction, sort.nulls_first))
     return result
 
 
@@ -893,13 +893,20 @@ _WINDOW_SQL_NAMES = {
     WindowFunction.PERCENT_RANK:'PERCENT_RANK',
 }
 
+def _sort_suffix(sort: SortOperation) -> str:
+    """`` ASC`` or `` DESC`` and where a missing value goes, written every time. The SQL is Postgres, where it is last when ascending and first
+    when descending, and each engine it is translated for has its own default, so the sort says it: the same rows come in the same order
+    on every engine."""
+    return (' ASC' if sort.direction == SortDirection.ASC else ' DESC') + (' NULLS FIRST' if sort.nulls_first else ' NULLS LAST')
+
+
 def _window_spec_to_string(window: WindowSpecification) -> str:
     parts = []
     if window.partition_by:
         parts.append('PARTITION BY ' + ', '.join(sql_operation_to_string(part) for part in window.partition_by))
     if window.order_by:
         parts.append('ORDER BY ' + ', '.join(
-            sql_operation_to_string(sort.column) + (' ASC' if sort.direction == SortDirection.ASC else ' DESC')
+            sql_operation_to_string(sort.column) + _sort_suffix(sort)
             for sort in window.order_by
         ))
     return 'OVER (' + ' '.join(parts) + ')'
@@ -955,7 +962,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         sql = 'STRING_AGG(' + sql_operation_to_string(operation.element) + ", '" + (operation.separator or '').replace("'", "''") + "'"
         if operation.order_by:
             sql += ' ORDER BY ' + ', '.join(
-                sql_operation_to_string(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+                sql_operation_to_string(s.column) + _sort_suffix(s)
                 for s in operation.order_by)
         sql += ')'
         if operation.window is not None:
@@ -1186,7 +1193,7 @@ class SQLQueryGenerator:
         self._order_by_parts = [
             # a constant is sorted by the name it is selected under: a literal in ORDER BY is not a column (a number is a position)
             ('"' + constants[id(s.column)].replace('"', '""') + '"' if id(s.column) in constants else self.__sort_expression(s.column))
-            + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+            + _sort_suffix(s)
             for s in order_by
         ]
         self._limit = query.limit if ordered else None
@@ -1247,7 +1254,7 @@ class SQLQueryGenerator:
         if window is None:
             return None
         partition_by = [self.__rewrite_operation(p) for p in window.partition_by]
-        order_by = [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in window.order_by]
+        order_by = [SortOperation(self.__rewrite_operation(s.column), s.direction, s.nulls_first) for s in window.order_by]
         return WindowSpecification(partition_by, order_by)
 
     def __case_sql(self, case: CaseOperation) -> str:
@@ -1269,7 +1276,7 @@ class SQLQueryGenerator:
         elif isinstance(op, AggregateOperation):
             return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,
                                       self.__rewrite_window_spec(op.window), op.separator,
-                                      [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in op.order_by],
+                                      [SortOperation(self.__rewrite_operation(s.column), s.direction, s.nulls_first) for s in op.order_by],
                                       op.percentile, op.from_largest)
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,

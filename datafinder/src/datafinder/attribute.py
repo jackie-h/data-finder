@@ -1,7 +1,7 @@
 from typing import Any, Callable
 
 from model.relational import Aliasable, Column, Relation, Operation, RelationalOperationElement, \
-    ColumnWithJoin, ScalarFunction, ScalarFunctionOperation, UntypedFunctionOperation, SortOperation, SortDirection, IntegerAggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
+    ColumnWithJoin, _nulls_first, ScalarFunction, ScalarFunctionOperation, UntypedFunctionOperation, SortOperation, SortDirection, IntegerAggregateOperation, AggregateOperator, IsNullOperation, IsNotNullOperation, \
     WindowFunction, WindowFunctionOperation, WindowSpecification
 
 
@@ -176,13 +176,15 @@ class Attribute(RelationalOperationElement, Aliasable):
         """The operation that holds ``fill_null``'s result: one of the column's own type where there is one."""
         return UntypedFunctionOperation
 
-    def ascending(self) -> SortOperation:
-        """Return an ascending sort operation for this Attribute."""
-        return SortOperation(self._column_with_join(), SortDirection.ASC)
+    def ascending(self, nulls: str | None = None) -> SortOperation:
+        """Return an ascending sort operation for this Attribute. A missing value is the smallest value, so it comes first, unless
+        ``nulls`` is ``"last"``."""
+        return SortOperation(self._column_with_join(), SortDirection.ASC, _nulls_first(SortDirection.ASC, nulls))
 
-    def descending(self) -> SortOperation:
-        """Return a descending sort operation for this Attribute."""
-        return SortOperation(self._column_with_join(), SortDirection.DESC)
+    def descending(self, nulls: str | None = None) -> SortOperation:
+        """Return a descending sort operation for this Attribute. A missing value is the smallest value, so it comes last, unless
+        ``nulls`` is ``"first"``."""
+        return SortOperation(self._column_with_join(), SortDirection.DESC, _nulls_first(SortDirection.DESC, nulls))
 
     def is_none(self) -> Operation:
         """Return a filter that matches rows where this column is NULL. Equivalent to ``is None`` in Python."""

@@ -320,7 +320,8 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
             skip_backends=_NO_CHAIN,
             query=_full_join_of_two_accounts_to_the_trades_over_350,
             expected_columns=["total_account", "dear_sym"],
-            expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], [None, "GS"]], dtype=object),
+            # the row with no account is first: a missing value is the smallest, so it comes first when ascending
+            expected_result=np.array([[None, "GS"], ["Alpha Fund", None], ["Beta Fund", "TSLA"]], dtype=object),
         ),
     ],
 )

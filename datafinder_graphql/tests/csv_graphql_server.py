@@ -267,18 +267,26 @@ def _apply_where(rows: list[dict], query_str: str) -> list[dict]:
     return [r for r in rows if _eval_where(where, r)]
 
 
-def _order_path(item: dict) -> tuple[list[str], str]:
-    """{ a: { b: asc } } gives (["a", "b"], "asc")."""
+_ORDER_VALUES = {
+    # Hasura's order_by values: the direction, and where a missing value goes (Postgres' own for asc and desc: last and first)
+    'asc': ('asc', False), 'desc': ('desc', True),
+    'asc_nulls_first': ('asc', True), 'asc_nulls_last': ('asc', False),
+    'desc_nulls_first': ('desc', True), 'desc_nulls_last': ('desc', False),
+}
+
+
+def _order_path(item: dict) -> tuple[list[str], str, bool]:
+    """{ a: { b: asc_nulls_first } } gives (["a", "b"], "asc", True): the path, the direction and whether a missing value is first."""
     path: list[str] = []
     while isinstance(item, dict) and len(item) == 1:
         (field, item), = item.items()
         path.append(field)
-    if not path or item not in ('asc', 'desc'):
+    if not path or item not in _ORDER_VALUES:
         raise GraphQLServerError("invalid order_by expression")
-    return path, item
+    return (path, *_ORDER_VALUES[item])
 
 
-def _value_at(row: dict, path: list[str]):
+def _value_at(row: dict, path: list[str]) -> Any:
     value = row
     for part in path:
         if isinstance(value, list):
@@ -298,12 +306,11 @@ def _apply_order_by(rows: list[dict], query_str: str) -> list[dict]:
     tokens = _tokenize_gql(ob_str)
     order_list, _ = _parse_gql_array(tokens, 0)
     for item in reversed(order_list):
-        path, direction = _order_path(item)
-        rows = sorted(
-            rows,
-            key=lambda r, p=path: (_value_at(r, p) is None, _value_at(r, p)),
-            reverse=(direction == 'desc'),
-        )
+        path, direction, nulls_first = _order_path(item)
+        present = [r for r in rows if _value_at(r, path) is not None]
+        missing = [r for r in rows if _value_at(r, path) is None]
+        present = sorted(present, key=lambda r, p=path: _value_at(r, p), reverse=(direction == 'desc'))  # stable, as a database's sort is
+        rows = missing + present if nulls_first else present + missing
     return rows
 
 

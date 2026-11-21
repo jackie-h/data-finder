@@ -40,16 +40,28 @@ class _Operand:
         def _arithmetic_operand(self) -> 'RelationalOperationElement': ...
 
 
+def _nulls_first(direction: 'SortDirection', nulls: str | None) -> bool:
+    """Whether a missing value comes first. By default a missing value is the smallest value, as in Legend's databases: first when
+    sorting ascending and last when sorting descending. ``nulls`` is ``"first"`` or ``"last"`` to say otherwise."""
+    if nulls is None:
+        return direction == SortDirection.ASC
+    if nulls not in ('first', 'last'):
+        raise ValueError(f"nulls is 'first' or 'last', not {nulls!r}")
+    return nulls == 'first'
+
+
 class Sortable:
-    """Something the result can be ordered by: ``f.id_().count().ascending()``."""
+    """Something the result can be ordered by: ``f.id_().count().ascending()``.
 
-    def ascending(self) -> 'SortOperation':
-        """Sort by this expression, smallest first."""
-        return SortOperation(_element(self), SortDirection.ASC)
+    A missing value is the smallest value unless ``nulls`` says where it goes: ``f.category().ascending(nulls="last")``."""
 
-    def descending(self) -> 'SortOperation':
-        """Sort by this expression, largest first."""
-        return SortOperation(_element(self), SortDirection.DESC)
+    def ascending(self, nulls: str | None = None) -> 'SortOperation':
+        """Sort by this expression, smallest first. A missing value is first, unless ``nulls`` is ``"last"``."""
+        return SortOperation(_element(self), SortDirection.ASC, _nulls_first(SortDirection.ASC, nulls))
+
+    def descending(self, nulls: str | None = None) -> 'SortOperation':
+        """Sort by this expression, largest first. A missing value is last, unless ``nulls`` is ``"first"``."""
+        return SortOperation(_element(self), SortDirection.DESC, _nulls_first(SortDirection.DESC, nulls))
 
 
 class Aliasable:
@@ -2197,10 +2209,11 @@ class SortDirection(Enum):
 
 
 class SortOperation(RelationalOperationElement):
-    def __init__(self, column: RelationalOperationElement, direction: SortDirection):
+    def __init__(self, column: RelationalOperationElement, direction: SortDirection, nulls_first: bool | None = None):
         super().__init__()
         self.column = column
         self.direction = direction
+        self.nulls_first = (direction == SortDirection.ASC) if nulls_first is None else nulls_first
 
 
 class CountAllOperation(RelationalOperationElement, Aliasable, Sortable, Orderable[int]):

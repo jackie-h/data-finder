@@ -533,6 +533,22 @@ result = CompanyFinder.find_all([CompanyFinder.name(), CompanyFinder.category()]
 result.order_by(CompanyFinder.name().ascending()).order_by(CompanyFinder.category().ascending())
 ```
 
+A missing value is the smallest value, as in Legend's databases: it comes first when sorting ascending and last when sorting
+descending, on every engine. `nulls` says otherwise:
+
+```python
+CompanyFinder.category().ascending()                # a company with no category first (the default)
+CompanyFinder.category().ascending(nulls="last")    # a company with no category last
+CompanyFinder.category().descending(nulls="first")  # a company with no category first, then Technology, then Finance
+```
+
+Every sort says where a missing value goes, with `NULLS FIRST` or `NULLS LAST`, a column that cannot be missing included: the SQL is
+Postgres, where a missing value is the largest, and each engine it is translated for has a default of its own, so the SQL does not leave it
+to them and the same rows come in the same order on every engine. `nulls` is on every sort: by a column, an aggregate, the `order_by` of
+`join_strings` and of a window such as `rank`, and in the GraphQL finder, which passes `asc_nulls_first` and the like to the server.
+Python's own sorts and pandas' put a missing value last whichever way they sort, so a result sorted again in a data frame keeps this
+order only if sorted with `na_position`.
+
 `count_all()` counts the rows of a group, `COUNT(*)`, where `count()` of a column skips rows where that column is missing:
 `CompanyFinder.find_all([CompanyFinder.category(), count_all()]).group_by(CompanyFinder.category())`.
 `std()` and `var()` give the sample standard deviation and variance, and `std(ddof=0)` / `var(ddof=0)` the population

@@ -53,8 +53,15 @@ def test_is_not_in_on_a_not_null_field_is_a_plain_nin():
 
 
 def test_nested_sort_is_pushed_as_nested_objects():
-    args = _build_server_args(None, [_name().ascending()], None, CONVENTION)
-    assert args == ["order_by: [{ account: { name: asc } }]"]
+    args = _build_server_args(None, [_name().ascending(nulls="last")], None, CONVENTION)
+    assert args == ["order_by: [{ account: { name: asc_nulls_last } }]"]
+
+
+def test_a_sort_says_where_a_missing_value_goes():
+    # a missing value is the smallest by default: first when ascending, last when descending
+    assert _build_server_args(None, [_name().ascending()], None, CONVENTION) == ["order_by: [{ account: { name: asc_nulls_first } }]"]
+    assert _build_server_args(None, [_name().descending()], None, CONVENTION) == ["order_by: [{ account: { name: desc_nulls_last } }]"]
+    assert _build_server_args(None, [_name().descending(nulls="first")], None, CONVENTION) == ["order_by: [{ account: { name: desc_nulls_first } }]"]
 
 
 def test_string_prefix_is_pushed_as_like():
