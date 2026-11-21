@@ -503,9 +503,9 @@ class TestDateExtract:
         sql = to_sql(None, None, [attr.quarter()], table, NoOperation())
         assert "EXTRACT(QUARTER FROM" in sql
 
-    def test_week_produces_extract_week(self):
+    def test_week_of_year_produces_extract_week(self):
         table, attr = _make_date_attr()
-        sql = to_sql(None, None, [attr.week()], table, NoOperation())
+        sql = to_sql(None, None, [attr.week_of_year()], table, NoOperation())
         assert "EXTRACT(WEEK FROM" in sql
 
     def test_day_of_week_produces_extract_isodow(self):

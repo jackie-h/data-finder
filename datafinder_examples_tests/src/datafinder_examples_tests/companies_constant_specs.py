@@ -211,7 +211,7 @@ COMPANIES_CONSTANT_SPECS = FinderSpec(
             name="date_constant_parts",
             query=lambda f: f.find_all([
                 constant(_D).year().alias("year"), constant(_D).month().alias("month"), constant(_D).day().alias("day"),
-                constant(_D).quarter().alias("quarter"), constant(_D).week().alias("week"),
+                constant(_D).quarter().alias("quarter"), constant(_D).week_of_year().alias("week"),
                 constant(_D).day_of_week().alias("day_of_week"),
             ], _THE_FIRST(f)),
             # SQL numbers the days of the week from Sunday, 0
@@ -261,7 +261,7 @@ COMPANIES_CONSTANT_SPECS = FinderSpec(
             query=lambda f: f.find_all([
                 constant(_DT).year().alias("year"), constant(_DT).month().alias("month"), constant(_DT).day().alias("day"),
                 constant(_DT).hour().alias("hour"), constant(_DT).minute().alias("minute"), constant(_DT).second().alias("second"),
-                constant(_DT).quarter().alias("quarter"), constant(_DT).week().alias("week"),
+                constant(_DT).quarter().alias("quarter"), constant(_DT).week_of_year().alias("week"),
                 constant(_DT).day_of_week().alias("day_of_week"),
             ], _THE_FIRST(f)),
             **_one_row(["year", "month", "day", "hour", "minute", "second", "quarter", "week", "day_of_week"],

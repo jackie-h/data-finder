@@ -54,8 +54,8 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="week_extract",
-            query=lambda f: f.find_all([f.trade_date().week()], f.id_().eq(1)),
-            expected_columns=["Week Trade Date"],
+            query=lambda f: f.find_all([f.trade_date().week_of_year()], f.id_().eq(1)),
+            expected_columns=["Week Of Year Trade Date"],
             expected_result=np.array([[_D1.isocalendar().week]], dtype=object),
         ),
         # --- A condition is a boolean column of a result ---
