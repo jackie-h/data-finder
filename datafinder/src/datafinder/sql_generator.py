@@ -1138,7 +1138,7 @@ class SQLQueryGenerator:
         """The condition with an explicit ``IS NOT NULL`` before each ordering or pattern comparison on a value that can
         be missing, for what a query asks of a class. The guard changes no row. A ``<>`` of a column and a value also
         matches a missing value, for any column or expression: ``<> x OR IS NULL``, and one of two columns that is missing matches
-        the other that is not. It is not added
+        the other that is not. An ``=`` of two columns that can be missing also matches when both are. It is not added
         to a join's own filter (its milestoning dates and kwargs), which is not that, so it is never passed through here. HAVING gets
         the ``<>`` alternative only (``guard=False``): its own ordering comparisons are left as written."""
         if isinstance(op, LogicalOperation):
@@ -1159,7 +1159,17 @@ class SQLQueryGenerator:
                 LogicalOperator.OR,
                 LogicalOperation(IsNotNullOperation(op.left), LogicalOperator.AND, IsNullOperation(op.right)))
             return LogicalOperation(op, LogicalOperator.OR, one_missing)
+        if isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.EQUAL \
+                and not isinstance(op.left, ConstantOperation) and not isinstance(op.right, ConstantOperation) \
+                and self.__may_be_missing(op.left) and self.__may_be_missing(op.right):
+            # two missing values are the same: a = b OR both are missing, as IS NOT DISTINCT FROM is
+            both_missing = LogicalOperation(IsNullOperation(op.left), LogicalOperator.AND, IsNullOperation(op.right))
+            return LogicalOperation(op, LogicalOperator.OR, both_missing)
         return op
+
+    def __may_be_missing(self, op: RelationalOperationElement) -> bool:
+        """Whether ``op`` can be missing: a column that is nullable, or read through a join that can leave it out, can; anything else is taken to."""
+        return self.__resolve(op)[0].nullable or self.__resolve_optional(op) if isinstance(op, ColumnWithJoin) else True
 
     def __resolve_optional(self, op: ColumnWithJoin) -> bool:
         """Whether the value ``op`` reads can be missing, in the join or embedded form that is used for it."""

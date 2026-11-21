@@ -70,6 +70,45 @@ COMPANIES_MISSING_CATEGORY_SPECS = FinderSpec(
             expected_sql={"duckdb": "HAVING t0.category <> 'Finance' OR t0.category IS NULL"},
         ),
         TestExpectation(
+            name="equal_between_two_columns_matches_two_missing_values",
+            query=lambda f: f.find_all([f.id_()], f.category() == f.name()).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            # company 5 has neither a name nor a category; a missing value is not equal to a value
+            expected_result=np.array([[5]], dtype=object),
+            expected_sql={"duckdb": "t0.category = t0.name OR (t0.category IS NULL AND t0.name IS NULL)"},
+        ),
+        TestExpectation(
+            name="less_than_does_not_match_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category().length() < 8).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[3]], dtype=object),
+        ),
+        TestExpectation(
+            name="less_than_or_equal_does_not_match_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category().length() <= 10).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [3]], dtype=object),
+        ),
+        TestExpectation(
+            name="greater_than_does_not_match_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category().length() > 7).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1]], dtype=object),
+        ),
+        TestExpectation(
+            name="greater_than_or_equal_does_not_match_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category().length() >= 7).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [3]], dtype=object),
+        ),
+        TestExpectation(
+            name="ordering_two_expressions_does_not_match_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category().length() < f.name().length()).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            # Technology is 10 long and Acme Corp 9; Finance is 7 and Gamma LLC 9; the others have a missing side
+            expected_result=np.array([[3]], dtype=object),
+        ),
+        TestExpectation(
             name="equal_does_not_match_a_missing_value",
             query=lambda f: f.find_all([f.id_()], f.category().eq("Finance")).order_by(f.id_().ascending()),
             expected_columns=["Id"],
