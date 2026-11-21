@@ -6,6 +6,7 @@ from typing import Sequence
 
 from datafinder import Operation, DataFrame, Attribute, to_sql, QueryRunnerBase, sql_for_dialect, register_dialect
 from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy
+from datafinder_spark.spark_sql import SparkFixes, spark_transforms
 from model.relational import Relation
 
 import numpy as np
@@ -13,18 +14,16 @@ import pandas as pd
 import pyarrow as pa
 from sqlglot import exp
 from sqlglot.dialects.databricks import Databricks
-from sqlglot.generator import Generator
 from sqlglot.generators.databricks import DatabricksGenerator
 
 _log = logging.getLogger(__name__)
 
 
 class _Databricks(Databricks):
-    """Databricks as sqlglot writes it, but with a percentile left as ``PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY x)``, which Databricks has
-    and which is exact; sqlglot's Spark writes it as ``PERCENTILE_APPROX(x, p)``, an approximation that has no order."""
+    """Databricks as sqlglot writes it, changed as Spark is (``spark_sql``): Databricks is Spark."""
 
-    class Generator(DatabricksGenerator):
-        TRANSFORMS = {**DatabricksGenerator.TRANSFORMS, exp.WithinGroup: lambda self, e: Generator.withingroup_sql(self, e)}
+    class Generator(SparkFixes, DatabricksGenerator):
+        TRANSFORMS = spark_transforms(DatabricksGenerator.TRANSFORMS)
 
 
 register_dialect("databricks", _Databricks)
