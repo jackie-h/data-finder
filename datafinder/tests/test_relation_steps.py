@@ -32,7 +32,7 @@ def test_a_window_over_a_result_can_be_filtered_on_which_where_alone_cannot_do()
     with_top = trades.extend(top=lambda r: r.price.max().over(partition_by=[r.account]))
     sql = with_top.filter(lambda r: r.price == r.top).to_sql()
     assert "OVER (PARTITION BY t" in sql and 'AS "top"' in sql
-    assert sql.endswith("WHERE t0.price = t0.top")
+    assert sql.endswith("WHERE t0.price = t0.top OR (t0.price IS NULL AND t0.top IS NULL)")
 
 
 def test_a_window_does_not_group_the_rows_it_is_added_to():
