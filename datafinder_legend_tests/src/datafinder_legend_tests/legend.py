@@ -16,8 +16,6 @@ RESTRICT_AFTER_GROUP_BY = (
 )
 # Known-gap keys are backend names. This one marks a gap in the rows a query returns rather than in its SQL.
 ROWS = f"{BACKEND}/rows"
-# The rows are Legend's, in another order: a gap that still compares the rows as sets, and only says where they differ
-ROW_ORDER = f"{BACKEND}/row-order"
 
 TYPED_DATE_LITERAL = (
     "a date constant in the select list is written `DATE '2016-08-10'` so it comes back as a date; Legend writes the "
@@ -128,11 +126,6 @@ NULL_SAFE_EQUALITY = (
 DATE_DIFF_AS_SUBTRACTION = (
     "Legend writes the days between two dates as datediff(day, a, b); the finder's SQL is Postgres, where it is CAST(b AS DATE) - "
     "CAST(a AS DATE), which counts the same days"
-)
-
-NULL_ORDER = (
-    "the finder's SQL is Postgres, where NULL is larger than every value, so a descending sort puts it first; Legend's SQL does as its "
-    "database does, NULL smaller than every value and last in a descending sort. The rows are the same, only the row of NULL is elsewhere"
 )
 
 EMBEDDED_WITH_JOIN = (

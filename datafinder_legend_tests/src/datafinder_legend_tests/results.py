@@ -13,7 +13,7 @@ from sqlglot import exp, parse_one
 from datafinder_examples_tests.spec import TestExpectation
 from datafinder_examples_tests.sql_compare import parse
 
-from datafinder_legend_tests.legend import BACKEND, ROW_ORDER, ROWS
+from datafinder_legend_tests.legend import BACKEND, ROWS
 
 
 def _canonical(value: Any) -> Any:
@@ -112,18 +112,10 @@ def assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -
         except (AssertionError, duckdb.Error):  # Legend's SQL can be one DuckDB will not run
             pytest.xfail(gap)
         pytest.fail(f"[{expectation.name}] now returns Legend's rows: remove its {ROWS} known_gaps entry ({gap})")
-    order_gap = expectation.known_gaps.get(ROW_ORDER)
-    if order_gap is not None:
-        _assert_same_rows(database, finder, expectation, order=False)  # the rows are Legend's, whatever order they come in
-        try:
-            _assert_same_rows(database, finder, expectation)
-        except AssertionError:
-            pytest.xfail(order_gap)
-        pytest.fail(f"[{expectation.name}] now returns Legend's rows in Legend's order: remove its {ROW_ORDER} known_gaps entry ({order_gap})")
     _assert_same_rows(database, finder, expectation)
 
 
-def _assert_same_rows(database: Any, finder: Any, expectation: TestExpectation, order: bool = True) -> None:
+def _assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:
     legend_sql = expectation.equivalent_sql[BACKEND]
     expected = legend_rows(database, expectation)
     actual = our_rows(finder, expectation)
@@ -133,7 +125,7 @@ def _assert_same_rows(database: Any, finder: Any, expectation: TestExpectation, 
     context = (f"[{expectation.name}] rows differ from Legend's SQL on the same data.\n"
                f"Legend SQL: {legend_sql}\nLegend rows ({len(expected)}): {expected}\nOur rows ({len(actual)}): {actual}")
     assert as_set_of_rows(actual) == as_set_of_rows(expected), context
-    keys = _sort_key_positions(legend_sql) if order else None
+    keys = _sort_key_positions(legend_sql)
     if keys:
         assert [tuple(row[i] for i in keys) for row in actual] == [tuple(row[i] for i in keys) for row in expected], \
             context + f"\nThe rows are not in the same order of columns {keys}."

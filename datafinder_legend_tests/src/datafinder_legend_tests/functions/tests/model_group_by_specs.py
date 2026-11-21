@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import COUNT_OF_ONE, ported, unsupported, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER, QUALIFIED_PROPERTIES, not_supported, NULL_ORDER, ROW_ORDER
+from datafinder_legend_tests.legend import COUNT_OF_ONE, ported, unsupported, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER, QUALIFIED_PROPERTIES, not_supported
 import datetime
 
 _SRC = "functions/tests/testModelGroupBy.pure"
@@ -21,11 +21,11 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
                lambda f: f.find_all([f.date(), f.quantity().sum()], f.date().eq(datetime.date(2014, 12, 1))).group_by(f.date())),
         ported("testUsingAFunctionInTheMapLambdaAndAMultiplyInTheAggregation", f"{_SRC}::testUsingAFunctionInTheMapLambdaAndAMultiplyInTheAggregation",
                'select "producttable_0".NAME as "prodName", (sum(case when (("producttable_0".NAME is not null and "producttable_0".NAME like \'%X\') or ("producttable_0".NAME is not null and "producttable_0".NAME like \'%C\')) then "root".quantity else 0.0 end) * 2) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), when(f.product().name().ends_with("X").or_(f.product().name().ends_with("C"))).then(f.quantity()).otherwise(0.0).sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), when(f.product().name().ends_with("X").or_(f.product().name().ends_with("C"))).then(f.quantity()).otherwise(0.0).sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testUsingAnAssociationInTheMapFunction", f"{_SRC}::testUsingAnAssociationInTheMapFunction",
                'select "producttable_0".NAME as "prodName", (sum(case when ("accounttable_0".name is not null and "accounttable_0".name like \'Account 1%\') then "root".quantity else 0.0 end) * 2) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) left outer join accountTable as "accounttable_0" on ("root".accountID = "accounttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all([f.product().name(), when(f.account().name().starts_with("Account 1")).then(f.quantity()).otherwise(0.0).sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending()),
-               known_gaps={BACKEND: LEFT_JOIN_ORDER, ROW_ORDER: NULL_ORDER}),
+               known_gaps={BACKEND: LEFT_JOIN_ORDER}),
         unsupported("testUniqueValueOnly1", f"{_SRC}::testUniqueValueOnly1",
                     'select "producttable_0".NAME as "prodName", count(distinct("root".quantity)) as "count", case when count(distinct("root".quantity)) = 1 then max("root".quantity) else null end as "uniqueValue" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) where ("producttable_0".NAME = \'Firm C\' and "root".quantity = 45.0) group by "prodName"',
                     'no uniqueValueOnly aggregation'),
@@ -40,22 +40,22 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
                     'Order is mapped through a view, which is not supported'),
         ported("testSimple", f"{_SRC}::testSimple",
                'select "producttable_0".NAME as "prodName", sum("root".quantity) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testSimpleOneAggInAnArray", f"{_SRC}::testSimpleOneAggInAnArray",
                'select "producttable_0".NAME as "prodName", sum("root".quantity) as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().sum()]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testSimpleTwoAggs", f"{_SRC}::testSimpleTwoAggs",
                'select "producttable_0".NAME as "prodName", sum("root".quantity) as "cnt", sum("root".quantity) * 2 as "cnt2" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().sum(), f.quantity().sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().sum(), f.quantity().sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testMax", f"{_SRC}::testMax",
                'select "producttable_0".NAME as "prodName", max("root".quantity) as "max" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().max()]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().max()]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testMin", f"{_SRC}::testMin",
                'select "producttable_0".NAME as "prodName", min("root".quantity) as "min" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().min()]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().min()]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testUsingAMultiplyInTheAggregation", f"{_SRC}::testUsingAMultiplyInTheAggregation",
                'select "producttable_0".NAME as "prodName", sum("root".quantity) * 2 as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().sum() * 2]).group_by(f.product().name()).order_by(f.product().name().descending())),
         unsupported("testUsingFunctionInMapLambdaTakingAFirstParameterThatMustBeProcessed", f"{_SRC}::testUsingFunctionInMapLambdaTakingAFirstParameterThatMustBeProcessed",
                     'select "producttable_0".NAME as "prodName", sum("root".quantity * 2) * 2 as "cnt" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                     'the aggregate argument is a user defined function'),
@@ -83,16 +83,16 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
                     'no percentile aggregate'),
         ported("testStdDevSample", f"{_SRC}::testStdDevSample",
                'select "producttable_0".NAME as "prodName", stddev_samp("root".quantity) as "stdDevSample" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().std()]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().std()]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testStdDevPopulation", f"{_SRC}::testStdDevPopulation",
                'select "producttable_0".NAME as "prodName", stddev_pop("root".quantity) as "stdDevPopulation" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().std(ddof=0)]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().std(ddof=0)]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testVarianceSample", f"{_SRC}::testVarianceSample",
                'select "producttable_0".NAME as "prodName", var_samp("root".quantity) as "varianceSample" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().var()]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().var()]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("testVariancePopulation", f"{_SRC}::testVariancePopulation",
                'select "producttable_0".NAME as "prodName", var_pop("root".quantity) as "variancePopulation" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-               lambda f: f.find_all([f.product().name(), f.quantity().var(ddof=0)]).group_by(f.product().name()).order_by(f.product().name().descending()), known_gaps={ROW_ORDER: NULL_ORDER}),
+               lambda f: f.find_all([f.product().name(), f.quantity().var(ddof=0)]).group_by(f.product().name()).order_by(f.product().name().descending())),
     ],
 )
 
