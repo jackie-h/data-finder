@@ -775,7 +775,7 @@ SOURCE_DIALECT = "postgres"
 _DIALECTS: dict[str, Any] = {}
 # The module of the engine that registers the dialect of a database, which is imported the first time SQL is written for that dialect, so that
 # a view or a changelog written for Databricks is written as the Databricks engine writes it. An engine that is not installed is not needed.
-_DIALECT_MODULES: dict[str, str] = {"databricks": "datafinder_databricks.databricks_engine"}
+_DIALECT_MODULES: dict[str, str] = {"databricks": "datafinder_databricks.databricks_engine", "spark": "datafinder_spark.spark_engine"}
 
 
 def register_dialect(name: str, dialect: Any) -> None:

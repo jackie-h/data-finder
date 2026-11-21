@@ -349,6 +349,9 @@ linkml = [
 markdown = [
     { name = "markdown-it-py" },
 ]
+spark = [
+    { name = "pyspark" },
+]
 test = [
     { name = "databricks-sql-connector" },
     { name = "duckdb" },
@@ -359,6 +362,7 @@ test = [
     { name = "pyarrow-hotfix" },
     { name = "pyiceberg" },
     { name = "pyright" },
+    { name = "pyspark" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "sqlalchemy" },
@@ -386,13 +390,15 @@ requires-dist = [
     { name = "pyiceberg", marker = "extra == 'iceberg'", specifier = ">=0.11.0" },
     { name = "pyiceberg", marker = "extra == 'test'", specifier = ">=0.11.0" },
     { name = "pyright", marker = "extra == 'test'", specifier = ">=1.1.414" },
+    { name = "pyspark", marker = "extra == 'spark'", specifier = ">=3.5,<4" },
+    { name = "pyspark", marker = "extra == 'test'", specifier = ">=3.5,<4" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=9.0.0" },
     { name = "pytest-cov", marker = "extra == 'test'", specifier = ">=7.1.0" },
     { name = "sqlalchemy", marker = "extra == 'iceberg-test'", specifier = ">=2.0.0" },
     { name = "sqlalchemy", marker = "extra == 'test'", specifier = ">=2.0.0" },
     { name = "sqlglot", specifier = ">=30.24.0" },
 ]
-provides-extras = ["test", "ibis", "duckdb", "databricks", "linkml", "iceberg", "iceberg-test", "markdown"]
+provides-extras = ["test", "ibis", "duckdb", "databricks", "spark", "linkml", "iceberg", "iceberg-test", "markdown"]
 
 [[package]]
 name = "databricks-sql-connector"
@@ -1288,6 +1294,15 @@ wheels = [
 ]
 
 [[package]]
+name = "py4j"
+version = "0.10.9.9"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/38/31/0b210511177070c8d5d3059556194352e5753602fa64b85b7ab81ec1a009/py4j-0.10.9.9.tar.gz", hash = "sha256:f694cad19efa5bd1dee4f3e5270eb406613c974394035e5bfc4ec1aba870b879", size = 761089, upload-time = "2025-01-15T03:53:18.624Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bd/db/ea0203e495be491c85af87b66e37acfd3bf756fd985f87e46fc5e3bf022c/py4j-0.10.9.9-py2.py3-none-any.whl", hash = "sha256:c7c26e4158defb37b0bb124933163641a2ff6e3a3913f7811b0ddbe07ed61533", size = 203008, upload-time = "2025-01-15T03:53:15.648Z" },
+]
+
+[[package]]
 name = "pyarrow"
 version = "24.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1665,6 +1680,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/50/9d/bcd304935f20ce5f9ecb2837df69516be657e144da350a73a1899985aa38/pyroaring-1.0.4-cp314-cp314t-win_amd64.whl", hash = "sha256:92fdad43421ad2e076639f7a0d9ee815713b98bfe07dd9107ef3ea91ff0f3b37", size = 298468, upload-time = "2026-03-19T13:57:08.94Z" },
     { url = "https://files.pythonhosted.org/packages/a6/4d/bd52a55dcef5cde4d0dda8c80000463c6929c7faba2466d9fa58fd0d48f8/pyroaring-1.0.4-cp314-cp314t-win_arm64.whl", hash = "sha256:c291428f148450e0609d5b1201b81e8248b3262770e51fc4c89768529ee36df0", size = 234175, upload-time = "2026-03-19T13:57:10.071Z" },
 ]
+
+[[package]]
+name = "pyspark"
+version = "3.5.9"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "py4j" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/ce/81e53e729790556e3983e95de1a7d5df91a34adfcd34b5a5ab0e0c6e9b33/pyspark-3.5.9.tar.gz", hash = "sha256:ea27adc39ddac9413b8951e45aa748cbed6c785971b81386efc41938f6243d93", size = 317858593, upload-time = "2026-07-16T08:52:04.494Z" }
 
 [[package]]
 name = "pystow"
