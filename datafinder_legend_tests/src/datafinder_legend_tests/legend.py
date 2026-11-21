@@ -113,6 +113,16 @@ UNION_SETS_BY_NUMBER = (
     "association names, so its SQL has no padding and no link tables. The rows are the same"
 )
 
+UNION_JOINED_PER_USE = (
+    "Legend joins the union of a navigation once for each place it is used, here once for the filter and again, with its keys, for the "
+    "projected property; the finder joins it once and reads both from it. The rows are the same"
+)
+
+NULL_SAFE_EQUALITY = (
+    "Legend compares two columns with `is not distinct from`, so two nulls are equal; the finder writes `=`, which leaves a row with two "
+    "nulls out. The rows are the same unless both columns are null"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"
