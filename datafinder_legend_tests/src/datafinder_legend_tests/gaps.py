@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATE_DIFF_AS_SUBTRACTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATE_DIFF_AS_SUBTRACTION, PERCENTILE_AS_DOUBLE, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -239,7 +239,21 @@ def _date_diff_days_as_subtraction(tree: exp.Expr) -> exp.Expr:
     return tree
 
 
+def _percentile_without_casts(tree: exp.Expr) -> exp.Expr:
+    """``percentile_cont(cast(0.9 as float)) within group (order by cast(x as double))`` is ``percentile_cont(0.9) within group (order by x)``:
+    the fraction and the values as they are written, without the casts that say their type."""
+    for group in list(tree.find_all(exp.WithinGroup)):
+        call = group.this
+        if isinstance(call, exp.PercentileCont | exp.PercentileDisc) and isinstance(call.this, exp.Cast):
+            call.set("this", call.this.this.copy())
+        for ordered in group.expression.expressions:
+            if isinstance(ordered.this, exp.Cast) and ordered.this.to.this in (exp.DataType.Type.DOUBLE, exp.DataType.Type.FLOAT):
+                ordered.set("this", ordered.this.this.copy())
+    return tree
+
+
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
+    PERCENTILE_AS_DOUBLE: [_percentile_without_casts],
     DATE_DIFF_AS_SUBTRACTION: [_date_diff_days_as_subtraction],
     TDS_FILTER_OPTIONAL_PROPERTY: [_drop_not_null_guards],
     ISOLATED_MILESTONED_JOIN: [_inline_isolated_join_filter],

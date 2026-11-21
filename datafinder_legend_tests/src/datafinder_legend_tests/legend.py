@@ -128,6 +128,16 @@ DATE_DIFF_AS_SUBTRACTION = (
     "CAST(a AS DATE), which counts the same days"
 )
 
+PERCENTILE_AS_DOUBLE = (
+    "Legend writes the fraction of a percentile as cast(0.9 as float) and orders the values as they are; the finder writes the fraction as it "
+    "is and, for percentile_cont, which interpolates, orders the values as a double, which is the same value"
+)
+
+PERCENTILE_SINGLE_PRECISION = (
+    "the column is a REAL in DuckDB, so Legend's SQL interpolates a percentile in single precision (44.599998474) where H2, which the results of "
+    "Legend's tests are from, does in double, as the finder does by casting the column (44.6): the rows agree to single precision"
+)
+
 EMBEDDED_WITH_JOIN = (
     "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
     "joins that table anyway, which gives other values when the two copies differ"
