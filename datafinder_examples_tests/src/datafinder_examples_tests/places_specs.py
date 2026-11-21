@@ -40,6 +40,22 @@ def _two_filters_on_one_navigation(f):
             .order_by(f.name().ascending(), in_new_york_or_hoboken.visits().ascending())
 
 
+def _equal_filters_written_twice(f):
+    # as Legend's two columns of x.locations->filter(f | $f.place in ['Hoboken','New York']), each with the filter written out
+    return f.find_all([
+        f.name(),
+        f.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).place(),
+        f.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).visits(),
+    ]).order_by(f.name().ascending(), f.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).place().ascending())
+
+
+def _same_values_in_another_order(f):
+    listed = f.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"]))
+    reversed_ = f.locations().filter(lambda each: each.place().is_in(["New York", "Hoboken"]))
+    return f.find_all([f.name(), listed.place(), reversed_.visits()]) \
+            .order_by(f.name().ascending(), listed.place().ascending(), reversed_.visits().ascending())
+
+
 def _filter_of_a_filter(f):
     frequent = f.locations().filter(lambda each: each.place().is_in(_HOBOKEN_OR_NEW_YORK)).filter(lambda each: each.visits() > 3)
     return f.find_all([f.name(), frequent.place(), frequent.visits()]).order_by(f.name().ascending())
@@ -97,6 +113,30 @@ PLACES_PERSON_FINDER_SPECS = FinderSpec(
                 ["Ann", "New York", 3], ["Ann", "New York", 5], ["Bob", None, None], ["Cy", "New York", 1],
             ], dtype=object),
             expected_sql={"duckdb": "t1.place = 'New York'"},
+        ),
+        TestExpectation(
+            name="filters_with_equal_conditions_are_one_join_when_each_is_written_out",
+            skip_backends=_NO_FILTERS,
+            query=_equal_filters_written_twice,
+            expected_columns=["Name", "Locations Place", "Locations Visits"],
+            expected_result=np.array([
+                ["Ann", "Hoboken", 3], ["Ann", "New York", 5], ["Bob", None, None], ["Cy", "New York", 1],
+            ], dtype=object),
+            expected_sql={"duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York'))"},
+            unexpected_sql={"duckdb": "t2"},
+        ),
+        TestExpectation(
+            name="filters_with_different_conditions_are_different_joins_even_for_the_same_values",
+            skip_backends=_NO_FILTERS,
+            query=_same_values_in_another_order,
+            expected_columns=["Name", "Locations Place", "Locations Visits"],
+            # the second filter lists the values the other way round: a condition that is written differently is not the same
+            # condition, so it is a join of its own, and each of Ann's two rows is beside each of her two
+            expected_result=np.array([
+                ["Ann", "Hoboken", 3], ["Ann", "Hoboken", 5], ["Ann", "New York", 3], ["Ann", "New York", 5],
+                ["Bob", None, None], ["Cy", "New York", 1],
+            ], dtype=object),
+            expected_sql={"duckdb": "LEFT OUTER JOIN geo.locations AS t2 ON (t0.id = t2.person_id AND t2.place IN ('New York', 'Hoboken'))"},
         ),
         TestExpectation(
             name="a_filter_of_a_filtered_navigation_holds_both_conditions",
