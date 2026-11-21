@@ -7,7 +7,7 @@ import decimal
 from model.relational import DateFunctions, DateTimeFunctions, N, NumericFunctions, StringFunctions
 from model.relational import DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, StringFunctionOperation
 
-from model.relational import Relation, Equatable, Orderable, RelationalOperationElement, _sample, _percentile_operation, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
+from model.relational import Relation, Equatable, Orderable, RelationalOperationElement, _sample, _percentile_operation, _quantile_operation, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
     FloatConstantOperation, IntegerConstantOperation, DateConstantOperation, DateTimeConstantOperation, \
     BooleanConstantOperation, DecimalConstantOperation, AggregateOperator, DateAggregateOperation, DateTimeAggregateOperation, IntervalAggregateOperation, \
     AggregateOperation, DecimalAggregateOperation, DoubleAggregateOperation, IntegerAggregateOperation, StringAggregateOperation, ColumnWithJoin, \
@@ -160,6 +160,12 @@ class NumericAttribute(NumericFunctions[N], Attribute, Generic[N, A]):
         ``ddof=0`` the population one, as in ``Series.var``."""
         operator = AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP
         return DoubleAggregateOperation(self._column_with_join(), operator, 'Var ' + self.display_name())
+
+    def quantile(self, p: float, method: str = "linear") -> A | DoubleAggregateOperation:
+        """Return ``percentile`` as numpy and pandas name it, with ``method`` as numpy does: ``"linear"`` (the default) interpolates between
+        the two values either side of ``p``, so it is a double, and ``"inverted_cdf"`` is the nearest value that is there, of the type of the
+        attribute. ``quantile(0.5)`` is the median."""
+        return _quantile_operation(self._column_with_join(), p, method, 'Quantile ' + self.display_name(), self._aggregate_type)
 
     def percentile(self, p: float, ascending: bool = True, continuous: bool = True) -> A | DoubleAggregateOperation:
         """Return the value that the fraction ``p`` (between 0 and 1) of the group falls below: ``percentile(0.5)`` is the median. It

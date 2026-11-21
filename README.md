@@ -541,7 +541,9 @@ ones, as in pandas. `min()` and `max()` also work on text and dates.
 median and `percentile(0.95)` the 95th percentile. It interpolates between the two values either side of the position, so it is a double;
 `percentile(p, continuous=False)` is the nearest value that is there, of the column's own type; and `percentile(p, ascending=False)` reads the
 group from the largest value. A missing value is not one of the values. It is written as `PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY …)`, and
-DuckDB gets `QUANTILE_CONT`. A weighted average is an expression: `(f.price() * f.quantity()).sum() / f.quantity().sum()`.
+DuckDB gets `QUANTILE_CONT`. `quantile(p, method="linear")` is the same as numpy and pandas name it: `"linear"` is the default and `percentile(p)`, and `"inverted_cdf"`
+is `percentile(p, continuous=False)`; the other methods of numpy and pandas (`lower`, `nearest`, `midpoint`, ...) are not in SQL and are refused.
+A weighted average is an expression: `(f.price() * f.quantity()).sum() / f.quantity().sum()`.
 
 An expression has the aggregates a column has: `(TradeFinder.price() * TradeFinder.quantity()).sum()`, `constant(1).sum()`,
 `when(TradeFinder.price() > 10).then(5.0).otherwise(1.0).sum()`. A condition has `all()` and `any()`:

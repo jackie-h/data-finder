@@ -70,3 +70,27 @@ def test_a_decimal_attribute_has_a_discrete_percentile_of_its_own_type():
     from datafinder import DecimalAttribute
     amount = DecimalAttribute("Amount", "AMOUNT", "DECIMAL(10, 2)", Table("a", [("AMOUNT", "DECIMAL(10, 2)")]))
     assert isinstance(amount.percentile(0.5, continuous=False), DecimalAggregateOperation)
+
+
+def test_a_quantile_is_a_percentile_named_as_numpy_names_it():
+    def sql(column):
+        return _sql(column.alias("x"))  # without the name each gives itself
+    assert sql(_QTY.quantile(0.5)) == sql(_QTY.percentile(0.5))
+    assert sql(_QTY.quantile(0.9, method="inverted_cdf")) == sql(_QTY.percentile(0.9, continuous=False))
+    assert sql((_PRICE * _QTY).quantile(0.5)) == sql((_PRICE * _QTY).percentile(0.5))
+
+
+def test_a_quantile_is_a_double_unless_it_is_a_value_that_is_there():
+    assert isinstance(_QTY.quantile(0.5), DoubleAggregateOperation)
+    assert isinstance(_QTY.quantile(0.5, method="inverted_cdf"), IntegerAggregateOperation)
+
+
+@pytest.mark.parametrize("method", ["lower", "higher", "nearest", "midpoint", "hazen", "median_unbiased"])
+def test_a_method_that_sql_cannot_write_is_refused(method):
+    with pytest.raises(ValueError, match="cannot be written in SQL"):
+        _QTY.quantile(0.5, method=method)
+
+
+def test_the_fraction_of_a_quantile_is_between_0_and_1():
+    with pytest.raises(ValueError, match="a fraction between 0 and 1"):
+        _QTY.quantile(50)

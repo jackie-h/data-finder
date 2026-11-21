@@ -97,6 +97,12 @@ class Aggregates(_Operand, Generic[AG]):
         return self._aggregate(AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP, 'Var',
                                DoubleAggregateOperation)
 
+    def quantile(self, p: float, method: str = "linear") -> Any:
+        """``percentile`` as numpy and pandas name it, with ``method`` as numpy does: ``"linear"`` (the default) interpolates between the
+        two values either side of ``p``, as ``percentile(p)`` does, and ``"inverted_cdf"`` is the nearest value that is there, as
+        ``percentile(p, continuous=False)`` is. ``quantile(0.5)`` is the median."""
+        return _quantile_operation(self._arithmetic_operand(), p, method, 'Quantile Expression', getattr(self, '_value_aggregate', None))
+
     def percentile(self, p: float, ascending: bool = True, continuous: bool = True) -> Any:
         """The value that the fraction ``p`` (between 0 and 1) of the group falls below: ``percentile(0.5)`` is the median. It interpolates
         between the neighbouring values, unless ``continuous=False``, which gives the nearest value that is there and is of the type of the
@@ -126,6 +132,20 @@ def _percentile_operation(element: RelationalOperationElement, p: float, ascendi
     if continuous:
         return DoubleAggregateOperation(element, AggregateOperator.PERCENTILE_CONT, label, percentile=float(p), from_largest=not ascending)
     return (discrete_kind or UntypedAggregateOperation)(element, AggregateOperator.PERCENTILE_DISC, label, percentile=float(p), from_largest=not ascending)
+
+
+_QUANTILE_METHODS = {"linear": True, "inverted_cdf": False}
+
+
+def _quantile_operation(element: RelationalOperationElement, p: float, method: str, label: str,
+                        discrete_kind: 'Callable[..., AggregateOperation] | None') -> Any:
+    """A quantile of ``element``, as numpy names them: ``method="linear"`` interpolates between the two values either side of the position
+    (a continuous percentile) and ``"inverted_cdf"`` is the smallest value that at least the fraction ``p`` of the group is at or below
+    (a discrete percentile). The other methods of numpy and pandas (``lower``, ``higher``, ``nearest``, ``midpoint``, ...) are not in SQL."""
+    if method not in _QUANTILE_METHODS:
+        raise ValueError(f"A quantile is 'linear' (interpolated) or 'inverted_cdf' (a value that is there), not {method!r}: "
+                         f"the other methods of numpy and pandas cannot be written in SQL")
+    return _percentile_operation(element, p, True, _QUANTILE_METHODS[method], label, discrete_kind)
 
 
 def _sample(ddof: int) -> bool:

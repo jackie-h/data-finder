@@ -45,3 +45,12 @@ def test_reading_from_the_largest_value_mirrors_the_fraction(con):
 def test_the_percentile_of_an_expression(con):
     [(value,)] = _rows(con, (_QTY * 2).percentile(0.5))
     assert value == 6.0
+
+
+def test_a_quantile_gives_what_numpys_quantile_gives(con):
+    import numpy as np
+    values = [1, 2, 3, 4, 10]  # the column, without its missing value
+    for p in (0.0, 0.25, 0.5, 0.9, 1.0):
+        [(linear, discrete)] = _rows(con, _QTY.quantile(p), _QTY.quantile(p, method="inverted_cdf"))
+        assert linear == pytest.approx(float(np.quantile(values, p, method="linear")))
+        assert discrete == int(np.quantile(values, p, method="inverted_cdf"))
