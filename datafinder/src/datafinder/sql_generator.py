@@ -1137,7 +1137,7 @@ class SQLQueryGenerator:
     def __guarded(self, op: RelationalOperationElement) -> RelationalOperationElement:
         """The condition with an explicit ``IS NOT NULL`` before each ordering or pattern comparison on a value that can
         be missing, for what a query asks of a class. The guard changes no row. A ``<>`` of a column and a value also
-        matches a missing value, for any column: ``<> x OR IS NULL``. It is not added
+        matches a missing value, for any column or expression: ``<> x OR IS NULL``. It is not added
         to a join's own filter (its milestoning dates and kwargs) or to HAVING, which are not that, so they are never
         passed through here."""
         if isinstance(op, LogicalOperation):
@@ -1146,8 +1146,9 @@ class SQLQueryGenerator:
                 and isinstance(op.left, ColumnWithJoin) and self.__resolve_optional(op.left):
             return LogicalOperation(IsNotNullOperation(op.left), LogicalOperator.AND, op)
         if isinstance(op, ComparisonOperation) and op.operator == ComparisonOperator.NOT_EQUAL \
-                and isinstance(op.left, ColumnWithJoin) and isinstance(op.right, ConstantOperation):
-            # a missing value is different from any value: <> x OR is null
+                and not isinstance(op.left, ConstantOperation) and isinstance(op.right, ConstantOperation):
+            # a missing value is different from any value: <> x OR is null, for a column and for a function or other
+            # expression of one, whose value is missing when a column it reads is
             return LogicalOperation(op, LogicalOperator.OR, IsNullOperation(op.left))
         return op
 

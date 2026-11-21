@@ -1148,7 +1148,7 @@ class TestExpressionFilters:
     def test_a_function(self):
         _, n = self._cols()
         assert self._where(n.upper().eq("X")) == "UPPER(t0.n) = 'X'"
-        assert self._where(n.upper().ne("X")) == "UPPER(t0.n) <> 'X'"
+        assert self._where(n.upper().ne("X")) == "UPPER(t0.n) <> 'X' OR UPPER(t0.n) IS NULL"
 
     def test_ordering(self):
         a, n = self._cols()

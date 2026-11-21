@@ -33,6 +33,20 @@ COMPANIES_MISSING_CATEGORY_SPECS = FinderSpec(
             expected_result=np.array([[2], [3], [4]], dtype=object),
         ),
         TestExpectation(
+            name="not_equal_on_a_function_matches_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category().upper() != "FINANCE").order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2], [4]], dtype=object),
+            expected_sql={"duckdb": "UPPER(t0.category) <> 'FINANCE' OR UPPER(t0.category) IS NULL"},
+        ),
+        TestExpectation(
+            name="not_equal_on_an_expression_matches_a_missing_value",
+            query=lambda f: f.find_all([f.id_()], f.category().length() != 7).order_by(f.id_().ascending()),
+            expected_columns=["Id"],
+            expected_result=np.array([[1], [2], [4]], dtype=object),
+            expected_sql={"duckdb": "LENGTH(t0.category) <> 7 OR LENGTH(t0.category) IS NULL"},
+        ),
+        TestExpectation(
             name="equal_does_not_match_a_missing_value",
             query=lambda f: f.find_all([f.id_()], f.category().eq("Finance")).order_by(f.id_().ascending()),
             expected_columns=["Id"],
