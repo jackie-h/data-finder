@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import PERCENTILE_AS_DOUBLE, PERCENTILE_SINGLE_PRECISION, ROWS, ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "tds/tests/testGroupBy.pure"
 
@@ -24,9 +24,6 @@ TDS_GROUP_BY_SPECS = FinderSpec(
         not_supported("simpleGroupDistinctCountWithExtendedPrimitives", f"{_SRC}::simpleGroupDistinctCountWithExtendedPrimitives",
                     'select concat("persontable_0".FIRSTNAME, \' \', "persontable_0".LASTNAME) as "sourceName", count(distinct("root".ID)) as "count" from interactionTable as "root" left outer join personTable as "persontable_0" on ("root".sourceId = "persontable_0".ID) group by "sourceName" order by "count" desc, "sourceName" asc',
                     QUALIFIED_PROPERTIES + ' Also: Interaction is not in the model, and its source name is a derived property'),
-        unsupported("testTDSGroupByPercentile", f"{_SRC}::testTDSGroupByPercentile",
-                    'select "producttable_0".NAME as "prodName", percentile_cont(cast(0.9 as float)) within group (order by "root".quantity + 2 asc) as "p1", percentile_disc(cast(0.5 as float)) within group (order by "root".quantity + 2 desc) as "p2", percentile_cont(cast(0.75 as float)) within group (order by "root".quantity + 2 asc) as "p3" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
-                    'no percentile aggregate'),
         unsupported("testGroupByWithWavgAggregation", f"{_SRC}::testGroupByWithWavgAggregation",
                     'select dateadd(day, 1, "root".tradeDate) as "tradeDate", count("root".ID) as "ID count", (1.0 * sum("root".quantity * "root".weight)) / sum("root".weight) as "Trade Weighted Average" from weightedTradeTable as "root" group by "tradeDate" order by "tradeDate" asc',
                     'no weighted average aggregate'),
@@ -41,6 +38,14 @@ GROUP_BY_TRADE_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
+        ported("testTDSGroupByPercentile", f"{_SRC}::testTDSGroupByPercentile",
+               'select "producttable_0".NAME as "prodName", percentile_cont(cast(0.9 as float)) within group (order by "root".quantity + 2 asc) as "p1", percentile_disc(cast(0.5 as float)) within group (order by "root".quantity + 2 desc) as "p2", percentile_cont(cast(0.75 as float)) within group (order by "root".quantity + 2 asc) as "p3" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               lambda f: f.find_all([f.product().name(),
+                                     (f.quantity() + 2).percentile(0.9).alias("p1"),
+                                     (f.quantity() + 2).percentile(0.5, ascending=False, continuous=False).alias("p2"),
+                                     (f.quantity() + 2).percentile(0.75).alias("p3")])
+                         .group_by(f.product().name()).order_by(f.product().name().descending()),
+               known_gaps={BACKEND: PERCENTILE_AS_DOUBLE, ROWS: PERCENTILE_SINGLE_PRECISION}),
         ported("simpleFilterWithGroupByWithDistinct", f"{_SRC}::simpleFilterWithGroupByWithDistinct",
                     'select "tradetable_0"."quantity" as "quantity", count("quantity") as "qty" from (select distinct "root".quantity as "quantity" from tradeTable as "root" where "root".ID < 4 and "root".quantity > 11) as "tradetable_0" group by "quantity"',
                     lambda f: f.find_all([f.quantity()], (f.id_() < 4).and_(f.quantity() > 11)).distinct().group_by(lambda r: r.quantity).aggregate(qty=lambda r: r.quantity.count()),

@@ -78,6 +78,13 @@ def _for_duckdb(legend_sql: str) -> str:
     for call in list(tree.find_all(exp.Anonymous)):
         if call.name.upper() == "FORMATDATETIME" and len(call.expressions) == 2 and call.expressions[1].name == "EEEE":  # the name of the day
             call.replace(exp.Anonymous(this="DAYNAME", expressions=[call.expressions[0].copy()]))
+    for group in list(tree.find_all(exp.WithinGroup)):  # percentile_cont(p) within group (order by x), which sqlglot writes as DuckDB does not read it
+        call = group.this
+        if isinstance(call, exp.PercentileCont | exp.PercentileDisc):
+            fraction = call.this.this if isinstance(call.this, exp.Cast) else call.this
+            order = ", ".join(o.this.sql(dialect="duckdb") + (" DESC" if o.args.get("desc") else " ASC") for o in group.expression.expressions)
+            name = "PERCENTILE_CONT" if isinstance(call, exp.PercentileCont) else "PERCENTILE_DISC"
+            group.replace(exp.Var(this=f"{name}({fraction.sql(dialect='duckdb')}) WITHIN GROUP (ORDER BY {order})"))
     for call in reversed(list(tree.find_all(exp.Anonymous))):  # the innermost first
         if call.name.upper() == "DATEADD" and len(call.expressions) == 3:  # dateadd(unit, count, date), which DuckDB does not have
             unit, count, moved = (e.sql(dialect="duckdb") for e in call.expressions)
