@@ -19,9 +19,9 @@ def test_select_needs_a_session(monkeypatch):
 
 
 def test_a_query_that_times_out_is_cancelled_on_spark(spark, monkeypatch):
-    spark.udf.register("slow_down", lambda value: (time.sleep(30), value)[1])
     monkeypatch.setattr(SparkConnect, "_session", spark)
-    monkeypatch.setattr(spark_engine, "_to_spark_sql", lambda *args, **kwargs: "SELECT slow_down(id) FROM range(2)")
+    # a sleep in the JVM: no Python worker, which PySpark 3.5 cannot start on Python 3.14
+    monkeypatch.setattr(spark_engine, "_to_spark_sql", lambda *args, **kwargs: "SELECT reflect('java.lang.Thread', 'sleep', 30000L) FROM range(2)")
     started = time.monotonic()
     with pytest.raises(TimeoutError, match="500ms"):
         SparkConnect.select(None, None, [], _OWNER, NoOperation(), timeout_ms=500)  # pyright: ignore[reportArgumentType]
