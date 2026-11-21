@@ -4,9 +4,10 @@ Ported from legend-engine core_relational ``tests/query/testWithFunction.pure``.
 Date part functions.
 Mapping: tests/simple_mapping.md.
 """
+from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, DAY_NAME_FUNCTION, ported, unsupported, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import BACKEND, DAY_NAME_FUNCTION, DAY_OF_WEEK_NUMBER, ported, unsupported, QUALIFIED_PROPERTIES, not_supported
 
 _SRC = "tests/query/testWithFunction.pure"
 
@@ -18,9 +19,12 @@ WITH_FUNCTION_SPECS = FinderSpec(
                     'select formatdatetime("root".tradeDate, \'EEEE\') as "Day Of Week Name" from tradeTable as "root" where formatdatetime("root".tradeDate, \'EEEE\') is distinct from \'Monday\'',
                     lambda f: f.find_all([f.date().day_of_week_name().alias("Day Of Week Name")], f.date().day_of_week_name() != "Monday"),
                     known_gaps={BACKEND: DAY_NAME_FUNCTION}),
-        unsupported("testDayOfWeekNumberFunction", f"{_SRC}::testDayOfWeekNumberFunction",
+        ported("testDayOfWeekNumberFunction", f"{_SRC}::testDayOfWeekNumberFunction",
                     'select extract(dow from "root".tradeDate) as "Day Of Week Number" from tradeTable as "root" where extract(isodow from "root".tradeDate) is distinct from \'2\'',
-                    'no adjust, day-of-week names, or dates relative to now'),
+                    # Legend numbers the days from Monday for the filter and from Sunday for the column; the finder's day of the week is the ISO day, so a Sunday is 7 there and 0 here
+                    lambda f: f.find_all([when(f.date().day_of_week() == 7).then(0).otherwise(f.date().day_of_week()).alias("Day Of Week Number")],
+                                         f.date().day_of_week() != 2),
+                    known_gaps={BACKEND: DAY_OF_WEEK_NUMBER}),
     ],
 )
 
