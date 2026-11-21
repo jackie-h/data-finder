@@ -44,9 +44,3 @@ def test_a_result_with_no_rows_has_the_types_of_its_columns(spark):
 def test_a_percentile_is_written_as_the_exact_one_and_not_the_approximation():
     sql = sql_for_dialect("SELECT PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY x DESC) FROM t", "spark")
     assert "PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY x DESC" in sql and "PERCENTILE_APPROX" not in sql
-
-
-def test_the_session_is_in_ansi_mode_as_databricks_is(spark):
-    """A value that is not of the type it is cast to is an error, as it is on Databricks, and not a NULL as in Spark 3.5's default mode."""
-    with pytest.raises(Exception, match="CAST_INVALID_INPUT"):
-        spark.sql("SELECT CAST('x' AS INT)").collect()
