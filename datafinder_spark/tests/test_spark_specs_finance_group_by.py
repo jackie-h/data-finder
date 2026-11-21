@@ -3,7 +3,7 @@ import pytest
 
 from datafinder_examples_tests.finance_group_by_specs import TRADE_GROUP_BY_FINDER_SPECS
 from datafinder_examples_tests.tables import FINANCE_GROUP_BY
-from spark_harness import expecting, finder_of
+from spark_harness import finder_of
 
 
 @pytest.fixture(scope="module")
@@ -12,6 +12,6 @@ def trade_group_by_finder(spark):
         yield finder
 
 
-@pytest.mark.parametrize("expectation", expecting(TRADE_GROUP_BY_FINDER_SPECS.expectations, {}))
+@pytest.mark.parametrize("expectation", [pytest.param(each, id=each.name) for each in TRADE_GROUP_BY_FINDER_SPECS.expectations])
 def test_trade_group_by(expectation, trade_group_by_finder):
     expectation.run(trade_group_by_finder, backend="spark")

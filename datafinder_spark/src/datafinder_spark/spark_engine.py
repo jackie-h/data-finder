@@ -8,6 +8,7 @@ from datafinder.output import arrow_table_to_pandas, arrow_table_to_numpy, inter
 from model.relational import Relation
 
 import numpy as np
+import sqlglot
 import pandas as pd
 import pyarrow as pa
 from sqlglot import exp
@@ -16,12 +17,86 @@ from sqlglot.generator import Generator
 from sqlglot.generators.spark import SparkGenerator
 
 
+def _unwrapped(node: exp.Expr) -> exp.Expr:
+    while isinstance(node, exp.Paren):
+        node = node.this
+    return node
+
+
+def _is_cast_to(node: exp.Expr, type_: Any) -> bool:
+    return isinstance(node, exp.Cast) and node.to.this == type_
+
+
+def _joined(aggregate: exp.GroupConcat) -> exp.Expr:
+    """``STRING_AGG(x, sep ORDER BY k ...)`` as Spark 3.5 has it, which has no LISTAGG (4.0 has): the values are collected, sorted by the keys with
+    a comparator, and joined. A null value is left out, as STRING_AGG leaves it, and a null key is ordered as the sort says."""
+    values = aggregate.this
+    keys: list[exp.Ordered] = []
+    if isinstance(values, exp.Order):
+        keys, values = list(values.expressions), values.this
+    separator = aggregate.args.get("separator") or exp.Literal.string("")
+    if not keys:
+        return exp.func("ARRAY_JOIN", exp.func("COLLECT_LIST", values), separator)
+    fields = ", ".join(["__value AS v"] + [f"__key{i} AS k{i}" for i in range(len(keys))])
+    comparisons = []
+    for i, key in enumerate(keys):
+        before, after = ("-1", "1") if not key.args.get("desc") else ("1", "-1")
+        first, last = ("-1", "1") if key.args.get("nulls_first") else ("1", "-1")
+        l, r = f"l.k{i}", f"r.k{i}"
+        comparisons.append(f"NULLIF(CASE WHEN {l} IS NULL AND {r} IS NULL THEN 0 WHEN {l} IS NULL THEN {first} WHEN {r} IS NULL THEN {last} "
+                           f"WHEN {l} < {r} THEN {before} WHEN {l} > {r} THEN {after} ELSE 0 END, 0)")
+    template = sqlglot.parse_one(
+        f"ARRAY_JOIN(TRANSFORM(ARRAY_SORT(COLLECT_LIST(CASE WHEN __value IS NOT NULL THEN STRUCT({fields}) END), "
+        f"(l, r) -> COALESCE({', '.join(comparisons)}, 0)), s -> s.v), __separator)", dialect="spark")
+    substitutes: dict[str, exp.Expr] = {"__value": values, "__separator": separator, **{f"__key{i}": key.this for i, key in enumerate(keys)}}
+    for column in list(template.find_all(exp.Column)):
+        if column.name in substitutes:
+            column.replace(substitutes[column.name].copy())
+    return template
+
+
+def _for_spark(tree: exp.Expr) -> exp.Expr:
+    """The Postgres tree changed where Spark 3.5 differs, so that the same query gives the same rows."""
+    for node in list(tree.find_all(exp.Extract)):
+        part = node.this.name.upper()
+        difference = _unwrapped(node.expression)
+        if part == "ISODOW":  # Spark spells the ISO day of the week DOW_ISO
+            node.set("this", exp.var("DOW_ISO"))
+        elif part == "EPOCH" and isinstance(difference, exp.Sub):  # the seconds between two timestamps, which Spark gives as an interval
+            node.replace(exp.Paren(this=exp.Sub(this=exp.func("UNIX_SECONDS", difference.this.copy()),
+                                                expression=exp.func("UNIX_SECONDS", difference.expression.copy()))))
+    for node in list(tree.find_all(exp.Sub, exp.Add)):
+        if isinstance(node, exp.Sub) and _is_cast_to(node.this, exp.DataType.Type.DATE) and _is_cast_to(node.expression, exp.DataType.Type.DATE):
+            # date - date is an interval in Spark, and the number of days in Postgres
+            node.replace(exp.func("DATEDIFF", node.this.copy(), node.expression.copy()))
+        elif isinstance(node.expression, exp.Interval) and not _is_cast_to(node.this, exp.DataType.Type.TIMESTAMP):
+            # date +/- interval is a timestamp in Postgres, and a date in Spark
+            node.this.replace(exp.cast(node.this.copy(), exp.DataType.Type.TIMESTAMP))
+    for select in list(tree.find_all(exp.Select)):
+        order = select.args.get("order")
+        if select.args.get("distinct") and order:
+            # a SELECT DISTINCT is ordered by what it selects: Spark does not find a column of the table in the ORDER BY once it is aliased
+            shown = {each.this.sql(): each.args["alias"] for each in select.expressions if isinstance(each, exp.Alias)}
+            for sort in order.expressions:
+                alias = shown.get(sort.this.sql())
+                if alias is not None:
+                    sort.set("this", exp.column(alias.copy()))
+    for aggregate in list(tree.find_all(exp.GroupConcat)):
+        if not isinstance(aggregate.parent, exp.Window):
+            aggregate.replace(_joined(aggregate))
+    return tree
+
+
 class _Spark(Spark):
     """Spark as sqlglot writes it, but with a percentile left as ``PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY x)``, which Spark has (from 3.3)
-    and which is exact; sqlglot's Spark writes it as ``PERCENTILE_APPROX(x, p)``, an approximation that has no order."""
+    and which is exact; sqlglot's Spark writes it as ``PERCENTILE_APPROX(x, p)``, an approximation that has no order. The query it is given is
+    changed first (``_for_spark``) where Spark 3.5 does what Postgres does not."""
 
     class Generator(SparkGenerator):
         TRANSFORMS = {**SparkGenerator.TRANSFORMS, exp.WithinGroup: lambda self, e: Generator.withingroup_sql(self, e)}
+
+        def preprocess(self, expression: exp.Expr) -> exp.Expr:
+            return super().preprocess(_for_spark(expression))
 
 
 register_dialect("spark", _Spark)
