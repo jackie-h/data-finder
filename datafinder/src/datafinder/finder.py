@@ -1,3 +1,7 @@
+import datetime
+import decimal
+from enum import Enum
+from functools import reduce
 from typing import Callable
 
 from model.milestoning import MilestoningColumns
@@ -5,8 +9,8 @@ from model.query_sets import union_alias
 from model.sql_query import parse_query_reads
 
 from model.relational import (
-    Column, ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind, LogicalOperation,
-    LogicalOperator, Operation, TableAlias,
+    Column, ColumnWithJoin, ExistsOperation, NotExistsOperation, JoinTreeNodeOperation, JoinOperation, JoinKind, LogicalOperation,
+    LogicalOperator, Operation, RelationalOperationElement, TableAlias,
 )
 
 
@@ -97,6 +101,26 @@ def display_prefix(relation_name: str, parent_join: JoinTreeNodeOperation | None
     return ' '.join(name.title() for name in reversed(names) if name)
 
 
+def _structure(value, own, depth: int = 0):
+    """What a condition says, apart from the objects that say it, so two conditions that say the same compare equal: the
+    same operations over the same columns of the same tables and the same values. A column of ``own``, the navigation the
+    condition is on, is "own" whichever copy of the navigation it was written on; a column of any other step is that step,
+    so a condition that reads another step is the same only as one that reads that very step."""
+    if isinstance(value, ColumnWithJoin):
+        relation = value.column.owner_relation
+        return ('column', value.column.name, type(relation).__name__, getattr(relation, 'name', None),
+                'own' if value.parent is own else id(value.parent), _structure(value.embedded, own, depth + 1))
+    if isinstance(value, Enum):
+        return (type(value).__name__, value.name)
+    if value is None or isinstance(value, (str, int, float, bool, bytes, datetime.date, datetime.datetime, decimal.Decimal)):
+        return (type(value).__name__, value)
+    if isinstance(value, (list, tuple)):
+        return tuple(_structure(each, own, depth + 1) for each in value)
+    if isinstance(value, RelationalOperationElement) and depth < 16:
+        return (type(value).__name__, tuple(sorted((name, _structure(each, own, depth + 1)) for name, each in vars(value).items())))
+    return id(value)  # a relation, a query, anything deeper: only itself is equal to itself
+
+
 class RelatedFinder:
     """Base for generated related-finder classes that represent a traversable join.
 
@@ -104,8 +128,34 @@ class RelatedFinder:
     generator translates these to IS NOT NULL / IS NULL on the join's target column.
     """
 
+    _rebuild: Callable[[], 'RelatedFinder']  # set by the generated class: the same navigation, built again with a join of its own
+
     def __init__(self, node):
         self._node = node
+        self._filters: list = []
+        self._filtered: dict = {}
+
+    def filter(self, condition):
+        """A copy of this navigation that reaches only the rows ``condition`` holds for, as Legend's
+        ``locations->filter(f | $f.place in ['Hoboken', 'New York'])``. ``condition`` is a function of the copy, and
+        says what its rows must be from the attributes of the copy: ``locations().filter(lambda each: each.place().eq('Hoboken'))``.
+
+        The condition is in the ``ON`` of the join of the navigation, not in the ``WHERE``, so a row of the query that
+        has none that holds is still there, with NULL for what the navigation reads.
+
+        A filter with the condition of one already made on this navigation is that filtered navigation, so the columns
+        read from the two are read from one join, as when the filter is written out for each column. A condition that
+        says something else, or says the same another way (the values of an IN in another order), is a join of its own.
+        A filter of a filtered navigation holds both conditions."""
+        filtered = self._rebuild()
+        filtered._filters = [*self._filters, condition]
+        held = [each(filtered) for each in filtered._filters]
+        key = tuple(_structure(each, filtered._node) for each in held)
+        if key in self._filtered:
+            return self._filtered[key]
+        filtered._node.join.filter = reduce(lambda left, right: LogicalOperation(left, LogicalOperator.AND, right), held)
+        self._filtered[key] = filtered
+        return filtered
 
     def exists(self) -> ExistsOperation:
         """Return a filter matching rows where the association has a match."""

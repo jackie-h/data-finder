@@ -736,6 +736,42 @@ AccountFinder.find_all(None, None, [AccountFinder.name()], AccountFinder.trades(
 If the query also reads a value through the same navigation, as in `AccountFinder.trades().symbol()`, the rows are
 one for each trade, and `exists()` then holds for a trade that is in the result.
 
+#### Filtering a navigation
+
+A navigation can say which of its rows it reaches, as Legend's `x.locations->filter(f | $f.place in ['Hoboken', 'New York'])`.
+`filter` takes a function of the navigation, which writes the condition from its attributes:
+
+```python
+locations = PersonFinder.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"]))
+PersonFinder.find_all([PersonFinder.name(), locations.place(), locations.visits()])
+```
+
+```sql
+SELECT t0.name, t1.place, t1.visits FROM geo.people AS t0
+LEFT OUTER JOIN geo.locations AS t1 ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York'))
+```
+
+The condition is in the `ON` of the join of the navigation, not in the `WHERE`. A person with no location that holds is still
+a row, with NULL for what the navigation reads; a condition in the query, `find_all(columns, PersonFinder.locations().place().is_in([...]))`,
+is a `WHERE` and drops that person.
+
+Read the columns from a filtered navigation to read them from one join. A filter whose condition is the same as one already made
+on that navigation is that filtered navigation, so the filter can be written out for each column and still be one join:
+
+```python
+PersonFinder.find_all([
+    PersonFinder.name(),
+    PersonFinder.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).place(),
+    PersonFinder.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).visits(),
+])
+```
+
+Conditions are the same when they say the same thing the same way: the same operations over the same columns and values, so
+`is_in(["Hoboken", "New York"])` and `is_in(["New York", "Hoboken"])` are two joins. A condition that says something else is a join of its
+own, so two different filters on one navigation are two joins. A filter of a filtered navigation holds both conditions, a filter on a
+navigation below another filters that join, and the condition is ANDed with the condition a mapping gives the join, and, on a
+milestoned class, with its milestoning at the dates of the query.
+
 ### Result formats
 
 ```python

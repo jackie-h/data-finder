@@ -127,6 +127,10 @@ class {{rcm.clazz.name}}RelatedFinder({{rcm.clazz.name}}RelatedFinderBase, Relat
             business_date=None if business_date is None else convert_date(business_date),
             processing_datetime=None if processing_time is None else convert_date_time(processing_time))
         RelatedFinder.__init__(self, self.__node)
+        self._rebuild = lambda: {{rcm.clazz.name}}RelatedFinder(
+            relation_name, source, target, parent_join, embedded=embedded, many=many, optional=optional,
+            business_date=business_date, processing_time=processing_time, condition=condition,
+            condition_reverse=condition_reverse, **kwargs)
 {% for rpm in rcm.property_mappings %}
 {% if is_primitive(rpm.property) %}
         self.__{{to_python_name(rpm.property)}} = {{rpm.property.type.name}}Attribute(display_prefix(relation_name, parent_join) + ' {{display_name(rpm.property)}}', '{{rpm.target.name}}', '{{rpm.target.type}}', {{owner_code(rpm.target.table)}}, self.__node, embedded=(embedded or {}).get('{{rpm.property.id}}'), nullable={{rpm.target.nullable}}, optional={{ rpm.property.multiplicity.lower == 0 }})
