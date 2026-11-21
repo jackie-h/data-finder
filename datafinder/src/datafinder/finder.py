@@ -1,3 +1,4 @@
+from functools import reduce
 from typing import Callable
 
 from model.milestoning import MilestoningColumns
@@ -104,8 +105,26 @@ class RelatedFinder:
     generator translates these to IS NOT NULL / IS NULL on the join's target column.
     """
 
+    _rebuild: Callable[[], 'RelatedFinder']  # set by the generated class: the same navigation, built again with a join of its own
+
     def __init__(self, node):
         self._node = node
+        self._filters: list = []
+
+    def filter(self, condition):
+        """A copy of this navigation that reaches only the rows ``condition`` holds for, as Legend's
+        ``locations->filter(f | $f.place in ['Hoboken', 'New York'])``. ``condition`` is a function of the copy, and
+        says what its rows must be from the attributes of the copy: ``locations().filter(lambda each: each.place().eq('Hoboken'))``.
+
+        The condition is in the ``ON`` of the join of the navigation, not in the ``WHERE``, so a row of the query that
+        has none that holds is still there, with NULL for what the navigation reads. Read the columns from the one
+        filtered navigation to read them from one join; two calls of ``filter`` make two joins, whatever their
+        conditions. A filter of a filtered navigation holds both conditions."""
+        filtered = self._rebuild()
+        filtered._filters = [*self._filters, condition]
+        held = [each(filtered) for each in filtered._filters]
+        filtered._node.join.filter = reduce(lambda left, right: LogicalOperation(left, LogicalOperator.AND, right), held)
+        return filtered
 
     def exists(self) -> ExistsOperation:
         """Return a filter matching rows where the association has a match."""

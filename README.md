@@ -736,6 +736,30 @@ AccountFinder.find_all(None, None, [AccountFinder.name()], AccountFinder.trades(
 If the query also reads a value through the same navigation, as in `AccountFinder.trades().symbol()`, the rows are
 one for each trade, and `exists()` then holds for a trade that is in the result.
 
+#### Filtering a navigation
+
+A navigation can say which of its rows it reaches, as Legend's `x.locations->filter(f | $f.place in ['Hoboken', 'New York'])`.
+`filter` takes a function of the navigation, which writes the condition from its attributes:
+
+```python
+locations = PersonFinder.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"]))
+PersonFinder.find_all([PersonFinder.name(), locations.place(), locations.visits()])
+```
+
+```sql
+SELECT t0.name, t1.place, t1.visits FROM geo.people AS t0
+LEFT OUTER JOIN geo.locations AS t1 ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York'))
+```
+
+The condition is in the `ON` of the join of the navigation, not in the `WHERE`. A person with no location that holds is still
+a row, with NULL for what the navigation reads; a condition in the query, `find_all(columns, PersonFinder.locations().place().is_in([...]))`,
+is a `WHERE` and drops that person.
+
+Read the columns from the filtered navigation you made, as `locations` above, to read them from one join. Every call of `filter`
+makes a join of its own, so two filters on the same navigation are two joins, even when their conditions are the same. A filter
+of a filtered navigation holds both conditions, a filter on a navigation below another filters that join, and the condition is
+ANDed with the condition a mapping gives the join.
+
 ### Result formats
 
 ```python
