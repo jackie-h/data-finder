@@ -90,3 +90,27 @@ def test_a_method_that_sql_cannot_write_is_refused(method):
 def test_the_fraction_of_a_quantile_is_between_0_and_1():
     with pytest.raises(ValueError, match="a fraction between 0 and 1"):
         _QTY.quantile(50)
+
+
+def test_the_engine_of_a_dialect_is_imported_when_sql_is_written_for_it(monkeypatch):
+    from datafinder import register_dialect, sql_generator
+    imported = []
+
+    def import_module(name):  # the engine registers its dialect when it is imported
+        imported.append(name)
+        register_dialect("fakedb", "duckdb")
+
+    monkeypatch.setitem(sql_generator._DIALECT_MODULES, "fakedb", "fake_engine_module")
+    monkeypatch.setattr(sql_generator.importlib, "import_module", import_module)
+    try:
+        assert sql_for_dialect("SELECT a ~ 'b' FROM t", "fakedb") == "SELECT REGEXP_MATCHES(a, 'b') FROM t"
+        sql_for_dialect("SELECT 1", "fakedb")
+        assert imported == ["fake_engine_module"]  # once: after that the dialect is registered
+    finally:
+        sql_generator._DIALECTS.pop("fakedb", None)
+
+
+def test_an_engine_that_is_not_installed_is_not_needed(monkeypatch):
+    from datafinder import sql_generator
+    monkeypatch.setitem(sql_generator._DIALECT_MODULES, "snowflake", "no_such_engine_module_anywhere")
+    assert sql_for_dialect("SELECT a ~ 'b' FROM t", "snowflake") == "SELECT REGEXP_LIKE(a, 'b') FROM t"  # sqlglot's own dialect

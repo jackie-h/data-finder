@@ -1,5 +1,6 @@
 import copy
 import decimal
+import importlib
 import itertools
 import re
 import datetime
@@ -772,6 +773,9 @@ SOURCE_DIALECT = "postgres"
 
 
 _DIALECTS: dict[str, Any] = {}
+# The module of the engine that registers the dialect of a database, which is imported the first time SQL is written for that dialect, so that
+# a view or a changelog written for Databricks is written as the Databricks engine writes it. An engine that is not installed is not needed.
+_DIALECT_MODULES: dict[str, str] = {"databricks": "datafinder_databricks.databricks_engine"}
 
 
 def register_dialect(name: str, dialect: Any) -> None:
@@ -781,6 +785,11 @@ def register_dialect(name: str, dialect: Any) -> None:
 
 def sql_for_dialect(sql: str, dialect: str) -> str:
     """The generated SQL as ``dialect`` (a sqlglot dialect: ``duckdb``, ``databricks``, ...) spells it."""
+    if dialect not in _DIALECTS and dialect in _DIALECT_MODULES:
+        try:
+            importlib.import_module(_DIALECT_MODULES[dialect])  # registers the dialect
+        except ImportError:
+            pass  # the engine is not installed: sqlglot's own dialect
     return sqlglot.transpile(sql, read=SOURCE_DIALECT, write=_DIALECTS.get(dialect, dialect))[0]
 
 
