@@ -323,7 +323,7 @@ class IntervalAttribute(_MinMax[IntervalAggregateOperation], Attribute, Orderabl
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
 
-def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
+def typed_attribute(name: str, db_type: str, owner: Relation, nullable: bool = True) -> Attribute:
     """The attribute for a column of the database type ``db_type``, of the class that compares, does arithmetic and
     aggregates as that type does: an ``INT`` is an IntegerAttribute, a ``VARCHAR`` a StringAttribute. Its display name
     is the column's."""
@@ -344,4 +344,4 @@ def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
         factory = IntervalAttribute
     else:
         factory = StringAttribute
-    return factory(name, name, db_type, owner)
+    return factory(name, name, db_type, owner, nullable=nullable)

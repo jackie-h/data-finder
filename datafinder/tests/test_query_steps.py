@@ -10,7 +10,7 @@ from datafinder.sql_generator import to_sql
 from model.relational import NoOperation, OrderedQuerySpecification, Table
 
 _TABLE = Table("accounts", [("ID", "INT"), ("NAME", "VARCHAR")])
-_ID = IntegerAttribute("Id", "ID", "INT", _TABLE)
+_ID = IntegerAttribute("Id", "ID", "INT", _TABLE, nullable=False)
 _NAME = StringAttribute("Name", "NAME", "VARCHAR", _TABLE)
 
 
@@ -64,7 +64,7 @@ def test_a_sort_after_a_limit_is_of_the_columns_the_result_shows():
     with pytest.raises(ValueError, match="ordered by the columns of the result"):
         _rows(_ID).limit(3).order_by(_NAME.ascending())
     ordered = _rows(_ID, _NAME).limit(3).order_by(_NAME.ascending())
-    assert ordered.to_sql().endswith("ORDER BY t0.name ASC")
+    assert ordered.to_sql().endswith("ORDER BY t0.name ASC NULLS FIRST")
 
 
 def test_a_step_leaves_the_result_it_is_written_after_as_it_was():

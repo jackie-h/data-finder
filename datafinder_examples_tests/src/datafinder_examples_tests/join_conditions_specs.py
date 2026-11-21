@@ -82,7 +82,7 @@ JOIN_CONDITIONS_PERSON_FINDER_SPECS = FinderSpec(
             # Peter is a member of Alpha (active) and Beta (not): the condition is on the hop to the firm, so his membership
             # of Beta is still a row, with no firm. Ann is a member of Beta (active).
             expected_result=np.array([
-                [1, "Alpha"], [1, None], [2, None], [3, None], [4, "Beta"], [5, None], [6, None],
+                [1, None], [1, "Alpha"], [2, None], [3, None], [4, "Beta"], [5, None], [6, None],
             ], dtype=object),
             expected_sql={"duckdb": "ON (t0.id = t2.person_id) LEFT OUTER JOIN org.firms AS t1 ON (t2.firm_id = t1.id AND t2.active = 1)"},
         ),

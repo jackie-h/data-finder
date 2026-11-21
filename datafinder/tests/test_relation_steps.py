@@ -56,7 +56,7 @@ def test_select_keeps_only_the_columns_asked_for_and_extend_names_a_new_one():
 def test_a_step_can_be_ordered_by_a_column_of_it():
     trades = _trades()
     step = trades.filter(lambda r: r.price > 1.0)
-    assert step.order_by(step["price"].descending()).to_sql().endswith("ORDER BY t0.PRICE DESC")
+    assert step.order_by(step["price"].descending()).to_sql().endswith("ORDER BY t0.PRICE DESC NULLS LAST")
 
 
 def test_the_steps_of_a_chain_number_their_tables_from_the_outside_in():
@@ -134,7 +134,7 @@ def test_an_aggregated_step_can_be_filtered_and_ordered_like_any_other():
     totals = trades.group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum())
     big = totals.filter(lambda r: r.total > 100.0)
     sql = big.order_by(big["total"].descending()).to_sql()
-    assert "WHERE t0.total > 100.0" in sql and sql.endswith("ORDER BY t0.total DESC")
+    assert "WHERE t0.total > 100.0" in sql and sql.endswith("ORDER BY t0.total DESC NULLS LAST")
 
 
 def test_the_columns_of_an_aggregated_step_are_the_keys_then_the_aggregates():

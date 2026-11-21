@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from datafinder import Attribute, Operation, DataFrame, QueryRunnerBase
+from datafinder.sql_generator import may_be_missing
 from model.graphql_mapping import (
     parse_field_path,
     plain_field_path,
@@ -368,18 +369,27 @@ def _sort_aggregated(df: pd.DataFrame, order_by: list, group_by: list | None) ->
     """Sort an aggregation's result, which only exists on the client. It can be sorted by its group-by columns."""
     display_by_field = {_plain(gb.column().name): gb.display_name() for gb in group_by or [] if isinstance(gb, Attribute)}
     sort_cols: list[str] = []
-    ascending: list[bool] = []
+    sorts: list[SortOperation] = []
     for so in order_by:
         if isinstance(so, SortOperation) and isinstance(so.column, AggregateOperation):
             sort_cols.append(_col_display_name(so.column))
-            ascending.append(so.direction == SortDirection.ASC)
+            sorts.append(so)
             continue
         field = _field_name(so.column, "a sort") if isinstance(so, SortOperation) else None
         if field not in display_by_field:
             raise GraphQLPushdownError("An aggregation can only be sorted by its group-by columns")
         sort_cols.append(display_by_field[field])
-        ascending.append(so.direction == SortDirection.ASC)
-    return pd.DataFrame(df.sort_values(sort_cols, ascending=ascending)).reset_index(drop=True)
+        sorts.append(so)
+    return _sort_frame(df, sort_cols, sorts)
+
+
+def _sort_frame(df: pd.DataFrame, columns: list[str], sorts: list[SortOperation]) -> pd.DataFrame:
+    """``df`` ordered by ``columns``, each as its sort says, a missing value where the sort puts it: a pass for each column from the last to the
+    first, each stable, as pandas puts a missing value in one place for every column of a sort."""
+    for column, so in reversed(list(zip(columns, sorts))):
+        df = df.sort_values(column, ascending=so.direction == SortDirection.ASC, na_position="first" if so.nulls_first else "last",
+                            kind="stable")
+    return pd.DataFrame(df).reset_index(drop=True)
 
 
 # ---------------------------------------------------------------------------
@@ -488,9 +498,17 @@ def _to_order_by_clause(order_by: list | None) -> str | None:
             raise GraphQLPushdownError(f"Cannot push sort by {type(so).__name__} to the server")
         if _is_many(so.column):
             raise GraphQLPushdownError("Cannot push a sort on a to-many relation to the server: select the column too")
-        direction = "asc" if so.direction == SortDirection.ASC else "desc"
-        parts.append(_nest(_field_name(so.column, "a sort"), direction))
+        parts.append(_nest(_field_name(so.column, "a sort"), _hasura_direction(so)))
     return f"[{', '.join(parts)}]"
+
+
+def _hasura_direction(so: SortOperation) -> str:
+    """``asc`` or ``desc``, which Postgres, as Hasura reads it, puts a missing value last for and first for; a sort that puts it the other
+    way says so, as ``asc_nulls_first``, unless its value cannot be missing."""
+    word = "asc" if so.direction == SortDirection.ASC else "desc"
+    if so.nulls_first == (so.direction == SortDirection.DESC) or not may_be_missing(so.column):
+        return word
+    return word + ("_nulls_first" if so.nulls_first else "_nulls_last")
 
 
 def _build_server_args(op, order_by: list | None, limit: int | None, filter_conv) -> list[str]:
@@ -559,14 +577,14 @@ def _check_expansion(op, columns: list, limit: int | None) -> bool:
 def _sort_expanded(df: pd.DataFrame, order_by: list) -> pd.DataFrame:
     """Sort rows that a to-many relation expanded: the server can only order the parents."""
     fields: list[str] = []
-    ascending: list[bool] = []
+    sorts: list[SortOperation] = []
     for so in order_by:
         field = _field_name(so.column, "a sort") if isinstance(so, SortOperation) else None
         if field is None or field not in df.columns:
             raise GraphQLUnsupportedError("Rows expanded by a to-many relation can only be sorted by selected columns")
         fields.append(field)
-        ascending.append(so.direction == SortDirection.ASC)
-    return pd.DataFrame(df.sort_values(fields, ascending=ascending, kind="stable")).reset_index(drop=True)
+        sorts.append(so)
+    return _sort_frame(df, fields, sorts)
 
 
 # ---------------------------------------------------------------------------

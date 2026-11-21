@@ -69,7 +69,7 @@ def test_window_functions_keep_every_row_and_use_their_display_names():
     view = _query([_symbol(), _price().rank(method='first', order_by=_price().ascending())]).to_view("v", "reporting")
     assert view.column_names() == ["symbol", "row_number", "in_z", "out_z"]
     assert view.group_by == []
-    assert "ROW_NUMBER() OVER (ORDER BY t0.price ASC)" in view.to_sql()
+    assert "ROW_NUMBER() OVER (ORDER BY t0.price ASC NULLS FIRST)" in view.to_sql()
 
 
 @pytest.mark.parametrize("business_date, processing, business_date_to", [

@@ -979,7 +979,7 @@ class TestJoin:
     def test_in_an_order(self):
         a, b = self._ab()
         assert self._sql(a.join(" ", order_by=[b.descending(), a.ascending()])) == \
-            """SELECT STRING_AGG(t0.a, ' ' ORDER BY t0.b DESC, t0.a ASC) AS "Join A" FROM t AS t0"""
+            """SELECT STRING_AGG(t0.a, ' ' ORDER BY t0.b DESC NULLS LAST, t0.a ASC NULLS FIRST) AS "Join A" FROM t AS t0"""
 
     def test_a_quote_in_the_separator_does_not_end_it(self):
         a, _ = self._ab()
@@ -1190,13 +1190,13 @@ class TestSortByAnAggregate:
         table = Table("t", [Column("category", "VARCHAR", _OWNER_T), Column("id", "INT", _OWNER_T)])
         sql = to_sql(None, None, [key, n.count()], table, NoOperation(), order_by=[n.count().descending(), key.ascending()],
                      group_by=[key])
-        assert sql.endswith("GROUP BY t0.category ORDER BY COUNT(t0.id) DESC, t0.category ASC")
+        assert sql.endswith("GROUP BY t0.category ORDER BY COUNT(t0.id) DESC, t0.category ASC NULLS FIRST")
 
     def test_order_by_a_sum(self):
         n = IntegerAttribute("Id", "id", "INT", _OWNER_T)
         table = Table("t", [Column("id", "INT", _OWNER_T)])
         sql = to_sql(None, None, [n.sum()], table, NoOperation(), order_by=[n.sum().ascending()])
-        assert sql.endswith("ORDER BY SUM(t0.id) ASC")
+        assert sql.endswith("ORDER BY SUM(t0.id) ASC NULLS FIRST")
 
 
 class TestConditionAsColumn:
@@ -1343,7 +1343,7 @@ class TestOffset:
 
     def test_offset_after_order_by(self):
         attr = IntegerAttribute("Id", "id", "INT", _OWNER_T)
-        assert self._sql(order_by=[attr.ascending()], limit=3, offset=2).endswith("ORDER BY t0.id ASC LIMIT 3 OFFSET 2")
+        assert self._sql(order_by=[attr.ascending()], limit=3, offset=2).endswith("ORDER BY t0.id ASC NULLS FIRST LIMIT 3 OFFSET 2")
 
     def test_no_offset_by_default(self):
         assert "OFFSET" not in self._sql(limit=2)

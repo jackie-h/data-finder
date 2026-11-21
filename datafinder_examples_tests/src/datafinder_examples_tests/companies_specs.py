@@ -71,7 +71,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
                 ],
                 dtype=object,
             ),
-            expected_sql={"duckdb": "STRING_AGG(t0.name, ', ' ORDER BY t0.name ASC)"},
+            expected_sql={"duckdb": "STRING_AGG(t0.name, ', ' ORDER BY t0.name ASC NULLS FIRST)"},
         ),
         TestExpectation(
             name="join_descending",
@@ -706,7 +706,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
                 ],
                 dtype=object,
             ),
-            expected_sql={"duckdb": "ORDER BY t0.category ASC, t0.name ASC"},
+            expected_sql={"duckdb": "ORDER BY t0.category ASC NULLS FIRST, t0.name ASC NULLS FIRST"},
         ),
         TestExpectation(
             name="chained_order_by_replaces_the_direction_of_a_column_sorted_again",
@@ -735,7 +735,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
                 ],
                 dtype=object,
             ),
-            expected_sql={"duckdb": "ORDER BY t0.category ASC, t0.name DESC, t0.id ASC"},
+            expected_sql={"duckdb": "ORDER BY t0.category ASC NULLS FIRST, t0.name DESC NULLS LAST, t0.id ASC"},
         ),
         TestExpectation(
             name="sort_by_category_asc_name_desc",

@@ -79,14 +79,16 @@ COMPANIES_MISSING_CATEGORY_SPECS = FinderSpec(
             query=lambda f: f.find_all([f.id_()]).order_by(f.category().ascending(nulls="last"), f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[3], [1], [2], [4]], dtype=object),
-            expected_sql={"duckdb": "ORDER BY t0.category ASC NULLS LAST, t0.id ASC"},
+            # the SQL is Postgres, where an ascending sort has a missing value last: it says nothing, and each engine is told what it
+            # needs to sort the same
+            expected_sql={"duckdb": "ORDER BY t0.category ASC, t0.id ASC"},
         ),
         TestExpectation(
             name="a_descending_sort_can_put_a_missing_value_first",
             query=lambda f: f.find_all([f.id_()]).order_by(f.category().descending(nulls="first"), f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[2], [4], [1], [3]], dtype=object),
-            expected_sql={"duckdb": "ORDER BY t0.category DESC NULLS FIRST, t0.id ASC"},
+            expected_sql={"duckdb": "ORDER BY t0.category DESC, t0.id ASC"},
         ),
         TestExpectation(
             name="a_sort_on_a_column_that_cannot_be_missing_says_nothing_of_a_missing_value",

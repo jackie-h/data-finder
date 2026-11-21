@@ -642,7 +642,9 @@ def _own_sorts(query: QuerySpecification, alias: TableAlias, sorts: Sequence[Sor
             raise ValueError(f"The rows after a limit or an offset are ordered by the columns of the result: {names} "
                              "(result[\"name\"].ascending())")
         name = _column_name(found)
-        result.append(SortOperation(ColumnWithJoin(alias.column(name, _column_type(found)), None), sort.direction))
+        column = alias.column(name, _column_type(found))
+        column.nullable = may_be_missing(found)  # a column of the query it reads can be missing when the column it shows can
+        result.append(SortOperation(ColumnWithJoin(column, None), sort.direction, sort.nulls_first))
     return result
 
 
@@ -893,13 +895,40 @@ _WINDOW_SQL_NAMES = {
     WindowFunction.PERCENT_RANK:'PERCENT_RANK',
 }
 
+def may_be_missing(element) -> bool:
+    """Whether a sorted value can be missing: not a constant, and not a column of a table that cannot be NULL and that the query
+    reads from itself, as a column read through a join has no value where the join finds no row."""
+    if isinstance(element, Alias):
+        return may_be_missing(element.element)
+    if isinstance(element, (ConstantOperation, CountAllOperation)):
+        return False
+    if isinstance(element, AggregateOperation) and element.operator in (AggregateOperator.COUNT, AggregateOperator.COUNT_DISTINCT):
+        return False  # a count of nothing is 0
+    column_of = getattr(element, '_column_with_join', None)  # an attribute reads a column
+    if callable(column_of):
+        return may_be_missing(column_of())
+    if isinstance(element, ColumnWithJoin):
+        return element.column.nullable or element.parent is not None
+    return True
+
+
+def _sort_suffix(sort: SortOperation) -> str:
+    """`` ASC`` or `` DESC``, and where a missing value goes when the sort has to say it. The SQL is Postgres, where a missing value is the
+    largest, so last when ascending and first when descending; a sort that wants the other, as Legend's does by default, says so, so every
+    engine it is translated for sorts the same. A value that cannot be missing has no place to say."""
+    word = ' ASC' if sort.direction == SortDirection.ASC else ' DESC'
+    if sort.nulls_first == (sort.direction == SortDirection.DESC) or not may_be_missing(sort.column):
+        return word
+    return word + (' NULLS FIRST' if sort.nulls_first else ' NULLS LAST')
+
+
 def _window_spec_to_string(window: WindowSpecification) -> str:
     parts = []
     if window.partition_by:
         parts.append('PARTITION BY ' + ', '.join(sql_operation_to_string(part) for part in window.partition_by))
     if window.order_by:
         parts.append('ORDER BY ' + ', '.join(
-            sql_operation_to_string(sort.column) + (' ASC' if sort.direction == SortDirection.ASC else ' DESC')
+            sql_operation_to_string(sort.column) + _sort_suffix(sort)
             for sort in window.order_by
         ))
     return 'OVER (' + ' '.join(parts) + ')'
@@ -955,7 +984,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         sql = 'STRING_AGG(' + sql_operation_to_string(operation.element) + ", '" + (operation.separator or '').replace("'", "''") + "'"
         if operation.order_by:
             sql += ' ORDER BY ' + ', '.join(
-                sql_operation_to_string(s.column) + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+                sql_operation_to_string(s.column) + _sort_suffix(s)
                 for s in operation.order_by)
         sql += ')'
         if operation.window is not None:
@@ -1186,7 +1215,7 @@ class SQLQueryGenerator:
         self._order_by_parts = [
             # a constant is sorted by the name it is selected under: a literal in ORDER BY is not a column (a number is a position)
             ('"' + constants[id(s.column)].replace('"', '""') + '"' if id(s.column) in constants else self.__sort_expression(s.column))
-            + (' ASC' if s.direction == SortDirection.ASC else ' DESC')
+            + _sort_suffix(s)
             for s in order_by
         ]
         self._limit = query.limit if ordered else None
@@ -1247,7 +1276,7 @@ class SQLQueryGenerator:
         if window is None:
             return None
         partition_by = [self.__rewrite_operation(p) for p in window.partition_by]
-        order_by = [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in window.order_by]
+        order_by = [SortOperation(self.__rewrite_operation(s.column), s.direction, s.nulls_first) for s in window.order_by]
         return WindowSpecification(partition_by, order_by)
 
     def __case_sql(self, case: CaseOperation) -> str:
@@ -1269,7 +1298,7 @@ class SQLQueryGenerator:
         elif isinstance(op, AggregateOperation):
             return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,
                                       self.__rewrite_window_spec(op.window), op.separator,
-                                      [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in op.order_by],
+                                      [SortOperation(self.__rewrite_operation(s.column), s.direction, s.nulls_first) for s in op.order_by],
                                       op.percentile, op.from_largest)
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
