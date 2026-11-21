@@ -758,7 +758,7 @@ is a `WHERE` and drops that person.
 Read the columns from the filtered navigation you made, as `locations` above, to read them from one join. Every call of `filter`
 makes a join of its own, so two filters on the same navigation are two joins, even when their conditions are the same. A filter
 of a filtered navigation holds both conditions, a filter on a navigation below another filters that join, and the condition is
-ANDed with the condition a mapping gives the join.
+ANDed with the condition a mapping gives the join, and, on a milestoned class, with its milestoning at the dates of the query.
 
 ### Result formats
 

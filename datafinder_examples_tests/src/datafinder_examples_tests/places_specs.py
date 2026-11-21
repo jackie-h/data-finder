@@ -40,6 +40,11 @@ def _two_filters_on_one_navigation(f):
             .order_by(f.name().ascending(), in_new_york_or_hoboken.visits().ascending())
 
 
+def _filter_of_a_filter(f):
+    frequent = f.locations().filter(lambda each: each.place().is_in(_HOBOKEN_OR_NEW_YORK)).filter(lambda each: each.visits() > 3)
+    return f.find_all([f.name(), frequent.place(), frequent.visits()]).order_by(f.name().ascending())
+
+
 def _filter_below_a_navigation(f):
     locations = f.locations()
     east = locations.region().filter(lambda each: each.name().eq("East"))
@@ -92,6 +97,15 @@ PLACES_PERSON_FINDER_SPECS = FinderSpec(
                 ["Ann", "New York", 3], ["Ann", "New York", 5], ["Bob", None, None], ["Cy", "New York", 1],
             ], dtype=object),
             expected_sql={"duckdb": "t1.place = 'New York'"},
+        ),
+        TestExpectation(
+            name="a_filter_of_a_filtered_navigation_holds_both_conditions",
+            skip_backends=_NO_FILTERS,
+            query=_filter_of_a_filter,
+            expected_columns=["Name", "Locations Place", "Locations Visits"],
+            # of Hoboken and New York, only Ann's New York has been visited more than 3 times
+            expected_result=np.array([["Ann", "New York", 5], ["Bob", None, None], ["Cy", None, None]], dtype=object),
+            expected_sql={"duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York') AND t1.visits > 3)"},
         ),
         TestExpectation(
             name="a_filter_on_a_navigation_below_another",

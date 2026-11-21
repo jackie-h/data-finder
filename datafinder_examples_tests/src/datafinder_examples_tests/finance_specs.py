@@ -503,6 +503,28 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
             # no version of the account named 'Acme Ltd' is live in 2023, so the branch isn't found
             expected_result=np.array([["AAPL", None]], dtype=object),
         ),
+        TestExpectation(
+            name="a_filter_on_a_milestoned_navigation_applies_at_the_query_time",
+            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
+            query=lambda f: f.find_all(
+                None, _BOTH_AT,
+                [f.symbol(), f.account().filter(lambda each: each.name().eq("Acme Ltd")).branch().city()],
+                f.symbol().eq("AAPL"),
+            ),
+            expected_columns=["Symbol", "Account Branch City"],
+            expected_result=np.array([["AAPL", "London"]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_filter_on_a_milestoned_navigation_that_no_live_version_holds_leaves_nothing_below_it",
+            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
+            query=lambda f: f.find_all(
+                None, _AT,
+                [f.symbol(), f.account().filter(lambda each: each.name().eq("Acme Ltd")).branch().city()],
+                f.symbol().eq("AAPL"),
+            ),
+            expected_columns=["Symbol", "Account Branch City"],
+            expected_result=np.array([["AAPL", None]], dtype=object),
+        ),
     ],
 )
 
