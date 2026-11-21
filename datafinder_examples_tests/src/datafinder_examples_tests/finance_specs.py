@@ -247,7 +247,7 @@ TRADE_FINDER_SPECS = FinderSpec(
             name="valid_from_day_of_week",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().day_of_week()]),
             expected_columns=["Day Of Week Valid From"],
-            # 2020-01-01 is Wednesday; DuckDB DOW: 0=Sunday → Wednesday=3
+            # 2020-01-01 is a Wednesday: ISO day 3 (Monday is 1)
             expected_result=np.array([[3]], dtype=object),
         ),
         # --- DateTimeAttribute arithmetic ---

@@ -801,8 +801,8 @@ class DateFunctions(_CalendarFunctions):
         return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week ' + self._function_label())
 
     def day_of_week(self) -> DateExtractOperation:
-        """Extract the day of the week (0=Sunday in SQL). See ``d.weekday()`` for Python's Monday-based equivalent."""
-        return DateExtractOperation(self._function_input(), DatePart.DOW, 'Day Of Week ' + self._function_label())
+        """Extract the ISO day of the week: Monday is 1 and Sunday is 7. Equivalent to ``d.isoweekday()``."""
+        return DateExtractOperation(self._function_input(), DatePart.ISODOW, 'Day Of Week ' + self._function_label())
 
     def add_days(self, n: int) -> 'DateArithmeticOperation[datetime.date]':
         """Add ``n`` days. Equivalent to ``d + timedelta(days=n)``."""
@@ -942,8 +942,8 @@ class DateTimeFunctions(_Operand, _CalendarFunctions):
         return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week ' + self._function_label())
 
     def day_of_week(self) -> DateExtractOperation:
-        """Extract the day of the week (0=Sunday in SQL). See ``dt.weekday()`` for Python's Monday-based equivalent."""
-        return DateExtractOperation(self._function_input(), DatePart.DOW, 'Day Of Week ' + self._function_label())
+        """Extract the ISO day of the week: Monday is 1 and Sunday is 7. Equivalent to ``dt.isoweekday()``."""
+        return DateExtractOperation(self._function_input(), DatePart.ISODOW, 'Day Of Week ' + self._function_label())
 
     def add_days(self, n: int) -> 'DateArithmeticOperation[datetime.datetime]':
         """Add ``n`` days. Equivalent to ``dt + timedelta(days=n)``."""
@@ -1630,7 +1630,7 @@ class DatePart(Enum):
     SECOND = 'SECOND'
     QUARTER = 'QUARTER'
     WEEK = 'WEEK'
-    DOW = 'DOW'
+    ISODOW = 'ISODOW'
     DOY = 'DOY'
     MICROSECOND = 'MICROSECOND'
 
