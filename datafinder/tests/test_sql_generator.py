@@ -944,6 +944,11 @@ class TestStringLiteralsAreEscaped:
 
 class TestCountDistinct:
 
+    def test_two_counts_are_compared_with_a_plain_equals_as_a_count_is_never_missing(self):
+        a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
+        sql = to_sql(None, None, [(a.count_distinct() == a.count()).alias("Same")], Table("t", [Column("a", "VARCHAR", _OWNER_T)]), NoOperation())
+        assert "COUNT(DISTINCT t0.a) = COUNT(t0.a) AS" in sql and "IS NULL" not in sql
+
     def test_count_distinct(self):
         a = StringAttribute("A", "a", "VARCHAR", _OWNER_T)
         sql = to_sql(None, None, [a.count_distinct()], Table("t", [Column("a", "VARCHAR", _OWNER_T)]), NoOperation())
