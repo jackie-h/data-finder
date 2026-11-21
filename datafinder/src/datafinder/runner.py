@@ -4,7 +4,7 @@ from typing import Any, Callable, Literal, Mapping, Sequence, Union, overload
 from datafinder import Attribute, Operation, DataFrame
 from datafinder.sql_generator import (
     _column_name, _column_of, _column_type, _stage, build_query_specification, check_view_joins, display_alias, dropped, labelled,
-    made_distinct, may_be_missing, query_sql_to_string, relation_numbers as _relation_numbers, accepts_group_by, sorted_by, taken,
+    made_distinct, query_sql_to_string, relation_numbers as _relation_numbers, accepts_group_by, sorted_by, taken,
     view_sql_to_string, _with_clauses)
 from datafinder.typed_attributes import typed_attribute
 from model.milestoning import AsOf, ProcessingTemporalColumns, milestoning_columns_of
@@ -81,7 +81,7 @@ def _attributes(alias: TableAlias) -> dict[str, Attribute]:
     duplicates = sorted({n for n in names if names.count(n) > 1})
     if duplicates:
         raise ValueError(f"A result needs each column named once, but {duplicates} are repeated: name them with alias()")
-    return {name: typed_attribute(name, _column_type(element), alias, nullable=may_be_missing(element)) for name, element in zip(names, alias.columns)}
+    return {name: typed_attribute(name, _column_type(element), alias) for name, element in zip(names, alias.columns)}
 
 
 class Row:

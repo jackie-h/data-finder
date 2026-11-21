@@ -35,21 +35,16 @@ def test_nulls_is_first_or_last(method):
         getattr(_CATEGORY, method)(nulls="middle")
 
 
-def test_the_sql_says_it_when_the_sort_is_not_where_postgres_puts_a_missing_value():
-    # Postgres: last when ascending, first when descending
+def test_the_sql_says_where_a_missing_value_goes_every_time():
     assert _sql(_CATEGORY.ascending()).endswith("ORDER BY t0.category ASC NULLS FIRST")
     assert _sql(_CATEGORY.descending()).endswith("ORDER BY t0.category DESC NULLS LAST")
-    assert _sql(_CATEGORY.ascending(nulls="last")).endswith("ORDER BY t0.category ASC")
-    assert _sql(_CATEGORY.descending(nulls="first")).endswith("ORDER BY t0.category DESC")
+    assert _sql(_CATEGORY.ascending(nulls="last")).endswith("ORDER BY t0.category ASC NULLS LAST")
+    assert _sql(_CATEGORY.descending(nulls="first")).endswith("ORDER BY t0.category DESC NULLS FIRST")
 
 
-def test_a_column_that_cannot_be_missing_says_nothing():
-    assert _sql(_ID.ascending()).endswith("ORDER BY t0.id ASC")
-    assert _sql(_ID.descending(nulls="first")).endswith("ORDER BY t0.id DESC")
-
-
-def test_a_count_cannot_be_missing_but_a_sum_can():
-    assert to_sql(None, None, [_ID.count()], _TABLE, NoOperation(), order_by=[_ID.count().descending()]).endswith("ORDER BY COUNT(t0.id) DESC")
+def test_a_column_that_cannot_be_missing_and_an_aggregate_say_it_too():
+    assert _sql(_ID.ascending()).endswith("ORDER BY t0.id ASC NULLS FIRST")
+    assert to_sql(None, None, [_ID.count()], _TABLE, NoOperation(), order_by=[_ID.count().descending()]).endswith("ORDER BY COUNT(t0.id) DESC NULLS LAST")
     assert to_sql(None, None, [_ID.sum()], _TABLE, NoOperation(), order_by=[_ID.sum().descending()]).endswith("ORDER BY SUM(t0.id) DESC NULLS LAST")
 
 

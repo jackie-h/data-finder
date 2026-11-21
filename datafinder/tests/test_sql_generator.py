@@ -1190,7 +1190,7 @@ class TestSortByAnAggregate:
         table = Table("t", [Column("category", "VARCHAR", _OWNER_T), Column("id", "INT", _OWNER_T)])
         sql = to_sql(None, None, [key, n.count()], table, NoOperation(), order_by=[n.count().descending(), key.ascending()],
                      group_by=[key])
-        assert sql.endswith("GROUP BY t0.category ORDER BY COUNT(t0.id) DESC, t0.category ASC NULLS FIRST")
+        assert sql.endswith("GROUP BY t0.category ORDER BY COUNT(t0.id) DESC NULLS LAST, t0.category ASC NULLS FIRST")
 
     def test_order_by_a_sum(self):
         n = IntegerAttribute("Id", "id", "INT", _OWNER_T)

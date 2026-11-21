@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 
 from datafinder import Attribute, Operation, DataFrame, QueryRunnerBase
-from datafinder.sql_generator import may_be_missing
 from model.graphql_mapping import (
     parse_field_path,
     plain_field_path,
@@ -503,12 +502,8 @@ def _to_order_by_clause(order_by: list | None) -> str | None:
 
 
 def _hasura_direction(so: SortOperation) -> str:
-    """``asc`` or ``desc``, which Postgres, as Hasura reads it, puts a missing value last for and first for; a sort that puts it the other
-    way says so, as ``asc_nulls_first``, unless its value cannot be missing."""
-    word = "asc" if so.direction == SortDirection.ASC else "desc"
-    if so.nulls_first == (so.direction == SortDirection.DESC) or not may_be_missing(so.column):
-        return word
-    return word + ("_nulls_first" if so.nulls_first else "_nulls_last")
+    """The direction of a sort and where a missing value goes, as Hasura's ``order_by`` says it: ``asc_nulls_first``, ``desc_nulls_last``."""
+    return ("asc" if so.direction == SortDirection.ASC else "desc") + ("_nulls_first" if so.nulls_first else "_nulls_last")
 
 
 def _build_server_args(op, order_by: list | None, limit: int | None, filter_conv) -> list[str]:

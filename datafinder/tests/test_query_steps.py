@@ -10,7 +10,7 @@ from datafinder.sql_generator import to_sql
 from model.relational import NoOperation, OrderedQuerySpecification, Table
 
 _TABLE = Table("accounts", [("ID", "INT"), ("NAME", "VARCHAR")])
-_ID = IntegerAttribute("Id", "ID", "INT", _TABLE, nullable=False)
+_ID = IntegerAttribute("Id", "ID", "INT", _TABLE)
 _NAME = StringAttribute("Name", "NAME", "VARCHAR", _TABLE)
 
 
@@ -23,14 +23,14 @@ def _selects(result: FinderResult) -> int:
 
 
 @pytest.mark.parametrize("steps,ends_with", [
-    (lambda r: r.order_by(_ID.ascending()), "ORDER BY t0.ID ASC"),
-    (lambda r: r.order_by(_ID.ascending()).limit(3), "ORDER BY t0.ID ASC LIMIT 3"),
-    (lambda r: r.order_by(_ID.ascending()).offset(1).limit(3), "ORDER BY t0.ID ASC LIMIT 3 OFFSET 1"),
+    (lambda r: r.order_by(_ID.ascending()), "ORDER BY t0.ID ASC NULLS FIRST"),
+    (lambda r: r.order_by(_ID.ascending()).limit(3), "ORDER BY t0.ID ASC NULLS FIRST LIMIT 3"),
+    (lambda r: r.order_by(_ID.ascending()).offset(1).limit(3), "ORDER BY t0.ID ASC NULLS FIRST LIMIT 3 OFFSET 1"),
     (lambda r: r.offset(1).limit(3), "LIMIT 3 OFFSET 1"),
     (lambda r: r.limit(5).limit(2), "LIMIT 2"),
     (lambda r: r.limit(2).limit(5), "LIMIT 2"),
     (lambda r: r.offset(2).offset(3), "OFFSET 5"),
-    (lambda r: r.distinct().order_by(_ID.ascending()), "ORDER BY t0.ID ASC"),
+    (lambda r: r.distinct().order_by(_ID.ascending()), "ORDER BY t0.ID ASC NULLS FIRST"),
 ])
 def test_a_step_that_comes_next_is_folded_into_the_select_before_it(steps, ends_with):
     result = steps(_rows())
@@ -56,8 +56,8 @@ def test_distinct_after_an_order_by_a_column_it_shows_is_one_select():
 def test_taking_then_sorting_orders_the_rows_taken_and_sorting_then_taking_takes_the_first_of_the_order():
     taken_then_sorted = _rows().limit(3).order_by(_ID.descending()).to_sql()
     sorted_then_taken = _rows().order_by(_ID.descending()).limit(3).to_sql()
-    assert "LIMIT 3) AS" in taken_then_sorted and taken_then_sorted.endswith("ORDER BY t0.id DESC")
-    assert sorted_then_taken.count("SELECT") == 1 and sorted_then_taken.endswith("ORDER BY t0.ID DESC LIMIT 3")
+    assert "LIMIT 3) AS" in taken_then_sorted and taken_then_sorted.endswith("ORDER BY t0.id DESC NULLS LAST")
+    assert sorted_then_taken.count("SELECT") == 1 and sorted_then_taken.endswith("ORDER BY t0.ID DESC NULLS LAST LIMIT 3")
 
 
 def test_a_sort_after_a_limit_is_of_the_columns_the_result_shows():
@@ -89,13 +89,13 @@ def test_the_sql_of_a_result_is_the_same_each_time_it_is_asked_for():
 def test_a_sort_by_a_column_of_the_result_before_reads_what_that_result_shows():
     rows = _rows()
     ordered = rows.order_by(rows["id"].descending())
-    assert _selects(ordered) == 1 and ordered.to_sql().endswith("ORDER BY t0.ID DESC")
+    assert _selects(ordered) == 1 and ordered.to_sql().endswith("ORDER BY t0.ID DESC NULLS LAST")
 
 
 def test_a_sort_by_a_column_of_a_step_over_rows_taken_is_a_sort_of_that_step():
     taken = _rows().limit(3)
     ordered = taken.order_by(taken["id"].descending())
-    assert _selects(ordered) == 2 and ordered.to_sql().endswith("ORDER BY t0.id DESC")
+    assert _selects(ordered) == 2 and ordered.to_sql().endswith("ORDER BY t0.id DESC NULLS LAST")
 
 
 def test_a_result_read_twice_in_a_join_is_two_relations():

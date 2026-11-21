@@ -642,9 +642,7 @@ def _own_sorts(query: QuerySpecification, alias: TableAlias, sorts: Sequence[Sor
             raise ValueError(f"The rows after a limit or an offset are ordered by the columns of the result: {names} "
                              "(result[\"name\"].ascending())")
         name = _column_name(found)
-        column = alias.column(name, _column_type(found))
-        column.nullable = may_be_missing(found)  # a column of the query it reads can be missing when the column it shows can
-        result.append(SortOperation(ColumnWithJoin(column, None), sort.direction, sort.nulls_first))
+        result.append(SortOperation(ColumnWithJoin(alias.column(name, _column_type(found)), None), sort.direction, sort.nulls_first))
     return result
 
 
@@ -895,31 +893,11 @@ _WINDOW_SQL_NAMES = {
     WindowFunction.PERCENT_RANK:'PERCENT_RANK',
 }
 
-def may_be_missing(element) -> bool:
-    """Whether a sorted value can be missing: not a constant, and not a column of a table that cannot be NULL and that the query
-    reads from itself, as a column read through a join has no value where the join finds no row."""
-    if isinstance(element, Alias):
-        return may_be_missing(element.element)
-    if isinstance(element, (ConstantOperation, CountAllOperation)):
-        return False
-    if isinstance(element, AggregateOperation) and element.operator in (AggregateOperator.COUNT, AggregateOperator.COUNT_DISTINCT):
-        return False  # a count of nothing is 0
-    column_of = getattr(element, '_column_with_join', None)  # an attribute reads a column
-    if callable(column_of):
-        return may_be_missing(column_of())
-    if isinstance(element, ColumnWithJoin):
-        return element.column.nullable or element.parent is not None
-    return True
-
-
 def _sort_suffix(sort: SortOperation) -> str:
-    """`` ASC`` or `` DESC``, and where a missing value goes when the sort has to say it. The SQL is Postgres, where a missing value is the
-    largest, so last when ascending and first when descending; a sort that wants the other, as Legend's does by default, says so, so every
-    engine it is translated for sorts the same. A value that cannot be missing has no place to say."""
-    word = ' ASC' if sort.direction == SortDirection.ASC else ' DESC'
-    if sort.nulls_first == (sort.direction == SortDirection.DESC) or not may_be_missing(sort.column):
-        return word
-    return word + (' NULLS FIRST' if sort.nulls_first else ' NULLS LAST')
+    """`` ASC`` or `` DESC`` and where a missing value goes, written every time. The SQL is Postgres, where it is last when ascending and first
+    when descending, and each engine it is translated for has its own default, so the sort says it: the same rows come in the same order
+    on every engine."""
+    return (' ASC' if sort.direction == SortDirection.ASC else ' DESC') + (' NULLS FIRST' if sort.nulls_first else ' NULLS LAST')
 
 
 def _window_spec_to_string(window: WindowSpecification) -> str:

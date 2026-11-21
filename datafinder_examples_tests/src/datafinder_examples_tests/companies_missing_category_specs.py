@@ -6,7 +6,8 @@ missing value is different from any value, so ``!=`` against a value matches it,
 does not. The ``OR IS NULL`` is written for any column, a required property and a primary key included.
 
 A sort puts a missing value where Legend's database does, as the smallest value: first when ascending and last when descending.
-``nulls="first"`` or ``nulls="last"`` on the sort says otherwise, so the same rows come in the same order on every engine.
+``nulls="first"`` or ``nulls="last"`` on the sort says otherwise. The SQL says where a missing value goes for every sort, so the same
+rows come in the same order on every engine.
 
     companies — id INT, name VARCHAR, category VARCHAR (NULL for ids 2 and 4)
 """
@@ -65,38 +66,35 @@ COMPANIES_MISSING_CATEGORY_SPECS = FinderSpec(
             expected_columns=["Id"],
             # 2 and 4 have no category, then Finance (3) and Technology (1)
             expected_result=np.array([[2], [4], [3], [1]], dtype=object),
-            expected_sql={"duckdb": "ORDER BY t0.category ASC NULLS FIRST, t0.id ASC"},
+            expected_sql={"duckdb": "ORDER BY t0.category ASC NULLS FIRST, t0.id ASC NULLS FIRST"},
         ),
         TestExpectation(
             name="a_missing_value_sorts_last_when_descending",
             query=lambda f: f.find_all([f.id_()]).order_by(f.category().descending(), f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[1], [3], [2], [4]], dtype=object),
-            expected_sql={"duckdb": "ORDER BY t0.category DESC NULLS LAST, t0.id ASC"},
+            expected_sql={"duckdb": "ORDER BY t0.category DESC NULLS LAST, t0.id ASC NULLS FIRST"},
         ),
         TestExpectation(
             name="an_ascending_sort_can_put_a_missing_value_last",
             query=lambda f: f.find_all([f.id_()]).order_by(f.category().ascending(nulls="last"), f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[3], [1], [2], [4]], dtype=object),
-            # the SQL is Postgres, where an ascending sort has a missing value last: it says nothing, and each engine is told what it
-            # needs to sort the same
-            expected_sql={"duckdb": "ORDER BY t0.category ASC, t0.id ASC"},
+            expected_sql={"duckdb": "ORDER BY t0.category ASC NULLS LAST, t0.id ASC NULLS FIRST"},
         ),
         TestExpectation(
             name="a_descending_sort_can_put_a_missing_value_first",
             query=lambda f: f.find_all([f.id_()]).order_by(f.category().descending(nulls="first"), f.id_().ascending()),
             expected_columns=["Id"],
             expected_result=np.array([[2], [4], [1], [3]], dtype=object),
-            expected_sql={"duckdb": "ORDER BY t0.category DESC, t0.id ASC"},
+            expected_sql={"duckdb": "ORDER BY t0.category DESC NULLS FIRST, t0.id ASC NULLS FIRST"},
         ),
         TestExpectation(
-            name="a_sort_on_a_column_that_cannot_be_missing_says_nothing_of_a_missing_value",
+            name="a_sort_says_where_a_missing_value_goes_whatever_the_column",
             query=lambda f: f.find_all([f.id_()]).order_by(f.id_().descending()),
             expected_columns=["Id"],
             expected_result=np.array([[4], [3], [2], [1]], dtype=object),
-            expected_sql={"duckdb": "ORDER BY t0.id DESC"},
-            unexpected_sql={"duckdb": "NULLS"},
+            expected_sql={"duckdb": "ORDER BY t0.id DESC NULLS LAST"},
         ),
         TestExpectation(
             name="a_sort_by_something_that_is_not_a_column_says_where_a_missing_value_goes",
