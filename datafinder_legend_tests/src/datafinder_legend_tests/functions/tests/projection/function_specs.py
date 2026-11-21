@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION, DATE_PART_TRUNCATE
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, CONCAT_FUNCTION, DATE_PART_TRUNCATE, DATE_DIFF_AS_SUBTRACTION
 
 _SRC = "functions/tests/projection/testFunction.pure"
 
@@ -74,6 +74,6 @@ FUNCTION_TRADE_SPECS = FinderSpec(
                lambda f: f.find_all([f.settlement_date_time().year()], f.id_().is_in([9, 10]))),
         ported("testDateDiffZeroToOne", f"{_SRC}::testDateDiffZeroToOne",
                'select datediff(day, "root".tradeDate, "root".settlementDateTime) as "daysDiff" from tradeTable as "root" where "root".ID in (9, 10)',
-               lambda f: f.find_all([f.date().diff_days(f.settlement_date_time())], f.id_().is_in([9, 10]))),
+               lambda f: f.find_all([f.date().diff_days(f.settlement_date_time())], f.id_().is_in([9, 10])), known_gaps={BACKEND: DATE_DIFF_AS_SUBTRACTION}),
     ],
 )

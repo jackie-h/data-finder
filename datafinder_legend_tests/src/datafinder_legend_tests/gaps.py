@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATE_DIFF_AS_SUBTRACTION, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
 )
 
 
@@ -228,7 +228,19 @@ def _order_left_joins(tree: exp.Expr) -> exp.Expr:
 
 
 # gap reason -> the differences that reason covers, set aside on both statements before comparing
+def _date_diff_days_as_subtraction(tree: exp.Expr) -> exp.Expr:
+    """``datediff(day, a, b)`` is ``CAST(b AS DATE) - CAST(a AS DATE)``: the days from one date to another."""
+    for node in list(tree.find_all(exp.DateDiff)):
+        unit = node.this
+        if isinstance(unit, exp.Literal) and unit.is_string and unit.name.lower() == 'day':
+            start, end = node.args['expression'], node.args['unit']
+            node.replace(exp.Sub(this=exp.Cast(this=end.copy(), to=exp.DataType.build('date')),
+                                 expression=exp.Cast(this=start.copy(), to=exp.DataType.build('date'))))
+    return tree
+
+
 _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
+    DATE_DIFF_AS_SUBTRACTION: [_date_diff_days_as_subtraction],
     TDS_FILTER_OPTIONAL_PROPERTY: [_drop_not_null_guards],
     ISOLATED_MILESTONED_JOIN: [_inline_isolated_join_filter],
     LEFT_JOIN_ORDER: [_order_left_joins],
