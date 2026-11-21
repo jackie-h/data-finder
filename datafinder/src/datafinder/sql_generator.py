@@ -4,10 +4,14 @@ import itertools
 import re
 import datetime
 from functools import reduce
-from typing import Callable, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 import sqlglot
 import sqlglot.errors
+from sqlglot import exp
+from sqlglot.dialects.databricks import Databricks
+from sqlglot.generator import Generator
+from sqlglot.generators.databricks import DatabricksGenerator
 
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
@@ -520,7 +524,7 @@ def _column_type(element: RelationalOperationElement) -> str:
             return "BIGINT"
         if element.operator == AggregateOperator.STRING_AGG:
             return "VARCHAR"
-        if element.operator in (AggregateOperator.MIN, AggregateOperator.MAX, AggregateOperator.SUM):
+        if element.operator in (AggregateOperator.MIN, AggregateOperator.MAX, AggregateOperator.SUM, AggregateOperator.PERCENTILE_DISC):
             return _column_type(element.element)
         if element.operator in (AggregateOperator.BOOL_AND, AggregateOperator.BOOL_OR):
             return "BOOLEAN"
@@ -771,9 +775,20 @@ _PLAIN_IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*$')
 SOURCE_DIALECT = "postgres"
 
 
+class _Databricks(Databricks):
+    """Databricks as sqlglot writes it, but with a percentile left as ``PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY x)``, which Databricks has
+    and which is exact; sqlglot's Spark writes it as ``PERCENTILE_APPROX(x, p)``, an approximation that has no order."""
+
+    class Generator(DatabricksGenerator):
+        TRANSFORMS = {**DatabricksGenerator.TRANSFORMS, exp.WithinGroup: lambda self, e: Generator.withingroup_sql(self, e)}
+
+
+_DIALECTS: dict[str, Any] = {"databricks": _Databricks}
+
+
 def sql_for_dialect(sql: str, dialect: str) -> str:
     """The generated SQL as ``dialect`` (a sqlglot dialect: ``duckdb``, ``databricks``, ...) spells it."""
-    return sqlglot.transpile(sql, read=SOURCE_DIALECT, write=dialect)[0]
+    return sqlglot.transpile(sql, read=SOURCE_DIALECT, write=_DIALECTS.get(dialect, dialect))[0]
 
 
 _DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
@@ -944,6 +959,14 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         if operation.window is not None:
             sql += ' ' + _window_spec_to_string(operation.window)
         return sql
+    elif isinstance(operation, AggregateOperation) and operation.operator in (AggregateOperator.PERCENTILE_CONT, AggregateOperator.PERCENTILE_DISC):
+        # ANSI's ordered-set aggregate: the fraction is the argument, and the values it is taken from are ordered in the group. A continuous
+        # percentile interpolates, so it takes the values as floating point
+        values = sql_operation_to_string(operation.element)
+        if operation.operator == AggregateOperator.PERCENTILE_CONT:
+            values = f'CAST({values} AS DOUBLE PRECISION)'
+        function = 'PERCENTILE_CONT' if operation.operator == AggregateOperator.PERCENTILE_CONT else 'PERCENTILE_DISC'
+        return f"{function}({operation.percentile!r}) WITHIN GROUP (ORDER BY {values} {'DESC' if operation.from_largest else 'ASC'})"
     elif isinstance(operation, AggregateOperation):
         fn = _AGGREGATE_SQL_NAMES.get(operation.operator, operation.operator.name)
         sql = fn + '(' + sql_operation_to_string(operation.element) + ')'
@@ -1244,7 +1267,8 @@ class SQLQueryGenerator:
         elif isinstance(op, AggregateOperation):
             return AggregateOperation(self.__rewrite_operation(op.element), op.operator, op.display_name,
                                       self.__rewrite_window_spec(op.window), op.separator,
-                                      [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in op.order_by])
+                                      [SortOperation(self.__rewrite_operation(s.column), s.direction) for s in op.order_by],
+                                      op.percentile, op.from_largest)
         elif isinstance(op, ScalarFunctionOperation):
             return ScalarFunctionOperation(self.__rewrite_operation(op.element), op.function, op.display_name,
                                            second_arg=op.second_arg, extra_args=list(op.extra_args), cast=op.cast)

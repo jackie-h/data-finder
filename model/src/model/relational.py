@@ -97,6 +97,13 @@ class Aggregates(_Operand, Generic[AG]):
         return self._aggregate(AggregateOperator.VAR_SAMP if _sample(ddof) else AggregateOperator.VAR_POP, 'Var',
                                DoubleAggregateOperation)
 
+    def percentile(self, p: float, ascending: bool = True, continuous: bool = True) -> Any:
+        """The value that the fraction ``p`` (between 0 and 1) of the group falls below: ``percentile(0.5)`` is the median. It interpolates
+        between the neighbouring values, unless ``continuous=False``, which gives the nearest value that is there and is of the type of the
+        expression. ``ascending=False`` reads the group from the largest value, so ``percentile(0.95, ascending=False)`` is the 5th."""
+        return _percentile_operation(self._arithmetic_operand(), p, ascending, continuous, 'Percentile Expression',
+                                     getattr(self, '_value_aggregate', None))
+
 
 class Extremes(_Operand, Generic[AG]):
     """The smallest and largest of a group, for an expression that can be ordered but not summed. They are of the
@@ -107,6 +114,18 @@ class Extremes(_Operand, Generic[AG]):
 
     def max(self) -> AG:
         return getattr(self, '_value_aggregate')(self._arithmetic_operand(), AggregateOperator.MAX, 'Max Expression')
+
+
+def _percentile_operation(element: RelationalOperationElement, p: float, ascending: bool, continuous: bool, label: str,
+                          discrete_kind: 'Callable[..., AggregateOperation] | None') -> Any:
+    """A percentile of ``element``: ``p`` is a fraction between 0 and 1 (0.5 is the median, 0.95 the 95th percentile). A continuous
+    percentile interpolates between the two values either side of the position, so it is floating point; a discrete one is the nearest
+    value that is there, so it is of the type of ``element``."""
+    if isinstance(p, bool) or not isinstance(p, (int, float)) or not 0 <= p <= 1:
+        raise ValueError(f"A percentile is a fraction between 0 and 1 (0.5 is the median, 0.95 the 95th percentile), not {p!r}")
+    if continuous:
+        return DoubleAggregateOperation(element, AggregateOperator.PERCENTILE_CONT, label, percentile=float(p), from_largest=not ascending)
+    return (discrete_kind or UntypedAggregateOperation)(element, AggregateOperator.PERCENTILE_DISC, label, percentile=float(p), from_largest=not ascending)
 
 
 def _sample(ddof: int) -> bool:
@@ -1399,6 +1418,8 @@ class AggregateOperator(Enum):
     VAR_POP = 11
     BOOL_AND = 12
     BOOL_OR = 13
+    PERCENTILE_CONT = 14
+    PERCENTILE_DISC = 15
 
 
 class WindowSpecification:
@@ -1414,7 +1435,8 @@ class AggregateOperation(UnaryOperation, Sortable):
     operator: AggregateOperator
 
     def __init__(self, element: RelationalOperationElement, operator: AggregateOperator, display_name: str | None = None,
-                 window=None, separator: str | None = None, order_by: list | None = None):
+                 window=None, separator: str | None = None, order_by: list | None = None,
+                 percentile: float | None = None, from_largest: bool = False):
         super().__init__(element)
         self.operator = operator
         self.display_name = display_name
@@ -1422,8 +1444,14 @@ class AggregateOperation(UnaryOperation, Sortable):
         # for STRING_AGG: what goes between the values, and the order they are joined in
         self.separator = separator
         self.order_by = order_by or []
+        # for PERCENTILE_CONT and PERCENTILE_DISC: the fraction (0 to 1) of the values that fall below the result, and whether they are
+        # read from the smallest value, or from the largest
+        self.percentile = percentile
+        self.from_largest = from_largest
 
     def over(self, partition_by=None, order_by=None):
+        if self.operator in (AggregateOperator.PERCENTILE_CONT, AggregateOperator.PERCENTILE_DISC):
+            raise ValueError("A percentile is an aggregate of a group, and is not given a window")
         return type(self)(self.element, self.operator, self.display_name,
                           WindowSpecification(partition_by, order_by), self.separator, self.order_by)
 
