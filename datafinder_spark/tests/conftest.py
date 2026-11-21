@@ -19,6 +19,7 @@ def spark(tmp_path_factory):
                .config("spark.driver.bindAddress", "127.0.0.1")
                .config("spark.sql.warehouse.dir", str(tmp_path_factory.mktemp("warehouse")))
                .config("spark.sql.session.timeZone", "UTC").config("spark.sql.timestampType", "TIMESTAMP_NTZ")
+               .config("spark.sql.ansi.enabled", "true")  # as Databricks has it (Spark 3.5 does not, by default; Spark 4 does)
                .getOrCreate())
     session.sparkContext.setLogLevel("OFF")
     yield session
