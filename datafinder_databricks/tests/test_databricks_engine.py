@@ -190,3 +190,20 @@ class TestTheGeneratedSqlIsTranslatedFromPostgres:
         start = DateAttribute("Start", "START_AT", "DATE", _OWNER_ACCOUNTS)
         sql = self._sql(start.diff_days(datetime.date(2024, 6, 15)))
         assert "DATE_DIFF" not in sql and "DATEDIFF" not in sql
+
+
+class TestPercentile:
+    """sqlglot's Spark writes a percentile as an approximation with no order; Databricks has the exact one."""
+
+    def _sql(self, *columns):
+        from model.relational import Table as _Table
+        return _to_databricks_sql(None, None, list(columns), _Table("events", []), NoOperation())
+
+    def test_a_percentile_is_exact_and_keeps_its_order(self):
+        from datafinder import IntegerAttribute
+        qty = IntegerAttribute("Qty", "QTY", "INT", _OWNER_ACCOUNTS)
+        sql = self._sql(qty.percentile(0.5, continuous=False), qty.percentile(0.25, ascending=False))
+        import re
+        assert re.search(r"PERCENTILE_DISC\(0\.5\) WITHIN GROUP \(ORDER BY t\d\.QTY ASC", sql)
+        assert re.search(r"PERCENTILE_CONT\(0\.25\) WITHIN GROUP \(ORDER BY CAST\(t\d\.QTY AS DOUBLE\) DESC", sql)
+        assert "PERCENTILE_APPROX" not in sql

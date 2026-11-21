@@ -56,14 +56,10 @@ def test_a_percentile_is_a_column_of_a_group_and_has_its_alias():
     assert 'AS "median"' in sql and sql.endswith("GROUP BY t0.G")
 
 
-def test_duckdb_spells_it_as_a_quantile_and_databricks_keeps_the_exact_percentile():
+def test_duckdb_spells_it_as_a_quantile():
     sql = _sql(_QTY.percentile(0.5, continuous=False), _QTY.percentile(0.25, ascending=False))
     duckdb = sql_for_dialect(sql, "duckdb")
     assert "QUANTILE_DISC(t0.QTY, 0.5 ORDER BY t0.QTY ASC)" in duckdb and "QUANTILE_CONT(" in duckdb
-    databricks = sql_for_dialect(sql, "databricks")
-    assert "PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY t0.QTY ASC" in databricks
-    assert "PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY CAST(t0.QTY AS DOUBLE) DESC" in databricks
-    assert "PERCENTILE_APPROX" not in databricks  # sqlglot's Spark would write an approximation, without the order
 
 
 def test_a_decimal_attribute_has_a_discrete_percentile_of_its_own_type():

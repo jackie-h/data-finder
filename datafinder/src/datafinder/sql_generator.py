@@ -8,10 +8,6 @@ from typing import Any, Callable, Iterable, Sequence
 
 import sqlglot
 import sqlglot.errors
-from sqlglot import exp
-from sqlglot.dialects.databricks import Databricks
-from sqlglot.generator import Generator
-from sqlglot.generators.databricks import DatabricksGenerator
 
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
@@ -775,15 +771,12 @@ _PLAIN_IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*$')
 SOURCE_DIALECT = "postgres"
 
 
-class _Databricks(Databricks):
-    """Databricks as sqlglot writes it, but with a percentile left as ``PERCENTILE_CONT(p) WITHIN GROUP (ORDER BY x)``, which Databricks has
-    and which is exact; sqlglot's Spark writes it as ``PERCENTILE_APPROX(x, p)``, an approximation that has no order."""
-
-    class Generator(DatabricksGenerator):
-        TRANSFORMS = {**DatabricksGenerator.TRANSFORMS, exp.WithinGroup: lambda self, e: Generator.withingroup_sql(self, e)}
+_DIALECTS: dict[str, Any] = {}
 
 
-_DIALECTS: dict[str, Any] = {"databricks": _Databricks}
+def register_dialect(name: str, dialect: Any) -> None:
+    """Have ``sql_for_dialect`` write ``name`` with ``dialect`` (a sqlglot dialect) in place of sqlglot's own, as an engine needs it to."""
+    _DIALECTS[name] = dialect
 
 
 def sql_for_dialect(sql: str, dialect: str) -> str:
