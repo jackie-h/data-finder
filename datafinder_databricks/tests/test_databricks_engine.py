@@ -185,11 +185,13 @@ class TestTheGeneratedSqlIsTranslatedFromPostgres:
         sql = self._sql(created.add_microseconds(5))
         assert "INTERVAL '0.000005' SECOND" in sql and "MICROSECOND" not in sql
 
-    def test_a_date_difference_is_not_the_function_of_another_database(self):
+    def test_a_date_difference_is_the_days_by_datediff_not_an_interval(self):
+        """date - date is an interval in Databricks (as in Spark): the days are DATEDIFF(DAY, start, end), and not DuckDB's DATE_DIFF. The rows it gives are
+        specced against Spark in datafinder_spark (``diff_days``), which Databricks shares the dialect changes of."""
         from datafinder import DateAttribute
         start = DateAttribute("Start", "START_AT", "DATE", _OWNER_ACCOUNTS)
         sql = self._sql(start.diff_days(datetime.date(2024, 6, 15)))
-        assert "DATE_DIFF" not in sql and "DATEDIFF" not in sql
+        assert "DATEDIFF(DAY, CAST(t1.START_AT AS DATE), CAST('2024-06-15' AS DATE))" in sql and "DATE_DIFF" not in sql
 
 
 class TestPercentile:
@@ -207,3 +209,22 @@ class TestPercentile:
         assert re.search(r"PERCENTILE_DISC\(0\.5\) WITHIN GROUP \(ORDER BY t\d\.QTY ASC", sql)
         assert re.search(r"PERCENTILE_CONT\(0\.25\) WITHIN GROUP \(ORDER BY CAST\(t\d\.QTY AS DOUBLE\) DESC", sql)
         assert "PERCENTILE_APPROX" not in sql
+
+
+class TestSharedWithSpark:
+    """Databricks is Spark: the changes that the Spark specs need are made for it too (spec'd against Spark in datafinder_spark, as there is no
+    Databricks to run them on)."""
+
+    def _sql(self, *columns):
+        from model.relational import Table as _Table
+        return _to_databricks_sql(None, None, list(columns), _Table("events", []), NoOperation())
+
+    def test_the_iso_day_of_the_week_is_dow_iso(self):
+        from datafinder import DateAttribute
+        sql = self._sql(DateAttribute("Start", "START_AT", "DATE", _OWNER_ACCOUNTS).day_of_week())
+        assert "ISODOW" not in sql and "DOW_ISO" in sql
+
+    def test_a_date_plus_an_interval_is_a_timestamp(self):
+        from datafinder import DateAttribute
+        sql = self._sql(DateAttribute("Start", "START_AT", "DATE", _OWNER_ACCOUNTS).add_days(5))
+        assert "CAST(t1.START_AT AS TIMESTAMP) + INTERVAL" in sql
