@@ -1194,7 +1194,10 @@ class SQLQueryGenerator:
         return None
 
     def __may_be_missing(self, op: RelationalOperationElement) -> bool:
-        """Whether ``op`` can be missing: a column that is nullable, or read through a join that can leave it out, can; anything else is taken to."""
+        """Whether ``op`` can be missing: a column that is nullable, or read through a join that can leave it out, can; a count cannot; anything else is taken to."""
+        if isinstance(op, CountAllOperation) or (isinstance(op, AggregateOperation)
+                                                  and op.operator in (AggregateOperator.COUNT, AggregateOperator.COUNT_DISTINCT)):
+            return False
         return self.__resolve(op)[0].nullable or self.__resolve_optional(op) if isinstance(op, ColumnWithJoin) else True
 
     def __resolve_optional(self, op: ColumnWithJoin) -> bool:
