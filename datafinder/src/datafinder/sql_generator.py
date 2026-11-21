@@ -780,8 +780,8 @@ _DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 
 
 def _date_diff_string(unit: DatePart, element: str, other: str) -> str:
-    """The number of ``unit`` boundaries from ``element`` to ``other`` (a year is a change of year, a day a change of date, an hour a change
-    of hour), as DuckDB's DATE_DIFF counts them, in standard operators and EXTRACT, DATE_TRUNC and CAST, which Postgres and the other
+    """The number of ``unit`` boundaries from ``element`` to ``other`` (a year is a change of year, a day a change of date, a week the start of a
+    week, on a Monday, an hour a change of hour), as DuckDB's DATE_DIFF counts them for all but a week, in standard operators and EXTRACT, DATE_TRUNC and CAST, which Postgres and the other
     databases all have, where DATE_DIFF is DuckDB's own."""
     if unit in (DatePart.YEAR, DatePart.MONTH):
         a, b = f'CAST({element} AS DATE)', f'CAST({other} AS DATE)'
@@ -791,11 +791,14 @@ def _date_diff_string(unit: DatePart, element: str, other: str) -> str:
         return f'({years} * 12 + EXTRACT(MONTH FROM {b}) - EXTRACT(MONTH FROM {a}))'
     if unit == DatePart.DAY:
         return f'(CAST({other} AS DATE) - CAST({element} AS DATE))'
+    if unit == DatePart.WEEK:  # the Mondays between: the days from the Monday of one week to the Monday of the other, in weeks
+        weeks = lambda date: f"CAST(DATE_TRUNC('week', CAST({date} AS DATE)) AS DATE)"  # noqa: E731
+        return f'CAST(({weeks(other)} - {weeks(element)}) / 7 AS BIGINT)'
     if unit in (DatePart.HOUR, DatePart.MINUTE, DatePart.SECOND):
         part, seconds = unit.value.lower(), {DatePart.HOUR: 3600, DatePart.MINUTE: 60, DatePart.SECOND: 1}[unit]
         return (f"CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('{part}', CAST({other} AS TIMESTAMP)) - "
                 f"DATE_TRUNC('{part}', CAST({element} AS TIMESTAMP)))) / {seconds} AS BIGINT)")
-    raise ValueError(f"A difference between dates is counted in years, months, days, hours, minutes or seconds, not {unit.value}")
+    raise ValueError(f"A difference between dates is counted in years, months, weeks, days, hours, minutes or seconds, not {unit.value}")
 
 
 def _interval_string(n: int, unit: DatePart) -> str:

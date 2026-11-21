@@ -35,12 +35,15 @@ _DATE_PAIRS = [
     (datetime.date(2023, 12, 31), datetime.date(2024, 1, 1)), (datetime.date(2024, 2, 29), datetime.date(2025, 2, 28)),
     (datetime.date(2024, 3, 31), datetime.date(2024, 4, 1)), (datetime.date(2025, 1, 6), datetime.date(2025, 1, 5)),
     (datetime.date(2024, 6, 15), datetime.date(2024, 6, 15)),
+    (datetime.date(2024, 3, 4), datetime.date(2024, 3, 10)), (datetime.date(2024, 3, 11), datetime.date(2024, 3, 10)),
+    (datetime.date(2024, 3, 4), datetime.date(2024, 3, 31)), (datetime.date(2024, 3, 31), datetime.date(2024, 3, 4)),
 ]
 _DATETIME_PAIRS = [
     (datetime.datetime(2024, 3, 10, 8, 59, 59), datetime.datetime(2024, 3, 10, 9, 0, 0)),
     (datetime.datetime(2024, 3, 10, 8, 0, 0), datetime.datetime(2024, 3, 10, 8, 59, 59)),
     (datetime.datetime(2023, 12, 31, 23, 59, 59), datetime.datetime(2024, 1, 1, 0, 0, 0)),
     (datetime.datetime(2024, 3, 10, 9, 1, 0), datetime.datetime(2024, 3, 10, 8, 59, 0)),
+    (datetime.datetime(2024, 3, 10, 23, 59, 59), datetime.datetime(2024, 3, 11, 0, 0, 0)),
 ]
 
 
@@ -50,14 +53,22 @@ def _boundaries(a: datetime.datetime, b: datetime.datetime, unit: datetime.timed
     return (cut(b) - cut(a)) // unit
 
 
+def _weeks(a: datetime.date, b: datetime.date) -> int:
+    """The Mondays from the Monday of the week of ``a`` to the Monday of the week of ``b``, in weeks: the weeks that start in between."""
+    monday = lambda d: d - datetime.timedelta(days=d.weekday())  # noqa: E731
+    return (monday(b) - monday(a)).days // 7
+
+
 _DATE_DIFFERENCE_EXPECTATIONS = [
     TestExpectation(
         name=f"date_difference_counts_the_boundaries_crossed_{a}_to_{b}",
         skip_backends=_SKIP_GRAPHQL,
         query=lambda f, a=a, b=b: f.find_all([
-            constant(a).diff_years(b).alias("years"), constant(a).diff_months(b).alias("months"), constant(a).diff_days(b).alias("days"),
+            constant(a).diff_years(b).alias("years"), constant(a).diff_months(b).alias("months"), constant(a).diff_weeks(b).alias("weeks"),
+            constant(a).diff_days(b).alias("days"),
         ], _THE_FIRST(f)),
-        **_one_row(["years", "months", "days"], [b.year - a.year, (b.year - a.year) * 12 + b.month - a.month, (b - a).days]),
+        **_one_row(["years", "months", "weeks", "days"],
+                   [b.year - a.year, (b.year - a.year) * 12 + b.month - a.month, _weeks(a, b), (b - a).days]),
     )
     for a, b in _DATE_PAIRS
 ] + [
@@ -66,11 +77,11 @@ _DATE_DIFFERENCE_EXPECTATIONS = [
         skip_backends=_SKIP_GRAPHQL,
         query=lambda f, a=a, b=b: f.find_all([
             constant(a).diff_hours(b).alias("hours"), constant(a).diff_minutes(b).alias("minutes"), constant(a).diff_seconds(b).alias("seconds"),
-            constant(a).diff_days(b).alias("days"),
+            constant(a).diff_days(b).alias("days"), constant(a).diff_weeks(b).alias("weeks"),
         ], _THE_FIRST(f)),
-        **_one_row(["hours", "minutes", "seconds", "days"],
+        **_one_row(["hours", "minutes", "seconds", "days", "weeks"],
                    [_boundaries(a, b, datetime.timedelta(hours=1)), _boundaries(a, b, datetime.timedelta(minutes=1)),
-                    _boundaries(a, b, datetime.timedelta(seconds=1)), _boundaries(a, b, datetime.timedelta(days=1))]),
+                    _boundaries(a, b, datetime.timedelta(seconds=1)), _boundaries(a, b, datetime.timedelta(days=1)), _weeks(a.date(), b.date())]),
     )
     for a, b in _DATETIME_PAIRS
 ]
