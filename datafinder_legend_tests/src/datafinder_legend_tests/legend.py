@@ -118,11 +118,6 @@ UNION_JOINED_PER_USE = (
     "projected property; the finder joins it once and reads both from it. The rows are the same"
 )
 
-NULL_SAFE_EQUALITY = (
-    "Legend compares two columns with `is not distinct from`, so two nulls are equal; the finder writes `=`, which leaves a row with two "
-    "nulls out. The rows are the same unless both columns are null"
-)
-
 DATE_DIFF_AS_SUBTRACTION = (
     "Legend writes the days between two dates as datediff(day, a, b); the finder's SQL is Postgres, where it is CAST(b AS DATE) - "
     "CAST(a AS DATE), which counts the same days"

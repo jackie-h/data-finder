@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, NULL_SAFE_EQUALITY, UNION_JOINED_PER_USE, UNION_SETS_BY_NUMBER, UNION_WITH_KEY_COLUMNS, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, UNION_JOINED_PER_USE, UNION_SETS_BY_NUMBER, UNION_WITH_KEY_COLUMNS, ported, unsupported
 
 _SRC = "tests/mapping/union/testUnion.pure"
 
@@ -83,7 +83,7 @@ UNION_TO_UNION_EXTRA_SPECS = FinderSpec(
         ported("testUnionToUnionJoinSequenceWithMultipleChildrenInUnionSourceTree", f"{_SRC}::testUnionToUnionJoinSequenceWithMultipleChildrenInUnionSourceTree",
                'select "unionalias_1"."FirmSet1name_FirmSet2name" as "name" from PersonSet1 as "root" left outer join (select "root".ID as ID_0, null as ID_1, "root".name as "FirmSet1name_FirmSet2name" from FirmSet1 as "root" union all select null as ID_0, "root".ID as ID_1, "root".name as "FirmSet1name_FirmSet2name" from FirmSet2 as "root") as "unionalias_0" on ("root".FirmID = "unionalias_0".ID_0 or "root".FirmID = "unionalias_0".ID_1) left outer join PersonAdditional as "personadditional_0" on ("root".ID = "personadditional_0".ID) left outer join (select "root".ID as ID_0, null as ID_1, "root".ID as "pk_0_0", null as "pk_0_1", "root".name as "FirmSet1name_FirmSet2name" from FirmSet1 as "root" union all select null as ID_0, "root".ID as ID_1, null as "pk_0_0", "root".ID as "pk_0_1", "root".name as "FirmSet1name_FirmSet2name" from FirmSet2 as "root") as "unionalias_1" on ("root".FirmID = "unionalias_1".ID_0 or "root".FirmID = "unionalias_1".ID_1) where "unionalias_0"."FirmSet1name_FirmSet2name" is not distinct from "personadditional_0".extrainfo',
                lambda f: f.find_all([f.firm().legal_name().alias("name")], f.firm().legal_name().eq(f.extra_information())),
-               known_gaps={BACKEND: UNION_SETS_BY_NUMBER + '. ' + UNION_JOINED_PER_USE + '. ' + NULL_SAFE_EQUALITY}),
+               known_gaps={BACKEND: UNION_SETS_BY_NUMBER + '. ' + UNION_JOINED_PER_USE}),
     ],
 )
 
