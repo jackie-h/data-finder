@@ -56,6 +56,12 @@ def _same_values_in_another_order(f):
             .order_by(f.name().ascending(), listed.place().ascending(), reversed_.visits().ascending())
 
 
+def _same_condition_with_another_value(f):
+    in_new_york = f.locations().filter(lambda each: each.place().eq("New York"))
+    in_boston = f.locations().filter(lambda each: each.place().eq("Boston"))
+    return f.find_all([f.name(), in_new_york.place(), in_boston.visits()]).order_by(f.name().ascending())
+
+
 def _filter_of_a_filter(f):
     frequent = f.locations().filter(lambda each: each.place().is_in(_HOBOKEN_OR_NEW_YORK)).filter(lambda each: each.visits() > 3)
     return f.find_all([f.name(), frequent.place(), frequent.visits()]).order_by(f.name().ascending())
@@ -137,6 +143,14 @@ PLACES_PERSON_FINDER_SPECS = FinderSpec(
                 ["Bob", None, None], ["Cy", "New York", 1],
             ], dtype=object),
             expected_sql={"duckdb": "LEFT OUTER JOIN geo.locations AS t2 ON (t0.id = t2.person_id AND t2.place IN ('New York', 'Hoboken'))"},
+        ),
+        TestExpectation(
+            name="the_same_condition_with_another_value_is_a_join_of_its_own",
+            skip_backends=_NO_FILTERS,
+            query=_same_condition_with_another_value,
+            expected_columns=["Name", "Locations Place", "Locations Visits"],
+            expected_result=np.array([["Ann", "New York", 2], ["Bob", None, 4], ["Cy", "New York", None]], dtype=object),
+            expected_sql={"duckdb": "t2.place = 'Boston'"},
         ),
         TestExpectation(
             name="a_filter_of_a_filtered_navigation_holds_both_conditions",

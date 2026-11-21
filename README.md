@@ -755,10 +755,22 @@ The condition is in the `ON` of the join of the navigation, not in the `WHERE`. 
 a row, with NULL for what the navigation reads; a condition in the query, `find_all(columns, PersonFinder.locations().place().is_in([...]))`,
 is a `WHERE` and drops that person.
 
-Read the columns from the filtered navigation you made, as `locations` above, to read them from one join. Every call of `filter`
-makes a join of its own, so two filters on the same navigation are two joins, even when their conditions are the same. A filter
-of a filtered navigation holds both conditions, a filter on a navigation below another filters that join, and the condition is
-ANDed with the condition a mapping gives the join, and, on a milestoned class, with its milestoning at the dates of the query.
+Read the columns from a filtered navigation to read them from one join. A filter whose condition is the same as one already made
+on that navigation is that filtered navigation, so the filter can be written out for each column and still be one join:
+
+```python
+PersonFinder.find_all([
+    PersonFinder.name(),
+    PersonFinder.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).place(),
+    PersonFinder.locations().filter(lambda each: each.place().is_in(["Hoboken", "New York"])).visits(),
+])
+```
+
+Conditions are the same when they say the same thing the same way: the same operations over the same columns and values, so
+`is_in(["Hoboken", "New York"])` and `is_in(["New York", "Hoboken"])` are two joins. A condition that says something else is a join of its
+own, so two different filters on one navigation are two joins. A filter of a filtered navigation holds both conditions, a filter on a
+navigation below another filters that join, and the condition is ANDed with the condition a mapping gives the join, and, on a
+milestoned class, with its milestoning at the dates of the query.
 
 ### Result formats
 
