@@ -9,6 +9,8 @@ to exercise group_by with average().
     trading.trades          — sym VARCHAR, price DOUBLE, is_settled BOOLEAN,
                               account_id INT, in_z TIMESTAMP, out_z TIMESTAMP
 """
+from typing import Callable
+
 import numpy as np
 
 from datafinder import exists
@@ -116,10 +118,59 @@ def _full_join_of_two_accounts_to_the_trades_over_350(f):
     return result.order_by(result["total_account"].ascending(), result["dear_sym"].ascending())
 
 
+_NO_PERCENTILE = {"graphql": "The GraphQL finder has no percentile"}
+_PRICES_BY_ACCOUNT = {"Alpha Fund": [100.0, 200.0], "Beta Fund": [300.0, 400.0], "Gamma Fund": [500.0]}
+_ALL_PRICES = [price for prices in _PRICES_BY_ACCOUNT.values() for price in prices]
+
+
+def _percentile_of_each_account(name: str, column: Callable, label: str, oracle: Callable[[list[float]], float], sql: str) -> TestExpectation:
+    """The percentile of the prices of each account, as numpy gives it: ``oracle`` is numpy's quantile of the prices of an account."""
+    return TestExpectation(
+        name=name,
+        skip_backends=_NO_PERCENTILE,
+        query=lambda f: f.find_all(None, _AT, [f.account().name(), column(f)]).group_by(f.account().name()).order_by(f.account().name().ascending()),
+        expected_columns=["Account Name", label],
+        expected_result=np.array([[account, oracle(prices)] for account, prices in _PRICES_BY_ACCOUNT.items()], dtype=object),
+        expected_sql={"duckdb": sql},
+    )
+
+
+_PERCENTILE_EXPECTATIONS = [
+    _percentile_of_each_account(
+        "median_price_per_account", lambda f: f.price().percentile(0.5), "Percentile Price", lambda v: float(np.quantile(v, 0.5)),
+        "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST("),
+    _percentile_of_each_account(
+        "percentile_price_interpolates_between_the_values", lambda f: f.price().percentile(0.25), "Percentile Price",
+        lambda v: float(np.quantile(v, 0.25, method="linear")), "PERCENTILE_CONT(0.25)"),
+    _percentile_of_each_account(
+        "discrete_percentile_price_is_a_value_that_is_there", lambda f: f.price().percentile(0.5, continuous=False), "Percentile Price",
+        lambda v: float(np.quantile(v, 0.5, method="inverted_cdf")), "PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY "),
+    _percentile_of_each_account(
+        "percentile_price_from_the_largest_value", lambda f: f.price().percentile(0.25, ascending=False), "Percentile Price",
+        lambda v: float(np.quantile(v, 0.75, method="linear")), "AS DOUBLE PRECISION) DESC)"),
+    _percentile_of_each_account(
+        "quantile_price_is_the_percentile_as_numpy_names_it", lambda f: f.price().quantile(0.9), "Quantile Price",
+        lambda v: float(np.quantile(v, 0.9)), "PERCENTILE_CONT(0.9)"),
+    _percentile_of_each_account(
+        "quantile_price_by_inverted_cdf_is_a_value_that_is_there", lambda f: f.price().quantile(0.9, method="inverted_cdf"), "Quantile Price",
+        lambda v: float(np.quantile(v, 0.9, method="inverted_cdf")), "PERCENTILE_DISC(0.9)"),
+    _percentile_of_each_account(
+        "percentile_of_an_expression", lambda f: (f.price() * 2).percentile(0.5), "Percentile Expression",
+        lambda v: float(np.quantile([price * 2 for price in v], 0.5)), "PERCENTILE_CONT(0.5)"),
+    TestExpectation(
+        name="median_price_of_all_the_trades",
+        skip_backends=_NO_PERCENTILE,
+        query=lambda f: f.find_all(None, _AT, [f.price().percentile(0.5).alias("median"), f.price().percentile(0.9, continuous=False).alias("p90")]),
+        expected_columns=["median", "p90"],
+        expected_result=np.array([[float(np.quantile(_ALL_PRICES, 0.5)), float(np.quantile(_ALL_PRICES, 0.9, method="inverted_cdf"))]], dtype=object),
+    ),
+]
+
 TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
     expectations=[
+        *_PERCENTILE_EXPECTATIONS,
         TestExpectation(
             name="average_price_per_account",
             query=lambda f: f.find_all(

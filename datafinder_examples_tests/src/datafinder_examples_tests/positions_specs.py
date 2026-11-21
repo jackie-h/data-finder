@@ -21,6 +21,7 @@ _NO_DATE_FUNCTIONS = {"graphql": "The GraphQL finder has no date functions beyon
 _D1 = datetime.date(2024, 3, 15)
 _D2 = datetime.date(2024, 7, 20)
 _D3 = datetime.date(2024, 11, 5)
+_WEEK = [datetime.date(2024, 3, 4) + datetime.timedelta(days=n) for n in range(7)]  # Monday to Sunday
 
 POSITION_DATE_FINDER_SPECS = FinderSpec(
     finder_name="PositionFinder",
@@ -96,11 +97,20 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             expected_columns=["Date 2024-03-15 13:45:10"],
             expected_result=np.array([[datetime.date(2024, 3, 15)]], dtype=object),
         ),
+        # every day of the week, from constants: the name of the day is spelled out in SQL, so each of the seven is checked
+        TestExpectation(
+            name="the_name_of_each_day_of_the_week",
+            skip_backends=_NO_DATE_FUNCTIONS,
+            query=lambda f: f.find_all([constant(day).day_of_week_name().alias(str(day)) for day in _WEEK], f.id_().eq(1)),
+            expected_columns=[str(day) for day in _WEEK],
+            expected_result=np.array([[day.strftime("%A") for day in _WEEK]], dtype=object),
+        ),
         # --- Weeks and microseconds ---
         TestExpectation(
             name="add_weeks",
             skip_backends=_NO_DATE_FUNCTIONS,
             query=lambda f: f.find_all([f.trade_date().add_weeks(1)], f.id_().eq(1)),
+            expected_sql={"duckdb": "INTERVAL '7' DAY"},  # a week is 7 days: ANSI has no week unit
             expected_columns=["Add Weeks Trade Date"],
             expected_result=np.array([[np.datetime64("2024-03-22", "us")]], dtype=object),
         ),
@@ -115,6 +125,7 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
             name="add_microseconds_to_a_datetime",
             skip_backends=_NO_DATE_FUNCTIONS,
             query=lambda f: f.find_all([constant(datetime.datetime(2014, 12, 4, 15, 22, 23)).add_microseconds(123456)], f.id_().eq(1)),
+            expected_sql={"duckdb": "INTERVAL '0.123456' SECOND"},  # a microsecond is a millionth of a second: ANSI has no microsecond unit
             expected_columns=["Add Microseconds 2014-12-04 15:22:23"],
             expected_result=np.array([[np.datetime64("2014-12-04T15:22:23.123456", "us")]], dtype=object),
         ),

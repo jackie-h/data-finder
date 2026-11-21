@@ -29,6 +29,52 @@ def _one_row(columns: list[str], values: list, **kwargs) -> dict:
 
 _SKIP_GRAPHQL = {"graphql": "The GraphQL finder has no scalar functions"}
 
+# A difference counts the boundaries crossed: a year, a month and a day are a change of year, month and date, and an hour, a minute and
+# a second a change of hour, minute and second, so a day ends at midnight and not 24 hours after it began.
+_DATE_PAIRS = [
+    (datetime.date(2023, 12, 31), datetime.date(2024, 1, 1)), (datetime.date(2024, 2, 29), datetime.date(2025, 2, 28)),
+    (datetime.date(2024, 3, 31), datetime.date(2024, 4, 1)), (datetime.date(2025, 1, 6), datetime.date(2025, 1, 5)),
+    (datetime.date(2024, 6, 15), datetime.date(2024, 6, 15)),
+]
+_DATETIME_PAIRS = [
+    (datetime.datetime(2024, 3, 10, 8, 59, 59), datetime.datetime(2024, 3, 10, 9, 0, 0)),
+    (datetime.datetime(2024, 3, 10, 8, 0, 0), datetime.datetime(2024, 3, 10, 8, 59, 59)),
+    (datetime.datetime(2023, 12, 31, 23, 59, 59), datetime.datetime(2024, 1, 1, 0, 0, 0)),
+    (datetime.datetime(2024, 3, 10, 9, 1, 0), datetime.datetime(2024, 3, 10, 8, 59, 0)),
+]
+
+
+def _boundaries(a: datetime.datetime, b: datetime.datetime, unit: datetime.timedelta) -> int:
+    """The number of whole ``unit`` from ``a`` cut back to the start of its unit to ``b`` cut back to the start of its own."""
+    cut = lambda t: t - datetime.timedelta(microseconds=(t - datetime.datetime.min) // datetime.timedelta(microseconds=1) % (unit // datetime.timedelta(microseconds=1)))  # noqa: E731
+    return (cut(b) - cut(a)) // unit
+
+
+_DATE_DIFFERENCE_EXPECTATIONS = [
+    TestExpectation(
+        name=f"date_difference_counts_the_boundaries_crossed_{a}_to_{b}",
+        skip_backends=_SKIP_GRAPHQL,
+        query=lambda f, a=a, b=b: f.find_all([
+            constant(a).diff_years(b).alias("years"), constant(a).diff_months(b).alias("months"), constant(a).diff_days(b).alias("days"),
+        ], _THE_FIRST(f)),
+        **_one_row(["years", "months", "days"], [b.year - a.year, (b.year - a.year) * 12 + b.month - a.month, (b - a).days]),
+    )
+    for a, b in _DATE_PAIRS
+] + [
+    TestExpectation(
+        name=f"datetime_difference_counts_the_boundaries_crossed_{a:%H%M%S}_to_{b:%d_%H%M%S}",
+        skip_backends=_SKIP_GRAPHQL,
+        query=lambda f, a=a, b=b: f.find_all([
+            constant(a).diff_hours(b).alias("hours"), constant(a).diff_minutes(b).alias("minutes"), constant(a).diff_seconds(b).alias("seconds"),
+            constant(a).diff_days(b).alias("days"),
+        ], _THE_FIRST(f)),
+        **_one_row(["hours", "minutes", "seconds", "days"],
+                   [_boundaries(a, b, datetime.timedelta(hours=1)), _boundaries(a, b, datetime.timedelta(minutes=1)),
+                    _boundaries(a, b, datetime.timedelta(seconds=1)), _boundaries(a, b, datetime.timedelta(days=1))]),
+    )
+    for a, b in _DATETIME_PAIRS
+]
+
 COMPANIES_CONSTANT_SPECS = FinderSpec(
     finder_name="CompanyFinder",
     mapping_file=COMPANIES_MAPPING,
@@ -234,6 +280,20 @@ COMPANIES_CONSTANT_SPECS = FinderSpec(
                 constant(_DT).diff_days(datetime.datetime(2016, 8, 12, 8, 55, 30)).alias("days"),
             ], _THE_FIRST(f)),
             **_one_row(["hours", "minutes", "seconds", "days"], [4, 60, 30, 2]),
+        ),
+        *_DATE_DIFFERENCE_EXPECTATIONS,
+        TestExpectation(
+            name="a_regular_expression_matches_anywhere_in_the_text",
+            skip_backends=_SKIP_GRAPHQL,
+            query=lambda f: f.find_all([f.id_()], constant("Customer X Complaints").matches("X.*Compl").and_(_THE_FIRST(f))),
+            expected_columns=["Id"], expected_result=np.array([[1]], dtype=object),
+            expected_sql={"duckdb": "'Customer X Complaints' ~ 'X.*Compl'"},
+        ),
+        TestExpectation(
+            name="a_regular_expression_that_is_anchored_matches_only_there",
+            skip_backends=_SKIP_GRAPHQL,
+            query=lambda f: f.find_all([f.id_()], (~constant("abc").matches("^b")).and_(constant("abc").matches("b")).and_(_THE_FIRST(f))),
+            expected_columns=["Id"], expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
             name="a_function_of_a_datetime_constant_is_ordered_like_a_date",
