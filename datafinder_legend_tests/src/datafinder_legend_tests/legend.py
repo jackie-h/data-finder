@@ -140,8 +140,7 @@ PERCENTILE_SINGLE_PRECISION = (
 
 DAY_OF_WEEK_NUMBER = (
     "Legend numbers the days from Sunday with extract(dow ...) (Sunday is 0); the finder's day of the week is the ISO day, so the Sunday-based "
-    "number is that day with the 7 of Sunday as 0, in a CASE. Legend's filter is `extract(isodow ...) is distinct from '2'`, which keeps a row "
-    "with no date; the finder's is `<> 2` of the ISO day, which does not, as a missing date has no day. The rows are the same on this data"
+    "number is that day with the 7 of Sunday as 0, in a CASE"
 )
 
 EMBEDDED_WITH_JOIN = (
