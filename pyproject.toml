@@ -26,7 +26,7 @@ test = [
     "pyarrow-hotfix>=0.7",
     "pyiceberg>=0.11.0",
     "pyright>=1.1.414",
-    "pyspark>=3.5,<4",
+    "pyspark==3.5.9",
     "pytest>=9.0.0",
     "pytest-cov>=7.1.0",
     "sqlalchemy>=2.0.0",
@@ -43,7 +43,7 @@ databricks = [
     "databricks-sql-connector>=3.0.0",
 ]
 spark = [
-    "pyspark>=3.5,<4",
+    "pyspark==3.5.9",
 ]
 linkml = [
     "linkml-runtime>=1.9.5",
