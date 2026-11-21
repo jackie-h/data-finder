@@ -32,6 +32,8 @@ _VARIANTS = {
     "tests/mapping/union/union_chained_4sets_v4_mapping.md": "tests/mapping/union/union_chained_data.sql",
     "tests/mapping/union/union_chained_4sets_v5_mapping.md": "tests/mapping/union/union_chained_data.sql",
     "tests/mapping/union/union_filter_mapping.md": "tests/mapping/union/union_data.sql",
+    "tests/mapping/union/union_to_union_extra_mapping.md": "tests/mapping/union/union_data.sql",
+    "tests/mapping/union/union_same_join_mapping.md": "tests/mapping/union/union_data.sql",
     "tests/mapping/groupBy/group_by_filter_mapping.md": "tests/mapping/groupBy/group_by_data.sql",
     "tests/mapping/groupBy/group_by_two_mapping.md": "tests/mapping/groupBy/group_by_data.sql",
     "tests/mapping/filter/org_filter_mapping.md": "tests/mapping/filter/org_data.sql",
