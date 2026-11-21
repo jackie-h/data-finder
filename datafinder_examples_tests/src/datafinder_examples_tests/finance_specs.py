@@ -238,8 +238,8 @@ TRADE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="valid_from_week",
-            query=lambda f: f.find_all(None, _AT, [f.valid_from().week()]),
-            expected_columns=["Week Valid From"],
+            query=lambda f: f.find_all(None, _AT, [f.valid_from().week_of_year()]),
+            expected_columns=["Week Of Year Valid From"],
             # 2020-01-01 is ISO week 1
             expected_result=np.array([[1]], dtype=object),
         ),

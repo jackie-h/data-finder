@@ -747,7 +747,7 @@ class DateFunctions(_CalendarFunctions):
         trade_date.year()   # d.year
         trade_date.month()  # d.month
         trade_date.day()    # d.day
-        trade_date.week()   # d.isocalendar().week
+        trade_date.week_of_year()   # d.isocalendar().week
         trade_date.quarter()  # (d.month - 1) // 3 + 1
 
     Arithmetic methods mirror ``datetime.timedelta`` addition/subtraction::
@@ -796,9 +796,9 @@ class DateFunctions(_CalendarFunctions):
         """Extract the quarter (1–4). Equivalent to ``(d.month - 1) // 3 + 1``."""
         return DateExtractOperation(self._function_input(), DatePart.QUARTER, 'Quarter ' + self._function_label())
 
-    def week(self) -> DateExtractOperation:
-        """Extract the ISO week number. Equivalent to ``d.isocalendar().week``."""
-        return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week ' + self._function_label())
+    def week_of_year(self) -> DateExtractOperation:
+        """Extract the ISO week of the year, 1 to 53, a week starting on a Monday. Equivalent to ``d.isocalendar().week``."""
+        return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week Of Year ' + self._function_label())
 
     def day_of_week(self) -> DateExtractOperation:
         """Extract the ISO day of the week: Monday is 1 and Sunday is 7. Equivalent to ``d.isoweekday()``."""
@@ -937,9 +937,9 @@ class DateTimeFunctions(_Operand, _CalendarFunctions):
         """Extract the quarter (1–4). Equivalent to ``(dt.month - 1) // 3 + 1``."""
         return DateExtractOperation(self._function_input(), DatePart.QUARTER, 'Quarter ' + self._function_label())
 
-    def week(self) -> DateExtractOperation:
-        """Extract the ISO week number. Equivalent to ``dt.isocalendar().week``."""
-        return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week ' + self._function_label())
+    def week_of_year(self) -> DateExtractOperation:
+        """Extract the ISO week of the year, 1 to 53, a week starting on a Monday. Equivalent to ``dt.isocalendar().week``."""
+        return DateExtractOperation(self._function_input(), DatePart.WEEK, 'Week Of Year ' + self._function_label())
 
     def day_of_week(self) -> DateExtractOperation:
         """Extract the ISO day of the week: Monday is 1 and Sunday is 7. Equivalent to ``dt.isoweekday()``."""

@@ -257,7 +257,7 @@ class DateAttribute(_MinMax[DateAggregateOperation], DateFunctions, Attribute, O
         trade_date.year()   # d.year
         trade_date.month()  # d.month
         trade_date.day()    # d.day
-        trade_date.week()   # d.isocalendar().week
+        trade_date.week_of_year()   # d.isocalendar().week
         trade_date.quarter()  # (d.month - 1) // 3 + 1
 
     Arithmetic methods mirror ``datetime.timedelta`` addition/subtraction::
