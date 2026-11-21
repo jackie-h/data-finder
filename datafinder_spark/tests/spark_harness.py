@@ -6,8 +6,6 @@ import shutil
 import sys
 import tempfile
 
-import pytest
-
 from datafinder import QueryRunnerBase
 from datafinder_examples import example_path
 from datafinder_examples_tests.tables import TableData
@@ -59,20 +57,3 @@ def finder_of(spark, mapping_file: str, tables: list[TableData], module: str, cl
             sys.modules.pop(name, None)
         shutil.rmtree(tmp, ignore_errors=True)
 
-
-# Why a spec does not yet pass on Spark. Each is a strict expected failure, so one that starts to pass is reported and its entry removed.
-LISTAGG = "Spark 3.5 has no LISTAGG (it has it from 4.0), which sqlglot writes STRING_AGG as: array_join(collect_list(x), sep) is the 3.5 form"
-DISTINCT_ORDER = "Spark does not find the column of a SELECT DISTINCT by its table name in the ORDER BY: it is ordered by the output column"
-ISODOW = "Spark has no EXTRACT(ISODOW …): the ISO day of the week is EXTRACT(DOW_ISO …)"
-EPOCH = "Spark has no EXTRACT(EPOCH …): the seconds are UNIX_SECONDS(…)"
-DATE_MINUS_DATE = "In Spark date - date is an interval, not the number of days: DATEDIFF(end, start) is"
-DATE_PLUS_INTERVAL = "In Spark a date plus an interval is a date, where in DuckDB and Postgres it is a timestamp"
-
-
-def expecting(expectations: list, gaps: dict[str, str]) -> list:
-    """The expectations as test parameters, with those that do not pass on Spark yet (``gaps``, by name) as strict expected failures."""
-    names = {each.name for each in expectations}
-    stale = set(gaps) - names
-    assert not stale, f"a gap is of a spec that is not there: {sorted(stale)}"
-    return [pytest.param(each, id=each.name, marks=pytest.mark.xfail(reason=gaps[each.name], strict=True)) if each.name in gaps
-            else pytest.param(each, id=each.name) for each in expectations]
