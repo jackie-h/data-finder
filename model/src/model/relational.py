@@ -856,6 +856,11 @@ class DateFunctions(_CalendarFunctions):
         """Return the number of days between the column value and ``other``. Equivalent to ``(other - d).days``."""
         return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.DAY, 'Diff Days ' + self._function_label())
 
+    def diff_weeks(self, other: datetime.date | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of weeks that start between the column value and ``other``, as a week starts on a Monday: from a Sunday to the
+        next day is 1, and from a Monday to the Sunday after it is 0. It is negative when ``other`` is earlier."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.WEEK, 'Diff Weeks ' + self._function_label())
+
     def diff_months(self, other: datetime.date | RelationalOperationElement) -> DateDiffOperation:
         """Return the number of whole calendar months between the column value and ``other``."""
         return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.MONTH, 'Diff Months ' + self._function_label())
@@ -1055,6 +1060,11 @@ class DateTimeFunctions(_Operand, _CalendarFunctions):
     def diff_days(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
         """Return the number of days between the column value and ``other``. Equivalent to ``(other - dt).days``."""
         return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.DAY, 'Diff Days ' + self._function_label())
+
+    def diff_weeks(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
+        """Return the number of weeks that start between the column value and ``other``, as a week starts on a Monday: from a Sunday to the
+        next day is 1, and from a Monday to the Sunday after it is 0. It is negative when ``other`` is earlier."""
+        return DateDiffOperation(self._function_input(), _diff_other(other), DatePart.WEEK, 'Diff Weeks ' + self._function_label())
 
     def diff_months(self, other: datetime.datetime | RelationalOperationElement) -> DateDiffOperation:
         """Return the number of whole calendar months between the column value and ``other``."""

@@ -797,38 +797,35 @@ _DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'
 
 
 def _date_diff_string(unit: DatePart, element: str, other: str) -> str:
-    """The number of ``unit`` from ``element`` to ``other``: boundaries crossed for a year, quarter, month, day, hour, minute or second (a day is a
-    change of date, an hour a change of hour), and whole weeks for a week, as DuckDB's DATE_DIFF counts them, in standard
-    operators and EXTRACT, DATE_TRUNC and CAST, which Postgres and the other databases all have, where DATE_DIFF is DuckDB's own."""
-    if unit in (DatePart.YEAR, DatePart.QUARTER, DatePart.MONTH):
+    """The number of ``unit`` boundaries from ``element`` to ``other`` (a year is a change of year, a day a change of date, a week the start of a
+    week, on a Monday, an hour a change of hour), as DuckDB's DATE_DIFF counts them for all but a week, in standard operators and EXTRACT, DATE_TRUNC and CAST, which Postgres and the other
+    databases all have, where DATE_DIFF is DuckDB's own."""
+    if unit in (DatePart.YEAR, DatePart.MONTH):
         a, b = f'CAST({element} AS DATE)', f'CAST({other} AS DATE)'
         years = f'(EXTRACT(YEAR FROM {b}) - EXTRACT(YEAR FROM {a}))'
         if unit == DatePart.YEAR:
             return years
-        per_year, part = (4, 'QUARTER') if unit == DatePart.QUARTER else (12, 'MONTH')
-        return f'({years} * {per_year} + EXTRACT({part} FROM {b}) - EXTRACT({part} FROM {a}))'
+        return f'({years} * 12 + EXTRACT(MONTH FROM {b}) - EXTRACT(MONTH FROM {a}))'
     if unit == DatePart.DAY:
         return f'(CAST({other} AS DATE) - CAST({element} AS DATE))'
-    if unit == DatePart.WEEK:
-        days = f'(CAST({other} AS DATE) - CAST({element} AS DATE))'
-        return f'CAST(SIGN({days}) * FLOOR(ABS({days}) / 7.0) AS BIGINT)'  # whole weeks, as a week is 7 days
+    if unit == DatePart.WEEK:  # the Mondays between: the days from the Monday of one week to the Monday of the other, in weeks
+        weeks = lambda date: f"CAST(DATE_TRUNC('week', CAST({date} AS DATE)) AS DATE)"  # noqa: E731
+        return f'CAST(({weeks(other)} - {weeks(element)}) / 7 AS BIGINT)'
     if unit in (DatePart.HOUR, DatePart.MINUTE, DatePart.SECOND):
         part, seconds = unit.value.lower(), {DatePart.HOUR: 3600, DatePart.MINUTE: 60, DatePart.SECOND: 1}[unit]
         return (f"CAST(EXTRACT(EPOCH FROM (DATE_TRUNC('{part}', CAST({other} AS TIMESTAMP)) - "
                 f"DATE_TRUNC('{part}', CAST({element} AS TIMESTAMP)))) / {seconds} AS BIGINT)")
-    raise ValueError(f"A difference between dates is counted in years, quarters, months, weeks, days, hours, minutes or seconds, not {unit.value}")
+    raise ValueError(f"A difference between dates is counted in years, months, weeks, days, hours, minutes or seconds, not {unit.value}")
 
 
 def _interval_string(n: int, unit: DatePart) -> str:
-    """``INTERVAL '5' DAY`` in the units ANSI has (YEAR, MONTH, DAY, HOUR, MINUTE, SECOND): a week is 7 days, a quarter 3 months and a
-    microsecond a millionth of a second."""
+    """``INTERVAL '5' DAY`` in the units ANSI has (YEAR, MONTH, DAY, HOUR, MINUTE, SECOND): a week is 7 days and a microsecond a millionth of
+    a second."""
     if unit == DatePart.WEEK:
         n, unit = n * 7, DatePart.DAY
-    elif unit == DatePart.QUARTER:
-        n, unit = n * 3, DatePart.MONTH
     elif unit == DatePart.MICROSECOND:
         return "INTERVAL '" + format(decimal.Decimal(n).scaleb(-6), 'f') + "' SECOND"
-    elif unit in (DatePart.DOW, DatePart.DOY):
+    elif unit in (DatePart.QUARTER, DatePart.DOW, DatePart.DOY):
         raise ValueError(f"A length of time is not counted in {unit.value}")
     return "INTERVAL '" + str(n) + "' " + unit.value
 
