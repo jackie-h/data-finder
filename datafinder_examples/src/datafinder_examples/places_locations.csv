@@ -1,0 +1,6 @@
+id,place,visits,person_id,region_id
+1,Hoboken,3,1,1
+2,New York,5,1,1
+3,Boston,2,1,1
+4,Boston,4,2,1
+5,New York,1,3,2

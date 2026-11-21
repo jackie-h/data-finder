@@ -28,6 +28,16 @@ JOIN_CONDITIONS_FIRM_FINDER_SPECS = FinderSpec(
             expected_sql={"duckdb": "ON (t0.id = t1.firm_id AND t0.flag IS NULL AND t1.flag IS NOT NULL)"},
         ),
         TestExpectation(
+            name="a_filter_on_a_navigation_is_anded_with_the_condition_of_its_join",
+            skip_backends=_NO_CONDITIONS,
+            query=lambda f: f.find_all([f.legal_name(), f.employees().filter(lambda each: each.first_name().eq("Mary")).first_name()])
+                             .order_by(f.legal_name().ascending()),
+            expected_columns=["LegalName", "Employees FirstName"],
+            # Mary is an employee of Alpha; Beta has none, and Gamma has Bob and John but no Mary
+            expected_result=np.array([["Alpha", "Mary"], ["Beta", None], ["Gamma", None]], dtype=object),
+            expected_sql={"duckdb": "ON (t0.id = t1.firm_id AND t0.flag IS NULL AND t1.flag IS NOT NULL AND t1.first_name = 'Mary')"},
+        ),
+        TestExpectation(
             name="a_filter_on_a_property_reached_through_a_join_with_a_condition",
             skip_backends=_NO_CONDITIONS,
             query=lambda f: f.find_all([f.legal_name()], f.employees().first_name().eq("Bob")),
