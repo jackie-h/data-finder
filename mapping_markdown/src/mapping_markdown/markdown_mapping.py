@@ -7,7 +7,7 @@ from typing import Optional
 from markdown_it import MarkdownIt
 from markdown_it.tree import SyntaxTreeNode
 
-from model.m3 import Class, PrimitiveType, Association, Property, DateTime, ONE_TO_ONE, ZERO_TO_ONE
+from model.m3 import Class, PrimitiveType, Association, Property, Date, DateTime, ONE_TO_ONE, ZERO_TO_ONE
 from model.mapping import ClassMapping, Mapping, ProcessingDateMilestonesPropertyMapping, SingleBusinessDateMilestonePropertyMapping, \
     BusinessDateAndProcessingMilestonePropertyMapping, BiTemporalMilestonePropertyMapping, \
     BusinessDateRangeMilestonePropertyMapping, SingleProcessingDatetimeMilestonePropertyMapping
@@ -365,8 +365,9 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
 
                 column_rows = _parse_ast_table(nodes[i], _COLUMN_MAPPING_HEADERS) if i < len(nodes) and nodes[i].type == "table" else []
                 # how the rows are milestoned: the scheme the heading names, with the columns and infinities this table gives of its own
-                scheme = _table_scheme(scheme_name, column_rows, infinities, repository, current_schema,
-                                       f"Query '{table_name}'" if is_query else f"Table '{table_name}' → '{class_name}'")
+                where = f"Query '{table_name}'" if is_query else f"Table '{table_name}' → '{class_name}'"
+                scheme = _table_scheme(scheme_name, column_rows, infinities, repository, current_schema, where)
+                _reject_declared_milestoning_properties(scheme, all_props, where)
                 if is_query and scheme is not None and isinstance(table, TableAlias):
                     table.milestoning_scheme = scheme  # a query's rows are milestoned by the columns its SQL gives, as a table's by its own
 
@@ -390,7 +391,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             continue
                         prop = all_props.get(prop_name)
                         if prop is None:
-                            prop = _synthetic_milestoning_property(prop_name, col_name, scheme)
+                            prop = _synthetic_milestoning_property(prop_name, col, scheme)
                         if prop is None:
                             nav = assoc_nav_lookup.get((cls.name, prop_name))
                             if nav is not None:
@@ -404,6 +405,7 @@ def _loads_from_nodes(nodes: list, packages: list, repository: DataStore) -> Map
                             property_mappings.append(RelationalPropertyMapping(prop, col, set_name or cls.name))
                         # non-primitive (association) properties are resolved in the Association section
                     i += 1
+                _map_milestoning_columns(scheme, cols_by_name, property_mappings, set_name or cls.name)
 
                 embedded_by_nav = (
                     _build_embedded_mappings(embedded_rows, cls, classes_by_name, assoc_nav_lookup, set_name or cls.name)
@@ -918,22 +920,61 @@ def _camel_to_display_name(s: str) -> str:
     return result[0].upper() + result[1:]
 
 
-def _synthetic_milestoning_property(prop_name: str, col_name: str, scheme: MilestoningScheme | None) -> Property | None:
-    """Return a synthetic Property for a milestoning column not defined in the model, or None."""
+def _synthetic_milestoning_property(prop_name: str, column: Column, scheme: MilestoningScheme | None) -> Property | None:
+    """The property that gives a milestoning column of a table, which the model does not declare, or None for a column that is not one
+    of the table's milestoning. It is a Date for a DATE column and a DateTime for any other."""
     if scheme is None:
         return None
     milestoning_cols = {
         scheme.processing_start, scheme.processing_end,
         scheme.business_date, scheme.business_date_from, scheme.business_date_to, scheme.processing_datetime,
     } - {None}
-    if col_name in milestoning_cols:
+    if column.name in milestoning_cols:
         # An end column holds NULL, rather than an infinity date, when its axis has no infinity in the scheme.
-        infinity = scheme.business_infinite_datetime if col_name == scheme.business_date_to \
+        infinity = scheme.business_infinite_datetime if column.name == scheme.business_date_to \
             else scheme.processing_infinite_datetime
-        open_ended = infinity is None and col_name in (scheme.processing_end, scheme.business_date_to)
-        return Property(_camel_to_display_name(prop_name), prop_name, DateTime,
-                        ZERO_TO_ONE if open_ended else ONE_TO_ONE)
+        open_ended = infinity is None and column.name in (scheme.processing_end, scheme.business_date_to)
+        return milestoning_property(prop_name, Date if str(column.type).upper() == "DATE" else DateTime, open_ended)
     return None
+
+
+def milestoning_property(property_id: str, type_: PrimitiveType, optional: bool = False) -> Property:
+    """The property of a class for one of the reserved milestoning ids, named after its display name."""
+    return Property(_camel_to_display_name(property_id), property_id, type_, ZERO_TO_ONE if optional else ONE_TO_ONE)
+
+
+def reserved_milestoning_property(property_id: str) -> Property | None:
+    """The property for a reserved milestoning id when no column gives its type: a date for the business ids, a datetime for the
+    processing ids; none for an id that is not reserved."""
+    if property_id not in _MILESTONE_IDS:
+        return None
+    return milestoning_property(property_id, Date if property_id in ("businessDate", "businessFrom", "businessThru") else DateTime)
+
+
+def _reject_declared_milestoning_properties(scheme: MilestoningScheme | None, properties: dict, where: str) -> None:
+    """A table's milestoning columns are the properties ``validFrom``, ``validTo``, ``businessFrom``, ``businessThru``, ``businessDate``
+    and ``processingDatetime`` of its class, which the mapping gives. A model that declares one of them for a milestoned table is an error."""
+    if scheme is None:
+        return
+    for property_id, field in _MILESTONE_IDS.items():
+        if getattr(scheme, field) and property_id in properties:
+            raise ValueError(f"{where}: the model declares the property '{property_id}', which is a column of the table's milestoning and "
+                             f"is given by the mapping; remove it from the model")
+
+
+def _map_milestoning_columns(scheme: MilestoningScheme | None, columns: dict[str, Column], property_mappings: list, set_id: str) -> None:
+    """Map each milestoning column of the table that no row gave a Property ID to the property of its id, so that the class has an
+    accessor for every column of its milestoning, and a row only has to name a column to say that it is the table's own."""
+    if scheme is None:
+        return
+    mapped = {pm.target.name for pm in property_mappings if isinstance(pm.target, Column)}
+    for property_id, field in _MILESTONE_IDS.items():
+        name = getattr(scheme, field)
+        column = columns.get(name) if name else None
+        if column is not None and name not in mapped:
+            prop = _synthetic_milestoning_property(property_id, column, scheme)
+            if prop is not None:
+                property_mappings.append(RelationalPropertyMapping(prop, column, set_id))
 
 
 def _table_scheme(scheme_name: str | None, rows: list[dict], infinities: dict[str, str | None], repository: DataStore,

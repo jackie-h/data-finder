@@ -3,7 +3,7 @@ import os
 import pytest
 from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
 from model_markdown.markdown_model import load as load_model
-from model.m3 import Class, ONE_TO_ONE, ZERO_TO_ONE
+from model.m3 import Class, Date, ONE_TO_ONE, ZERO_TO_ONE
 from model.relational import Database, Schema, Table, Column
 from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateAndProcessingMilestonePropertyMapping, \
     BiTemporalMilestonePropertyMapping
@@ -784,20 +784,12 @@ class TestMilestonedWithMissingColumns:
 
 """
 
-    def _make_repo_and_pkg(self):
+    def _make_repo_and_pkg(self, milestoning_columns=("in_z", "out_z")):
         from model.m3 import Package, Class, Property, String
         pkg = Package("test")
-        Class("Trade", [
-            Property("Symbol", "symbol", String, ZERO_TO_ONE),
-            Property("Valid From", "validFrom", String, ZERO_TO_ONE),
-            Property("Valid To", "validTo", String, ZERO_TO_ONE),
-        ], pkg)
+        Class("Trade", [Property("Symbol", "symbol", String, ZERO_TO_ONE)], pkg)
         db = Database("test_db", "duckdb://test.db")
-        Table("trades", [
-            ("sym", "VARCHAR"),
-            ("in_z", "TIMESTAMP"),
-            ("out_z", "TIMESTAMP"),
-        ], Schema("hr", db))
+        Table("trades", [("sym", "VARCHAR")] + [(name, "TIMESTAMP") for name in milestoning_columns], Schema("hr", db))
         return pkg, db
 
     def test_missing_processing_start_raises(self):
@@ -809,7 +801,7 @@ class TestMilestonedWithMissingColumns:
 | sym    | VARCHAR   |     | Y        | symbol      |
 | out_z  | TIMESTAMP |     | Y        | validTo     |
 """
-        pkg, db = self._make_repo_and_pkg()
+        pkg, db = self._make_repo_and_pkg(("out_z",))
         with pytest.raises(ValueError, match="missing required column 'in_z'"):
             loads(content, packages=[pkg], datastore=db)
 
@@ -822,7 +814,7 @@ class TestMilestonedWithMissingColumns:
 | sym    | VARCHAR   |     | Y        | symbol      |
 | in_z   | TIMESTAMP |     | Y        | validFrom   |
 """
-        pkg, db = self._make_repo_and_pkg()
+        pkg, db = self._make_repo_and_pkg(("in_z",))
         with pytest.raises(ValueError, match="missing required column 'out_z'"):
             loads(content, packages=[pkg], datastore=db)
 
@@ -834,7 +826,7 @@ class TestMilestonedWithMissingColumns:
 |--------|---------|-----|----------|-------------|
 | sym    | VARCHAR |     | Y        | symbol      |
 """
-        pkg, db = self._make_repo_and_pkg()
+        pkg, db = self._make_repo_and_pkg(())
         with pytest.raises(ValueError, match="missing required column"):
             loads(content, packages=[pkg], datastore=db)
 
@@ -860,8 +852,38 @@ class TestMilestonedWithMissingColumns:
 |--------|---------|-----|----------|-------------|
 | sym    | VARCHAR |     | Y        | symbol      |
 """
-        pkg, db = self._make_repo_and_pkg()
+        pkg, db = self._make_repo_and_pkg(())
         with pytest.raises(ValueError, match="Table 'trades'.*'Trade'"):
+            loads(content, packages=[pkg], datastore=db)
+
+    def test_a_column_with_no_property_id_is_mapped_to_the_property_of_its_id(self):
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|-------------|
+| sym    | VARCHAR   |     | Y        | symbol      |
+"""
+        pkg, db = self._make_repo_and_pkg()
+        mapping = loads(content, packages=[pkg], datastore=db)
+        ids = {pm.property.id: pm.target.name for pm in mapping.mappings[0].property_mappings}
+        assert ids == {"symbol": "sym", "validFrom": "in_z", "validTo": "out_z"}
+
+    def test_a_model_that_declares_a_milestoning_property_is_refused(self):
+        from model.m3 import Package, Class, Property, String, DateTime
+        content = self._BASE + """\
+#### Table: trades → Trade (milestoning: processing_only)
+
+| Column | Type      | Key | Nullable | Property ID |
+|--------|-----------|-----|----------|-------------|
+| sym    | VARCHAR   |     | Y        | symbol      |
+| in_z   | TIMESTAMP |     | Y        | validFrom   |
+| out_z  | TIMESTAMP |     | Y        | validTo     |
+"""
+        pkg = Package("test")
+        Class("Trade", [Property("Symbol", "symbol", String, ZERO_TO_ONE), Property("Valid From", "validFrom", DateTime, ONE_TO_ONE)], pkg)
+        _, db = self._make_repo_and_pkg()
+        with pytest.raises(ValueError, match="declares the property 'validFrom'.*remove it from the model"):
             loads(content, packages=[pkg], datastore=db)
 
     def test_all_columns_present_succeeds(self):
@@ -1054,10 +1076,21 @@ class TestBusinessDateRangeScheme:
     def test_a_missing_range_column_is_refused(self, tmp_path):
         folder = os.path.dirname(self._FILE)
         (tmp_path / "business_range_model.md").write_text(open(os.path.join(folder, "..", "models", "business_range_model.md")).read())
+        content = open(self._FILE).read().replace("../models/", "")
+        (tmp_path / "mapping.md").write_text(content)
+        repo = Database("rates_db", "duckdb://test.db")
+        Table("rates", [("code", "VARCHAR"), ("amount", "DOUBLE"), ("from_z", "DATE")], Schema("mkt", repo))
+        with pytest.raises(ValueError, match="missing required column 'thru_z'"):
+            load(str(tmp_path / "mapping.md"), repo)
+
+    def test_the_range_columns_are_dates_and_have_accessors_without_a_row(self, tmp_path):
+        folder = os.path.dirname(self._FILE)
+        (tmp_path / "business_range_model.md").write_text(open(os.path.join(folder, "..", "models", "business_range_model.md")).read())
         content = open(self._FILE).read().replace("../models/", "").replace("| thru_z | DATE    |     | Y        | businessThru |\n", "")
         (tmp_path / "mapping.md").write_text(content)
-        with pytest.raises(ValueError, match="missing required column 'thru_z'"):
-            load(str(tmp_path / "mapping.md"), self._repo())
+        mapping = load(str(tmp_path / "mapping.md"), self._repo())
+        by_id = {pm.property.id: pm.property for pm in mapping.mappings[0].property_mappings}
+        assert by_id["businessThru"].type is Date
 
 
 class TestProcessingSnapshotScheme:
@@ -1096,10 +1129,14 @@ class TestProcessingSnapshotScheme:
     def test_a_missing_snapshot_column_is_refused(self, tmp_path):
         folder = os.path.dirname(self._FILE)
         (tmp_path / "processing_snapshot_model.md").write_text(open(os.path.join(folder, "..", "models", "processing_snapshot_model.md")).read())
-        content = open(self._FILE).read().replace("../models/", "").replace("| taken_at | TIMESTAMP |     | Y        | takenAt     |\n", "")
+        content = open(self._FILE).read().replace("../models/", "")
         (tmp_path / "mapping.md").write_text(content)
+        repo = Database("snapshots_db", "duckdb://test.db")
+        schema = Schema("mkt", repo)
+        Table("quotes", [("id", "INT"), ("symbol", "VARCHAR"), ("price", "DOUBLE")], schema)
+        Table("positions", [("id", "INT"), ("symbol", "VARCHAR")], schema)
         with pytest.raises(ValueError, match="missing required column 'taken_at'"):
-            load(str(tmp_path / "mapping.md"), self._repo())
+            load(str(tmp_path / "mapping.md"), repo)
 
     def test_a_snapshot_cannot_be_combined_with_another_processing_or_business_column(self, tmp_path):
         folder = os.path.dirname(self._FILE)
