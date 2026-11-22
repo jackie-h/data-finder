@@ -137,10 +137,6 @@ DAY_OF_WEEK_NUMBER = (
     "number is that day with the 7 of Sunday as 0, in a CASE"
 )
 
-EMBEDDED_WITH_JOIN = (
-    "an embedded property is read from the embedded column; the finder reads it from the joined table when the query "
-    "joins that table anyway, which gives other values when the two copies differ"
-)
 FLOAT_AVERAGE = (
     "Legend writes avg(1.0 * x) so an integer column averages as a float; the column is already a float, so the finder "
     "writes avg(x)"

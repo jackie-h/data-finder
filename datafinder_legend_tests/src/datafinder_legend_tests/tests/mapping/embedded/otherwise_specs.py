@@ -3,11 +3,15 @@ Ported from legend-engine core_relational ``tests/mapping/embedded/testEmbeddedO
 
 ``Product.bondDetails`` is embedded in the product row for ``description`` and falls back to a join to BOND_DETAIL for
 everything else (Legend's ``Otherwise``). Mapping: tests/mapping/embedded/embedded_mapping.md.
+
+The finder does not support an Otherwise embedded mapping: where a query joins the table for one property it reads the embedded property from the
+join too, but Legend reads it from the embedded column, so the tests that read such a property are recorded as unsupported. The mapping here is
+the embedded columns with an association, which gives the same rows for the tests that read no property both ways.
 """
 from datafinder import constant, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, ROWS, EMBEDDED_WITH_JOIN, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, QUALIFIED_PROPERTIES, not_supported
 from datafinder_legend_tests.legend import FLOAT_LITERAL_CAST
 
 _SRC = "tests/mapping/embedded/testEmbeddedOtherwiseMapping.pure"
@@ -20,18 +24,15 @@ OTHERWISE_SPECS = FinderSpec(
         ported("otherwiseTestFilter", f"{_SRC}::otherwiseTestFilter",
                'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where "bond_detail_0".TYPE = \'5 years\'',
                lambda f: f.find_all([f.name(), f.bond_details().type_()], f.bond_details().type_().eq("5 years"))),
-        ported("otherwiseTestProjection", f"{_SRC}::otherwiseTestProjection",
-               'select "root".PRODUCT_NAME as "name", "root".BOND_DETAILS as "description", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID)',
-               lambda f: f.find_all([f.name(), f.bond_details().description(), f.bond_details().type_()]),
-               known_gaps={BACKEND: EMBEDDED_WITH_JOIN, ROWS: EMBEDDED_WITH_JOIN}),
-        ported("otherwiseTestDenormWithComplexFilter", f"{_SRC}::otherwiseTestDenormWithComplexFilter",
-               'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where "bond_detail_0".TYPE like \'15%\' and "root".BOND_DETAILS like \'Bond%\'',
-               lambda f: f.find_all([f.name(), f.bond_details().type_()], f.bond_details().type_().starts_with("15").and_(f.bond_details().description().starts_with("Bond"))),
-               known_gaps={BACKEND: EMBEDDED_WITH_JOIN, ROWS: EMBEDDED_WITH_JOIN}),
-        ported("otherwiseTestGroupByComplexExpressionEmbeddedAndJoin", f"{_SRC}::otherwiseTestGroupByComplexExpressionEmbeddedAndJoin",
-               'select "root".BOND_DETAILS as "Bond Type", sum(case when "bond_detail_0".TYPE like \'5%\' then cast(5.0 as float) else cast(1.0 as float) end) as "sum" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) group by "Bond Type"',
-               lambda f: f.find_all([f.bond_details().description(), when(f.bond_details().type_().starts_with("5")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().description()),
-               known_gaps={BACKEND: EMBEDDED_WITH_JOIN, ROWS: EMBEDDED_WITH_JOIN}),
+        unsupported("otherwiseTestProjection", f"{_SRC}::otherwiseTestProjection",
+                    'select "root".PRODUCT_NAME as "name", "root".BOND_DETAILS as "description", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID)',
+                    'an Otherwise embedded mapping'),
+        unsupported("otherwiseTestDenormWithComplexFilter", f"{_SRC}::otherwiseTestDenormWithComplexFilter",
+                    'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where "bond_detail_0".TYPE like \'15%\' and "root".BOND_DETAILS like \'Bond%\'',
+                    'an Otherwise embedded mapping'),
+        unsupported("otherwiseTestGroupByComplexExpressionEmbeddedAndJoin", f"{_SRC}::otherwiseTestGroupByComplexExpressionEmbeddedAndJoin",
+                    'select "root".BOND_DETAILS as "Bond Type", sum(case when "bond_detail_0".TYPE like \'5%\' then cast(5.0 as float) else cast(1.0 as float) end) as "sum" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) group by "Bond Type"',
+                    'an Otherwise embedded mapping'),
         ported("testProjectionOtherwise", f"{_SRC}::testProjectionOtherwise",
                'select "root".PRODUCT_NAME as "name", "root".BOND_DETAILS as "description" from PRODUCT_DENORM as "root"',
                lambda f: f.find_all([f.name(), f.bond_details().description()])),
