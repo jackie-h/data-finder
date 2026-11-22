@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder import DayOfWeek, constant, first_day_of_this_month, first_day_of_this_quarter, first_day_of_this_year, previous_day_of_week
-from datafinder_legend_tests.legend import BACKEND, DATE_ARITHMETIC_SHAPE, EXTRACT_DOW_FROM_SUNDAY_AS_ONE, ROWS, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, DATE_ARITHMETIC_SHAPE, ROWS, ported, unsupported
 from datafinder_legend_tests.legend import TYPED_DATE_LITERAL
 import datetime
 
@@ -65,10 +65,10 @@ DATE_FILTERS_SPECS = FinderSpec(
         ported("testMostRecentDayOfWeekWithDate", f"{_SRC}::testMostRecentDayOfWeekWithDate",
                     'select "root".tradeDate as "date" from tradeTable as "root" where "root".tradeDate = dateadd(day, case when (2 - extract(dow from DATE\'2014-12-04\')) > 0 then (2 - extract(dow from DATE\'2014-12-04\')) - 7 else 2 - extract(dow from DATE\'2014-12-04\') end, DATE\'2014-12-04\')',
                     lambda f: f.find_all([f.date().alias("date")], f.date().eq(constant(datetime.date(2014, 12, 4)).most_recent_day_of_week(DayOfWeek.MONDAY))),
-                    known_gaps={BACKEND: DATE_ARITHMETIC_SHAPE, ROWS: EXTRACT_DOW_FROM_SUNDAY_AS_ONE}),
+                    known_gaps={BACKEND: DATE_ARITHMETIC_SHAPE}),
         ported("testPreviousDayOfWeekWithDate", f"{_SRC}::testPreviousDayOfWeekWithDate",
                     'select "root".tradeDate as "date" from tradeTable as "root" where "root".tradeDate = dateadd(day, case when (2 - extract(dow from DATE\'2014-12-08\')) >= 0 then (2 - extract(dow from DATE\'2014-12-08\')) - 7 else 2 - extract(dow from DATE\'2014-12-08\') end, DATE\'2014-12-08\')',
                     lambda f: f.find_all([f.date().alias("date")], f.date().eq(constant(datetime.date(2014, 12, 8)).previous_day_of_week(DayOfWeek.MONDAY))),
-                    known_gaps={BACKEND: DATE_ARITHMETIC_SHAPE, ROWS: EXTRACT_DOW_FROM_SUNDAY_AS_ONE}),
+                    known_gaps={BACKEND: DATE_ARITHMETIC_SHAPE}),
     ],
 )

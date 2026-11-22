@@ -1,8 +1,6 @@
 """Helpers for porting Legend tests into specs."""
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from datafinder_examples_tests.spec import TestExpectation
 
 BACKEND = "duckdb"
@@ -65,10 +63,6 @@ GROUP_BY_QUERY_SUBSELECT = (
     "keeps the same rows"
 )
 
-GROUP_BY_JOIN_COLUMN = (
-    "Legend groups TRADE by its columns and reads the description of the PRODUCT it joins in the same select, which a database that "
-    "checks the group by refuses (DuckDB does); the finder joins the product to the query that groups, which is valid SQL; its rows are the ones Legend's test asserts"
-)
 
 AGGREGATE_COLUMN_QUALIFIED = (
     "Legend writes the column an aggregate reads from a derived table unqualified, listagg(\"lastName\", '*'); the finder qualifies it with "
@@ -134,17 +128,16 @@ PERCENTILE_AS_DOUBLE = (
     "is and, for percentile_cont, which interpolates, orders the values as a double, which is the same value"
 )
 
-PERCENTILE_SINGLE_PRECISION = (
-    "the column is a REAL in DuckDB, so Legend's SQL interpolates a percentile in single precision (44.599998474) where H2, which the results of "
-    "Legend's tests are from, does in double, as the finder does by casting the column (44.6): the rows agree to single precision"
-)
 
-EXTRACT_DOW_FROM_SUNDAY_AS_ONE = (
-    "Legend's SQL numbers the days of the week with extract(dow ...) as H2 does, from Sunday as 1, and moves back to a Monday by that number; "
-    "DuckDB numbers them from Sunday as 0, so Legend's SQL run on DuckDB reaches the Tuesday (2014-12-02), where Legend's test expects the "
-    "Monday (2014-12-01), which the finder returns"
-)
 
+STRING_AGG_ORDER = (
+    "the order in which a string aggregate joins its values is not defined by SQL; Legend's test asserts the order H2 happens to give, "
+    "'GS-Mod-S1*GS-Mod-S2', where DuckDB, and so the finder, gives 'GS-Mod-S2*GS-Mod-S1'. The same values are joined"
+)
+DAY_OF_WEEK_NUMBER_FROM_SUNDAY_AS_ONE = (
+    "Legend's test asserts the numbers H2's extract(dow ...) gives, which count from Sunday as 1 (Monday is 2); the finder's day of the "
+    "week number counts from Sunday as 0 (Monday is 1), as DuckDB and PostgreSQL do. The days are the same"
+)
 DAY_OF_WEEK_NUMBER = (
     "Legend numbers the days from Sunday with extract(dow ...) (Sunday is 0); the finder's day of the week is the ISO day, so the Sunday-based "
     "number is that day with the 7 of Sunday as 0, in a CASE"
@@ -262,20 +255,8 @@ def _unsupported_query(finder):
     raise NotImplementedError
 
 
-@dataclass
-class PortedExpectation(TestExpectation):
-    """A ported test that also records the rows Legend's own test asserts, for a query whose SQL DuckDB will not run, so that
-    there are no rows of Legend's SQL to compare the finder's with. They are compared when the rows of the SQL cannot be."""
-
-    asserted_rows: list[tuple] | None = None
-
-
-def ported(name: str, source: str, legend_sql: str, query, asserted_rows: list[tuple] | None = None, **kwargs) -> TestExpectation:
-    """A SQL-only expectation: ``query`` must produce SQL equivalent to what Legend asserts. ``asserted_rows`` are the rows Legend's test
-    asserts, to compare the finder's with where Legend's SQL cannot be run."""
-    if asserted_rows is not None:
-        return PortedExpectation(name=name, query=query, source=source, equivalent_sql={BACKEND: legend_sql},
-                                 asserted_rows=asserted_rows, **kwargs)
+def ported(name: str, source: str, legend_sql: str, query, **kwargs) -> TestExpectation:
+    """A SQL-only expectation: ``query`` must produce SQL equivalent to what Legend asserts."""
     return TestExpectation(name=name, query=query, source=source,
                            equivalent_sql={BACKEND: legend_sql}, **kwargs)
 

@@ -8,6 +8,7 @@ from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import BACKEND, DAY_NAME_FUNCTION, DAY_OF_WEEK_NUMBER, ported, unsupported, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import DAY_OF_WEEK_NUMBER_FROM_SUNDAY_AS_ONE, ROWS
 
 _SRC = "tests/query/testWithFunction.pure"
 
@@ -24,7 +25,7 @@ WITH_FUNCTION_SPECS = FinderSpec(
                     # Legend numbers the days from Monday for the filter and from Sunday for the column; the finder's day of the week is the ISO day, so a Sunday is 7 there and 0 here
                     lambda f: f.find_all([when(f.date().day_of_week() == 7).then(0).otherwise(f.date().day_of_week()).alias("Day Of Week Number")],
                                          f.date().day_of_week() != 2),
-                    known_gaps={BACKEND: DAY_OF_WEEK_NUMBER}),
+                    known_gaps={BACKEND: DAY_OF_WEEK_NUMBER, ROWS: DAY_OF_WEEK_NUMBER_FROM_SUNDAY_AS_ONE}),
     ],
 )
 

@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import PERCENTILE_AS_DOUBLE, PERCENTILE_SINGLE_PRECISION, ROWS, ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import PERCENTILE_AS_DOUBLE, ROWS, ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, QUALIFIED_PROPERTIES, not_supported
 from datafinder_legend_tests.legend import FLOAT_LITERAL_CAST
 
 _SRC = "tds/tests/testGroupBy.pure"
@@ -46,7 +46,7 @@ GROUP_BY_TRADE_SPECS = FinderSpec(
                                      (f.quantity() + 2).percentile(0.5, ascending=False, continuous=False).alias("p2"),
                                      (f.quantity() + 2).percentile(0.75).alias("p3")])
                          .group_by(f.product().name()).order_by(f.product().name().descending()),
-               known_gaps={BACKEND: PERCENTILE_AS_DOUBLE, ROWS: PERCENTILE_SINGLE_PRECISION}),
+               known_gaps={BACKEND: PERCENTILE_AS_DOUBLE}),
         ported("simpleFilterWithGroupByWithDistinct", f"{_SRC}::simpleFilterWithGroupByWithDistinct",
                     'select "tradetable_0"."quantity" as "quantity", count("quantity") as "qty" from (select distinct "root".quantity as "quantity" from tradeTable as "root" where "root".ID < 4 and "root".quantity > 11) as "tradetable_0" group by "quantity"',
                     lambda f: f.find_all([f.quantity()], (f.id_() < 4).and_(f.quantity() > 11)).distinct().group_by(lambda r: r.quantity).aggregate(qty=lambda r: r.quantity.count()),

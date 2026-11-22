@@ -6,7 +6,7 @@ the select of the table; the finder reads the query as a derived table, so its S
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, GROUP_BY_JOIN_COLUMN, GROUP_BY_QUERY_SUBSELECT, ROWS, ported
+from datafinder_legend_tests.legend import BACKEND, GROUP_BY_QUERY_SUBSELECT, ROWS, ported
 
 _SRC = "tests/mapping/groupBy/testGroupBy.pure"
 
@@ -41,8 +41,7 @@ GROUP_BY_MAPPING_SPECS = FinderSpec(
         ported("testGroupByMappingProjectWithJoin", f"{_SRC}::testGroupByMappingProjectWithJoin",
                'select "root".GSN as "gsn", "product_0".DESCRIPTION as "description" from TRADE as "root" left outer join PRODUCT as "product_0" on ("root".PRODUCT_ID = "product_0".ID) group by "root".ACC_NUM, "root".PRODUCT_ID, "root".GSN order by "gsn" asc',
                lambda f: f.find_all([f.gsn(), f.product().description()]).order_by(f.gsn().ascending()),
-               asserted_rows=[("EA4GNY", "Gold"), ("YU2EF5", "Firm D")],
-               known_gaps={BACKEND: GROUP_BY_QUERY_SUBSELECT, ROWS: GROUP_BY_JOIN_COLUMN}),
+               known_gaps={BACKEND: GROUP_BY_QUERY_SUBSELECT}),
     ],
 )
 
@@ -65,8 +64,7 @@ GROUP_BY_FILTER_SPECS = FinderSpec(
         ported("testGroupByMappingProjectWithJoinAndTableFilter", f"{_SRC}::testGroupByMappingProjectWithJoinAndTableFilter",
                'select "root".GSN as "gsn", "product_0".DESCRIPTION as "description" from TRADE as "root" left outer join PRODUCT as "product_0" on ("root".PRODUCT_ID = "product_0".ID and "product_0".ID = 1) where "root".PRODUCT_ID = 1 group by "root".ACC_NUM, "root".PRODUCT_ID, "root".GSN',
                lambda f: f.find_all([f.gsn(), f.product().description()]),
-               asserted_rows=[("YU2EF5", "Firm D")],
-               known_gaps={BACKEND: GROUP_BY_QUERY_SUBSELECT, ROWS: GROUP_BY_JOIN_COLUMN}),
+               known_gaps={BACKEND: GROUP_BY_QUERY_SUBSELECT}),
     ],
 )
 
@@ -78,8 +76,7 @@ GROUP_BY_TWO_SPECS = FinderSpec(
         ported("testGroupByMappingProjectWithMultipleGroupBys", f"{_SRC}::testGroupByMappingProjectWithMultipleGroupBys",
                'select "root".GSN as "gsn", "product_exploded_0".DESCRIPTION as "description" from TRADE as "root" left outer join (select "root".DESCRIPTION, "root".PRODUCT_ID from PRODUCT_EXPLODED as "root" where "root".ACTIVE = 1 group by "root".PRODUCT_ID, "root".DESCRIPTION) as "product_exploded_0" on ("root".PRODUCT_ID = "product_exploded_0".PRODUCT_ID and "product_exploded_0".PRODUCT_ID = 1) where "root".PRODUCT_ID = 1 group by "root".ACC_NUM, "root".PRODUCT_ID, "root".GSN',
                lambda f: f.find_all([f.gsn(), f.product().description()]),
-               asserted_rows=[("YU2EF5", "Firm D")],
-               known_gaps={BACKEND: GROUP_BY_QUERY_SUBSELECT, ROWS: GROUP_BY_JOIN_COLUMN}),
+               known_gaps={BACKEND: GROUP_BY_QUERY_SUBSELECT}),
     ],
 )
 

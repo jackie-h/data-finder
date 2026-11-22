@@ -7,7 +7,7 @@ Mapping: tests/simple_mapping.md.
 from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import PERCENTILE_AS_DOUBLE, PERCENTILE_SINGLE_PRECISION, ROWS, COUNT_OF_ONE, ported, unsupported, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import PERCENTILE_AS_DOUBLE, ROWS, COUNT_OF_ONE, ported, unsupported, BACKEND, FLOAT_AVERAGE, LEFT_JOIN_ORDER, QUALIFIED_PROPERTIES, not_supported
 from datafinder_legend_tests.legend import FLOAT_LITERAL_CAST, TYPED_DATE_LITERAL
 import datetime
 
@@ -88,7 +88,7 @@ MODEL_GROUP_BY_SPECS = FinderSpec(
                                      f.quantity().percentile(0.5, ascending=False, continuous=False).alias("p2"),
                                      f.quantity().percentile(0.75).alias("p3")])
                          .group_by(f.product().name()).order_by(f.product().name().descending()),
-               known_gaps={BACKEND: PERCENTILE_AS_DOUBLE, ROWS: PERCENTILE_SINGLE_PRECISION}),
+               known_gaps={BACKEND: PERCENTILE_AS_DOUBLE}),
         ported("testStdDevSample", f"{_SRC}::testStdDevSample",
                'select "producttable_0".NAME as "prodName", stddev_samp("root".quantity) as "stdDevSample" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all([f.product().name(), f.quantity().std()]).group_by(f.product().name()).order_by(f.product().name().descending())),

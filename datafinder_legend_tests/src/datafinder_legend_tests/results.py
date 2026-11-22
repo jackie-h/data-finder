@@ -13,6 +13,7 @@ from sqlglot import exp, parse_one
 from datafinder_examples_tests.spec import TestExpectation
 from datafinder_examples_tests.sql_compare import parse
 
+from datafinder_legend_tests.asserted import check as check_claims, claims_of
 from datafinder_legend_tests.legend import BACKEND, ROWS
 
 
@@ -108,29 +109,25 @@ def our_rows(finder: Any, expectation: TestExpectation) -> list[tuple]:
 
 
 def assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:
-    """Our query returns the same rows as Legend's SQL does on the same data (columns by position). When Legend's SQL
-    sorts, the rows must also come in the same order of the sorted columns."""
+    """Our query returns the rows that Legend's test asserts for it. Where the test asserts none that can be read (see
+    tools/extract_rows.py), they are the rows of Legend's SQL on the same data (columns by position); when Legend's SQL sorts, the
+    rows must also come in the same order of the sorted columns."""
     if BACKEND in expectation.skip_backends:
         pytest.skip(expectation.skip_backends[BACKEND])
+    check = _assert_asserted_rows if claims_of(expectation.source) else _assert_same_rows
     gap = expectation.known_gaps.get(ROWS)
     if gap is not None:
         try:
-            _assert_same_rows(database, finder, expectation)
-        except (AssertionError, duckdb.Error):  # Legend's SQL can be one DuckDB will not run
-            _assert_asserted_rows(finder, expectation)  # the rows its test asserts can still be compared, and a difference there is a failure
+            check(database, finder, expectation)
+        except (AssertionError, duckdb.Error):  # or Legend's SQL is one DuckDB will not run
             pytest.xfail(gap)
         pytest.fail(f"[{expectation.name}] now returns Legend's rows: remove its {ROWS} known_gaps entry ({gap})")
-    _assert_same_rows(database, finder, expectation)
+    check(database, finder, expectation)
 
 
-def _assert_asserted_rows(finder: Any, expectation: TestExpectation) -> None:
-    """Our rows are the rows Legend's test asserts, where the spec records them (in any order, as Legend's assertSameElements has it)."""
-    asserted = getattr(expectation, "asserted_rows", None)
-    if asserted is None:
-        return
-    actual, expected = our_rows(finder, expectation), canonical_rows(asserted)
-    assert as_set_of_rows(actual) == as_set_of_rows(expected), (
-        f"[{expectation.name}] rows differ from the rows Legend's test asserts.\nLegend rows ({len(expected)}): {expected}\nOur rows ({len(actual)}): {actual}")
+def _assert_asserted_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:
+    result = expectation.query(finder).to_pandas()
+    check_claims(expectation.source, canonical_rows(result.itertuples(index=False, name=None)), result.shape[1])
 
 
 def _assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:

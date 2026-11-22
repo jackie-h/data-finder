@@ -12,6 +12,7 @@ from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import QUALIFIED_PROPERTIES, USER_DEFINED_FUNCTIONS, not_supported, AGGREGATE_IN_DERIVED_TABLE, DATE_ARITHMETIC_SHAPE, ISOLATED_JOIN_DATE_ADDED, BACKEND, CORRELATED_EXISTS, EXISTS_COLUMN_SUB_SELECT, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, ported, unsupported
 from datafinder_legend_tests.legend import TYPED_DATE_LITERAL
+from datafinder_legend_tests.legend import ROWS, STRING_AGG_ORDER
 
 _SRC = "milestoning/tests/testBusinessDateMilestoning.pure"
 _MAPPING = "milestoning/tests/business_date_mapping.md"
@@ -132,7 +133,7 @@ BUSINESS_DATE_GROUP_BY_SPECS = FinderSpec(
         ported("testMilestoningQueryWithGroupByFilterWithMilestoning", f"{_SRC}::testMilestoningQueryWithGroupByFilterWithMilestoning",
                'select "root".name as "prodName", listagg("productsynonymtable_0".synonym, \'*\') as "synonyms" from ProductTable as "root" left outer join ProductSynonymTable as "productsynonymtable_0" on ("root".name = "productsynonymtable_0".name and "productsynonymtable_0".from_z <= DATE\'2015-10-16\' and "productsynonymtable_0".thru_z > DATE\'2015-10-16\') left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= DATE\'2015-10-16\' and "productclassificationtable_0".thru_z > DATE\'2015-10-16\') left outer join ProductExchangeTable as "productexchangetable_0" on ("root".exchange = "productexchangetable_0".name and "productexchangetable_0".from_z <= DATE\'2015-10-17\' and "productexchangetable_0".thru_z > DATE\'2015-10-17\') where "productclassificationtable_0".type = \'STOCK\' and "productexchangetable_0".name = \'LNSE\' and "root".from_z <= DATE\'2015-10-16\' and "root".thru_z > DATE\'2015-10-16\' group by "prodName"',
                lambda f: f.find_all("2015-10-16", None, [f.name(), f.synonyms(business_date="2015-10-16").synonym().join("*")], f.classification().type_().eq("STOCK").and_(f.exchange(business_date="2015-10-17").name().eq("LNSE"))).group_by(f.name()),
-               known_gaps={BACKEND: TYPED_DATE_LITERAL}),
+               known_gaps={BACKEND: TYPED_DATE_LITERAL, ROWS: STRING_AGG_ORDER}),
     ],
 )
 
@@ -144,7 +145,7 @@ BUSINESS_DATE_AGG_SPECS = FinderSpec(
         ported("testMilestoningQueryWithAggProjectWithMilestoneFilter", f"{_SRC}::testMilestoningQueryWithAggProjectWithMilestoneFilter",
                'select "root".name as "prodName", "producttable_1".aggCol as "synonyms" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= DATE\'2015-10-16\' and "productclassificationtable_0".thru_z > DATE\'2015-10-16\') left outer join ProductExchangeTable as "productexchangetable_0" on ("root".exchange = "productexchangetable_0".name and "productexchangetable_0".from_z <= DATE\'2015-10-17\' and "productexchangetable_0".thru_z > DATE\'2015-10-17\') left outer join (select "producttable_2".name as name, "producttable_2".id as id, listagg("productsynonymtable_0".synonym, \'*\') as aggCol from ProductTable as "producttable_2" left outer join ProductSynonymTable as "productsynonymtable_0" on ("producttable_2".name = "productsynonymtable_0".name and "productsynonymtable_0".from_z <= DATE\'2015-10-16\' and "productsynonymtable_0".thru_z > DATE\'2015-10-16\') group by "producttable_2".id, "producttable_2".name) as "producttable_1" on ("root".name = "producttable_1".name and "root".id = "producttable_1".id) where "productclassificationtable_0".type = \'STOCK\' and "productexchangetable_0".name = \'LNSE\' and "root".from_z <= DATE\'2015-10-16\' and "root".thru_z > DATE\'2015-10-16\'',
                lambda f: f.find_all("2015-10-16", None, [f.name(), f.synonyms(business_date="2015-10-16").synonym().join("*")], f.classification().type_().eq("STOCK").and_(f.exchange(business_date="2015-10-17").name().eq("LNSE"))),
-               known_gaps={BACKEND: AGGREGATE_IN_DERIVED_TABLE}),
+               known_gaps={BACKEND: AGGREGATE_IN_DERIVED_TABLE, ROWS: STRING_AGG_ORDER}),
     ],
 )
 
