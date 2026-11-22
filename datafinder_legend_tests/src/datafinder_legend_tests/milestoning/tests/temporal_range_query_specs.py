@@ -45,8 +45,5 @@ TEMPORAL_RANGE_QUERY_SPECS = FinderSpec(
         unsupported("testBusinessTemporalRangeQueryOnRootWithSubsequentCallToMilestonedQualifiedPropertyWithThisBusinessDate", f"{_SRC}::testBusinessTemporalRangeQueryOnRootWithSubsequentCallToMilestonedQualifiedPropertyWithThisBusinessDate",
                     'select distinct "productclassificationtable_0".type as "classificationType" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= "root".from_z and "productclassificationtable_0".thru_z > "root".from_z) where "root".from_z <= DATE\'1982-01-01\' and "root".thru_z > DATE\'1979-01-01\'',
                     'range queries over a milestoned property (all versions between two dates)'),
-        unsupported("testBusinessTemporalRangeQueryOnRootWithSubsequentCallToMilestonedQualifiedPropertyWithFunctionCallWithThisBusinessDateParameter", f"{_SRC}::testBusinessTemporalRangeQueryOnRootWithSubsequentCallToMilestonedQualifiedPropertyWithFunctionCallWithThisBusinessDateParameter",
-                    '',
-                    'range queries over a milestoned property (all versions between two dates)'),
     ],
 )

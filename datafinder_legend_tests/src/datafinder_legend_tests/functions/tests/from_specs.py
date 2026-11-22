@@ -30,8 +30,5 @@ FROM_SPECS = FinderSpec(
         unsupported("testFromWithMappingAndIntermediateFuncCall", f"{_SRC}::testFromWithMappingAndIntermediateFuncCall",
                     'select "firmtable_0".LEGALNAME as "Name" from personTable as "root" left outer join firmTable as "firmtable_0" on ("firmtable_0".ID = "root".FIRMID) where "root".FIRSTNAME = \'Peter\'',
                     'from() with an explicit mapping and runtime'),
-        unsupported("testMultipleFromWithMapping", f"{_SRC}::testMultipleFromWithMapping",
-                    'select "unionalias_0"."FirstName" as "FirstName" from (select "root".FIRSTNAME as "FirstName" from personTable as "root" where "root".FIRSTNAME = \'Peter\' union all select "root".FIRSTNAME as "FirstName" from personTable as "root" where "root".FIRSTNAME = \'Don\') as "unionalias_0"',
-                    'from() with an explicit mapping and runtime'),
     ],
 )

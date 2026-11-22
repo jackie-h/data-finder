@@ -42,9 +42,6 @@ MERGE_RULES_SPECS = FinderSpec(
     finder_name="PersonFinder",
     mapping_file="tests/simple_mapping.md",
     expectations=[
-        unsupported("testToManyJoinTreeNodesForInvalidUsageOfFilterAndProjectDoMergeGivingWrongResults", f"{_SRC}::testToManyJoinTreeNodesForInvalidUsageOfFilterAndProjectDoMergeGivingWrongResults",
-                    'select "root".LEGALNAME as "legalName", "personTable_d#4_d_m2".LASTNAME as "lastName" from firmTable as "root" left outer join (select distinct "personTable_d#4".FIRMID from personTable as "personTable_d#4" where "personTable_d#4".LASTNAME = \'Smith\') as "personTable_d#4_ecq_d#2_m1" on ("root".ID = "personTable_d#4_ecq_d#2_m1".FIRMID) left outer join personTable as "personTable_d#4_d_m2" on ("root".ID = "personTable_d#4_d_m2".FIRMID) where "personTable_d#4_ecq_d#2_m1".FIRMID is not null',
-                    'milestoned or to-many join merging'),
         unsupported("testToOneJoinTreeNodesForMilestoningFilterAndProjectMerge", f"{_SRC}::testToOneJoinTreeNodesForMilestoningFilterAndProjectMerge",
                     'select "root".name as "productName", "productclassificationtable_0".type as "productClassificationType" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= DATE\'2015-10-16\' and "productclassificationtable_0".thru_z > DATE\'2015-10-16\') where "productclassificationtable_0".type = \'STOCK\' and "root".from_z <= DATE\'2015-10-16\' and "root".thru_z > DATE\'2015-10-16\'',
                     'milestoned or to-many join merging'),

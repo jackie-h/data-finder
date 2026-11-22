@@ -41,9 +41,6 @@ EMBEDDED_SPECS = FinderSpec(
         not_supported("testMapEmbeddedQualifierWithIfTwoEmbeddedProperties", f"{_SRC}::testMapEmbeddedQualifierWithIfTwoEmbeddedProperties",
                     'select case when "root".FIRM_LEGALNAME = \'Firm X\' then concat("root".FIRM_LEGALNAME, \' , Top Secret\') else concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) end as "nameAndMaskedAddress" from PERSON_FIRM_DENORM as "root" where concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) is not null and concat("root".FIRM_LEGALNAME, \',\', "root".FIRM_ADDRESS_NAME) like \'Firm X%\'',
                     QUALIFIED_PROPERTIES),
-        unsupported("testOptionalPropertyEmbedded", f"{_SRC}::testOptionalPropertyEmbedded",
-                    '???',
-                    'no optional-property test in the finder: a missing embedded object is not distinguishable from one with null columns'),
     ],
 )
 
