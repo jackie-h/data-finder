@@ -447,12 +447,13 @@ def _filter_sub_select(query: QuerySpecification, node: JoinTreeNodeOperation, b
 
     def step_of(old: JoinTreeNodeOperation) -> JoinTreeNodeOperation:
         if id(old) not in steps:
+            assert old.parent is not None, "A step below the step has a step above it"
             above = None if old.parent is node else step_of(old.parent)
             steps[id(old)] = JoinTreeNodeOperation(old.join, above, old.many, old.optional, old.business_date,
                                                    old.processing_datetime)
         return steps[id(old)]
 
-    def reroot(op):
+    def reroot(op: Any) -> Any:
         if isinstance(op, (Attribute, ColumnWithJoin)):
             column, parent = (op.column(), op.parent()) if isinstance(op, Attribute) else (op.column, op.parent)
             if parent is node:
@@ -494,7 +495,7 @@ def _filter_sub_select(query: QuerySpecification, node: JoinTreeNodeOperation, b
                 if not below.join.is_target(column):
                     columns.setdefault(column.name, column)
     selected = [Alias(own(column), column.name) for column in columns.values()]
-    condition = reroot(node.join.filter)
+    condition: Operation = reroot(node.join.filter)
     if node.join.filter_kwargs:
         condition = LogicalOperation(condition, LogicalOperator.AND,
                                      _build_join_kwargs_filter(None, node.join.filter_kwargs, node.join.filter_column_map))
