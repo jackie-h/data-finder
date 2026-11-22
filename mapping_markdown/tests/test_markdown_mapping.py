@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
@@ -10,10 +9,10 @@ from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateA
     BiTemporalMilestonePropertyMapping
 from model.relational_mapping import RelationalEmbeddedSetMapping, RelationalPropertyMapping, Join
 
-FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
-EMBEDDED_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping_embedded.md"))
-MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance.md"))
-TRADE_MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_trade.md"))
+FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "finance_mapping.md"))
+EMBEDDED_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "finance_mapping_embedded.md"))
+MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "models", "finance.md"))
+TRADE_MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "models", "finance_trade.md"))
 
 
 def _build_repository() -> Database:
@@ -235,17 +234,12 @@ class TestMarkdownMappingSave:
         content = to_markdown("Finance Mapping", self.mapping)
         assert "FK" in content
 
-    def test_save_and_reload(self):
-        fixture_dir = os.path.dirname(FIXTURE)
-        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", dir=fixture_dir) as f:
-            temp_path = f.name
-        try:
-            save(temp_path, "Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
-            repo2 = _build_repository()
-            mapping2 = load(temp_path, repo2)
-            assert len(mapping2.mappings) == 6
-        finally:
-            os.unlink(temp_path)
+    def test_save_and_reload(self, tmp_path):
+        temp_path = str(tmp_path / "mapping.md")
+        save(temp_path, "Finance Mapping", self.mapping, [MODEL_FILE, TRADE_MODEL_FILE])
+        repo2 = _build_repository()
+        mapping2 = load(temp_path, repo2)
+        assert len(mapping2.mappings) == 6
 
     def test_generated_markdown_has_model_reference(self):
         content = to_markdown("Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
@@ -928,18 +922,14 @@ class TestEmbeddedMapping:
         assert pm.target.rhs.table is not None
         assert pm.target.rhs.table.name == "branch_master"
 
-    def test_roundtrip_preserves_embedded_mapping(self):
-        content = to_markdown("Finance Mapping Embedded", self.mapping, model_paths=["finance.md", "finance_trade.md"])
+    def test_roundtrip_preserves_embedded_mapping(self, tmp_path):
+        content = to_markdown("Finance Mapping Embedded", self.mapping, model_paths=[MODEL_FILE, TRADE_MODEL_FILE])
         assert "account.name" in content and "account.branch.city" in content
 
-        # Model: references are relative to the mapping file's own directory.
-        tmp_path = os.path.join(os.path.dirname(EMBEDDED_FIXTURE), "_tmp_roundtrip_embedded.md")
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        try:
-            mapping2 = load(tmp_path)
-        finally:
-            os.remove(tmp_path)
+        # a mapping written to another folder names its models by absolute path
+        tmp = tmp_path / "mapping.md"
+        tmp.write_text(content, encoding="utf-8")
+        mapping2 = load(str(tmp))
         rcm = next(m for m in mapping2.mappings if m.clazz.name == "Trade")
         pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
         branch_pm = next(p for p in pm.target.embedded.property_mappings if p.property.id == "branch")
@@ -1041,8 +1031,7 @@ class TestEmbeddedMappingErrors:
 class TestBusinessDateRangeScheme:
     """A scheme with a business date range and no processing columns."""
 
-    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src",
-                                          "datafinder_examples", "business_range_mapping.md"))
+    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "business_range_mapping.md"))
 
     @staticmethod
     def _repo() -> Database:
@@ -1064,8 +1053,8 @@ class TestBusinessDateRangeScheme:
 
     def test_a_missing_range_column_is_refused(self, tmp_path):
         folder = os.path.dirname(self._FILE)
-        (tmp_path / "business_range_model.md").write_text(open(os.path.join(folder, "business_range_model.md")).read())
-        content = open(self._FILE).read().replace("| thru_z | DATE    |     | Y        | businessThru |\n", "")
+        (tmp_path / "business_range_model.md").write_text(open(os.path.join(folder, "..", "models", "business_range_model.md")).read())
+        content = open(self._FILE).read().replace("../models/", "").replace("| thru_z | DATE    |     | Y        | businessThru |\n", "")
         (tmp_path / "mapping.md").write_text(content)
         with pytest.raises(ValueError, match="missing required column 'thru_z'"):
             load(str(tmp_path / "mapping.md"), self._repo())
@@ -1074,8 +1063,7 @@ class TestBusinessDateRangeScheme:
 class TestProcessingSnapshotScheme:
     """A scheme with one processing_datetime column and nothing else."""
 
-    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src",
-                                          "datafinder_examples", "processing_snapshot_mapping.md"))
+    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "processing_snapshot_mapping.md"))
 
     @staticmethod
     def _repo() -> Database:
@@ -1107,16 +1095,16 @@ class TestProcessingSnapshotScheme:
 
     def test_a_missing_snapshot_column_is_refused(self, tmp_path):
         folder = os.path.dirname(self._FILE)
-        (tmp_path / "processing_snapshot_model.md").write_text(open(os.path.join(folder, "processing_snapshot_model.md")).read())
-        content = open(self._FILE).read().replace("| taken_at | TIMESTAMP |     | Y        | takenAt     |\n", "")
+        (tmp_path / "processing_snapshot_model.md").write_text(open(os.path.join(folder, "..", "models", "processing_snapshot_model.md")).read())
+        content = open(self._FILE).read().replace("../models/", "").replace("| taken_at | TIMESTAMP |     | Y        | takenAt     |\n", "")
         (tmp_path / "mapping.md").write_text(content)
         with pytest.raises(ValueError, match="missing required column 'taken_at'"):
             load(str(tmp_path / "mapping.md"), self._repo())
 
     def test_a_snapshot_cannot_be_combined_with_another_processing_or_business_column(self, tmp_path):
         folder = os.path.dirname(self._FILE)
-        (tmp_path / "processing_snapshot_model.md").write_text(open(os.path.join(folder, "processing_snapshot_model.md")).read())
-        content = open(self._FILE).read().replace(
+        (tmp_path / "processing_snapshot_model.md").write_text(open(os.path.join(folder, "..", "models", "processing_snapshot_model.md")).read())
+        content = open(self._FILE).read().replace("../models/", "").replace(
             "| processing_snapshot |                  |                | taken_at            |               |",
             "| processing_snapshot | in_z             | out_z          | taken_at            |               |")
         (tmp_path / "mapping.md").write_text(content)
@@ -1124,7 +1112,7 @@ class TestProcessingSnapshotScheme:
             load(str(tmp_path / "mapping.md"), self._repo())
 
 
-JOINS_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "joins_through_tables_mapping.md"))
+JOINS_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "joins_through_tables_mapping.md"))
 
 
 def _table_name(column) -> str:
@@ -1181,17 +1169,17 @@ class TestJoinsThroughTables:
     def test_the_mapping_is_written_back_the_way_it_was_read(self, tmp_path):
         written = to_markdown("Joins Through Tables Mapping", self.mapping, ["joins_through_tables_model.md"])
         (tmp_path / "joins_through_tables_model.md").write_text(
-            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "joins_through_tables_model.md")).read())
+            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "..", "models", "joins_through_tables_model.md")).read())
         (tmp_path / "again.md").write_text(written)
         assert to_markdown("Joins Through Tables Mapping", load(str(tmp_path / "again.md")),
                            ["joins_through_tables_model.md"]) == written
         assert "(embedded in Employee.home)" in written
 
     def _with(self, tmp_path, old, new):
-        content = open(JOINS_FIXTURE).read()
+        content = open(JOINS_FIXTURE).read().replace("../models/", "")
         assert old in content
         (tmp_path / "joins_through_tables_model.md").write_text(
-            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "joins_through_tables_model.md")).read())
+            open(os.path.join(os.path.dirname(JOINS_FIXTURE), "..", "models", "joins_through_tables_model.md")).read())
         (tmp_path / "mapping.md").write_text(content.replace(old, new))
         return str(tmp_path / "mapping.md")
 
@@ -1241,7 +1229,7 @@ class TestInfinityOfEachAxis:
     def test_each_axis_survives_writing(self, tmp_path):
         mapping = load(str(self._mapping()))
         path = tmp_path / "mapping.md"
-        model = self._mapping().parent / "bitemporal_infinity_model.md"
+        model = self._mapping().parent.parent / "models" / "bitemporal_infinity_model.md"
         save(str(path), "Bitemporal Infinity Mapping", mapping, [str(model)])
         again = load(str(path)).mappings[0].milestone_mapping
         assert isinstance(again, BiTemporalMilestonePropertyMapping)

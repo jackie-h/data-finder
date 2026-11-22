@@ -18,7 +18,7 @@ def _mapping():
 
 def _mapping_of(source: str, tmp_path: Path):
     path = tmp_path / "mapping.md"
-    path.write_text(source.replace(f"## Model: {_MODEL}", f"## Model: {example_path(_MODEL)}"))
+    path.write_text(source.replace(f"## Model: ../models/{_MODEL}", f"## Model: {example_path(_MODEL)}"))
     return load(str(path))
 
 

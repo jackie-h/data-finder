@@ -1,7 +1,7 @@
 # Finance Catalog Mapping
 
-## Model: ../../datafinder_examples/src/datafinder_examples/finance.md
-## Model: ../../datafinder_examples/src/datafinder_examples/finance_trade.md
+## Model: ../../datafinder_specs/specs/models/finance.md
+## Model: ../../datafinder_specs/specs/models/finance_trade.md
 
 ## DataStore: my_catalog (Catalog)
 

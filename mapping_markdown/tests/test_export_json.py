@@ -1,20 +1,21 @@
 import json
 import os
+import shutil
 
 import pytest
 
 from mapping_markdown import export_json
 
-EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples")
+EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs")
 
 
 @pytest.fixture(scope="module")
 def finance():
-    return export_json.export_mapping(os.path.join(EXAMPLES, "finance_mapping.md"), "finance_mapping.md", EXAMPLES)
+    return export_json.export_mapping(os.path.join(EXAMPLES, "mappings", "finance_mapping.md"), "mappings/finance_mapping.md", EXAMPLES)
 
 
 def _model(name):
-    return export_json.export_model(os.path.join(EXAMPLES, name), name)
+    return export_json.export_model(os.path.join(EXAMPLES, "models", name), f"models/{name}")
 
 
 def test_model_classes_properties_and_docs():
@@ -56,7 +57,7 @@ def test_inheritance_is_exported():
 
 def test_mapping_tables_columns_and_classes(finance):
     assert finance["title"] == "Finance Mapping"
-    assert finance["models"] == ["finance.md", "finance_trade.md"]
+    assert finance["models"] == ["models/finance.md", "models/finance_trade.md"]
     assert (finance["dataStore"]["name"], finance["dataStore"]["type"]) == ("finance_db", "Database")
     tables = {(s["name"], t["name"]): t for s in finance["schemas"] for t in s["tables"]}
     assert set(tables) == {("ref_data", "account_master"), ("ref_data", "branch"), ("ref_data", "desk"), ("ref_data", "price"),
@@ -85,7 +86,7 @@ def test_mapping_associations_carry_columns_and_multiplicities(finance):
 
 @pytest.fixture(scope="module")
 def sql_queries():
-    return export_json.export_mapping(os.path.join(EXAMPLES, "sql_queries_mapping.md"), "sql_queries_mapping.md", EXAMPLES)
+    return export_json.export_mapping(os.path.join(EXAMPLES, "mappings", "sql_queries_mapping.md"), "mappings/sql_queries_mapping.md", EXAMPLES)
 
 
 def test_a_query_a_class_is_mapped_to_is_exported_with_its_sql_and_columns(sql_queries):
@@ -128,35 +129,40 @@ def test_a_join_that_starts_from_a_query_has_no_schema_and_says_so(sql_queries):
     assert by_name["HolderRate"]["rows"][0]["targetTable"] == "RATE_QUERY"
 
 
-def test_dir_can_name_an_installed_package(tmp_path):
+def test_dir_can_name_an_installed_package(tmp_path, monkeypatch):
+    package = tmp_path / "models_package"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    shutil.copy(os.path.join(EXAMPLES, "models", "diamond_model.md"), package)
+    monkeypatch.syspath_prepend(str(tmp_path))
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"dir": "python:datafinder_examples", "models": ["diamond_model.md"]}))
+    config.write_text(json.dumps({"dir": "python:models_package", "models": ["diamond_model.md"]}))
     assert export_json.export(str(config))["models"][0]["file"] == "diamond_model.md"
-    assert os.path.samefile(export_json.resolve_dir(str(config), "python:datafinder_examples"), EXAMPLES)
+    assert os.path.samefile(export_json.resolve_dir(str(config), "python:models_package"), package)
 
 
 def test_export_from_config_includes_models_the_mappings_reference(tmp_path):
     config = tmp_path / "config.json"
     config.write_text(json.dumps({
-        "dir": os.path.relpath(EXAMPLES, tmp_path), "models": ["positions_model.md"],
-        "mappings": ["finance_mapping.md", {"path": "positions_mapping.md"}],
+        "dir": os.path.relpath(EXAMPLES, tmp_path), "models": ["models/positions_model.md"],
+        "mappings": ["mappings/finance_mapping.md", {"path": "mappings/positions_mapping.md"}],
     }))
     data = export_json.export(str(config))
-    assert [m["file"] for m in data["models"]] == ["positions_model.md", "finance.md", "finance_trade.md"]
-    assert [m["file"] for m in data["mappings"]] == ["finance_mapping.md", "positions_mapping.md"]
+    assert [m["file"] for m in data["models"]] == ["models/positions_model.md", "models/finance.md", "models/finance_trade.md"]
+    assert [m["file"] for m in data["mappings"]] == ["mappings/finance_mapping.md", "mappings/positions_mapping.md"]
 
 
 def test_cli_writes_json(tmp_path):
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"dir": os.path.relpath(EXAMPLES, tmp_path), "models": ["diamond_model.md"]}))
+    config.write_text(json.dumps({"dir": os.path.relpath(EXAMPLES, tmp_path), "models": ["models/diamond_model.md"]}))
     out = tmp_path / "nested" / "data.json"
     export_json.main(["--config", str(config), "--out", str(out)])
-    assert json.loads(out.read_text())["models"][0]["file"] == "diamond_model.md"
+    assert json.loads(out.read_text())["models"][0]["file"] == "models/diamond_model.md"
 
 
 @pytest.fixture(scope="module")
 def conditions():
-    return export_json.export_mapping(os.path.join(EXAMPLES, "join_conditions_mapping.md"), "join_conditions_mapping.md", EXAMPLES)
+    return export_json.export_mapping(os.path.join(EXAMPLES, "mappings", "join_conditions_mapping.md"), "mappings/join_conditions_mapping.md", EXAMPLES)
 
 
 def _conditions(mapping, association):
@@ -194,7 +200,7 @@ def test_each_exported_scheme_says_which_milestoning_it_is(finance):
 
 
 def test_the_sets_of_a_class_are_exported_each_as_a_query_with_its_set_and_the_class():
-    mapping = export_json.export_mapping(os.path.join(EXAMPLES, "sql_query_sets_mapping.md"), "sql_query_sets_mapping.md", EXAMPLES)
+    mapping = export_json.export_mapping(os.path.join(EXAMPLES, "mappings", "sql_query_sets_mapping.md"), "mappings/sql_query_sets_mapping.md", EXAMPLES)
     queries = {q["name"]: q for q in mapping["queries"]}
     assert set(queries) == {"RETAIL", "CORPORATE"}
     assert [(q["class"], q["set"]) for q in queries.values()] == [("Customer", "retail"), ("Customer", "corporate")]
@@ -210,7 +216,7 @@ def test_a_query_that_is_not_a_set_has_no_set(sql_queries):
 
 
 def test_a_column_of_an_object_embedded_in_the_row_of_a_set_is_exported_with_the_path_of_its_property():
-    exported = export_json.export_mapping(os.path.join(EXAMPLES, "sql_query_sets_embedded_mapping.md"), "sql_query_sets_embedded_mapping.md", EXAMPLES)
+    exported = export_json.export_mapping(os.path.join(EXAMPLES, "mappings", "sql_query_sets_embedded_mapping.md"), "mappings/sql_query_sets_embedded_mapping.md", EXAMPLES)
     queries = {q["name"]: q for q in exported["queries"]}
     for name in ("AGENCY_ONE", "AGENCY_TWO"):
         assert {c["name"]: c["property"] for c in queries[name]["columns"]} == {

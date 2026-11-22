@@ -32,7 +32,7 @@ class TestMappingNaming:
 
 
 _FINANCE_MAPPING = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md")
+    os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "finance_mapping.md")
 )
 
 

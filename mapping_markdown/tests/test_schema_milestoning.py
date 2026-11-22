@@ -57,7 +57,7 @@ def test_a_scheme_defined_twice_in_one_scope_is_refused(tmp_path):
     row = "| bitemporal | recorded_from    | recorded_to    |               | valid_from         | valid_to         |                              | 9999-12-31                 |"
     assert row in source
     path = tmp_path / "mapping.md"
-    path.write_text(source.replace(row, row + "\n" + row).replace("## Model: schema_milestoning_model.md",
+    path.write_text(source.replace(row, row + "\n" + row).replace("## Model: ../models/schema_milestoning_model.md",
                                                                   f"## Model: {example_path('schema_milestoning_model.md')}"))
     with pytest.raises(ValueError, match="Schema 'mkt': the milestoning scheme 'bitemporal' is defined twice"):
         load(str(path))
@@ -79,7 +79,7 @@ def test_a_scheme_that_is_not_one_of_the_supported_milestonings_is_refused(tmp_p
     assert row in source
     odd = "| odd        | recorded_from    |                |               | valid_from         |                  |                              |                            |"
     path = tmp_path / "mapping.md"
-    path.write_text(source.replace(row, row + "\n" + odd).replace("## Model: schema_milestoning_model.md",
+    path.write_text(source.replace(row, row + "\n" + odd).replace("## Model: ../models/schema_milestoning_model.md",
                                                                   f"## Model: {example_path('schema_milestoning_model.md')}"))
     with pytest.raises(ValueError, match="Schema 'mkt': milestoning scheme 'odd': a processing range has both processing_start and processing_end"):
         load(str(path))
