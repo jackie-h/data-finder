@@ -45,11 +45,11 @@ class TableAliasColumn(RelationalOperationElement):
 
 class Join:
     """A join as the query writes it: what is joined, how, and the condition and filter in ON."""
-    def __init__(self, kind: JoinKind, target: TableAlias, condition: str, filter_op: RelationalOperationElement | None = None):
+    def __init__(self, kind: JoinKind, target: TableAlias, condition: str, filter_sql: str | None = None):
         self.kind = kind
         self.target = target
         self.condition = condition
-        self.filter_op = filter_op
+        self.filter_sql = filter_sql
 
 def _open_end_clause(end_attr, value, infinite_datetime: str | None) -> Operation:
     """Returns `end > value` normally, or `(end > value OR end IS NULL)` when infinite_datetime is None."""
@@ -939,6 +939,56 @@ def _operand_string(operation: RelationalOperationElement) -> str:
         else sql_operation_to_string(operation)
 
 
+class _ProjectionJoin:
+    """The key of the join that a node has for what the query reads outside its WHERE, where the node is joined twice."""
+
+    def __init__(self, node: JoinTreeNodeOperation):
+        self.node = node
+
+
+def _is_milestoned_step(node: JoinTreeNodeOperation) -> bool:
+    return milestoning_columns_of(node.join.table) is not None
+
+
+def _split_milestoned_joins(query: QuerySpecification, asked: Operation, elidable: set) -> list[JoinTreeNodeOperation]:
+    """The steps that are joined once for the WHERE and once for the rest of the query, as Legend joins them.
+
+    A to-one milestoned step reached through another milestoned step, whose columns the WHERE reads and the select (or a group by, an order
+    or a having) reads too, is two independent joins: the filter holds for one row of the table and the column is read from another. Where the
+    table has several rows for the key, as the sets of a union do, the rows of the query are each of the one multiplied by each of the other.
+    The step it is reached through, and any step that is to-many, not milestoned, or reached through none, stays one join that both read: for
+    a to-many step the filter and the values read are of the same row, as a query over its rows means.
+    """
+    in_where: dict = {}
+    collect_required_joins(asked, {}, in_where)
+    if not in_where:
+        return []
+    read: dict = {}
+    reached: dict = {}
+    reads = [*query.columns, *query.group_by, *(sort.column for sort in getattr(query, "order_by", [])), query.having]
+    for expression in reads:
+        collect_required_joins(expression, reached, read)
+    split: dict = {}
+    for node_id in in_where:
+        node = reached.get(node_id)
+        if node is None or node_id in elidable or node_id not in read or node.many or not _is_milestoned_step(node):
+            continue
+        ancestor = node.parent
+        while ancestor is not None and not _is_milestoned_step(ancestor):
+            ancestor = ancestor.parent
+        if ancestor is not None:
+            split[node_id] = node
+    # a step that is read through a step that is joined twice is joined with that one
+    grew = True
+    while grew:
+        grew = False
+        for node_id, node in reached.items():
+            if node_id not in split and node.parent is not None and id(node.parent) in split and node_id not in elidable:
+                split[node_id] = node
+                grew = True
+    return list(split.values())
+
+
 class _RenderedSql(RelationalOperationElement):
     """A condition already written as SQL, to be selected as a column. A condition is rendered where its columns can
     be resolved to table aliases, which is while the query is being built, not when its text is put together."""
@@ -1110,6 +1160,9 @@ class SQLQueryGenerator:
         self.__table_alias_incr = first_alias
         self.__table_aliases_by_table = {}
         self.__added_join_ids = set()
+        self.__split_ids: set = set()  # nodes joined once for the WHERE and once for everything else
+        self.__projection_keys: dict = {}
+        self.__reading_where = False
         self.__elidable_ids: set = set()
         self._sub_selects: dict = {}
         self._root_table = None
@@ -1214,11 +1267,23 @@ class SQLQueryGenerator:
         self._sub_selects = query.sub_selects
         ordered = isinstance(query, OrderedQuerySpecification)
         order_by = query.order_by if ordered else []
-        self.select(query.columns)
         asked = query.filter
         if query.as_of is not None and query.as_of.filter is not None:
             asked = query.as_of.filter if isinstance(asked, NoOperation) else LogicalOperation(asked, LogicalOperator.AND, query.as_of.filter)
-        self._where = self.build_filter(self.__guarded(asked))
+        split = _split_milestoned_joins(query, asked, self.__elidable_ids)
+        self.__split_ids = {id(node) for node in split}
+        self.__reading_where = True  # the joins of the WHERE come first, as the query's filter is read before its columns
+        try:
+            for node in split:
+                self.__add_join(node)
+        finally:
+            self.__reading_where = False
+        self.select(query.columns)
+        self.__reading_where = True
+        try:
+            self._where = self.build_filter(self.__guarded(asked))
+        finally:
+            self.__reading_where = False
         required_joins: dict = {}
         for group_by_expr in query.group_by:
             self.__collect_required_joins(group_by_expr, required_joins)
@@ -1289,7 +1354,10 @@ class SQLQueryGenerator:
 
     def __join_target_key(self, parent: JoinTreeNodeOperation):
         """Cache key for the join target alias. Always keyed by node identity so the
-        alias in SELECT matches the alias registered in __add_join."""
+        alias in SELECT matches the alias registered in __add_join. A node that is joined twice is keyed by its own
+        identity where the WHERE reads it, and by another where anything else does."""
+        if id(parent) in self.__split_ids and not self.__reading_where:
+            return self.__projection_keys.setdefault(id(parent), _ProjectionJoin(parent))
         return parent
 
     def __table_alias_for_column(self, column: Column, parent: JoinTreeNodeOperation | None = None) -> TableAlias:
@@ -1439,28 +1507,30 @@ class SQLQueryGenerator:
             self.__add_join(node)
 
     def __add_join(self, node: JoinTreeNodeOperation):
-        if id(node) in self.__added_join_ids:
+        key = self.__join_target_key(node)
+        if id(key) in self.__added_join_ids:
             return
         # Add ancestor joins first so intermediate tables are available
         if node.parent is not None:
             self.__add_join(node.parent)
-        self.__added_join_ids.add(id(node))
+        self.__added_join_ids.add(id(key))
         join = node.join
         if node.parent is None:
             source = next((c for c in join.columns() if not join.is_target(c)), None)
             assert source is not None, f"Join '{join.name}' reads nothing of what it is joined from"
             self._from.add(self.__table_alias_for_table(source.owner_relation))
-        target_alias = self.__table_alias_for_table(join.target, key=node)
+        target_alias = self.__table_alias_for_table(join.target, key=key)
         # a sub-select carries the step's filter itself, so it is not repeated in the ON clause
         on_filter = None if isinstance(target_alias.relation, OrderedQuerySpecification) else self._join_filters.get(id(node))
-        self._join.append(Join(join.kind, target_alias, self.build_filter(self.__sided(join.operation, node)), on_filter))
+        condition = self.build_filter(self.__sided(join.operation, node))
+        self._join.append(Join(join.kind, target_alias, condition, self.build_filter(on_filter) if on_filter else None))
 
     def __sided(self, op: RelationalOperationElement, node: JoinTreeNodeOperation) -> RelationalOperationElement:
         """A join's condition with each column under the alias of its side: the joined table's under the step's, any
         other under the one it is joined from. An equality of two columns has the key first, as a join is
         defined as key = foreign key."""
         def alias_of(column: Column) -> TableAliasColumn:
-            key = node if node.join.is_target(column) else node.parent
+            key = self.__join_target_key(node if node.join.is_target(column) else node.parent)
             return TableAliasColumn(column, self.__table_alias_for_table(column.owner_relation, key=key))
 
         def side(op: RelationalOperationElement) -> RelationalOperationElement:
@@ -1531,7 +1601,7 @@ class SQLQueryGenerator:
         elif isinstance(op, ColumnWithJoin):
             column, node = self.__resolve(op)
             if node is not None:
-                ta = self.__table_alias_for_table(column.owner_relation, key=node)
+                ta = self.__table_alias_for_table(column.owner_relation, key=self.__join_target_key(node))
                 self.__add_join(node)
             else:
                 ta = self.__table_alias_for_table(column.owner_relation)
@@ -1603,7 +1673,7 @@ class SQLQueryGenerator:
     def build_query_string(self) -> str:
         def join_sql(j: Join) -> str:
             return _join_word(j.kind) + self.__relation_sql(j.target) + ' AS ' + j.target.name + ' ON (' + j.condition \
-                + (' AND ' + self.build_filter(j.filter_op) if j.filter_op else '') + ')'
+                + (' AND ' + j.filter_sql if j.filter_sql else '') + ')'
 
         joins = map(join_sql, self._join)
         from_sql = ','.join(map(lambda ta: self.__relation_sql(ta) + ' AS ' + ta.name, self._from))
