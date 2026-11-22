@@ -4,6 +4,7 @@
 
 - This project uses `uv` and a `.venv`. Run Python scripts with `uv run` rather than invoking `python` directly.
 - Run the full test suite with `uv run --extra test pytest`. The root project's test dependencies are in the `test` optional dependency group.
+- Run `uv run pyright` and the full test suite before every push. CI runs both, and a pyright error fails the build even when the tests pass. Fix the type; do not add an ignore comment to silence it.
 - Add packages with `uv add`, not `pip install`.
 
 ## Dependencies
