@@ -1,0 +1,14 @@
+{
+  "name": "negate_a_string_test_with_a_tilde",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name()], ~f.name().starts_with(\"Acme\")).order_by(f.name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"unary","op":"~","operand":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"starts_with"},"args":["Acme"],"kwargs":{}}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "negate_a_string_test_with_a_tilde.csv",
+  "sql_contains": {
+    "duckdb": "NOT (t0.name LIKE 'Acme%')"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder cannot push a negated condition to the server"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "filter_on_joined_text",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_()], (((f.name() + \"/\") + f.category()) == \"Beta Corp/Technology\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"==","left":{"kind":"binary","op":"+","left":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"right":"/"},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}},"right":"Beta Corp/Technology"}],"kwargs":{}},
+  "result": "filter_on_joined_text.csv",
+  "skip": {
+    "graphql": "A filter on an expression cannot be pushed to the server"
+  }
+}

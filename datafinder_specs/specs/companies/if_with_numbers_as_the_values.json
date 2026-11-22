@@ -1,0 +1,11 @@
+{
+  "name": "if_with_numbers_as_the_values",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([when(f.name().starts_with(\"Acme\")).then(1).otherwise(0)]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"when"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"starts_with"},"args":["Acme"],"kwargs":{}}],"kwargs":{}},"name":"then"},"args":[1],"kwargs":{}},"name":"otherwise"},"args":[0],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "if_with_numbers_as_the_values.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot compute a conditional"
+  }
+}

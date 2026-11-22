@@ -1,0 +1,11 @@
+{
+  "name": "join_descending",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.category(), f.name().join(\"|\", order_by=[f.name().descending()])]).group_by(f.category()).order_by(f.category().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"join"},"args":["|"],"kwargs":{"order_by":{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"descending"},"args":[],"kwargs":{}}]}}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "join_descending.csv",
+  "skip": {
+    "graphql": "The GraphQL engine cannot order the values it joins"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "rank_method_first",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.id_().rank(method=\"first\", order_by=[f.id_().ascending()])]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"rank"},"args":[],"kwargs":{"method":"first","order_by":{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}]}}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "rank_method_first.csv",
+  "skip": {
+    "graphql": "Window functions are not supported by the GraphQL engine"
+  }
+}

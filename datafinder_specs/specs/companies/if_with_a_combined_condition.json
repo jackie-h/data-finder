@@ -1,0 +1,11 @@
+{
+  "name": "if_with_a_combined_condition",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([when(f.category().eq(\"Technology\").or_(f.id_().eq(5))).then(\"yes\").otherwise(\"no\")]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"when"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"eq"},"args":["Technology"],"kwargs":{}},"name":"or_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[5],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},"name":"then"},"args":["yes"],"kwargs":{}},"name":"otherwise"},"args":["no"],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "if_with_a_combined_condition.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot compute a conditional"
+  }
+}

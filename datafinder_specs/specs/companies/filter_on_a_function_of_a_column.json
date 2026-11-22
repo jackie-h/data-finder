@@ -1,0 +1,14 @@
+{
+  "name": "filter_on_a_function_of_a_column",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name()], f.name().upper().eq(\"ACME CORP\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"upper"},"args":[],"kwargs":{}},"name":"eq"},"args":["ACME CORP"],"kwargs":{}}],"kwargs":{}},
+  "result": "filter_on_a_function_of_a_column.csv",
+  "sql_contains": {
+    "duckdb": "UPPER(t0.name) = 'ACME CORP'"
+  },
+  "skip": {
+    "graphql": "A filter on an expression cannot be pushed to the server"
+  }
+}

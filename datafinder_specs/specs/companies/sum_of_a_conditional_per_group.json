@@ -1,0 +1,11 @@
+{
+  "name": "sum_of_a_conditional_per_group",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.category(), when(f.category().eq(\"Technology\")).then(5.0).otherwise(1.0).sum().alias(\"Profit\")]).group_by(f.category()).order_by(f.category().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"when"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"eq"},"args":["Technology"],"kwargs":{}}],"kwargs":{}},"name":"then"},"args":[5.0],"kwargs":{}},"name":"otherwise"},"args":[1.0],"kwargs":{}},"name":"sum"},"args":[],"kwargs":{}},"name":"alias"},"args":["Profit"],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "sum_of_a_conditional_per_group.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot aggregate an expression"
+  }
+}

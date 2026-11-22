@@ -1,0 +1,11 @@
+{
+  "name": "count_all",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.count()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"count"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "count_all.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no count() yet"
+  }
+}

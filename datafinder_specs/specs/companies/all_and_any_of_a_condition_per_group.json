@@ -1,0 +1,14 @@
+{
+  "name": "all_and_any_of_a_condition_per_group",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.category(), (f.id_() > 0).all().alias(\"All\"), (f.id_() > 3).any().alias(\"Any\")]).group_by(f.category()).order_by(f.category().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"right":0},"name":"all"},"args":[],"kwargs":{}},"name":"alias"},"args":["All"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"right":3},"name":"any"},"args":[],"kwargs":{}},"name":"alias"},"args":["Any"],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "all_and_any_of_a_condition_per_group.csv",
+  "sql_contains": {
+    "duckdb": "BOOL_AND"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder cannot aggregate an expression"
+  }
+}

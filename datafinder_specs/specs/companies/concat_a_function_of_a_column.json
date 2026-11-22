@@ -1,0 +1,11 @@
+{
+  "name": "concat_a_function_of_a_column",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([((f.name().upper() + \"/\") + f.category().lower())]).order_by(f.name().ascending()).limit(1)",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"binary","op":"+","left":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"upper"},"args":[],"kwargs":{}},"right":"/"},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"lower"},"args":[],"kwargs":{}}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[1],"kwargs":{}},
+  "result": "concat_a_function_of_a_column.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot join text"
+  }
+}

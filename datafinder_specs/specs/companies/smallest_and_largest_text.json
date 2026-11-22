@@ -1,0 +1,11 @@
+{
+  "name": "smallest_and_largest_text",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name().min(), f.name().max()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"min"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"max"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "smallest_and_largest_text.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot take the smallest or largest text yet"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "nearest_by_l2_distance_is_the_closest_first",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name()]).nearest(f.embedding().l2_distance([1.0, 0.2, 0.0]), 3)",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"nearest"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"embedding"},"args":[],"kwargs":{}},"name":"l2_distance"},"args":[{"kind":"list","items":[1.0,0.2,0.0]}],"kwargs":{}},3],"kwargs":{}},
+  "result": "nearest_by_l2_distance_is_the_closest_first.csv",
+  "skip": {
+    "graphql": "A distance to a vector is a number of the query, as a function of a number is; the rows are the same on every engine"
+  }
+}

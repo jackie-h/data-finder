@@ -1,0 +1,11 @@
+{
+  "name": "string_ne_excludes_row",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.count()], f.name().ne(\"Acme Corp\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"count"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ne"},"args":["Acme Corp"],"kwargs":{}}],"kwargs":{}},
+  "result": "string_ne_excludes_row.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no count() yet"
+  }
+}

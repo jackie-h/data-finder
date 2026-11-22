@@ -1,0 +1,14 @@
+{
+  "name": "population_standard_deviation",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_().std(ddof=0)], f.id_().is_in([1, 3]))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"std"},"args":[],"kwargs":{"ddof":0}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":[1,3]}],"kwargs":{}}],"kwargs":{}},
+  "result": "population_standard_deviation.csv",
+  "sql_contains": {
+    "duckdb": "STDDEV_POP"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder has no standard deviation yet"
+  }
+}

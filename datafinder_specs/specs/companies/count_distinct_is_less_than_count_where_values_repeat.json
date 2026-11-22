@@ -1,0 +1,11 @@
+{
+  "name": "count_distinct_is_less_than_count_where_values_repeat",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.category().count(), f.category().count_distinct()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"count_distinct"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "count_distinct_is_less_than_count_where_values_repeat.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no count() yet"
+  }
+}

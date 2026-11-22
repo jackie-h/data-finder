@@ -1,0 +1,11 @@
+{
+  "name": "count_finance_category",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.count()], f.category().eq(\"Finance\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"count"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"eq"},"args":["Finance"],"kwargs":{}}],"kwargs":{}},
+  "result": "count_finance_category.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no count() yet"
+  }
+}

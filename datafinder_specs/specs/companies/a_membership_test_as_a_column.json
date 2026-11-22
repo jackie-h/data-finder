@@ -1,0 +1,11 @@
+{
+  "name": "a_membership_test_as_a_column",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_().is_in([1, 3])]).order_by(f.id_().ascending()).limit(3)",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":[1,3]}],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[3],"kwargs":{}},
+  "result": "a_membership_test_as_a_column.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot compute a condition as a column"
+  }
+}

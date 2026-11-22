@@ -1,0 +1,8 @@
+{
+  "name": "count_name_attribute",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name().count()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "count_name_attribute.csv"
+}

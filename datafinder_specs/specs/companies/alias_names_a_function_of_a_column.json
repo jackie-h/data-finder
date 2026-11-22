@@ -1,0 +1,11 @@
+{
+  "name": "alias_names_a_function_of_a_column",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name().upper().alias(\"Loud\")]).order_by(f.name().ascending()).limit(1)",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"upper"},"args":[],"kwargs":{}},"name":"alias"},"args":["Loud"],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[1],"kwargs":{}},
+  "result": "alias_names_a_function_of_a_column.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

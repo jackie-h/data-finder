@@ -1,0 +1,11 @@
+{
+  "name": "filter_on_an_expression_with_another_filter",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_()], f.name().upper().eq(\"DELTA LTD\").or_(((f.id_() * 1) == 1))).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"upper"},"args":[],"kwargs":{}},"name":"eq"},"args":["DELTA LTD"],"kwargs":{}},"name":"or_"},"args":[{"kind":"binary","op":"==","left":{"kind":"binary","op":"*","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"right":1},"right":1}],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "filter_on_an_expression_with_another_filter.csv",
+  "skip": {
+    "graphql": "A filter on an expression cannot be pushed to the server"
+  }
+}

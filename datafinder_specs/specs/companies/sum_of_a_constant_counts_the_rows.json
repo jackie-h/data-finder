@@ -1,0 +1,14 @@
+{
+  "name": "sum_of_a_constant_counts_the_rows",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([constant(1).sum()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[1],"kwargs":{}},"name":"sum"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "sum_of_a_constant_counts_the_rows.csv",
+  "sql_contains": {
+    "duckdb": "SUM(1)"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder cannot aggregate an expression"
+  }
+}

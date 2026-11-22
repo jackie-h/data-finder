@@ -1,0 +1,11 @@
+{
+  "name": "count_distinct_of_the_whole_result",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.category().count_distinct()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"count_distinct"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "count_distinct_of_the_whole_result.csv",
+  "sql_contains": {
+    "duckdb": "COUNT(DISTINCT t0.category)"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "string_eq_operator",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name()], (f.name() == \"Acme Corp\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"==","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"right":"Acme Corp"}],"kwargs":{}},
+  "result": "string_eq_operator.csv"
+}
