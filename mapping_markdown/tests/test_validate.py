@@ -5,7 +5,7 @@ from mapping_markdown.validate import validate, validate_file
 from model.relational import Table
 
 
-FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
+FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance_mapping.md"))
 SPLIT_FIXTURE = os.path.join(os.path.dirname(__file__), "finance_mapping_split.md")
 
 

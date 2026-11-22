@@ -11,7 +11,7 @@ from model.graphql_mapping import (
     GraphQLBiTemporalMilestone,
 )
 
-FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_graphql_mapping.md"))
+FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance_graphql_mapping.md"))
 TEST_DIR = os.path.dirname(FIXTURE)
 
 

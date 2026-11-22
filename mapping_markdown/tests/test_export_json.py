@@ -1,11 +1,12 @@
 import json
 import os
+import shutil
 
 import pytest
 
 from mapping_markdown import export_json
 
-EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples")
+EXAMPLES = os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples")
 
 
 @pytest.fixture(scope="module")
@@ -128,11 +129,16 @@ def test_a_join_that_starts_from_a_query_has_no_schema_and_says_so(sql_queries):
     assert by_name["HolderRate"]["rows"][0]["targetTable"] == "RATE_QUERY"
 
 
-def test_dir_can_name_an_installed_package(tmp_path):
+def test_dir_can_name_an_installed_package(tmp_path, monkeypatch):
+    package = tmp_path / "models_package"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    shutil.copy(os.path.join(EXAMPLES, "diamond_model.md"), package)
+    monkeypatch.syspath_prepend(str(tmp_path))
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"dir": "python:datafinder_examples", "models": ["diamond_model.md"]}))
+    config.write_text(json.dumps({"dir": "python:models_package", "models": ["diamond_model.md"]}))
     assert export_json.export(str(config))["models"][0]["file"] == "diamond_model.md"
-    assert os.path.samefile(export_json.resolve_dir(str(config), "python:datafinder_examples"), EXAMPLES)
+    assert os.path.samefile(export_json.resolve_dir(str(config), "python:models_package"), package)
 
 
 def test_export_from_config_includes_models_the_mappings_reference(tmp_path):

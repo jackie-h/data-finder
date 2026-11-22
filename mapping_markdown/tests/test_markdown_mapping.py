@@ -10,10 +10,10 @@ from model.mapping import ProcessingDateMilestonesPropertyMapping, BusinessDateA
     BiTemporalMilestonePropertyMapping
 from model.relational_mapping import RelationalEmbeddedSetMapping, RelationalPropertyMapping, Join
 
-FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping.md"))
-EMBEDDED_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_mapping_embedded.md"))
-MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance.md"))
-TRADE_MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "finance_trade.md"))
+FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance_mapping.md"))
+EMBEDDED_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance_mapping_embedded.md"))
+MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance.md"))
+TRADE_MODEL_FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance_trade.md"))
 
 
 def _build_repository() -> Database:
@@ -1041,8 +1041,7 @@ class TestEmbeddedMappingErrors:
 class TestBusinessDateRangeScheme:
     """A scheme with a business date range and no processing columns."""
 
-    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src",
-                                          "datafinder_examples", "business_range_mapping.md"))
+    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "business_range_mapping.md"))
 
     @staticmethod
     def _repo() -> Database:
@@ -1074,8 +1073,7 @@ class TestBusinessDateRangeScheme:
 class TestProcessingSnapshotScheme:
     """A scheme with one processing_datetime column and nothing else."""
 
-    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src",
-                                          "datafinder_examples", "processing_snapshot_mapping.md"))
+    _FILE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "processing_snapshot_mapping.md"))
 
     @staticmethod
     def _repo() -> Database:
@@ -1124,7 +1122,7 @@ class TestProcessingSnapshotScheme:
             load(str(tmp_path / "mapping.md"), self._repo())
 
 
-JOINS_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "joins_through_tables_mapping.md"))
+JOINS_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "joins_through_tables_mapping.md"))
 
 
 def _table_name(column) -> str:

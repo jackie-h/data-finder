@@ -1,7 +1,7 @@
 # Finance Mapping
 
-## Model: ../../datafinder_examples/src/datafinder_examples/finance.md
-## Model: ../../datafinder_examples/src/datafinder_examples/finance_trade.md
+## Model: ../../datafinder_specs/examples/finance.md
+## Model: ../../datafinder_specs/examples/finance_trade.md
 
 ## DataStore: finance_db (Database)
 

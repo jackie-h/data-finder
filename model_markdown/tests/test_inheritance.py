@@ -3,8 +3,8 @@ import os
 from model_markdown.markdown_model import load, loads, to_markdown
 from model.m3 import Class, Integer, String, TaggedValue
 
-FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "orgchart_inheritance.md"))
-DIAMOND_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_examples", "src", "datafinder_examples", "diamond_model.md"))
+FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "orgchart_inheritance.md"))
+DIAMOND_FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "diamond_model.md"))
 
 
 class TestSuperclassParsing:
