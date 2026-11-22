@@ -685,7 +685,7 @@ A column of embeddings is a `Vector` property, mapped to a column of type `VECTO
 ```
 
 It is compared with a vector (a list, tuple or numpy array of the same length) by a distance, which is a number of the query like any other: it can
-be selected, rounded, compared, ordered by and grouped on.
+be selected, rounded, compared and ordered by.
 
 ```python
 query = [1.0, 0.2, 0.0]    # embedded by the caller: this library compares vectors, it does not make them
