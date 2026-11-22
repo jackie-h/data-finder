@@ -5,7 +5,7 @@
   "query_text": "f.find_all([f.city(), f.accounts(processing_time=\"2023-12-01 12:00:00\").name()]).order_by(f.city().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"accounts"},"args":[],"kwargs":{"processing_time":"2023-12-01 12:00:00"}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "non_milestoned_root_reads_a_milestoned_navigation_at_the_time_it_is_given.csv",
-  "sql_contains": {
-    "duckdb": "in_z <="
+  "sql": {
+    "duckdb": "non_milestoned_root_reads_a_milestoned_navigation_at_the_time_it_is_given.duckdb.sql"
   }
 }

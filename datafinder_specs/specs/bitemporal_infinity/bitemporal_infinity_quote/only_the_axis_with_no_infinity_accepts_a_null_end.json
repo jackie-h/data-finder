@@ -5,7 +5,7 @@
   "query_text": "f.find_all(\"2021-06-01\", \"2021-06-01 00:00:00\", [f.code(), f.amount()]).order_by(f.code().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2021-06-01","2021-06-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "only_the_axis_with_no_infinity_accepts_a_null_end.csv",
-  "sql_contains": {
-    "duckdb": "t0.out_z > '2021-06-01 00:00:00' AND t0.from_z <= '2021-06-01' AND (t0.thru_z > '2021-06-01' OR t0.thru_z IS NULL)"
+  "sql": {
+    "duckdb": "only_the_axis_with_no_infinity_accepts_a_null_end.duckdb.sql"
   }
 }

@@ -11,7 +11,6 @@ to exercise group_by with average().
 """
 from typing import Callable
 
-import numpy as np
 
 from datafinder import exists
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
@@ -19,9 +18,6 @@ from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 FINANCE_MAPPING = "finance_mapping.md"
 
 _AT = "2030-01-01 00:00:00"
-
-_NO_CHAIN = {"graphql": "The GraphQL finder cannot read a query as a relation yet"}
-
 
 def _trades(f):
     """Each trade as a row of a relation: ``account``, ``sym`` and ``price``."""
@@ -118,51 +114,25 @@ def _full_join_of_two_accounts_to_the_trades_over_350(f):
     return result.order_by(result["total_account"].ascending(), result["dear_sym"].ascending())
 
 
-_NO_PERCENTILE = {"graphql": "The GraphQL finder has no percentile"}
-_PRICES_BY_ACCOUNT = {"Alpha Fund": [100.0, 200.0], "Beta Fund": [300.0, 400.0], "Gamma Fund": [500.0]}
-_ALL_PRICES = [price for prices in _PRICES_BY_ACCOUNT.values() for price in prices]
-
-
-def _percentile_of_each_account(name: str, column: Callable, label: str, oracle: Callable[[list[float]], float], sql: str) -> TestExpectation:
-    """The percentile of the prices of each account, as numpy gives it: ``oracle`` is numpy's quantile of the prices of an account."""
+def _percentile_of_each_account(name: str, column: Callable) -> TestExpectation:
+    """The percentile of the prices of each account (the CSV has numpy's quantile of the prices of an account)."""
     return TestExpectation(
         name=name,
-        skip_backends=_NO_PERCENTILE,
         query=lambda f: f.find_all(None, _AT, [f.account().name(), column(f)]).group_by(f.account().name()).order_by(f.account().name().ascending()),
-        expected_columns=["Account Name", label],
-        expected_result=np.array([[account, oracle(prices)] for account, prices in _PRICES_BY_ACCOUNT.items()], dtype=object),
-        expected_sql={"duckdb": sql},
     )
 
 
 _PERCENTILE_EXPECTATIONS = [
-    _percentile_of_each_account(
-        "median_price_per_account", lambda f: f.price().percentile(0.5), "Percentile Price", lambda v: float(np.quantile(v, 0.5)),
-        "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY CAST("),
-    _percentile_of_each_account(
-        "percentile_price_interpolates_between_the_values", lambda f: f.price().percentile(0.25), "Percentile Price",
-        lambda v: float(np.quantile(v, 0.25, method="linear")), "PERCENTILE_CONT(0.25)"),
-    _percentile_of_each_account(
-        "discrete_percentile_price_is_a_value_that_is_there", lambda f: f.price().percentile(0.5, continuous=False), "Percentile Price",
-        lambda v: float(np.quantile(v, 0.5, method="inverted_cdf")), "PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY "),
-    _percentile_of_each_account(
-        "percentile_price_from_the_largest_value", lambda f: f.price().percentile(0.25, ascending=False), "Percentile Price",
-        lambda v: float(np.quantile(v, 0.75, method="linear")), "AS DOUBLE PRECISION) DESC)"),
-    _percentile_of_each_account(
-        "quantile_price_is_the_percentile_as_numpy_names_it", lambda f: f.price().quantile(0.9), "Quantile Price",
-        lambda v: float(np.quantile(v, 0.9)), "PERCENTILE_CONT(0.9)"),
-    _percentile_of_each_account(
-        "quantile_price_by_inverted_cdf_is_a_value_that_is_there", lambda f: f.price().quantile(0.9, method="inverted_cdf"), "Quantile Price",
-        lambda v: float(np.quantile(v, 0.9, method="inverted_cdf")), "PERCENTILE_DISC(0.9)"),
-    _percentile_of_each_account(
-        "percentile_of_an_expression", lambda f: (f.price() * 2).percentile(0.5), "Percentile Expression",
-        lambda v: float(np.quantile([price * 2 for price in v], 0.5)), "PERCENTILE_CONT(0.5)"),
+    _percentile_of_each_account("median_price_per_account", lambda f: f.price().percentile(0.5)),
+    _percentile_of_each_account("percentile_price_interpolates_between_the_values", lambda f: f.price().percentile(0.25)),
+    _percentile_of_each_account("discrete_percentile_price_is_a_value_that_is_there", lambda f: f.price().percentile(0.5, continuous=False)),
+    _percentile_of_each_account("percentile_price_from_the_largest_value", lambda f: f.price().percentile(0.25, ascending=False)),
+    _percentile_of_each_account("quantile_price_is_the_percentile_as_numpy_names_it", lambda f: f.price().quantile(0.9)),
+    _percentile_of_each_account("quantile_price_by_inverted_cdf_is_a_value_that_is_there", lambda f: f.price().quantile(0.9, method="inverted_cdf")),
+    _percentile_of_each_account("percentile_of_an_expression", lambda f: (f.price() * 2).percentile(0.5)),
     TestExpectation(
         name="median_price_of_all_the_trades",
-        skip_backends=_NO_PERCENTILE,
         query=lambda f: f.find_all(None, _AT, [f.price().percentile(0.5).alias("median"), f.price().percentile(0.9, continuous=False).alias("p90")]),
-        expected_columns=["median", "p90"],
-        expected_result=np.array([[float(np.quantile(_ALL_PRICES, 0.5)), float(np.quantile(_ALL_PRICES, 0.9, method="inverted_cdf"))]], dtype=object),
     ),
 ]
 
@@ -177,11 +147,6 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
                 None, _AT,
                 [f.account().name(), f.price().average()],
             ).group_by(f.account().name()).order_by(f.account().name().ascending()),
-            expected_columns=["Account Name", "Average Price"],
-            expected_result=np.array(
-                [["Alpha Fund", 150.0], ["Beta Fund", 350.0], ["Gamma Fund", 500.0]],
-                dtype=object,
-            ),
         ),
         # With no group_by, the columns that are not aggregated are what the aggregates are grouped by.
         TestExpectation(
@@ -190,12 +155,6 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
                 None, _AT,
                 [f.account().name(), f.price().average()],
             ).order_by(f.account().name().ascending()),
-            expected_columns=["Account Name", "Average Price"],
-            expected_result=np.array(
-                [["Alpha Fund", 150.0], ["Beta Fund", 350.0], ["Gamma Fund", 500.0]],
-                dtype=object,
-            ),
-            expected_sql={"duckdb": "GROUP BY t1.ACCT_NAME"},
         ),
         TestExpectation(
             name="average_price_settled_only",
@@ -204,124 +163,67 @@ TRADE_GROUP_BY_FINDER_SPECS = FinderSpec(
                 [f.account().name(), f.price().average()],
                 f.is_settled().is_true(),
             ).group_by(f.account().name()).order_by(f.account().name().ascending()),
-            expected_columns=["Account Name", "Average Price"],
-            expected_result=np.array(
-                [["Alpha Fund", 150.0], ["Beta Fund", 300.0], ["Gamma Fund", 500.0]],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="group_count_per_account",
-            skip_backends={"graphql": "The GraphQL finder has no count() yet"},
             query=lambda f: f.find_all(
                 None, _AT, [f.account().name(), f.count()],
             ).group_by(f.account().name()).order_by(f.account().name().ascending()),
-            expected_columns=["Account Name", "Count"],
-            expected_result=np.array(
-                [["Alpha Fund", 2], ["Beta Fund", 2], ["Gamma Fund", 1]],
-                dtype=object,
-            ),
         ),
         # --- each step is a relation: filter, extend and select take the result before them and return one ---
         TestExpectation(
             name="chain_filter_on_a_column",
-            skip_backends=_NO_CHAIN,
             query=_expensive_trades,
-            expected_columns=["account", "sym", "price"],
-            expected_result=np.array(
-                [["Beta Fund", "MSFT", 300.0], ["Beta Fund", "TSLA", 400.0], ["Gamma Fund", "GS", 500.0]], dtype=object),
-            expected_sql={"duckdb": "WHERE t0.price > 250.0"},
-            unexpected_sql={"duckdb": "FROM (SELECT"},
         ),
         TestExpectation(
             name="chain_window_then_filter_on_it",
-            skip_backends=_NO_CHAIN,
             query=_top_trade_per_account,
-            expected_columns=["account", "sym", "price"],
-            expected_result=np.array(
-                [["Alpha Fund", "GOOG", 200.0], ["Beta Fund", "TSLA", 400.0], ["Gamma Fund", "GS", 500.0]], dtype=object),
         ),
         TestExpectation(
             name="chain_window_over_all_rows",
-            skip_backends=_NO_CHAIN,
             query=_most_expensive_trade,
-            expected_columns=["account", "sym", "price"],
-            expected_result=np.array([["Gamma Fund", "GS", 500.0]], dtype=object),
         ),
         TestExpectation(
             name="chain_extend_an_expression_and_select",
-            skip_backends=_NO_CHAIN,
             query=_price_as_a_multiple,
-            expected_columns=["sym", "double"],
-            expected_result=np.array([["GS", 1000.0], ["TSLA", 800.0]], dtype=object),
         ),
         TestExpectation(
             name="chain_group_by_a_column_and_aggregate",
-            skip_backends=_NO_CHAIN,
             query=_totals_per_account,
-            expected_columns=["account", "total", "trades"],
-            expected_result=np.array(
-                [["Alpha Fund", 300.0, 2], ["Beta Fund", 700.0, 2], ["Gamma Fund", 500.0, 1]], dtype=object),
         ),
         TestExpectation(
             name="chain_filter_the_groups",
-            skip_backends=_NO_CHAIN,
             query=_accounts_with_a_large_total,
-            expected_columns=["account", "total"],
-            expected_result=np.array([["Beta Fund", 700.0], ["Gamma Fund", 500.0]], dtype=object),
         ),
         TestExpectation(
             name="chain_aggregate_the_whole_relation",
-            skip_backends=_NO_CHAIN,
             query=lambda f: _trades(f).aggregate(total=lambda r: r.price.sum(), highest=lambda r: r.price.max(),
                                                  average_of_five=lambda r: r.price.sum() / 5.0),
-            expected_columns=["total", "highest", "average_of_five"],
-            expected_result=np.array([[1500.0, 500.0, 300.0]], dtype=object),
         ),
         TestExpectation(
             name="join_inner_on_a_column_of_each",
-            skip_backends=_NO_CHAIN,
             query=_each_trade_with_its_account_total,
-            expected_columns=["sym", "price", "total"],
-            expected_result=np.array(
-                [["AAPL", 100.0, 300.0], ["GOOG", 200.0, 300.0], ["MSFT", 300.0, 700.0], ["TSLA", 400.0, 700.0],
-                 ["GS", 500.0, 500.0]], dtype=object),
         ),
         TestExpectation(
             name="join_left_keeps_the_rows_that_find_no_match",
-            skip_backends=_NO_CHAIN,
             query=lambda f: _accounts_with_the_trades_over_350(f, "left"),
-            expected_columns=["total_account", "dear_sym"],
-            expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], ["Gamma Fund", "GS"]], dtype=object),
         ),
         TestExpectation(
             name="exists_keeps_the_rows_that_have_a_match",
-            skip_backends=_NO_CHAIN,
             query=lambda f: _accounts_that_have_a_trade_over_350(f, True),
-            expected_columns=["total_account"],
-            expected_result=np.array([["Beta Fund"], ["Gamma Fund"]], dtype=object),
         ),
         TestExpectation(
             name="not_exists_keeps_the_rows_that_have_none",
-            skip_backends=_NO_CHAIN,
             query=lambda f: _accounts_that_have_a_trade_over_350(f, False),
-            expected_columns=["total_account"],
-            expected_result=np.array([["Alpha Fund"]], dtype=object),
         ),
         TestExpectation(
             name="join_right_keeps_every_row_of_the_right",
-            skip_backends=_NO_CHAIN,
             query=_right_join_of_the_trades_over_350_to_the_accounts,
-            expected_columns=["total_account", "dear_sym"],
-            expected_result=np.array([["Alpha Fund", None], ["Beta Fund", "TSLA"], ["Gamma Fund", "GS"]], dtype=object),
         ),
         TestExpectation(
             name="join_full_keeps_the_rows_of_both_that_find_no_match",
-            skip_backends=_NO_CHAIN,
-            query=_full_join_of_two_accounts_to_the_trades_over_350,
-            expected_columns=["total_account", "dear_sym"],
             # the row with no account is first: a missing value is the smallest, so it comes first when ascending
-            expected_result=np.array([[None, "GS"], ["Alpha Fund", None], ["Beta Fund", "TSLA"]], dtype=object),
+            query=_full_join_of_two_accounts_to_the_trades_over_350,
         ),
     ],
 )

@@ -5,8 +5,8 @@
   "query_text": "(v1 := (v2 := f.find_all([f.id_()], (f.id_() < 3)).concatenate(f.find_all([f.id_()], (f.id_() >= 3)))).order_by(v2[\"id\"].descending()).limit(3)).order_by(v1[\"id\"].ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":2,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"<","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"right":3}],"kwargs":{}},"name":"concatenate"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"binary","op":">=","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"right":3}],"kwargs":{}}],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":2},"key":"id"},"name":"descending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[3],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"id"},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "concatenate_then_take_then_sort.csv",
-  "sql_contains": {
-    "duckdb": "LIMIT 3) AS"
+  "sql": {
+    "duckdb": "concatenate_then_take_then_sort.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no union"

@@ -5,7 +5,7 @@
   "query_text": "f.find_all([f.id_()], (f.category().length() != 7)).order_by(f.id_().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"!=","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"length"},"args":[],"kwargs":{}},"right":7}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "not_equal_on_an_expression_matches_a_missing_value.csv",
-  "sql_contains": {
-    "duckdb": "LENGTH(t0.category) <> 7 OR LENGTH(t0.category) IS NULL"
+  "sql": {
+    "duckdb": "not_equal_on_an_expression_matches_a_missing_value.duckdb.sql"
   }
 }

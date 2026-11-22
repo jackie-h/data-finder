@@ -1,0 +1,1 @@
+SELECT t0.firm_id AS "Id",t0.text AS "Text" FROM (SELECT t1.firm_id AS "firm_id",UPPER(t1.firm_name) AS "text" FROM (SELECT DISTINCT t2.firm_id AS "firm_id",t2.firm_name AS "firm_name" FROM org.people AS t2) AS t1) AS t0 ORDER BY t0.firm_id ASC NULLS FIRST

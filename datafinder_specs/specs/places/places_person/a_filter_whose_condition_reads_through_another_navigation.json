@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.name(), (v1 := f.locations().filter(lambda each: each.region().name().eq(\"East\"))).place()]).order_by(f.name().ascending(), v1.place().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"locations"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"region"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["East"],"kwargs":{}}}],"kwargs":{}}},"name":"place"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"place"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_filter_whose_condition_reads_through_another_navigation.csv",
-  "sql_contains": {
-    "duckdb": "LEFT OUTER JOIN (SELECT t2.person_id AS \"person_id\",t2.place AS \"place\" FROM geo.locations AS t2 LEFT OUTER JOIN geo.regions AS t3 ON (t3.id = t2.region_id) WHERE t3.name = 'East') AS t1 ON (t0.id = t1.person_id)"
+  "sql": {
+    "duckdb": "a_filter_whose_condition_reads_through_another_navigation.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder reads no filters of a navigation"

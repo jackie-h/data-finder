@@ -1,0 +1,1 @@
+SELECT t0.employeeName AS "employeeName",t0.id AS "id",t0.newest AS "newest" FROM (SELECT t1.name AS "employeeName",t1.id AS "id",MAX(t1.id) OVER () AS "newest" FROM hr.employees AS t1) AS t0 WHERE t0.id = t0.newest OR (t0.id IS NULL AND t0.newest IS NULL) ORDER BY t0.employeeName ASC NULLS FIRST

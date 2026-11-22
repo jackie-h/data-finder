@@ -297,4 +297,4 @@ def test_trade_specs_pass_when_each_query_is_rendered_after_the_next_is_built(fi
     for expectation, result in reversed(queries):
         result.to_sql()
         df = result.to_pandas()
-        assert list(df.columns) == expectation.expected_columns, expectation.name
+        assert list(df.columns) == expectation.checks().columns, expectation.name

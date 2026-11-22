@@ -5,8 +5,8 @@
   "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [f.price().sqrt().floor()], f.symbol().eq(\"GOOG\"))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"sqrt"},"args":[],"kwargs":{}},"name":"floor"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},
   "result": "numeric_functions_chain.csv",
-  "sql_contains": {
-    "duckdb": "FLOOR(SQRT(t0.price))"
+  "sql": {
+    "duckdb": "numeric_functions_chain.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no arithmetic between columns"

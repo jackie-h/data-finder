@@ -1,0 +1,1 @@
+SELECT t1.ACCT_NAME AS "Account Name",t1.ID AS "Account Id",COUNT(*) AS "Count" FROM trading.trades AS t0 LEFT OUTER JOIN ref_data.account_master AS t1 ON (t1.ID = t0.account_id) WHERE t0.in_z <= '2021-06-01 12:00:00' AND (t0.out_z > '2021-06-01 12:00:00' OR t0.out_z IS NULL) GROUP BY t1.ACCT_NAME, t1.ID

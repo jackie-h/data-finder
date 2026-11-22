@@ -5,8 +5,8 @@
   "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [(f.price() - (f.price() - 2))], f.symbol().eq(\"GOOG\"))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"binary","op":"-","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"right":{"kind":"binary","op":"-","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"right":2}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},
   "result": "the_right_side_of_a_subtraction_is_parenthesised.csv",
-  "sql_contains": {
-    "duckdb": "t0.price - (t0.price - 2)"
+  "sql": {
+    "duckdb": "the_right_side_of_a_subtraction_is_parenthesised.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no arithmetic between columns"

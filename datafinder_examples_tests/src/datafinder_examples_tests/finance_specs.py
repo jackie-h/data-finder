@@ -30,7 +30,6 @@ Account 2 only becomes live after MSFT does, so for a while MSFT has an account 
 """
 import datetime
 
-import numpy as np
 
 from datafinder.expressions import count_all
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
@@ -40,7 +39,6 @@ FINANCE_MAPPING = "finance_mapping.md"
 _AT = "2023-12-01 12:00:00"
 # Processing time at which both AAPL and GOOG are active (before GOOG expires 2022-01-01)
 _BOTH_AT = "2021-06-01 12:00:00"
-_NO_INTERVAL = {"graphql": "The GraphQL finder cannot read the difference of two datetimes"}
 # valid_from for both trades = 2020-01-01 00:00:00
 _VALID_FROM = datetime.datetime(2020, 1, 1, 0, 0, 0)
 # MSFT is live from 2024-01-01 but its account (2) only from 2024-06-01
@@ -54,8 +52,6 @@ ACCOUNT_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="account_by_id",
             query=lambda f: f.find_all(None, _AT, [f.id_(), f.name()], f.id_().eq(1)),
-            expected_columns=["Id", "Name"],
-            expected_result=np.array([[1, "Acme Corp"]], dtype=object),
         ),
     ],
 )
@@ -71,43 +67,30 @@ TRADE_FINDER_SPECS = FinderSpec(
                 [f.account().name(), f.symbol(), f.price()],
                 f.symbol().eq("AAPL"),
             ),
-            expected_columns=["Account Name", "Symbol", "Price"],
-            expected_result=np.array([["Acme Corp", "AAPL", 84.11]], dtype=object),
         ),
         TestExpectation(
             name="goog_expired",
-            expected_types=["String"],
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.symbol().eq("GOOG")),
-            expected_columns=["Symbol"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="price_sum_single_active_trade",
             query=lambda f: f.find_all(None, _AT, [f.price().sum()]),
-            expected_columns=["Sum Price"],
-            expected_result=np.array([[84.11]], dtype=object),
         ),
         TestExpectation(
             name="both_trades_active_in_2021",
             query=lambda f: f.find_all(
                 None, "2021-06-01 12:00:00", [f.symbol()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["GOOG"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_is_settled_true",
-            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.is_settled().eq(True)),
-            expected_columns=["Symbol"],
             # At _AT only AAPL is active; GOOG expired 2022-01-01 and is_settled=False anyway
-            expected_result=np.array([["AAPL"]], dtype=object),
+            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.is_settled().eq(True)),
         ),
         # --- BooleanAttribute.is_false() ---
         TestExpectation(
             name="is_settled_is_false",
             query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol()], f.is_settled().is_false()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["GOOG"]], dtype=object),
         ),
         # --- DateTimeAttribute comparisons (using valid_to; both trades active at _BOTH_AT) ---
         TestExpectation(
@@ -116,8 +99,6 @@ TRADE_FINDER_SPECS = FinderSpec(
                 None, _BOTH_AT, [f.symbol()],
                 f.valid_to().eq(datetime.datetime(2022, 1, 1, 0, 0, 0)),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["GOOG"]], dtype=object),
         ),
         TestExpectation(
             name="valid_to_gt",
@@ -125,8 +106,6 @@ TRADE_FINDER_SPECS = FinderSpec(
                 None, _BOTH_AT, [f.symbol()],
                 f.valid_to() > datetime.datetime(2022, 6, 1, 0, 0, 0),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="valid_to_lt",
@@ -134,8 +113,6 @@ TRADE_FINDER_SPECS = FinderSpec(
                 None, _BOTH_AT, [f.symbol()],
                 f.valid_to() < datetime.datetime(2022, 6, 1, 0, 0, 0),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["GOOG"]], dtype=object),
         ),
         TestExpectation(
             name="valid_to_ge",
@@ -143,8 +120,6 @@ TRADE_FINDER_SPECS = FinderSpec(
                 None, _BOTH_AT, [f.symbol()],
                 f.valid_to() >= datetime.datetime(2022, 1, 1, 0, 0, 0),
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["GOOG"]], dtype=object),
         ),
         TestExpectation(
             name="valid_to_le",
@@ -152,303 +127,200 @@ TRADE_FINDER_SPECS = FinderSpec(
                 None, _BOTH_AT, [f.symbol()],
                 f.valid_to() <= datetime.datetime(2022, 1, 1, 0, 0, 0),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["GOOG"]], dtype=object),
         ),
         # --- DateTimeAttribute extract (valid_from=2020-01-01 00:00:00, only AAPL at _AT) ---
         TestExpectation(
             name="valid_from_year",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().year()]),
-            expected_columns=["Year Valid From"],
-            expected_result=np.array([[2020]], dtype=object),
         ),
         # --- a date operation is compared as what it gives: a part is an integer, a moved date a date ---
         TestExpectation(
             name="filter_on_a_year",
-            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.valid_from().year().eq(2020)),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="filter_on_a_month_in_a_list",
-            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.valid_from().month().is_in([1, 2])),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="filter_on_a_difference",
-            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol()], f.valid_from().diff_days(datetime.datetime(2020, 2, 1)) >= 31),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="filter_on_a_moved_datetime",
-            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol()], f.valid_from().add_days(1) > datetime.datetime(2020, 1, 1)),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="filter_on_the_first_day_of_the_month",
-            skip_backends={"graphql": "The GraphQL finder cannot filter on a date function"},
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol()], f.valid_from().first_day_of_month().eq(datetime.date(2020, 1, 1))),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_month",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().month()]),
-            expected_columns=["Month Valid From"],
-            expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_day",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().day()]),
-            expected_columns=["Day Valid From"],
-            expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_hour",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().hour()]),
-            expected_columns=["Hour Valid From"],
-            expected_result=np.array([[0]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_minute",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().minute()]),
-            expected_columns=["Minute Valid From"],
-            expected_result=np.array([[0]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_second",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().second()]),
-            expected_columns=["Second Valid From"],
-            expected_result=np.array([[0]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_quarter",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().quarter()]),
-            expected_columns=["Quarter Valid From"],
-            expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_week",
-            query=lambda f: f.find_all(None, _AT, [f.valid_from().week_of_year()]),
-            expected_columns=["Week Of Year Valid From"],
             # 2020-01-01 is ISO week 1
-            expected_result=np.array([[1]], dtype=object),
+            query=lambda f: f.find_all(None, _AT, [f.valid_from().week_of_year()]),
         ),
         TestExpectation(
             name="valid_from_day_of_week",
-            query=lambda f: f.find_all(None, _AT, [f.valid_from().day_of_week()]),
-            expected_columns=["Day Of Week Valid From"],
             # 2020-01-01 is a Wednesday: ISO day 3 (Monday is 1)
-            expected_result=np.array([[3]], dtype=object),
+            query=lambda f: f.find_all(None, _AT, [f.valid_from().day_of_week()]),
         ),
         # --- DateTimeAttribute arithmetic ---
         TestExpectation(
             name="valid_from_add_hours",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().add_hours(2)]),
-            expected_columns=["Add Hours Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-01T02:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_minutes",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().add_minutes(30)]),
-            expected_columns=["Add Minutes Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-01T00:30:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_seconds",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().add_seconds(60)]),
-            expected_columns=["Add Seconds Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-01T00:01:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_subtract_hours",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().subtract_hours(1)]),
-            expected_columns=["Subtract Hours Valid From"],
-            expected_result=np.array([[np.datetime64("2019-12-31T23:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_subtract_minutes",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().subtract_minutes(5)]),
-            expected_columns=["Subtract Minutes Valid From"],
-            expected_result=np.array([[np.datetime64("2019-12-31T23:55:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_subtract_seconds",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().subtract_seconds(30)]),
-            expected_columns=["Subtract Seconds Valid From"],
-            expected_result=np.array([[np.datetime64("2019-12-31T23:59:30", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_months",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().add_months(2)]),
-            expected_columns=["Add Months Valid From"],
-            expected_result=np.array([[np.datetime64("2020-03-01T00:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_years",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().add_years(1)]),
-            expected_columns=["Add Years Valid From"],
-            expected_result=np.array([[np.datetime64("2021-01-01T00:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_subtract_months",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().subtract_months(1)]),
-            expected_columns=["Subtract Months Valid From"],
-            expected_result=np.array([[np.datetime64("2019-12-01T00:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_subtract_years",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().subtract_years(1)]),
-            expected_columns=["Subtract Years Valid From"],
-            expected_result=np.array([[np.datetime64("2019-01-01T00:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_days",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().add_days(1)]),
-            expected_columns=["Add Days Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-02T00:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_subtract_days",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().subtract_days(1)]),
-            expected_columns=["Subtract Days Valid From"],
-            expected_result=np.array([[np.datetime64("2019-12-31T00:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_timedelta",
             query=lambda f: f.find_all(None, _AT, [f.valid_from() + datetime.timedelta(hours=2)]),
-            expected_columns=["Add Hours Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-01T02:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_sub_timedelta",
             query=lambda f: f.find_all(None, _AT, [f.valid_from() - datetime.timedelta(hours=1)]),
-            expected_columns=["Subtract Hours Valid From"],
-            expected_result=np.array([[np.datetime64("2019-12-31T23:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_timedelta_days",
             query=lambda f: f.find_all(None, _AT, [f.valid_from() + datetime.timedelta(days=1)]),
-            expected_columns=["Add Days Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-02T00:00:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_timedelta_minutes",
             query=lambda f: f.find_all(None, _AT, [f.valid_from() + datetime.timedelta(minutes=30)]),
-            expected_columns=["Add Minutes Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-01T00:30:00", "us")]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_add_timedelta_seconds",
             query=lambda f: f.find_all(None, _AT, [f.valid_from() + datetime.timedelta(seconds=30)]),
-            expected_columns=["Add Seconds Valid From"],
-            expected_result=np.array([[np.datetime64("2020-01-01T00:00:30", "us")]], dtype=object),
         ),
         # --- DateTimeAttribute.__eq__ dunder (vs .eq() method) ---
         TestExpectation(
             name="valid_from_eq_operator",
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.valid_from() == _VALID_FROM),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         # --- BooleanAttribute.is_true() and __eq__ dunder ---
         TestExpectation(
             name="is_settled_is_true",
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.is_settled().is_true()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="is_settled_eq_operator",
-            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.is_settled() == True),  # noqa: E712
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
+            query=lambda f: f.find_all(None, _AT, [f.symbol()], f.is_settled() == True),
         ),
         # --- DateTimeAttribute diff ---
         TestExpectation(
             name="valid_from_diff_days",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_days(datetime.datetime(2020, 2, 1))]),
-            expected_columns=["Diff Days Valid From"],
-            expected_result=np.array([[31]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_diff_months",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_months(datetime.datetime(2020, 4, 1))]),
-            expected_columns=["Diff Months Valid From"],
-            expected_result=np.array([[3]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_diff_years",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_years(datetime.datetime(2022, 1, 1))]),
-            expected_columns=["Diff Years Valid From"],
-            expected_result=np.array([[2]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_diff_hours",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_hours(datetime.datetime(2020, 1, 2, 0, 0, 0))]),
-            expected_columns=["Diff Hours Valid From"],
-            expected_result=np.array([[24]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_diff_minutes",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_minutes(datetime.datetime(2020, 1, 1, 2, 0, 0))]),
-            expected_columns=["Diff Minutes Valid From"],
-            expected_result=np.array([[120]], dtype=object),
         ),
         TestExpectation(
             name="valid_from_diff_seconds",
             query=lambda f: f.find_all(None, _AT, [f.valid_from().diff_seconds(datetime.datetime(2020, 1, 1, 0, 1, 0))]),
-            expected_columns=["Diff Seconds Valid From"],
-            expected_result=np.array([[60]], dtype=object),
         ),
         # --- the time between two datetimes is an interval: a timedelta (GOOG is valid for 731 days, AAPL for longer) ---
         TestExpectation(
             name="interval_between_two_datetimes",
-            skip_backends=_NO_INTERVAL,
             query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol(), (f.valid_to() - f.valid_from()).alias("length")],
                                        f.symbol().eq("GOOG")),
-            expected_columns=["Symbol", "length"],
-            expected_result=np.array([["GOOG", datetime.timedelta(days=731)]], dtype=object),
         ),
         TestExpectation(
             name="interval_compared_with_a_timedelta",
-            skip_backends=_NO_INTERVAL,
             query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol()], (f.valid_to() - f.valid_from()) > datetime.timedelta(days=731)),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="interval_compared_with_a_timedelta_that_none_exceeds",
-            expected_types=["String"],
-            skip_backends=_NO_INTERVAL,
             query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol()], (f.valid_to() - f.valid_from()) < datetime.timedelta(days=731)),
-            expected_columns=["Symbol"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="interval_against_a_datetime",
-            skip_backends=_NO_INTERVAL,
             query=lambda f: f.find_all(None, _BOTH_AT, [(f.valid_to() - datetime.datetime(2021, 1, 1)).max().alias("longest")],
                                        f.symbol().eq("GOOG")),
-            expected_columns=["longest"],
-            expected_result=np.array([[datetime.timedelta(days=365)]], dtype=object),
         ),
         TestExpectation(
             name="interval_smallest",
-            skip_backends=_NO_INTERVAL,
             query=lambda f: f.find_all(None, _BOTH_AT, [(f.valid_to() - f.valid_from()).min().alias("shortest")]),
-            expected_columns=["shortest"],
-            expected_result=np.array([[datetime.timedelta(days=731)]], dtype=object),
         ),
     ],
 )
@@ -466,68 +338,48 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account().name()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Account Name"],
-            expected_result=np.array([["AAPL", "Acme Ltd"], ["GOOG", "Acme Ltd"]], dtype=object),
         ),
         TestExpectation(
             name="ancestor_join_is_milestoned",
+            # Without a milestoning condition on the Account join both account versions match: London and New York
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol(), f.account().branch().city()], f.symbol().eq("AAPL")
             ),
-            expected_columns=["Symbol", "Account Branch City"],
-            # Without a milestoning condition on the Account join both account versions match: London and New York
-            expected_result=np.array([["AAPL", "New York"]], dtype=object),
         ),
         TestExpectation(
             name="ancestor_join_follows_the_query_time",
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account().branch().city()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Account Branch City"],
-            expected_result=np.array([["AAPL", "London"], ["GOOG", "London"]], dtype=object),
         ),
         TestExpectation(
             name="ancestor_join_keeps_its_filter_kwargs",
-            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),
-            expected_columns=["Symbol", "Account Branch City"],
-            expected_result=np.array([["AAPL", "London"]], dtype=object),
         ),
         TestExpectation(
             name="ancestor_join_filter_kwargs_apply_at_the_query_time",
-            expected_types=["String", "String[0..1]"],
-            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
+            # no version of the account named 'Acme Ltd' is live in 2023, so the branch isn't found
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
             ),
-            expected_columns=["Symbol", "Account Branch City"],
-            # no version of the account named 'Acme Ltd' is live in 2023, so the branch isn't found
-            expected_result=np.array([["AAPL", None]], dtype=object),
         ),
         TestExpectation(
             name="a_filter_on_a_milestoned_navigation_applies_at_the_query_time",
-            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, _BOTH_AT,
                 [f.symbol(), f.account().filter(lambda each: each.name().eq("Acme Ltd")).branch().city()],
                 f.symbol().eq("AAPL"),
             ),
-            expected_columns=["Symbol", "Account Branch City"],
-            expected_result=np.array([["AAPL", "London"]], dtype=object),
         ),
         TestExpectation(
             name="a_filter_on_a_milestoned_navigation_that_no_live_version_holds_leaves_nothing_below_it",
-            expected_types=["String", "String[0..1]"],
-            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, _AT,
                 [f.symbol(), f.account().filter(lambda each: each.name().eq("Acme Ltd")).branch().city()],
                 f.symbol().eq("AAPL"),
             ),
-            expected_columns=["Symbol", "Account Branch City"],
-            expected_result=np.array([["AAPL", None]], dtype=object),
         ),
     ],
 )
@@ -539,54 +391,38 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
 TRADE_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
     expectations=[
         TestExpectation(
             name="exists_returns_each_trade_once",
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.account().exists()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="exists_returns_each_trade_once_in_2021",
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol()], f.account().exists()
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["GOOG"]], dtype=object),
         ),
         TestExpectation(
             name="exists_excludes_trade_whose_account_is_not_yet_live",
             query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().exists()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="not_exists_finds_trade_whose_account_is_not_yet_live",
             query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().not_exists()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="exists_once_the_account_is_live",
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().exists()
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="not_exists_is_empty_once_the_account_is_live",
-            expected_types=["String"],
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().not_exists()),
-            expected_columns=["Symbol"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="exists_through_a_milestoned_ancestor",
             query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().exists()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="exists_combined_with_a_filter",
@@ -594,8 +430,6 @@ TRADE_EXISTS_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.account().exists().and_(f.symbol().eq("AAPL")),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
     ],
 )
@@ -613,9 +447,6 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("AAPL").or_(f.symbol().eq("MSFT")),
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
-            expected_sql={"duckdb": " OR "},
         ),
         TestExpectation(
             name="or_where_only_the_right_side_matches",
@@ -623,18 +454,13 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("NOSUCH").or_(f.symbol().eq("MSFT")),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="or_where_neither_side_matches",
-            expected_types=["String"],
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("NOSUCH").or_(f.symbol().eq("ALSONOSUCH")),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="or_on_different_properties",
@@ -642,8 +468,6 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("NOSUCH").or_(f.price() > 200.0),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="or_then_and_applies_the_and_to_the_whole_or",
@@ -651,9 +475,6 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("AAPL").or_(f.symbol().eq("MSFT")).and_(f.price() > 200.0),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
-            expected_sql={"duckdb": "(t0.sym = 'AAPL' OR t0.sym = 'MSFT') AND t0.price > 200.0"},
         ),
         TestExpectation(
             name="and_then_or_applies_the_or_to_the_whole_and",
@@ -661,9 +482,6 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("AAPL").and_(f.price() > 1000.0).or_(f.symbol().eq("MSFT")),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
-            expected_sql={"duckdb": "(t0.sym = 'AAPL' AND t0.price > 1000.0) OR t0.sym = 'MSFT'"},
         ),
         TestExpectation(
             name="or_chain_of_three",
@@ -671,9 +489,6 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("AAPL").or_(f.symbol().eq("GOOG")).or_(f.symbol().eq("MSFT")),
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
-            expected_sql={"duckdb": "t0.sym = 'AAPL' OR t0.sym = 'GOOG' OR t0.sym = 'MSFT'"},
         ),
         TestExpectation(
             name="or_across_a_property_and_a_related_property",
@@ -681,8 +496,6 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.account().name().eq("Beta Inc").or_(f.symbol().eq("AAPL")),
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="or_where_only_the_related_property_matches",
@@ -690,28 +503,20 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.account().name().eq("Beta Inc").or_(f.symbol().eq("NOSUCH")),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="exists_or_a_filter",
-            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.account().exists().or_(f.symbol().eq("MSFT")),
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="not_exists_or_a_filter",
-            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.account().not_exists().or_(f.symbol().eq("NOSUCH")),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
     ],
 )
@@ -726,77 +531,48 @@ TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="is_not_none_returns_each_trade_once",
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.account().name().is_not_none()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="is_none_finds_trade_whose_account_is_not_yet_live",
-            skip_backends={"graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"},
             query=lambda f: f.find_all(None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_none()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="is_not_none_excludes_trade_whose_account_is_not_yet_live",
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_not_none()
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="is_none_is_empty_once_the_account_is_live",
-            expected_types=["String"],
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_none()),
-            expected_columns=["Symbol"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="is_not_none_once_the_account_is_live",
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_not_none()
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="is_none_through_a_milestoned_ancestor",
-            skip_backends={"graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"},
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().city().is_none()
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="is_not_none_through_a_milestoned_ancestor",
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().city().is_not_none()
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
         TestExpectation(
             name="is_none_combined_with_a_filter",
-            skip_backends={"graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"},
             query=lambda f: f.find_all(
                 None, _MSFT_WITHOUT_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.account().name().is_none().and_(f.symbol().eq("MSFT")),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["MSFT"]], dtype=object),
         ),
     ],
 )
-
-# A view has no dates: it exposes the root's validity columns (in_z, out_z) and pins every joined table to the
-# version that applied when the root row was recorded. So AAPL and GOOG (recorded 2020-01-01) see 'Acme Ltd' in
-# London, not today's 'Acme Corp', and MSFT (recorded 2024-01-01, before its account went live in June) has no
-# account at all, even though that account exists now. Rows are read back ordered by symbol, as a view has no order.
-_FOREVER = datetime.datetime(9999, 12, 31, 23, 59, 59)
-_START_OF_2020 = datetime.datetime(2020, 1, 1)
-_START_OF_2022 = datetime.datetime(2022, 1, 1)
-_START_OF_2024 = datetime.datetime(2024, 1, 1)
 
 # Trade.instrument comes from the one-way TradeInstrument association: the trade's instrument is a navigation from the
 # trade only, and the instrument has no accessor back to its trades. The instrument table is milestoned, so the join is
@@ -810,32 +586,23 @@ TRADE_ONE_WAY_ASSOCIATION_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.instrument().price()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Instrument Price"],
-            expected_result=np.array([["AAPL", 150.0], ["GOOG", 2800.0]], dtype=object),
-            expected_sql={"duckdb": "JOIN"},
         ),
         TestExpectation(
             name="one_way_association_join_is_anchored_to_the_query_time",
             # GOOG's trade and its instrument both expired on 2022-01-01, so only AAPL is live
             query=lambda f: f.find_all(None, _AT, [f.symbol(), f.instrument().price()]),
-            expected_columns=["Symbol", "Instrument Price"],
-            expected_result=np.array([["AAPL", 150.0]], dtype=object),
         ),
         TestExpectation(
             name="one_way_association_can_be_filtered_on",
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol()], f.instrument().price() > 1000.0
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["GOOG"]], dtype=object),
         ),
         TestExpectation(
             name="one_way_association_is_read_with_the_association",
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.instrument().price(), f.account().name()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Instrument Price", "Account Name"],
-            expected_result=np.array([["AAPL", 150.0, "Acme Ltd"], ["GOOG", 2800.0, "Acme Ltd"]], dtype=object),
         ),
     ],
 )
@@ -851,18 +618,12 @@ TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account(processing_time=_AT).name()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Account Name"],
-            expected_result=np.array([["AAPL", "Acme Corp"], ["GOOG", "Acme Corp"]], dtype=object),
-            expected_sql={"duckdb": "2023-12-01"},
         ),
         TestExpectation(
             name="navigation_without_a_time_of_its_own_uses_the_querys",
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account().name()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Account Name"],
-            expected_result=np.array([["AAPL", "Acme Ltd"], ["GOOG", "Acme Ltd"]], dtype=object),
-            unexpected_sql={"duckdb": "2023-12-01"},
         ),
         TestExpectation(
             name="sibling_navigation_keeps_the_querys_time",
@@ -870,22 +631,16 @@ TRADE_NAVIGATION_DATE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account(processing_time=_AT).name(), f.instrument().price()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Account Name", "Instrument Price"],
-            expected_result=np.array([["AAPL", "Acme Corp", 150.0], ["GOOG", "Acme Corp", 2800.0]], dtype=object),
         ),
         TestExpectation(
             name="a_call_with_a_time_does_not_change_the_plain_accessor",
             query=lambda f: _call_with_a_time_then_plain(f),
-            expected_columns=["Symbol", "Account Name"],
-            expected_result=np.array([["AAPL", "Acme Ltd"], ["GOOG", "Acme Ltd"]], dtype=object),
         ),
         TestExpectation(
             name="navigation_time_given_as_a_datetime",
             query=lambda f: f.find_all(
                 None, _BOTH_AT, [f.symbol(), f.account(processing_time=datetime.datetime(2023, 12, 1, 12, 0, 0)).name()]
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol", "Account Name"],
-            expected_result=np.array([["AAPL", "Acme Corp"], ["GOOG", "Acme Corp"]], dtype=object),
         ),
     ],
 )
@@ -907,25 +662,14 @@ BRANCH_FINDER_SPECS = FinderSpec(
             # At _AT, 'Acme Corp' is New York's only account: London's 'Acme Ltd' expired on 2022-01-01
             query=lambda f: f.find_all([f.city(), f.accounts(processing_time=_AT).name()])
                              .order_by(f.city().ascending()),
-            expected_columns=["City", "Accounts Name"],
-            expected_result=np.array([["London", None], ["New York", "Acme Corp"]], dtype=object),
-            expected_sql={"duckdb": "in_z <="},
         ),
         TestExpectation(
             name="non_milestoned_root_reads_the_earlier_version_at_an_earlier_time",
             query=lambda f: f.find_all([f.city(), f.accounts(processing_time=_BOTH_AT).name()])
                              .order_by(f.city().ascending()),
-            expected_columns=["City", "Accounts Name"],
-            expected_result=np.array([["London", "Acme Ltd"], ["New York", None]], dtype=object),
         ),
     ],
 )
-
-# exists() and not_exists() on a to-many association ask whether a row exists, so a branch with several accounts is one
-# row, and counts once. Branch has no milestoning of its own, and the accounts it reaches are milestoned: at
-# _MSFT_WITH_LIVE_ACCOUNT_AT New York has two accounts, 'Acme Corp' and 'Beta Inc', and London has none.
-_GRAPHQL_NO_EXISTS = "exists/not_exists are not yet generated for GraphQL finders"
-
 
 def _branch_accounts_exist_or_not(f):
     accounts = f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT)
@@ -940,50 +684,33 @@ def _branch_value_read_through_the_accounts_that_exist(f):
 BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="BranchFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
             query=lambda f: f.find_all([f.city()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
-            expected_columns=["City"],
-            expected_result=np.array([["New York"]], dtype=object),
-            expected_sql={"duckdb": 'SELECT DISTINCT t2.BRANCH_ID AS "BRANCH_ID" FROM ref_data.account_master AS t2'},
         ),
         TestExpectation(
             name="exists_to_many_counts_a_row_once",
             query=lambda f: f.find_all([count_all()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
-            expected_columns=["Count"],
-            expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
             name="not_exists_to_many_is_a_row_with_no_match",
             query=lambda f: f.find_all([f.city()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).not_exists()),
-            expected_columns=["City"],
-            expected_result=np.array([["London"]], dtype=object),
         ),
         TestExpectation(
             name="exists_and_not_exists_on_one_step_cover_every_row_once",
             query=_branch_accounts_exist_or_not,
-            expected_columns=["City"],
-            expected_result=np.array([["London"], ["New York"]], dtype=object),
         ),
         TestExpectation(
+            name="the_step_is_milestoned_inside_the_sub_select_with_the_time_it_is_given",
             # London's account at _BOTH_AT, 'Acme Ltd', has expired by now: the milestoning is inside the sub-select, with
             # the time the step was given
-            name="the_step_is_milestoned_inside_the_sub_select_with_the_time_it_is_given",
             query=lambda f: f.find_all([f.city()], f.accounts(processing_time=_BOTH_AT).exists()),
-            expected_columns=["City"],
-            expected_result=np.array([["London"]], dtype=object),
-            expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.in_z <="},
-            unexpected_sql={"duckdb": "t1.in_z"},
         ),
         TestExpectation(
-            # A value read through the step is a row for each account, and exists() then holds for an account in the result
             name="reading_a_value_through_the_step_keeps_a_row_for_each_match",
+            # A value read through the step is a row for each account, and exists() then holds for an account in the result
             query=_branch_value_read_through_the_accounts_that_exist,
-            expected_columns=["City", "Accounts Name"],
-            expected_result=np.array([["New York", "Acme Corp"], ["New York", "Beta Inc"]], dtype=object),
-            unexpected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
 )
@@ -995,57 +722,38 @@ BRANCH_EXISTS_FINDER_SPECS = FinderSpec(
 DESK_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="DeskFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
             query=lambda f: f.find_all([f.name()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
-            expected_columns=["Name"],
-            expected_result=np.array([["Equities"]], dtype=object),
-            expected_sql={"duckdb": 'SELECT DISTINCT t2.DESK_ID AS "DESK_ID" FROM ref_data.account_master AS t2'},
         ),
         TestExpectation(
             name="not_exists_to_many_is_a_row_with_no_match",
             query=lambda f: f.find_all([f.name()], f.accounts(processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).not_exists())
             .order_by(f.name().ascending()),
-            expected_columns=["Name"],
-            expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
         ),
         TestExpectation(
+            name="a_step_given_a_value_filters_inside_the_sub_select",
             # A step given a value, as in accounts(name="Beta Inc"), is a condition on the accounts: it is inside the
             # sub-select, and the step is still one row for a desk however many accounts match
-            name="a_step_given_a_value_filters_inside_the_sub_select",
             query=lambda f: f.find_all(
                 [f.name()], f.accounts(name="Beta Inc", processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
-            expected_columns=["Name"],
-            expected_result=np.array([["Equities"]], dtype=object),
-            expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.ACCT_NAME = 'Beta Inc' AND t2.in_z <="},
         ),
         TestExpectation(
-            # 'Acme Ltd' has expired by now, so no desk has an account of that name
             name="a_step_given_a_value_that_matches_no_current_row_is_no_row",
-            expected_types=["String"],
+            # 'Acme Ltd' has expired by now, so no desk has an account of that name
             query=lambda f: f.find_all(
                 [f.name()], f.accounts(name="Acme Ltd", processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
-            expected_columns=["Name"],
-            expected_result=np.empty((0, 1), dtype=object),
-            expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
         TestExpectation(
             name="not_exists_with_a_step_given_a_value",
             query=lambda f: f.find_all(
                 [f.name()], f.accounts(name="Beta Inc", processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).not_exists()
             ).order_by(f.name().ascending()),
-            expected_columns=["Name"],
-            expected_result=np.array([["Credit"], ["Rates"]], dtype=object),
         ),
         TestExpectation(
             name="the_step_is_milestoned_inside_the_sub_select",
             query=lambda f: f.find_all([f.name()], f.accounts(processing_time=_BOTH_AT).exists()),
-            expected_columns=["Name"],
-            expected_result=np.array([["Rates"]], dtype=object),
-            expected_sql={"duckdb": "FROM ref_data.account_master AS t2 WHERE t2.in_z <="},
-            unexpected_sql={"duckdb": "t1.in_z"},
         ),
     ],
 )
@@ -1057,54 +765,38 @@ _POSITIONS_RECORDED_AT = "2023-02-01 12:00:00"
 ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="AccountFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
             name="exists_to_many_is_one_row_however_many_rows_match",
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions().exists()),
-            expected_columns=["Name"],
-            expected_result=np.array([["Acme Corp"]], dtype=object),
-            expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
         TestExpectation(
             name="exists_to_many_counts_a_row_once",
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [count_all()], f.positions().exists()),
-            expected_columns=["Count"],
-            expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
             name="not_exists_to_many_is_a_row_with_no_match",
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions().not_exists()),
-            expected_columns=["Name"],
-            expected_result=np.array([["Beta Inc"]], dtype=object),
         ),
         TestExpectation(
-            # Two of Acme's positions have quantity 100: the value matches two rows, and the step is one row
             name="a_step_given_a_value_that_matches_several_rows_is_one_row",
+            # Two of Acme's positions have quantity 100: the value matches two rows, and the step is one row
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions(quantity=100.0).exists()
             ),
-            expected_columns=["Name"],
-            expected_result=np.array([["Acme Corp"]], dtype=object),
-            expected_sql={"duckdb": "WHERE t2.QUANTITY = 100.0 AND"},
         ),
         TestExpectation(
             name="a_step_given_a_value_that_matches_several_rows_counts_a_row_once",
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [count_all()], f.positions(quantity=100.0).exists()
             ),
-            expected_columns=["Count"],
-            expected_result=np.array([[1]], dtype=object),
         ),
         TestExpectation(
-            # Only the 200 on 2023-01-16 matches, and the step is still one row for the account
             name="a_step_given_a_value_filters_inside_the_sub_select",
+            # Only the 200 on 2023-01-16 matches, and the step is still one row for the account
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()], f.positions(quantity=200.0).exists()
             ),
-            expected_columns=["Name"],
-            expected_result=np.array([["Acme Corp"]], dtype=object),
-            expected_sql={"duckdb": "WHERE t2.QUANTITY = 200.0 AND"},
         ),
         TestExpectation(
             name="a_step_with_its_own_business_date_uses_it_inside_the_sub_select",
@@ -1112,48 +804,35 @@ ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()],
                 f.positions(business_date=datetime.date(2023, 1, 16)).exists(),
             ),
-            expected_columns=["Name"],
-            expected_result=np.array([["Acme Corp"]], dtype=object),
-            expected_sql={"duckdb": "2023-01-16"},
         ),
         TestExpectation(
             name="a_step_with_a_business_date_with_no_position_is_no_row",
-            expected_types=["String"],
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()],
                 f.positions(business_date=datetime.date(2023, 2, 1)).exists(),
             ),
-            expected_columns=["Name"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
-            # The 90 position on 2023-01-15 was replaced by the 100 on that day; before that it is the one found
             name="a_step_with_its_own_processing_time_uses_it_inside_the_sub_select",
+            # The 90 position on 2023-01-15 was replaced by the 100 on that day; before that it is the one found
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()],
                 f.positions(processing_time="2023-01-12 12:00:00").exists(),
             ),
-            expected_columns=["Name"],
-            expected_result=np.array([["Acme Corp"]], dtype=object),
         ),
         TestExpectation(
-            # Acme has one live trade (AAPL) and two positions here: two rows as joins
             name="two_to_many_steps_do_not_multiply_each_other",
+            # Acme has one live trade (AAPL) and two positions here: two rows as joins
             query=lambda f: f.find_all(
                 None, _POSITIONS_RECORDED_AT, [f.name()], f.trades().exists().and_(f.positions().exists())
             ),
-            expected_columns=["Name"],
-            expected_result=np.array([["Acme Corp"]], dtype=object),
         ),
         TestExpectation(
-            # A value read through the step is a row for each position, and exists() then holds for a position in the result
             name="reading_a_value_through_the_step_keeps_a_row_for_each_match",
+            # A value read through the step is a row for each position, and exists() then holds for a position in the result
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name(), f.positions().quantity()], f.positions().exists()
             ).order_by(f.positions().quantity().ascending()),
-            expected_columns=["Name", "Positions Quantity"],
-            expected_result=np.array([["Acme Corp", 100.0], ["Acme Corp", 100.0], ["Acme Corp", 200.0]], dtype=object),
-            unexpected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
 )
@@ -1161,18 +840,14 @@ ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
 POSITION_DESK_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="ContractualPositionFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
+            name="exists_to_many_through_to_one_steps_is_one_row_per_position",
             # position -> account -> desk are to-one; the accounts of the desk are to-many. Equities has two accounts,
             # so a join would repeat each position.
-            name="exists_to_many_through_to_one_steps_is_one_row_per_position",
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.quantity()], f.account().desk().accounts().exists()
             ).order_by(f.quantity().ascending()),
-            expected_columns=["Quantity"],
-            expected_result=np.array([[100.0], [100.0], [200.0]], dtype=object),
-            expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
 )
@@ -1180,18 +855,14 @@ POSITION_DESK_EXISTS_FINDER_SPECS = FinderSpec(
 TRADE_TO_MANY_EXISTS_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": _GRAPHQL_NO_EXISTS},
     expectations=[
         TestExpectation(
+            name="exists_to_many_through_to_one_steps_is_one_row_per_trade",
             # trade -> account -> branch are to-one; the accounts of the branch are to-many. New York has two accounts,
             # so a join would repeat each of its trades.
-            name="exists_to_many_through_to_one_steps_is_one_row_per_trade",
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().branch().accounts().exists()
             ).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
-            expected_sql={"duckdb": "SELECT DISTINCT"},
         ),
     ],
 )
@@ -1199,59 +870,31 @@ TRADE_TO_MANY_EXISTS_FINDER_SPECS = FinderSpec(
 TRADE_VIEW_FINDER_SPECS = FinderSpec(
     finder_name="TradeFinder",
     mapping_file=FINANCE_MAPPING,
-    skip_backends={"graphql": "Views are not supported by the GraphQL backend"},
     expectations=[
         TestExpectation(
             name="view_of_root_columns_adds_the_validity_columns",
             query=lambda f: f.find_all(None, None, [f.symbol(), f.price()])
             .to_view("trade_prices", "reporting").result().order_by("symbol"),
-            expected_columns=["symbol", "price", "in_z", "out_z"],
-            expected_result=np.array([
-                ["AAPL", 84.11, _START_OF_2020, _FOREVER],
-                ["GOOG", 200.0, _START_OF_2020, _START_OF_2022],
-                ["MSFT", 300.0, _START_OF_2024, _FOREVER],
-            ], dtype=object),
         ),
         TestExpectation(
             name="each_trade_sees_the_account_applicable_when_it_was_recorded",
             query=lambda f: f.find_all(None, None, [f.symbol(), f.account().name()])
             .to_view("trade_account", "reporting").result().order_by("symbol"),
-            expected_columns=["symbol", "account_name", "in_z", "out_z"],
-            expected_result=np.array([
-                ["AAPL", "Acme Ltd", _START_OF_2020, _FOREVER],
-                ["GOOG", "Acme Ltd", _START_OF_2020, _START_OF_2022],
-                ["MSFT", None, _START_OF_2024, _FOREVER],
-            ], dtype=object),
-            expected_sql={"duckdb": "t1.in_z <= t0.in_z"},
-            unexpected_sql={"duckdb": "GREATEST"},
         ),
         TestExpectation(
             name="an_ancestor_nothing_projects_is_pinned_too",
             query=lambda f: f.find_all(None, None, [f.symbol(), f.account().branch().city()])
             .to_view("trade_branch", "reporting").result().order_by("symbol"),
-            expected_columns=["symbol", "account_branch_city", "in_z", "out_z"],
-            expected_result=np.array([
-                ["AAPL", "London", _START_OF_2020, _FOREVER],
-                ["GOOG", "London", _START_OF_2020, _START_OF_2022],
-                ["MSFT", None, _START_OF_2024, _FOREVER],
-            ], dtype=object),
         ),
         TestExpectation(
             name="filter_on_a_root_column",
             query=lambda f: f.find_all(None, None, [f.account().name()], f.symbol().eq("GOOG"))
             .to_view("goog_account", "reporting").result(),
-            expected_columns=["account_name", "in_z", "out_z"],
-            expected_result=np.array([["Acme Ltd", _START_OF_2020, _START_OF_2022]], dtype=object),
         ),
         TestExpectation(
             name="filter_on_a_joined_column",
             query=lambda f: f.find_all(None, None, [f.symbol()], f.account().name().is_not_none())
             .to_view("trades_with_account", "reporting").result().order_by("symbol"),
-            expected_columns=["symbol", "in_z", "out_z"],
-            expected_result=np.array([
-                ["AAPL", _START_OF_2020, _FOREVER],
-                ["GOOG", _START_OF_2020, _START_OF_2022],
-            ], dtype=object),
         ),
         # Aggregates and group_by come from the same builder. A grouped view also groups by the validity columns,
         # so AAPL and GOOG, which are valid over different periods, are separate groups.
@@ -1259,13 +902,6 @@ TRADE_VIEW_FINDER_SPECS = FinderSpec(
             name="grouped_view_groups_by_the_validity_columns_too",
             query=lambda f: f.find_all(None, None, [f.account().name(), f.price().sum()])
             .group_by(f.account().name()).to_view("account_totals", "reporting").result().order_by("sum_price"),
-            expected_columns=["account_name", "sum_price", "in_z", "out_z"],
-            expected_result=np.array([
-                ["Acme Ltd", 84.11, _START_OF_2020, _FOREVER],
-                ["Acme Ltd", 200.0, _START_OF_2020, _START_OF_2022],
-                [None, 300.0, _START_OF_2024, _FOREVER],
-            ], dtype=object),
-            expected_sql={"duckdb": "GROUP BY t1.ACCT_NAME, t0.in_z, t0.out_z"},
         ),
     ],
 )
@@ -1277,46 +913,32 @@ CONTRACTUAL_POSITION_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="position_jan15_current",
             query=lambda f: f.find_all("2023-01-15", _AT, [f.quantity(), f.npv()]),
-            expected_columns=["Quantity", "Npv"],
-            expected_result=np.array([[100.0, 500.0]], dtype=object),
         ),
         TestExpectation(
             name="position_jan16_current",
             query=lambda f: f.find_all("2023-01-16", _AT, [f.quantity(), f.npv()]),
-            expected_columns=["Quantity", "Npv"],
-            expected_result=np.array([[200.0, 1000.0]], dtype=object),
         ),
         TestExpectation(
             name="position_jan15_before_update",
             query=lambda f: f.find_all("2023-01-15", "2023-01-12 12:00:00", [f.quantity()]),
-            expected_columns=["Quantity"],
-            expected_result=np.array([[90.0]], dtype=object),
         ),
         TestExpectation(
             name="range_jan15_jan16",
-            skip_backends={"graphql": "A sort across a date range cannot be pushed: each date is a separate query"},
             query=lambda f: f.find_for_date_range(
                 "2023-01-15", "2023-01-16", _AT, [f.quantity()]
             ).order_by(f.quantity().ascending()),
-            expected_columns=["Quantity"],
-            expected_result=np.array([[100.0], [200.0]], dtype=object),
         ),
         TestExpectation(
             name="range_jan15_only",
             query=lambda f: f.find_for_date_range(
                 "2023-01-15", "2023-01-15", _AT, [f.quantity()]
             ),
-            expected_columns=["Quantity"],
-            expected_result=np.array([[100.0]], dtype=object),
         ),
         TestExpectation(
             name="range_before_data",
-            expected_types=["Double"],
             query=lambda f: f.find_for_date_range(
                 "2023-01-01", "2023-01-14", _AT, [f.quantity()]
             ),
-            expected_columns=["Quantity"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
     ],
 )

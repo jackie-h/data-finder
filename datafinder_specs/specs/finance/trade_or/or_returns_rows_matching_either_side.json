@@ -5,7 +5,7 @@
   "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [f.symbol()], f.symbol().eq(\"AAPL\").or_(f.symbol().eq(\"MSFT\"))).order_by(f.symbol().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["AAPL"],"kwargs":{}},"name":"or_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["MSFT"],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "or_returns_rows_matching_either_side.csv",
-  "sql_contains": {
-    "duckdb": " OR "
+  "sql": {
+    "duckdb": "or_returns_rows_matching_either_side.duckdb.sql"
   }
 }

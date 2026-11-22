@@ -1,0 +1,1 @@
+SELECT t0.category AS "category" FROM (SELECT t1.category AS "category" FROM main.companies AS t1 WHERE t1.id < 3 UNION SELECT t2.category AS "category" FROM main.companies AS t2 WHERE t2.id > 2) AS t0 ORDER BY t0.category ASC NULLS FIRST

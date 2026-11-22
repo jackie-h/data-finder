@@ -1,0 +1,1 @@
+SELECT t0.legal_name AS "LegalName",t1.first_name AS "Employees FirstName" FROM org.firms AS t0 LEFT OUTER JOIN org.persons AS t1 ON (t0.id = t1.firm_id AND t0.flag IS NULL AND t1.flag IS NOT NULL) ORDER BY t0.legal_name ASC NULLS FIRST, t1.first_name ASC NULLS FIRST

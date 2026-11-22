@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.id_(), f.text()]).order_by(f.id_().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"text"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_property_that_is_an_expression_of_the_querys_columns.csv",
-  "sql_contains": {
-    "duckdb": "'Mr ' || t1.first_name AS \"text\""
+  "sql": {
+    "duckdb": "a_property_that_is_an_expression_of_the_querys_columns.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder does not read a mapping's SQL queries"

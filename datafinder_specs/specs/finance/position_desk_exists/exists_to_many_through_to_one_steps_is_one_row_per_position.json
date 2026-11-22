@@ -5,8 +5,8 @@
   "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [f.quantity()], f.account().desk().accounts().exists()).order_by(f.quantity().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"desk"},"args":[],"kwargs":{}},"name":"accounts"},"args":[],"kwargs":{}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "exists_to_many_through_to_one_steps_is_one_row_per_position.csv",
-  "sql_contains": {
-    "duckdb": "SELECT DISTINCT"
+  "sql": {
+    "duckdb": "exists_to_many_through_to_one_steps_is_one_row_per_position.duckdb.sql"
   },
   "skip": {
     "graphql": "exists/not_exists are not yet generated for GraphQL finders"

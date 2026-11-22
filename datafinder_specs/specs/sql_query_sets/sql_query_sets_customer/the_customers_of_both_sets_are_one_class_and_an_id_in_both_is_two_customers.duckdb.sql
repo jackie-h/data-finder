@@ -1,0 +1,1 @@
+SELECT t0.customer_id AS "Id",t0.name AS "Name" FROM (SELECT t1.id AS "customer_id",t1.name AS "name",'retail' AS "_set" FROM org.retail_customers AS t1 UNION ALL SELECT t2.id AS "customer_id",t2.name AS "name",'corporate' AS "_set" FROM org.corporate_customers AS t2) AS t0 ORDER BY t0.customer_id ASC NULLS FIRST, t0.name ASC NULLS FIRST

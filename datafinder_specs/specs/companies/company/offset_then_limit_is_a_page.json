@@ -5,7 +5,7 @@
   "query_text": "f.find_all([f.name()]).order_by(f.name().ascending()).offset(1).limit(2)",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"offset"},"args":[1],"kwargs":{}},"name":"limit"},"args":[2],"kwargs":{}},
   "result": "offset_then_limit_is_a_page.csv",
-  "sql_contains": {
-    "duckdb": "LIMIT 2 OFFSET 1"
+  "sql": {
+    "duckdb": "offset_then_limit_is_a_page.duckdb.sql"
   }
 }

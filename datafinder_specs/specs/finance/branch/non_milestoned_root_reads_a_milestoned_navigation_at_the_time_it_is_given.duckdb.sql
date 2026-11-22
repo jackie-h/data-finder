@@ -1,0 +1,1 @@
+SELECT t0.CITY AS "City",t1.ACCT_NAME AS "Accounts Name" FROM ref_data.branch AS t0 LEFT OUTER JOIN ref_data.account_master AS t1 ON (t0.ID = t1.BRANCH_ID AND t1.in_z <= '2023-12-01 12:00:00' AND (t1.out_z > '2023-12-01 12:00:00' OR t1.out_z IS NULL)) ORDER BY t0.CITY ASC NULLS FIRST

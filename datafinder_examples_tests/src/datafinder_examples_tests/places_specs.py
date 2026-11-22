@@ -8,12 +8,10 @@ drops no row of the query. A condition in the query is a ``WHERE`` and drops the
 Ann (1) has been to Hoboken (3 times), New York (5) and Boston (2), Bob (2) to Boston (4) and Cy (3) to New York (1). Boston and
 Hoboken are in the East region (1), and Cy's New York in the West (2).
 """
-import numpy as np
 
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 PLACES_MAPPING = "places_mapping.md"
-_NO_FILTERS = {"graphql": "The GraphQL finder reads no filters of a navigation"}
 _HOBOKEN_OR_NEW_YORK = ["Hoboken", "New York"]
 
 
@@ -90,118 +88,56 @@ PLACES_PERSON_FINDER_SPECS = FinderSpec(
     expectations=[
         TestExpectation(
             name="a_filter_on_a_navigation_keeps_every_person",
-            skip_backends=_NO_FILTERS,
-            query=_filter_keeps_every_person,
-            expected_columns=["Name", "Locations Place"],
             # Bob has been only to Boston, so he has no location that holds, and is there with none
-            expected_result=np.array([
-                ["Ann", "Hoboken"], ["Ann", "New York"], ["Bob", None], ["Cy", "New York"],
-            ], dtype=object),
-            expected_sql={"duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York'))"},
-            unexpected_sql={"duckdb": "WHERE"},
+            query=_filter_keeps_every_person,
         ),
         TestExpectation(
             name="the_same_condition_in_the_query_drops_the_person_with_no_location",
             query=_filter_in_the_query_drops_the_person,
-            expected_columns=["Name", "Locations Place"],
-            expected_result=np.array([
-                ["Ann", "Hoboken"], ["Ann", "New York"], ["Cy", "New York"],
-            ], dtype=object),
-            expected_sql={"duckdb": "WHERE t1.place IN ('Hoboken', 'New York')"},
         ),
         TestExpectation(
             name="a_filtered_navigation_that_two_columns_read_is_one_join",
-            skip_backends=_NO_FILTERS,
             query=_one_filtered_navigation_read_twice,
-            expected_columns=["Name", "Locations Place", "Locations Visits"],
-            expected_result=np.array([
-                ["Ann", "Hoboken", 3], ["Ann", "New York", 5], ["Bob", None, None], ["Cy", "New York", 1],
-            ], dtype=object),
-            unexpected_sql={"duckdb": "t2"},
         ),
         TestExpectation(
             name="two_filters_on_one_navigation_are_two_joins",
-            skip_backends=_NO_FILTERS,
-            query=_two_filters_on_one_navigation,
-            expected_columns=["Name", "Locations Place", "Locations Visits"],
             # the first join holds only New York, the second Hoboken as well, so Ann's New York is beside each of her two
-            expected_result=np.array([
-                ["Ann", "New York", 3], ["Ann", "New York", 5], ["Bob", None, None], ["Cy", "New York", 1],
-            ], dtype=object),
-            expected_sql={"duckdb": "t1.place = 'New York'"},
+            query=_two_filters_on_one_navigation,
         ),
         TestExpectation(
             name="filters_with_equal_conditions_are_one_join_when_each_is_written_out",
-            skip_backends=_NO_FILTERS,
             query=_equal_filters_written_twice,
-            expected_columns=["Name", "Locations Place", "Locations Visits"],
-            expected_result=np.array([
-                ["Ann", "Hoboken", 3], ["Ann", "New York", 5], ["Bob", None, None], ["Cy", "New York", 1],
-            ], dtype=object),
-            expected_sql={"duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York'))"},
-            unexpected_sql={"duckdb": "t2"},
         ),
         TestExpectation(
             name="filters_with_different_conditions_are_different_joins_even_for_the_same_values",
-            skip_backends=_NO_FILTERS,
-            query=_same_values_in_another_order,
-            expected_columns=["Name", "Locations Place", "Locations Visits"],
             # the second filter lists the values the other way round: a condition that is written differently is not the same
             # condition, so it is a join of its own, and each of Ann's two rows is beside each of her two
-            expected_result=np.array([
-                ["Ann", "Hoboken", 3], ["Ann", "Hoboken", 5], ["Ann", "New York", 3], ["Ann", "New York", 5],
-                ["Bob", None, None], ["Cy", "New York", 1],
-            ], dtype=object),
-            expected_sql={"duckdb": "LEFT OUTER JOIN geo.locations AS t2 ON (t0.id = t2.person_id AND t2.place IN ('New York', 'Hoboken'))"},
+            query=_same_values_in_another_order,
         ),
         TestExpectation(
             name="the_same_condition_with_another_value_is_a_join_of_its_own",
-            skip_backends=_NO_FILTERS,
             query=_same_condition_with_another_value,
-            expected_columns=["Name", "Locations Place", "Locations Visits"],
-            expected_result=np.array([["Ann", "New York", 2], ["Bob", None, 4], ["Cy", "New York", None]], dtype=object),
-            expected_sql={"duckdb": "t2.place = 'Boston'"},
         ),
         TestExpectation(
             name="a_filter_of_a_filtered_navigation_holds_both_conditions",
-            skip_backends=_NO_FILTERS,
-            query=_filter_of_a_filter,
-            expected_columns=["Name", "Locations Place", "Locations Visits"],
             # of Hoboken and New York, only Ann's New York has been visited more than 3 times
-            expected_result=np.array([["Ann", "New York", 5], ["Bob", None, None], ["Cy", None, None]], dtype=object),
-            expected_sql={"duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York') AND t1.visits > 3)"},
+            query=_filter_of_a_filter,
         ),
         TestExpectation(
             name="a_filter_on_a_navigation_below_another",
-            skip_backends=_NO_FILTERS,
-            query=_filter_below_a_navigation,
-            expected_columns=["Name", "Locations Place", "Locations Region Name"],
             # every location is read; only the region of Cy's New York is not East
-            expected_result=np.array([
-                ["Ann", "Boston", "East"], ["Ann", "Hoboken", "East"], ["Ann", "New York", "East"],
-                ["Bob", "Boston", "East"], ["Cy", "New York", None],
-            ], dtype=object),
+            query=_filter_below_a_navigation,
         ),
         TestExpectation(
             name="a_filter_whose_condition_reads_through_another_navigation",
-            skip_backends=_NO_FILTERS,
-            query=_filter_reading_through_another_navigation,
-            expected_columns=["Name", "Locations Place"],
             # the region of a location is joined for the condition, which holds in the join of the locations: Cy's only
             # location is in the West, so he is there with none
-            expected_result=np.array([
-                ["Ann", "Boston"], ["Ann", "Hoboken"], ["Ann", "New York"], ["Bob", "Boston"], ["Cy", None],
-            ], dtype=object),
-            expected_sql={"duckdb": "LEFT OUTER JOIN (SELECT t2.person_id AS \"person_id\",t2.place AS \"place\" FROM geo.locations AS t2 "
-                                    "LEFT OUTER JOIN geo.regions AS t3 ON (t3.id = t2.region_id) WHERE t3.name = 'East') AS t1 ON (t0.id = t1.person_id)"},
+            query=_filter_reading_through_another_navigation,
         ),
         TestExpectation(
             name="a_filter_of_a_column_or_a_column_of_another_navigation",
-            skip_backends=_NO_FILTERS,
-            query=_filter_reading_through_another_navigation_or_a_column,
-            expected_columns=["Name", "Locations Place"],
             # in the West (Cy's New York) or visited more than 3 times (Ann's New York, Bob's Boston)
-            expected_result=np.array([["Ann", "New York"], ["Bob", "Boston"], ["Cy", "New York"]], dtype=object),
+            query=_filter_reading_through_another_navigation_or_a_column,
         ),
     ],
 )
@@ -212,13 +148,8 @@ PLACES_LOCATION_FINDER_SPECS = FinderSpec(
     expectations=[
         TestExpectation(
             name="a_filter_on_a_navigation_to_one_leaves_the_others_without_it",
-            skip_backends=_NO_FILTERS,
             query=lambda f: f.find_all([f.id_(), f.person().filter(lambda each: each.name().eq("Ann")).name()])
                              .order_by(f.id_().ascending()),
-            expected_columns=["Id", "Person Name"],
-            expected_result=np.array([
-                [1, "Ann"], [2, "Ann"], [3, "Ann"], [4, None], [5, None],
-            ], dtype=object),
         ),
     ],
 )

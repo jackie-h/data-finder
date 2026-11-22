@@ -5,8 +5,8 @@
   "query_text": "f.find_all(None, None, [f.symbol(), f.account().name()]).to_view(\"trade_account\", \"reporting\").result().order_by(\"symbol\")",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"to_view"},"args":["trade_account","reporting"],"kwargs":{}},"name":"result"},"args":[],"kwargs":{}},"name":"order_by"},"args":["symbol"],"kwargs":{}},
   "result": "each_trade_sees_the_account_applicable_when_it_was_recorded.csv",
-  "sql_contains": {
-    "duckdb": "t1.in_z <= t0.in_z"
+  "sql": {
+    "duckdb": "each_trade_sees_the_account_applicable_when_it_was_recorded.duckdb.sql"
   },
   "sql_not_contains": {
     "duckdb": "GREATEST"

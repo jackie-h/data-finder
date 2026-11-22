@@ -5,7 +5,7 @@
   "query_text": "f.find_all([f.first_name()], f.manager().first_name().starts_with(\"B\"))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"manager"},"args":[],"kwargs":{}},"name":"first_name"},"args":[],"kwargs":{}},"name":"starts_with"},"args":["B"],"kwargs":{}}],"kwargs":{}},
   "result": "required_property_behind_an_optional_navigation_is_guarded.csv",
-  "sql_contains": {
-    "duckdb": "IS NOT NULL AND"
+  "sql": {
+    "duckdb": "required_property_behind_an_optional_navigation_is_guarded.duckdb.sql"
   }
 }

@@ -20,15 +20,11 @@ The first milestoned step, the product, is read once for the filter and the colu
 classification, is joined once for the filter and once for the columns, as Legend joins it: the filter is for one row of the table and the
 column is read from another, so a row is found for each pair, 2 x 2 for the sets of the classification.
 """
-import numpy as np
 
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 _DATE = "2015-08-26"
 _STOCK_DESCRIPTION = "STOCK DESC-V2"
-
-# 2 sets of Order x 2 sets of Product x 2 sets of ProductClassification
-_PAIRS_OF_SETS = 8
 
 def _over_the_product(f, columns_and_condition):
     """A query over the product as of the date, a step that the filter and the columns both use, as Legend's ``$o.product(%date)`` is
@@ -44,61 +40,45 @@ MILESTONED_UNION_ORDER_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="a_union_finds_each_row_for_each_of_its_sets",
             query=lambda f: f.find_all([f.id_()]).order_by(f.id_().ascending()),
-            expected_columns=["Id"],
-            expected_result=np.array([[1], [1], [2], [2]], dtype=object),
         ),
         TestExpectation(
             name="a_milestoned_step_is_found_for_each_pair_of_sets_and_is_missing_where_the_date_has_no_row",
-            query=lambda f: _over_the_product(f, lambda f, p: ([f.id_(), p.name()], None)).order_by(f.id_().ascending()),
-            expected_columns=["Id", "Product Name"],
             # order 1's product is dated 2015-08-15, so on the 26th it has none: its 2 rows keep a missing name; order 2's is found
             # for each of its 2 sets and, through each, each of the 2 sets of Product
-            expected_result=np.array([[1, None]] * 2 + [[2, "ProductName1"]] * 4, dtype=object),
+            query=lambda f: _over_the_product(f, lambda f, p: ([f.id_(), p.name()], None)).order_by(f.id_().ascending()),
         ),
         TestExpectation(
             name="the_first_milestoned_step_is_one_join_for_the_filter_and_the_columns",
             query=lambda f: _over_the_product(f, lambda f, p: ([p.id_()], p.name().eq("ProductName1"))),
-            expected_columns=["Product Id"],
-            expected_result=np.array([[2]] * 4, dtype=object),
         ),
         TestExpectation(
             name="a_milestoned_step_that_is_only_filtered_is_one_join",
             query=lambda f: _over_the_product(
                 f, lambda f, p: ([f.id_()], p.classification().description().eq(_STOCK_DESCRIPTION))),
-            expected_columns=["Id"],
-            expected_result=np.array([[2]] * _PAIRS_OF_SETS, dtype=object),
         ),
         TestExpectation(
             name="a_milestoned_step_that_is_only_read_is_one_join",
+            # order 1 has no product that day, so its 2 rows have no classification; order 2 has the 8 pairs of sets
             query=lambda f: _over_the_product(f, lambda f, p: ([f.id_(), p.classification().type_()], None))
             .order_by(f.id_().ascending()),
-            expected_columns=["Id", "Product Classification Type"],
-            # order 1 has no product that day, so its 2 rows have no classification; order 2 has the 8 pairs of sets
-            expected_result=np.array([[1, None]] * 2 + [[2, "STOCK"]] * _PAIRS_OF_SETS, dtype=object),
         ),
         TestExpectation(
             name="a_milestoned_step_reached_through_another_is_two_joins_when_it_is_filtered_and_read",
+            # the 8 pairs of sets, each found for each of the 2 sets of the classification that the column is read from
             query=lambda f: _over_the_product(
                 f, lambda f, p: ([p.classification().type_()], p.classification().description().eq(_STOCK_DESCRIPTION))),
-            expected_columns=["Product Classification Type"],
-            # the 8 pairs of sets, each found for each of the 2 sets of the classification that the column is read from
-            expected_result=np.array([["STOCK"]] * (_PAIRS_OF_SETS * 2), dtype=object),
         ),
         TestExpectation(
             name="every_column_that_is_read_shares_the_join_of_the_step_that_is_not_the_filter",
             query=lambda f: _over_the_product(
                 f, lambda f, p: ([p.classification().type_(), p.classification().description()],
                                  p.classification().description().eq(_STOCK_DESCRIPTION))),
-            expected_columns=["Product Classification Type", "Product Classification Description"],
-            expected_result=np.array([["STOCK", _STOCK_DESCRIPTION]] * (_PAIRS_OF_SETS * 2), dtype=object),
         ),
         TestExpectation(
             name="a_step_made_by_another_call_is_another_step_with_joins_of_its_own",
+            # the filter's product and the column's product are not the same step, each joined from the 2 sets of Order, so 2 x 2 x 2
             query=lambda f: f.find_all([f.product(business_date=_DATE).id_()],
                                        f.product(business_date=_DATE).name().eq("ProductName1")),
-            expected_columns=["Product Id"],
-            # the filter's product and the column's product are not the same step, each joined from the 2 sets of Order, so 2 x 2 x 2
-            expected_result=np.array([[2]] * 8, dtype=object),
         ),
     ],
 )

@@ -7,7 +7,6 @@ Rows with out_z IS NULL are treated as currently active (open-ended).
 """
 import datetime
 
-import numpy as np
 
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
@@ -23,21 +22,14 @@ NULL_END_PRICE_FINDER_SPECS = FinderSpec(
         TestExpectation(
             name="null_end_rows_active_at_2024",
             query=lambda f: f.find_all(None, _AT_2024, [f.symbol()]).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="expired_row_excluded_at_2024",
-            expected_types=["String"],
             query=lambda f: f.find_all(None, _AT_2024, [f.symbol()], f.symbol().eq("GOOG")),
-            expected_columns=["Symbol"],
-            expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="all_three_active_before_expiry",
             query=lambda f: f.find_all(None, _AT_2021, [f.symbol()]).order_by(f.symbol().ascending()),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"], ["GOOG"], ["MSFT"]], dtype=object),
         ),
         TestExpectation(
             name="aapl_active_at_future_date",
@@ -45,8 +37,6 @@ NULL_END_PRICE_FINDER_SPECS = FinderSpec(
                 None, datetime.datetime(2099, 1, 1),
                 [f.symbol()], f.symbol().eq("AAPL"),
             ),
-            expected_columns=["Symbol"],
-            expected_result=np.array([["AAPL"]], dtype=object),
         ),
     ],
 )

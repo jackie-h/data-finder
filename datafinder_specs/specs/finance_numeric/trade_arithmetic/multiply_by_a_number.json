@@ -5,8 +5,8 @@
   "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [f.symbol(), (f.price() * 2)], f.symbol().eq(\"GOOG\"))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"binary","op":"*","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"right":2}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},
   "result": "multiply_by_a_number.csv",
-  "sql_contains": {
-    "duckdb": "t0.price * 2"
+  "sql": {
+    "duckdb": "multiply_by_a_number.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no arithmetic between columns"

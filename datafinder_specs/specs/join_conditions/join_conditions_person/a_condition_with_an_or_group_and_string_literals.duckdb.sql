@@ -1,0 +1,1 @@
+SELECT t0.id AS "Id",t1.legal_name AS "Firmifpeterorjohn LegalName" FROM org.persons AS t0 LEFT OUTER JOIN org.firms AS t1 ON (t0.firm_id = t1.id AND (t0.first_name = 'Peter' OR t0.first_name = 'John')) ORDER BY t0.id ASC NULLS FIRST

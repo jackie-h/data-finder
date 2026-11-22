@@ -5,8 +5,8 @@
   "query_text": "f.find_all([constant(datetime('2014-12-04T15:22:23')).add_microseconds(123456)], f.id_().eq(1))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[{"kind":"datetime","value":"2014-12-04T15:22:23"}],"kwargs":{}},"name":"add_microseconds"},"args":[123456],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
   "result": "add_microseconds_to_a_datetime.csv",
-  "sql_contains": {
-    "duckdb": "INTERVAL '0.123456' SECOND"
+  "sql": {
+    "duckdb": "add_microseconds_to_a_datetime.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no date functions beyond the parts of a date"

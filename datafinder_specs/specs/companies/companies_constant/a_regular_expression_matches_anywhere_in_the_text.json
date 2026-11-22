@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.id_()], constant(\"Customer X Complaints\").matches(\"X.*Compl\").and_(f.id_().eq(1)))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["Customer X Complaints"],"kwargs":{}},"name":"matches"},"args":["X.*Compl"],"kwargs":{}},"name":"and_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
   "result": "a_regular_expression_matches_anywhere_in_the_text.csv",
-  "sql_contains": {
-    "duckdb": "'Customer X Complaints' ~ 'X.*Compl'"
+  "sql": {
+    "duckdb": "a_regular_expression_matches_anywhere_in_the_text.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no scalar functions"

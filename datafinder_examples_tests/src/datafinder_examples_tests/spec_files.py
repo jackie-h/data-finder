@@ -1,18 +1,21 @@
 """
-The specs as files that any language can read: a JSON file for each expectation, and a CSV of the result it expects.
+The specs as files that any language can read, and the Python that holds only the query of each.
 
-``export`` writes them from the Python specs, which stay the place where a spec is written: the expected result is worked out there,
-independently of the engine. ``load`` reads them back as expectations that run through the same checks as the Python ones.
+A spec is a ``TestExpectation(name, query)`` in a FinderSpec of ``datafinder_examples_tests``, and the rest of it is files, which are the master
+of what the spec expects:
 
-    <suite>/schema.sql          the schemas and tables of the suite, written by hand (see suite_data)
-    <suite>/suite.json          the CSV of the rows each table holds
-    <suite>/<group>/<name>.json the query (see query_json), the finder and mapping, the file of the result, and the checks
-    <suite>/<group>/<name>.csv  the expected result, with the type of each column (see typed_csv)
+    <suite>/schema.sql                       the schemas and tables of the suite (see suite_data)
+    <suite>/suite.json                       the CSV of the rows each table holds
+    <suite>/<group>/<name>.json              the query (see query_json), the finder and mapping, the file of the result, the SQL files, the skips
+    <suite>/<group>/<name>.csv               the expected result, with the type of each column (see typed_csv)
+    <suite>/<group>/<name>.<backend>.sql     the full SQL a backend must write for the query
 
 A suite is the specs that run against one set of tables, and a group is the specs of one finder that a Python module writes together.
-Set ``DATAFINDER_SPECS_FROM_FILES=1`` and the specs of every group are read from these files, whichever test runs them (see conftest.py).
+The query, the finder and the mapping of the JSON come from the Python (``sync`` writes them again, and a test fails when they differ),
+so a query is written once. The rest is written by whoever writes the spec: the result is worked out independently of the engine (see AGENTS.md),
+and the SQL is a record of what the engine writes, written by running the tests with ``DATAFINDER_UPDATE_SQL=1``.
 
-Run ``uv run datafinder_examples/tools/write_spec_files.py`` to write them into datafinder_specs/specs.
+Run ``uv run datafinder_examples/tools/write_spec_files.py`` to write the JSON of a new or changed query into datafinder_specs/specs.
 """
 from __future__ import annotations
 
@@ -25,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from datafinder_examples_tests import query_json, typed_csv
-from datafinder_examples_tests.spec import FinderSpec, TestExpectation
+from datafinder_examples_tests.spec import Checks, FinderSpec, TestExpectation
 
 
 SCHEMA = "schema.sql"
@@ -111,15 +114,6 @@ def groups(suite: Suite) -> dict[str, FinderSpec]:
     return found
 
 
-def _types(expectation: TestExpectation) -> list[str]:
-    if expectation.expected_types is not None:
-        return expectation.expected_types
-    result = expectation.expected_result
-    if result.shape[0] == 0:
-        raise ValueError(f"[{expectation.name}] An empty result has no type to work out: declare it in expected_types")
-    return [typed_csv.column_type(list(result[:, c])) for c in range(result.shape[1])]
-
-
 def _json(document: dict) -> str:
     """The document with a key on each line, and the query tree, which is deep, on one line."""
     lines = []
@@ -130,32 +124,29 @@ def _json(document: dict) -> str:
     return "{\n" + ",\n".join(lines) + "\n}\n"
 
 
-def export(suite: Suite) -> dict[str, str]:
-    """The files of a suite, by their path under the specs folder."""
+GENERATED = ("name", "finder", "mapping", "query_text", "query")
+
+
+def sync(suite: Suite) -> dict[str, str]:
+    """The JSON files of a suite, by their path under the specs folder: the query, finder and mapping from the Python, and the rest as the file has it."""
     files: dict[str, str] = {f"{suite.name}/suite.json": json.dumps({"data": suite.data}, indent=2) + "\n"}
+    root = specs_folder()
     for group, spec in groups(suite).items():
-        for expectation in _python_expectations(spec):
-            path = f"{suite.name}/{group}/{expectation.name}"
-            if f"{path}.json" in files:
+        for expectation in spec.expectations:
+            path = f"{suite.name}/{group}/{expectation.name}.json"
+            if path in files:
                 raise ValueError(f"The name {expectation.name!r} is used twice in the group {group} of the suite {suite.name}")
+            existing = json.loads((root / path).read_text(encoding="utf-8")) if (root / path).is_file() else {"result": f"{expectation.name}.csv"}
             query = query_json.record(expectation.query)
             document: dict = {"name": expectation.name, "finder": spec.finder_name, "mapping": spec.mapping_file,
-                              "query_text": query_json.render(query), "query": query, "result": f"{expectation.name}.csv"}
-            if expectation.approximate:
-                document["approximate"] = True
-            if expectation.expected_sql:
-                document["sql_contains"] = expectation.expected_sql
-            if expectation.unexpected_sql:
-                document["sql_not_contains"] = expectation.unexpected_sql
-            if expectation.skip_backends:
-                document["skip"] = expectation.skip_backends
-            files[f"{path}.json"] = _json(document)
-            files[f"{path}.csv"] = typed_csv.write(expectation.expected_columns, _types(expectation), expectation.expected_result)
+                              "query_text": query_json.render(query), "query": query}
+            document.update({key: value for key, value in existing.items() if key not in GENERATED})
+            files[path] = _json(document)
     return files
 
 
-def export_all() -> dict[str, str]:
-    return {path: text for suite in SUITES for path, text in export(suite).items()}
+def sync_all() -> dict[str, str]:
+    return {path: text for suite in SUITES for path, text in sync(suite).items()}
 
 
 def specs_folder() -> Path:
@@ -163,48 +154,45 @@ def specs_folder() -> Path:
     return specs_root() / "specs"
 
 
-def load(suite: str, group: str) -> list[TestExpectation]:
-    """The expectations of a group, from the files in the specs folder."""
-    folder = specs_folder() / suite / group
-    expectations = []
-    for path in sorted(folder.glob("*.json")):
-        document = json.loads(path.read_text(encoding="utf-8"))
+_LOCATIONS: dict[int, tuple[str, str]] = {}
+_CHECKS: dict[tuple[str, str, str], Checks] = {}
+
+
+def _location(expectation: TestExpectation) -> tuple[str, str]:
+    """The suite and group of an expectation: the one whose FinderSpec holds it."""
+    if not _LOCATIONS:
+        for suite in SUITES:
+            for group, spec in groups(suite).items():
+                for each in spec.expectations:
+                    _LOCATIONS[id(each)] = (suite.name, group)
+    if id(expectation) not in _LOCATIONS:
+        raise KeyError(f"The spec {expectation.name!r} is in no suite of SUITES (spec_files.py), so it has no files: give it expected_columns and expected_result")
+    return _LOCATIONS[id(expectation)]
+
+
+def checks(expectation: TestExpectation) -> Checks:
+    """What the files of the specs folder say the expectation must give."""
+    suite, group = _location(expectation)
+    key = (suite, group, expectation.name)
+    if key not in _CHECKS:
+        folder = specs_folder() / suite / group
+        document = json.loads((folder / f"{expectation.name}.json").read_text(encoding="utf-8"))
         columns, _, rows = typed_csv.read((folder / document["result"]).read_text(encoding="utf-8"))
-        node = document["query"]
-        expectations.append(TestExpectation(
-            name=document["name"], query=lambda f, node=node: query_json.replay(node, f), expected_columns=columns,
-            expected_result=np.asarray(rows, dtype=object), expected_sql=document.get("sql_contains", {}),
-            unexpected_sql=document.get("sql_not_contains", {}), skip_backends=document.get("skip", {}),
-            approximate=document.get("approximate", False)))
-    if not expectations:
-        raise ValueError(f"No specs in {folder}")
-    return expectations
+        _CHECKS[key] = Checks(columns, np.asarray(rows, dtype=object), sql_files={b: folder / f for b, f in document.get("sql", {}).items()},
+                              sql_contains=document.get("sql_contains", {}), sql_not_contains=document.get("sql_not_contains", {}),
+                              skip=document.get("skip", {}), approximate=document.get("approximate", False))
+    return _CHECKS[key]
 
 
-_PYTHON: dict[int, list[TestExpectation]] = {}
-
-
-def _python_expectations(spec: FinderSpec) -> list[TestExpectation]:
-    """The expectations a spec was written with, also after ``use_files`` has replaced them with the ones read from the files."""
-    return _PYTHON.get(id(spec), spec.expectations)
-
-
-def use_files() -> None:
-    """Make every spec that is written as files run the expectations read from the files, in place of the ones the Python wrote."""
-    for suite in SUITES:
-        for group, spec in groups(suite).items():
-            _PYTHON.setdefault(id(spec), spec.expectations)
-            spec.expectations = load(suite.name, group)
+def files_of(suite: Suite) -> set[str]:
+    """The files of a suite that its specs own: the paths under the specs folder of what is in each group's folder."""
+    root = specs_folder()
+    return {str(p.relative_to(root)) for group in groups(suite) for p in (root / suite.name / group).glob("*") if p.is_file()}
 
 
 def write_all() -> None:
     root = specs_folder()
-    for suite in SUITES:
-        folder = root / suite.name
-        for old in folder.rglob("*") if folder.exists() else []:
-            if old.is_file() and old.name != SCHEMA:  # the schema is written by hand
-                old.unlink()
-    for path, text in export_all().items():
+    for path, text in sync_all().items():
         target = root / path
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(text, encoding="utf-8")

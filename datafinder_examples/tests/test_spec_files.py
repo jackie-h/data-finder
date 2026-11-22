@@ -1,7 +1,7 @@
-"""The spec files of data-finder-specs: the typed CSV of a result, and that the files are what the Python specs export."""
+"""The spec files of data-finder-specs: the typed CSV of a result, and that the files are the specs of the Python."""
 import datetime
 import decimal
-import math
+import json
 
 import numpy as np
 import pytest
@@ -59,37 +59,30 @@ def test_a_row_with_the_wrong_number_of_cells_is_refused():
         typed_csv.read("a,b\nInteger,Integer\n1\n")
 
 
-def _same_file(path: str, written: str, exported: str) -> bool:
-    """A file is what the specs export: the same text, and for a result the same values, a double to a relative 1e-9, because the
-    last digits of a sine or a mean depend on the maths library of the machine that wrote the file."""
-    if written == exported:
-        return True
-    if not path.endswith(".csv"):
-        return False
-    columns, types, rows = typed_csv.read(written)
-    columns2, types2, rows2 = typed_csv.read(exported)
-    if (columns, types, rows.shape) != (columns2, types2, rows2.shape):
-        return False
-    return all(a == b or (isinstance(a, float) and isinstance(b, float) and math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9))
-               for a, b in zip(rows.ravel(), rows2.ravel()))
-
-
-def test_the_spec_files_are_what_the_python_specs_export():
-    """Run ``uv run datafinder_examples/tools/write_spec_files.py`` to write them again after a spec changes."""
-    exported = spec_files.export_all()
+def test_the_query_of_each_spec_file_is_what_the_python_spec_has():
+    """Run ``uv run datafinder_examples/tools/write_spec_files.py`` to write the JSON again after a query changes or is added."""
+    synced = spec_files.sync_all()
     root = spec_files.specs_folder()
-    on_disk = {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8")
-               for suite in spec_files.SUITES for p in (root / suite.name).rglob("*") if p.is_file() and p.name != spec_files.SCHEMA}
-    assert sorted(on_disk) == sorted(exported)
-    assert [path for path in exported if not _same_file(path, on_disk[path], exported[path])] == []
+    on_disk = {path: (root / path).read_text(encoding="utf-8") if (root / path).is_file() else None for path in synced}
+    assert [path for path in synced if on_disk[path] != synced[path]] == []
 
 
-def test_a_double_that_differs_in_the_last_digits_is_the_same_file():
-    one = typed_csv.write(["x"], ["Double"], [[0.1 + 0.2]])
-    other = typed_csv.write(["x"], ["Double"], [[0.30000000000000004 + 1e-16]])
-    assert _same_file("a.csv", one, other)
-    assert not _same_file("a.csv", one, typed_csv.write(["x"], ["Double"], [[0.31]]))
-    assert not _same_file("a.json", one, other)
+def test_each_spec_has_its_files_and_each_file_a_spec():
+    """The files of a group are, for each spec of the Python, its JSON, the CSV of its result and the SQL files its JSON names: no other."""
+    root = spec_files.specs_folder()
+    problems = []
+    for suite in spec_files.SUITES:
+        expected = set()
+        for group, spec in spec_files.groups(suite).items():
+            for expectation in spec.expectations:
+                folder = f"{suite.name}/{group}"
+                document = json.loads((root / folder / f"{expectation.name}.json").read_text(encoding="utf-8"))
+                expected |= {f"{folder}/{expectation.name}.json", f"{folder}/{document['result']}",
+                             *(f"{folder}/{file}" for file in document.get("sql", {}).values())}
+        found = spec_files.files_of(suite)
+        problems += [f"missing {path}" for path in sorted(expected - found) if not (root / path).is_file()]
+        problems += [f"no spec for {path}" for path in sorted(found - expected)]
+    assert problems == []
 
 
 def test_every_table_of_a_suite_has_a_data_file():
