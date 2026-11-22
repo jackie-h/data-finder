@@ -14,6 +14,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.positions_specs import (
     POSITION_DATE_FINDER_SPECS,
@@ -35,9 +36,7 @@ def position_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP TABLE IF EXISTS positions")
-    conn.execute("CREATE TABLE positions (id INT, trade_date DATE, npv DOUBLE)")
-    conn.execute(f"INSERT INTO positions SELECT * FROM read_csv_auto('{str(example_path('positions_date.csv'))}')")
+    load_duckdb(conn, "positions")
     conn.close()
 
     from position_finder import PositionFinder  # pyright: ignore[reportMissingImports]

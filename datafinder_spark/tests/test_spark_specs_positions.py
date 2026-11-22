@@ -2,13 +2,13 @@
 import pytest
 
 from datafinder_examples_tests.positions_specs import POSITION_DATE_FINDER_SPECS
-from datafinder_examples_tests.tables import POSITIONS
+from datafinder_examples_tests.suite_data import tables
 from spark_harness import finder_of
 
 
 @pytest.fixture(scope="module")
 def position_finder(spark):
-    with finder_of(spark, POSITION_DATE_FINDER_SPECS.mapping_file, POSITIONS, "position_finder", "PositionFinder") as finder:
+    with finder_of(spark, POSITION_DATE_FINDER_SPECS.mapping_file, tables("positions"), "position_finder", "PositionFinder") as finder:
         yield finder
 
 

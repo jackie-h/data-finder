@@ -13,6 +13,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.sql_queries_specs import (
     SQL_QUERIES_FIRM_FINDER_SPECS, SQL_QUERIES_FIRM_X_PERSON_FINDER_SPECS, SQL_QUERIES_MAPPING, SQL_QUERIES_POSITION_FINDER_SPECS,
@@ -28,17 +29,7 @@ _MODS = ["org", "org.views"]
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS org CASCADE")
-    conn.execute("CREATE SCHEMA org")
-    conn.execute("CREATE TABLE org.people (person_id INT, first_name VARCHAR, age INT, firm_id INT, firm_name VARCHAR)")
-    conn.execute("CREATE TABLE org.firms (id INT, name VARCHAR)")
-    conn.execute("CREATE TABLE org.trades (acc_num INT, gsn VARCHAR, qty INT)")
-    conn.execute("CREATE TABLE org.rates (code VARCHAR, amount DOUBLE, from_z DATE, thru_z DATE)")
-    conn.execute("CREATE TABLE org.quotes (code VARCHAR, amount DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP, from_z DATE, thru_z DATE)")
-    conn.execute("CREATE TABLE org.holders (id INT, rate_code VARCHAR)")
-    conn.execute("CREATE TABLE org.units (unit_id INT, name VARCHAR, parent_id INT, active INT)")
-    for table in ("people", "firms", "trades", "rates", "quotes", "holders", "units"):
-        conn.execute(f"INSERT INTO org.{table} SELECT * FROM read_csv_auto('{str(example_path(f'sql_queries_{table}.csv'))}')")
+    load_duckdb(conn, "sql_queries")
     conn.close()
 
 

@@ -4,13 +4,13 @@ import pytest
 
 from datafinder_examples_tests.companies_constant_specs import COMPANIES_CONSTANT_SPECS
 from datafinder_examples_tests.companies_specs import COMPANY_FINDER_SPECS
-from datafinder_examples_tests.tables import COMPANIES
+from datafinder_examples_tests.suite_data import tables
 from spark_harness import finder_of
 
 
 @pytest.fixture(scope="module")
 def company_finder(spark):
-    with finder_of(spark, COMPANY_FINDER_SPECS.mapping_file, COMPANIES, "company_finder", "CompanyFinder") as finder:
+    with finder_of(spark, COMPANY_FINDER_SPECS.mapping_file, tables("companies"), "company_finder", "CompanyFinder") as finder:
         yield finder
 
 

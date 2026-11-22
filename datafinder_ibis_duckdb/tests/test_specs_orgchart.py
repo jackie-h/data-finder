@@ -15,6 +15,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.orgchart_specs import (
     ORGCHART_AGGREGATE_FINDER_SPECS,
@@ -38,10 +39,7 @@ def employee_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
-    conn.execute("CREATE SCHEMA hr")
-    conn.execute("CREATE TABLE hr.employees (id INT, name VARCHAR, manager_id INT)")
-    conn.execute(f"INSERT INTO hr.employees SELECT * FROM read_csv_auto('{str(example_path('employees.csv'))}')")
+    load_duckdb(conn, "orgchart")
     conn.close()
 
     from employee_finder import EmployeeFinder  # pyright: ignore[reportMissingImports]

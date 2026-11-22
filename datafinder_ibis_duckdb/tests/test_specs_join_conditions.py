@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.join_conditions_specs import (
     JOIN_CONDITIONS_EMPLOYEE_FINDER_SPECS, JOIN_CONDITIONS_FIRM_FINDER_SPECS, JOIN_CONDITIONS_MAPPING,
@@ -37,14 +38,7 @@ def _build_repo():
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS org CASCADE")
-    conn.execute("CREATE SCHEMA org")
-    conn.execute("CREATE TABLE org.firms (id INT, legal_name VARCHAR, flag INT)")
-    conn.execute("CREATE TABLE org.persons (id INT, first_name VARCHAR, flag INT, firm_id INT)")
-    conn.execute("CREATE TABLE org.memberships (person_id INT, firm_id INT, active INT)")
-    conn.execute("CREATE TABLE org.staff (id INT, name VARCHAR, manager_id INT, active INT)")
-    for table in ("firms", "persons", "memberships", "staff"):
-        conn.execute(f"INSERT INTO org.{table} SELECT * FROM read_csv_auto('{str(example_path(f'join_conditions_{table}.csv'))}')")
+    load_duckdb(conn, "join_conditions")
     conn.close()
 
 

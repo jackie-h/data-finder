@@ -2,13 +2,13 @@
 import pytest
 
 from datafinder_examples_tests.finance_group_by_specs import TRADE_GROUP_BY_FINDER_SPECS
-from datafinder_examples_tests.tables import FINANCE_GROUP_BY
+from datafinder_examples_tests.suite_data import tables
 from spark_harness import finder_of
 
 
 @pytest.fixture(scope="module")
 def trade_group_by_finder(spark):
-    with finder_of(spark, TRADE_GROUP_BY_FINDER_SPECS.mapping_file, FINANCE_GROUP_BY, "finance.trade.trade_finder", "TradeFinder") as finder:
+    with finder_of(spark, TRADE_GROUP_BY_FINDER_SPECS.mapping_file, tables("finance_group_by"), "finance.trade.trade_finder", "TradeFinder") as finder:
         yield finder
 
 

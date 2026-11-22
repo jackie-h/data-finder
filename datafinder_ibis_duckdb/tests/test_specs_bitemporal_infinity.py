@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.bitemporal_infinity_specs import (
     BITEMPORAL_INFINITY_QUOTE_FINDER_SPECS,
@@ -36,12 +37,7 @@ def _build_repo():
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS mkt CASCADE")
-    conn.execute("CREATE SCHEMA mkt")
-    conn.execute(
-        "CREATE TABLE mkt.quotes (code VARCHAR, amount DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP, from_z DATE, thru_z DATE)"
-    )
-    conn.execute(f"INSERT INTO mkt.quotes SELECT * FROM read_csv_auto('{str(example_path('bitemporal_infinity_quotes.csv'))}')")
+    load_duckdb(conn, "bitemporal_infinity")
     conn.close()
 
 

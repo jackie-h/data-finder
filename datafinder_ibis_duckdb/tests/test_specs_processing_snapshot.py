@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.processing_snapshot_specs import (
     PROCESSING_SNAPSHOT_POSITION_FINDER_SPECS, PROCESSING_SNAPSHOT_QUOTE_FINDER_SPECS,
@@ -36,12 +37,7 @@ def _build_repo():
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS mkt CASCADE")
-    conn.execute("CREATE SCHEMA mkt")
-    conn.execute("CREATE TABLE mkt.quotes (id INT, symbol VARCHAR, price DOUBLE, taken_at TIMESTAMP)")
-    conn.execute("CREATE TABLE mkt.positions (id INT, symbol VARCHAR)")
-    conn.execute(f"INSERT INTO mkt.quotes SELECT * FROM read_csv_auto('{str(example_path('processing_snapshot_quotes.csv'))}')")
-    conn.execute(f"INSERT INTO mkt.positions SELECT * FROM read_csv_auto('{str(example_path('processing_snapshot_positions.csv'))}')")
+    load_duckdb(conn, "processing_snapshot")
     conn.close()
 
 

@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.business_range_infinity_specs import (
     BUSINESS_RANGE_INFINITY_RATE_FINDER_SPECS,
@@ -36,12 +37,7 @@ def _build_repo():
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS ranged CASCADE")
-    conn.execute("CREATE SCHEMA ranged")
-    conn.execute(
-        "CREATE TABLE ranged.rates (code VARCHAR, amount DOUBLE, from_z DATE, thru_z DATE)"
-    )
-    conn.execute(f"INSERT INTO ranged.rates SELECT * FROM read_csv_auto('{str(example_path('business_range_infinity_rates.csv'))}')")
+    load_duckdb(conn, "business_range_infinity")
     conn.close()
 
 
