@@ -6,7 +6,7 @@ Mapping: tests/simple_mapping.md.
 """
 import datetime
 
-from datafinder import constant
+from datafinder import constant, when
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import DATE_IN_LIST_UNTYPED, ported, unsupported, BACKEND, ROWS, TYPED_DATE_LITERAL
@@ -54,9 +54,9 @@ EXTEND_SPECS = FinderSpec(
                'select "root".FIRSTNAME as "firstName", "root".FIRSTNAME is null as "isNull", "root".FIRSTNAME is not null as "isNotNull" from personTable as "root"',
                lambda f: f.find_all([f.first_name(), f.first_name().is_none().alias("isNull"),
                                     f.first_name().is_not_none().alias("isNotNull")])),
-        unsupported("testIfWithEmptyExtension", f"{_SRC}::testIfWithEmptyExtension",
-                    'select "root".FIRSTNAME as "firstName", case when "root".FIRSTNAME is not null then "root".FIRSTNAME else null end as "extended" from personTable as "root"',
-                    'Legend writes the empty branch as `else null`; the finder leaves the else out'),
+        ported("testIfWithEmptyExtension", f"{_SRC}::testIfWithEmptyExtension",
+               'select "root".FIRSTNAME as "firstName", case when "root".FIRSTNAME is not null then "root".FIRSTNAME else null end as "extended" from personTable as "root"',
+               lambda f: f.find_all([f.first_name().alias("firstName"), when(f.first_name().is_not_none()).then(f.first_name()).alias("extended")])),
         ported("testExtendsWithInClause", f"{_SRC}::testExtendsWithInClause",
                     'select "root".FIRSTNAME as "firstName", "root".AGE as "age", DATE\'2021-01-01\' as "dt", "root".AGE is not null and "root".AGE > 50 as "ageGreaterThan50", "root".FIRSTNAME in (\'Peter\') as "stringExtends1", "root".FIRSTNAME in (\'Peter\', \'John\') as "stringExtends2", "root".AGE in (22, 23) as "numberExtends", DATE\'2021-01-01\' in (DATE\'2021-01-01\', DATE\'2021-01-02\') as "dateExtends", ("root".AGE is not null and "root".AGE > 50) in (true, false) as "booleanExtends" from personTable as "root"',
                     lambda f: f.find_all([f.first_name().alias("firstName"), f.age().alias("age"), constant(datetime.date(2021, 1, 1)).alias("dt"), (f.age() > 50).alias("ageGreaterThan50")]).extend(stringExtends1=lambda r: r.firstName.is_in(["Peter"]), stringExtends2=lambda r: r.firstName.is_in(["Peter", "John"]), numberExtends=lambda r: r.age.is_in([22, 23]), dateExtends=lambda r: r.dt.is_in([datetime.date(2021, 1, 1), datetime.date(2021, 1, 2)]), booleanExtends=lambda r: r.ageGreaterThan50.is_in([True, False])),

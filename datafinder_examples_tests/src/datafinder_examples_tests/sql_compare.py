@@ -172,6 +172,11 @@ def normalize(sql: str, dialect: str | None = None) -> exp.Expr:
             this=exp.EQ(this=node.this.copy(), expression=node.expression.copy()),
             expression=exp.Paren(this=exp.And(this=exp.Is(this=node.this.copy(), expression=exp.Null()),
                                               expression=exp.Is(this=node.expression.copy(), expression=exp.Null()))))))
+    # ``CASE WHEN c THEN x ELSE NULL END`` is ``CASE WHEN c THEN x END``: a case with no ELSE gives NULL
+    for case in list(tree.find_all(exp.Case)):
+        default = case.args.get("default")
+        if isinstance(default, exp.Null):
+            case.set("default", None)
     # ``a || b`` is ``CONCAT(a, b)``
     for pipe in list(tree.find_all(exp.DPipe)):
         pipe.replace(exp.Concat(expressions=[pipe.this.copy(), pipe.expression.copy()], safe=True, coalesce=False))

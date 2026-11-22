@@ -190,6 +190,12 @@ def test_is_distinct_from_is_not_equal_or_null():
     assert not sql_equivalent("SELECT t0.a FROM t AS t0 WHERE t0.a <> 'x'", 'select "root".a from t as "root" where "root".a is distinct from \'x\'')
 
 
+def test_a_case_with_else_null_is_a_case_with_no_else():
+    ours = "SELECT CASE WHEN t0.a IS NOT NULL THEN t0.a END FROM t AS t0"
+    assert sql_equivalent(ours, 'select case when "root".a is not null then "root".a else null end from t as "root"')
+    assert not sql_equivalent(ours, 'select case when "root".a is not null then "root".a else 0 end from t as "root"')
+
+
 def test_is_not_distinct_from_is_equal_or_both_null():
     ours = "SELECT t0.a FROM t AS t0 JOIN u AS t1 ON t0.a = t1.b OR (t0.a IS NULL AND t1.b IS NULL)"
     assert sql_equivalent(ours, 'select "r".a from t as "r" join u as "u" on "r".a is not distinct from "u".b')

@@ -56,7 +56,7 @@ OTHERWISE_SPECS = FinderSpec(
                     QUALIFIED_PROPERTIES),
         unsupported("otherwiseTestComplexExpression", f"{_SRC}::otherwiseTestComplexExpression",
                     'select "root".PRODUCT_NAME as "name", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where case when "bond_detail_0".TYPE like \'5%\' then true else false end',
-                    'no conditional as a filter'),
+                    'a conditional is not accepted as a filter: the SQL generator raises on a CASE in a WHERE'),
         unsupported("otherwiseTestComplexExpressionWithEnumMapping", f"{_SRC}::otherwiseTestComplexExpressionWithEnumMapping",
                     'select "root".BOND_STATUS as "status", "bond_detail_0".TYPE as "type" from PRODUCT_DENORM as "root" left outer join BOND_DETAIL as "bond_detail_0" on ("root".PRODUCT_ID = "bond_detail_0".BOND_ID) where "root".BOND_STATUS in (\'CLOSED\', \'Closed\')',
                     'no enumeration mapping'),
