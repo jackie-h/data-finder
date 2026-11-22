@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 from mapping_markdown.markdown_mapping import load, loads, save, to_markdown
@@ -235,17 +234,12 @@ class TestMarkdownMappingSave:
         content = to_markdown("Finance Mapping", self.mapping)
         assert "FK" in content
 
-    def test_save_and_reload(self):
-        fixture_dir = os.path.join(os.path.dirname(FIXTURE), "..", "models")  # a model is named from here by a bare name
-        with tempfile.NamedTemporaryFile(suffix=".md", delete=False, mode="w", dir=fixture_dir) as f:
-            temp_path = f.name
-        try:
-            save(temp_path, "Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
-            repo2 = _build_repository()
-            mapping2 = load(temp_path, repo2)
-            assert len(mapping2.mappings) == 6
-        finally:
-            os.unlink(temp_path)
+    def test_save_and_reload(self, tmp_path):
+        temp_path = str(tmp_path / "mapping.md")
+        save(temp_path, "Finance Mapping", self.mapping, [MODEL_FILE, TRADE_MODEL_FILE])
+        repo2 = _build_repository()
+        mapping2 = load(temp_path, repo2)
+        assert len(mapping2.mappings) == 6
 
     def test_generated_markdown_has_model_reference(self):
         content = to_markdown("Finance Mapping", self.mapping, ["finance.md", "finance_trade.md"])
@@ -928,18 +922,14 @@ class TestEmbeddedMapping:
         assert pm.target.rhs.table is not None
         assert pm.target.rhs.table.name == "branch_master"
 
-    def test_roundtrip_preserves_embedded_mapping(self):
-        content = to_markdown("Finance Mapping Embedded", self.mapping, model_paths=["finance.md", "finance_trade.md"])
+    def test_roundtrip_preserves_embedded_mapping(self, tmp_path):
+        content = to_markdown("Finance Mapping Embedded", self.mapping, model_paths=[MODEL_FILE, TRADE_MODEL_FILE])
         assert "account.name" in content and "account.branch.city" in content
 
-        # Model: references are relative to the mapping file's own directory.
-        tmp_path = os.path.join(os.path.dirname(EMBEDDED_FIXTURE), "..", "models", "_tmp_roundtrip_embedded.md")
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        try:
-            mapping2 = load(tmp_path)
-        finally:
-            os.remove(tmp_path)
+        # a mapping written to another folder names its models by absolute path
+        tmp = tmp_path / "mapping.md"
+        tmp.write_text(content, encoding="utf-8")
+        mapping2 = load(str(tmp))
         rcm = next(m for m in mapping2.mappings if m.clazz.name == "Trade")
         pm = next(pm for pm in rcm.property_mappings if pm.property.id == "account")
         branch_pm = next(p for p in pm.target.embedded.property_mappings if p.property.id == "branch")

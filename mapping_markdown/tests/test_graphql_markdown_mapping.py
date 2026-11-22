@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 import pytest
 from mapping_markdown.graphql_mapping_markdown import load, loads, save, to_markdown
@@ -12,7 +11,9 @@ from model.graphql_mapping import (
 )
 
 FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "finance_graphql_mapping.md"))
-TEST_DIR = os.path.join(os.path.dirname(FIXTURE), "..", "models")  # a model is named from here by a bare name or by ../models/
+_MODELS_DIR = os.path.join(os.path.dirname(FIXTURE), "..", "models")
+# A mapping written to a temporary folder names its models by absolute path.
+MODEL_PATHS = [os.path.abspath(os.path.join(_MODELS_DIR, name)) for name in ("finance.md", "finance_trade.md")]
 
 
 class TestGraphQLMarkdownLoad:
@@ -120,47 +121,35 @@ class TestGraphQLMarkdownRoundTrip:
         assert "## Model: finance.md" in md
         assert "## Model: finance_trade.md" in md
 
-    def test_round_trip_preserves_classes(self):
+    def test_round_trip_preserves_classes(self, tmp_path):
         mapping = load(FIXTURE)
-        md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
-        tmp = os.path.join(TEST_DIR, "_tmp_graphql_rt.md")
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write(md)
-            reloaded = load(tmp)
-            assert {cm.clazz.name for cm in reloaded.mappings} == {cm.clazz.name for cm in mapping.mappings}
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
+        md = to_markdown("Finance GraphQL Mapping", mapping, MODEL_PATHS)
+        tmp = str(tmp_path / "mapping.md")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(md)
+        reloaded = load(tmp)
+        assert {cm.clazz.name for cm in reloaded.mappings} == {cm.clazz.name for cm in mapping.mappings}
 
-    def test_round_trip_preserves_milestones(self):
+    def test_round_trip_preserves_milestones(self, tmp_path):
         mapping = load(FIXTURE)
-        md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
-        tmp = os.path.join(TEST_DIR, "_tmp_graphql_ms.md")
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write(md)
-            reloaded = load(tmp)
-            by_class = {cm.clazz.name: cm for cm in reloaded.mappings if isinstance(cm, GraphQLClassMapping)}
-            assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
-            assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBiTemporalMilestone)
-            assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)
-            assert isinstance(by_class["Account"].query.milestone, GraphQLProcessingMilestone)
-            assert by_class["Branch"].query.milestone is None
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
+        md = to_markdown("Finance GraphQL Mapping", mapping, MODEL_PATHS)
+        tmp = str(tmp_path / "mapping.md")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(md)
+        reloaded = load(tmp)
+        by_class = {cm.clazz.name: cm for cm in reloaded.mappings if isinstance(cm, GraphQLClassMapping)}
+        assert isinstance(by_class["Instrument"].query.milestone, GraphQLProcessingMilestone)
+        assert isinstance(by_class["ContractualPosition"].query.milestone, GraphQLBiTemporalMilestone)
+        assert isinstance(by_class["Trade"].query.milestone, GraphQLBiTemporalMilestone)
+        assert isinstance(by_class["Account"].query.milestone, GraphQLProcessingMilestone)
+        assert by_class["Branch"].query.milestone is None
 
-    def test_save_and_load(self):
+    def test_save_and_load(self, tmp_path):
         mapping = load(FIXTURE)
-        tmp = os.path.join(TEST_DIR, "_tmp_graphql_save.md")
-        try:
-            save(tmp, "Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
-            reloaded = load(tmp)
-            assert {cm.clazz.name for cm in reloaded.mappings} == {"Account", "Branch", "Desk", "Instrument", "Trade", "ContractualPosition"}
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
+        tmp = str(tmp_path / "mapping.md")
+        save(tmp, "Finance GraphQL Mapping", mapping, MODEL_PATHS)
+        reloaded = load(tmp)
+        assert {cm.clazz.name for cm in reloaded.mappings} == {"Account", "Branch", "Desk", "Instrument", "Trade", "ContractualPosition"}
 
 
 class TestGraphQLAssociationMapping:
@@ -229,21 +218,17 @@ class TestGraphQLAssociationMapping:
     def test_a_class_with_no_association_has_no_association_mappings(self):
         assert self._associations("Instrument") == {}
 
-    def test_round_trip_preserves_association(self):
+    def test_round_trip_preserves_association(self, tmp_path):
         mapping = load(FIXTURE)
-        md = to_markdown("Finance GraphQL Mapping", mapping, ["finance.md", "finance_trade.md"])
-        tmp = os.path.join(TEST_DIR, "_tmp_graphql_assoc_rt.md")
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                f.write(md)
-            reloaded = load(tmp)
-            by_class = {cm.clazz.name: cm for cm in reloaded.mappings}
-            assoc_mappings = [pm for pm in by_class["Trade"].property_mappings if isinstance(pm, GraphQLAssociationMapping)]
-            assert [pm.association_name for pm in assoc_mappings] == ["TradeAccount", "TradeInstrument"]
-            assert assoc_mappings[0].target.name == "account"
-        finally:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
+        md = to_markdown("Finance GraphQL Mapping", mapping, MODEL_PATHS)
+        tmp = str(tmp_path / "mapping.md")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(md)
+        reloaded = load(tmp)
+        by_class = {cm.clazz.name: cm for cm in reloaded.mappings}
+        assoc_mappings = [pm for pm in by_class["Trade"].property_mappings if isinstance(pm, GraphQLAssociationMapping)]
+        assert [pm.association_name for pm in assoc_mappings] == ["TradeAccount", "TradeInstrument"]
+        assert assoc_mappings[0].target.name == "account"
 
     def test_to_markdown_contains_association_section(self):
         mapping = load(FIXTURE)
