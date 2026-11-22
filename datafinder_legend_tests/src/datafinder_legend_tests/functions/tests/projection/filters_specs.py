@@ -6,7 +6,7 @@ features the simple subset does not have. Mapping: tests/simple_mapping.md.
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import CONCAT_FUNCTION, QUALIFIED_PROPERTIES, not_supported, ported, unsupported, BACKEND, TDS_FILTER_OPTIONAL_PROPERTY
+from datafinder_legend_tests.legend import CONCAT_FUNCTION, FILTERED_STEP_BELOW_A_FILTERED_STEP, QUALIFIED_PROPERTIES, not_supported, ported, unsupported, BACKEND, TDS_FILTER_OPTIONAL_PROPERTY
 
 _FILTERS = "functions/tests/projection/testFilters.pure"
 _FILTER = "functions/tests/projection/testFilter.pure"
@@ -53,8 +53,18 @@ FILTERS_PERSON_SPECS = FinderSpec(
         not_supported("testSavedRootPropogatedCorrectlyThroughFilter", f"{_SRC}::testSavedRootPropogatedCorrectlyThroughFilter",
                     'select "root".LEGALNAME as "firm", "persontable_0".FIRSTNAME as "targetEmployee" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID and "persontable_0".FIRSTNAME = \'Peter\' and "persontable_0".LASTNAME = \'Smith\')',
                     QUALIFIED_PROPERTIES),
-        unsupported("testChainedFiltersProject", f"{_SRC}::testChainedFiltersProject",
-                    'select "root".LEGALNAME as "firm", "locationtable_0".PLACE as "targetEmployee" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID and "persontable_0".LASTNAME = \'Smith\') left outer join (select "locationtable_1".PERSONID as PERSONID, "locationtable_1".PLACE as PLACE from locationTable as "locationtable_1" where "locationtable_1".PLACE = \'Hoboken\') as "locationtable_0" on ("persontable_0".ID = "locationtable_0".PERSONID)',
-                    'a filter inside a navigation (a filter on a to-many step, then another step and a filter)'),
+    ],
+)
+
+
+FILTERS_FIRM_SPECS = FinderSpec(
+    finder_name="FirmFinder",
+    mapping_file="tests/simple_mapping.md",
+    expectations=[
+        ported("testChainedFiltersProject", f"{_SRC}::testChainedFiltersProject",
+               'select "root".LEGALNAME as "firm", "locationtable_0".PLACE as "targetEmployee" from firmTable as "root" left outer join personTable as "persontable_0" on ("root".ID = "persontable_0".FIRMID and "persontable_0".LASTNAME = \'Smith\') left outer join (select "locationtable_1".PERSONID as PERSONID, "locationtable_1".PLACE as PLACE from locationTable as "locationtable_1" where "locationtable_1".PLACE = \'Hoboken\') as "locationtable_0" on ("persontable_0".ID = "locationtable_0".PERSONID)',
+               lambda f: (lambda hoboken: f.find_all([f.legal_name().alias("firm"), hoboken.place().alias("targetEmployee")]))(
+                   f.employees().filter(lambda e: e.last_name().eq("Smith")).locations().filter(lambda o: o.place().eq("Hoboken"))),
+               known_gaps={BACKEND: FILTERED_STEP_BELOW_A_FILTERED_STEP}),
     ],
 )

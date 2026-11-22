@@ -21,39 +21,45 @@ def test_a_pure_literal_is_read():
         pure_value("$x")
 
 
+def _asserted(body: str) -> dict:
+    result = asserted(body)
+    assert result is not None, "the body asserts something about its rows"
+    return result
+
+
 def _body(*asserts: str) -> str:
     return "let result = execute(|Person.all()->project(...), m, r, e);\n" + "\n".join(asserts)
 
 
 def test_each_row_by_position_is_the_rows_when_the_count_is_asserted_too():
-    claims = asserted(_body("assertEquals(['A', 1], $tds.rows->at(0).values);", "assertEquals(['B', 2], $tds.rows->at(1).values);",
+    claims = _asserted(_body("assertEquals(['A', 1], $tds.rows->at(0).values);", "assertEquals(['B', 2], $tds.rows->at(1).values);",
                             "assertSize($tds.rows, 2);"))["claims"]
     assert {"kind": "rows", "rows": [["A", 1], ["B", 2]]} in claims and {"kind": "count", "n": 2} in claims
 
 
 def test_some_rows_by_position_are_only_a_subset_of_the_result():
-    assert asserted(_body("assertEquals(['A', 1], $tds.rows->at(0).values);"))["claims"] == [{"kind": "subset", "rows": [["A", 1]]}]
+    assert _asserted(_body("assertEquals(['A', 1], $tds.rows->at(0).values);"))["claims"] == [{"kind": "subset", "rows": [["A", 1]]}]
 
 
 def test_rows_joined_with_make_string_keep_their_separator():
-    claim = asserted(_body("assertEquals('a|1,b|2', $result.values.rows->map(r|$r.values->makeString('|'))->makeString(','));"))["claims"][0]
+    claim = _asserted(_body("assertEquals('a|1,b|2', $result.values.rows->map(r|$r.values->makeString('|'))->makeString(','));"))["claims"][0]
     assert claim == {"kind": "rows", "rows": ["a|1", "b|2"], "sep": "|"}
 
 
 def test_a_csv_is_its_rows_without_the_header():
-    claim = asserted(_body("assertEquals('x,y\\n' + 'a,1\\n' + 'b,\\n', $result.values->toOne()->toCSV());"))["claims"][0]
+    claim = _asserted(_body("assertEquals('x,y\\n' + 'a,1\\n' + 'b,\\n', $result.values->toOne()->toCSV());"))["claims"][0]
     assert claim["rows"] == [["a", "1"], ["b", ""]] and claim["header"] == ["x", "y"]
 
 
 def test_assert_same_elements_of_the_values_is_a_bag_of_cells():
-    claim = asserted(_body("assertSameElements(['a', 1, 'b', 2], $result.values.rows.values);"))["claims"][0]
+    claim = _asserted(_body("assertSameElements(['a', 1, 'b', 2], $result.values.rows.values);"))["claims"][0]
     assert claim == {"kind": "flat", "values": ["a", 1, "b", 2], "sorted": True}
 
 
 def test_only_the_first_query_is_asserted():
     body = _body("assertEquals(['A'], $r.values.rows.getString('n'));", "let again = execute(|x, m, r, e);",
                  "assertEquals(['Z'], $again.values.rows.getString('n'));")
-    assert asserted(body)["claims"] == [{"kind": "column", "values": ["A"]}]
+    assert _asserted(body)["claims"] == [{"kind": "column", "values": ["A"]}]
 
 
 def test_what_is_not_a_shape_that_is_read_is_left_out():

@@ -78,6 +78,7 @@ def pure_value(source: str):
         m = _TOKEN.match(source, pos)
         if not m or m.end() == pos:
             raise Unsupported(source[pos:pos + 30])
+        assert m.lastgroup is not None, "every token pattern is a named group"
         tokens.append((m.lastgroup, m.group(m.lastgroup)))
         pos = m.end()
     i = 0

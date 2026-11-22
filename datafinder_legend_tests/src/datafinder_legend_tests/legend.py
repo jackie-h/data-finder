@@ -10,6 +10,10 @@ SUB_AGGREGATION_SHAPE = (
     "Legend aggregates a to-many association per root object in a derived table joined back to the root; here the "
     "aggregate is grouped by the root explicitly, which returns the same rows"
 )
+FILTERED_STEP_BELOW_A_FILTERED_STEP = (
+    "Legend reads a filtered step below another filtered step from a derived table of its filtered rows; the finder puts the "
+    "condition in the ON of its join, which returns the same rows"
+)
 RESTRICT_AFTER_GROUP_BY = (
     "Legend restricts the columns of a group by in a derived table around it; here the group by selects only the "
     "columns that are kept, which returns the same rows"
