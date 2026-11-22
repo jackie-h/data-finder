@@ -6,6 +6,7 @@
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"is_not_none"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"to_view"},"args":["trades_with_account","reporting"],"kwargs":{}},"name":"result"},"args":[],"kwargs":{}},"name":"order_by"},"args":["symbol"],"kwargs":{}},
   "result": "filter_on_a_joined_column.csv",
   "skip": {
-    "graphql": "Views are not supported by the GraphQL backend"
+    "graphql": "Views are not supported by the GraphQL backend",
+    "spark": "The Spark engine does not create views"
   }
 }

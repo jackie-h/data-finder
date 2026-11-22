@@ -7,5 +7,8 @@
   "result": "not_equal_in_a_having_matches_a_missing_value.csv",
   "sql": {
     "duckdb": "not_equal_in_a_having_matches_a_missing_value.duckdb.sql"
+  },
+  "skip": {
+    "spark": "Spark cannot resolve an ORDER BY of an aggregate over a column after the HAVING filter of the group"
   }
 }
