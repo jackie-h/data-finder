@@ -37,6 +37,16 @@ object), and the classification's system is another table. In Legend Product is 
 |----------|------|--------|--------------|-----|-------------|
 | Name     | name | String | 1            | Y   |             |
 
+### Class: Exchange
+
+| Name     | Description |
+|----------|-------------|
+| Exchange |             |
+
+| Property | Id   | Type   | Multiplicity | Key | Description |
+|----------|------|--------|--------------|-----|-------------|
+| Name     | name | String | 1            | Y   |             |
+
 ### Association: ProductClassificationLink
 
 | Name                      | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target                | Target Property Name | Target Property ID | Target Multiplicity | Description |
@@ -48,3 +58,9 @@ object), and the classification's system is another table. In Legend Product is 
 | Name                       | Source                | Source Property Name | Source Property ID | Source Multiplicity | Target | Target Property Name | Target Property ID | Target Multiplicity | Description |
 |----------------------------|-----------------------|----------------------|--------------------|---------------------|--------|----------------------|--------------------|---------------------|-------------|
 | ProductClassificationSystem | ProductClassification | System               | system             | 1                   | System |                      |                    | *                   |             |
+
+### Association: ProductExchangeLink
+
+| Name                | Source  | Source Property Name | Source Property ID | Source Multiplicity | Target   | Target Property Name | Target Property ID | Target Multiplicity | Description |
+|---------------------|---------|----------------------|--------------------|---------------------|----------|----------------------|--------------------|---------------------|-------------|
+| ProductExchangeLink | Product | Exchange             | exchange           | 1                   | Exchange |                      |                    | *                   |             |

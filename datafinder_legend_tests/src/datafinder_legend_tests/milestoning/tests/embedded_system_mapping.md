@@ -1,9 +1,10 @@
 # Legend Embedded System Mapping
 
 Source: legend-engine core_relational `milestoning/tests/businessDateMilestoningSetUp.pure`
-(`milestoningMapWithEmbeddedSimple`, without the inline exchange). A product's classification is held in its row: its
+(`milestoningMapWithEmbeddedSimple`). A product's classification is held in its row: its
 type is the `type` column, and its system is reached from the `classificationSystemId` column through
-ProductClassificationSystemTable (milestoned the same way as the product) to SystemTable.
+ProductClassificationSystemTable (milestoned the same way as the product) to SystemTable. A product's exchange
+is held inline: its name is the `exchange` column.
 
 ## Model: embedded_system_model.md
 
@@ -23,6 +24,7 @@ ProductClassificationSystemTable (milestoned the same way as the product) to Sys
 | name | VARCHAR |  | Y | name |
 | type | VARCHAR |  | Y | classification.type |
 | classificationSystemId | INT | FK | Y | classification.system |
+| exchange | VARCHAR |  | Y | exchange.name |
 | from_z | DATE |  | Y | businessFrom |
 | thru_z | DATE |  | Y | businessThru |
 

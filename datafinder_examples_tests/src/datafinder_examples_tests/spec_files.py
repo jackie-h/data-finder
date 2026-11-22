@@ -111,10 +111,17 @@ def groups(suite: Suite) -> dict[str, FinderSpec]:
     return found
 
 
+def _result_of(expectation: TestExpectation) -> np.ndarray:
+    """The result a spec file holds. An expectation that is checked by its SQL alone has none to write."""
+    if expectation.expected_columns is None or expectation.expected_result is None:
+        raise ValueError(f"[{expectation.name}] A SQL-only expectation has no result to write as a spec file")
+    return expectation.expected_result
+
+
 def _types(expectation: TestExpectation) -> list[str]:
     if expectation.expected_types is not None:
         return expectation.expected_types
-    result = expectation.expected_result
+    result = _result_of(expectation)
     if result.shape[0] == 0:
         raise ValueError(f"[{expectation.name}] An empty result has no type to work out: declare it in expected_types")
     return [typed_csv.column_type(list(result[:, c])) for c in range(result.shape[1])]
@@ -150,7 +157,7 @@ def export(suite: Suite) -> dict[str, str]:
             if expectation.skip_backends:
                 document["skip"] = expectation.skip_backends
             files[f"{path}.json"] = _json(document)
-            files[f"{path}.csv"] = typed_csv.write(expectation.expected_columns, _types(expectation), expectation.expected_result)
+            files[f"{path}.csv"] = typed_csv.write(list(expectation.expected_columns or []), _types(expectation), _result_of(expectation))
     return files
 
 
