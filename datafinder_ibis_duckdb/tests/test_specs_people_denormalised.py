@@ -14,6 +14,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.people_denormalised_specs import PERSON_DENORMALISED_FINDER_SPECS
 
@@ -33,8 +34,7 @@ def person_finder():
 
     conn = duckdb.connect("test.db")
     conn.execute("DROP TABLE IF EXISTS people")
-    conn.execute("CREATE TABLE people (id INT, first_name VARCHAR, home VARCHAR, firm_name VARCHAR, firm_address VARCHAR)")
-    conn.execute(f"INSERT INTO people SELECT * FROM read_csv_auto('{str(example_path('people_denormalised.csv'))}')")
+    load_duckdb(conn, "people_denormalised")
     conn.close()
 
     from person_finder import PersonFinder  # pyright: ignore[reportMissingImports]

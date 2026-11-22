@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.null_end_milestoning_specs import (
     NULL_END_PRICE_FINDER_SPECS,
@@ -37,11 +38,7 @@ def _build_repo():
 def _seed_db():
     conn = duckdb.connect("test.db")
     conn.execute("DROP SCHEMA IF EXISTS mkt CASCADE")
-    conn.execute("CREATE SCHEMA mkt")
-    conn.execute(
-        "CREATE TABLE mkt.prices (sym VARCHAR, price DOUBLE, in_z TIMESTAMP, out_z TIMESTAMP)"
-    )
-    conn.execute(f"INSERT INTO mkt.prices SELECT * FROM read_csv_auto('{str(example_path('null_end_prices.csv'))}')")
+    load_duckdb(conn, "null_end_milestoning")
     conn.close()
 
 

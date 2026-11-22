@@ -6,7 +6,7 @@ import math
 import numpy as np
 import pytest
 
-from datafinder_examples_tests import spec_files, typed_csv
+from datafinder_examples_tests import spec_files, suite_data, typed_csv
 
 
 def _round_trip(columns, types, rows):
@@ -79,7 +79,7 @@ def test_the_spec_files_are_what_the_python_specs_export():
     exported = spec_files.export_all()
     root = spec_files.specs_folder()
     on_disk = {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8")
-               for suite in spec_files.SUITES for p in (root / suite.name).rglob("*") if p.is_file()}
+               for suite in spec_files.SUITES for p in (root / suite.name).rglob("*") if p.is_file() and p.name != spec_files.SCHEMA}
     assert sorted(on_disk) == sorted(exported)
     assert [path for path in exported if not _same_file(path, on_disk[path], exported[path])] == []
 
@@ -96,3 +96,18 @@ def test_every_table_of_a_suite_has_a_data_file():
     root = spec_files.specs_folder()
     missing = [f"{suite.name}: {csv}" for suite in spec_files.SUITES for csv in suite.data.values() if not (root / "data" / csv).is_file()]
     assert missing == []
+
+
+def test_a_suite_creates_every_table_it_loads_and_nothing_else_is_loaded():
+    for suite in spec_files.SUITES:
+        created = {t.name.removeprefix("main.") for t in suite_data.tables(suite.name)}
+        assert set(suite.data) <= created, f"{suite.name} loads a table that schema.sql does not create"
+
+
+def test_the_tables_of_a_suite_are_read_from_its_schema():
+    tables = {t.name: t for t in suite_data.tables("companies")}
+    assert tables["main.companies"].columns == "id INT, name VARCHAR, category VARCHAR, embedding VECTOR(3)"
+    assert tables["main.companies"].csv == "companies.csv"
+    finance = {t.name: t.csv for t in suite_data.tables("finance_group_by")}
+    assert finance["ref_data.price"] is None and finance["trading.trades"] == "finance_trades_group_by.csv"
+    assert suite_data.statements("finance_group_by")[0] == "CREATE SCHEMA IF NOT EXISTS trading"

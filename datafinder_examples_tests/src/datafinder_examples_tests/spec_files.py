@@ -4,7 +4,8 @@ The specs as files that any language can read: a JSON file for each expectation,
 ``export`` writes them from the Python specs, which stay the place where a spec is written: the expected result is worked out there,
 independently of the engine. ``load`` reads them back as expectations that run through the same checks as the Python ones.
 
-    <suite>/suite.json          the tables of the suite and the CSV of the rows each holds
+    <suite>/schema.sql          the schemas and tables of the suite, written by hand (see suite_data)
+    <suite>/suite.json          the CSV of the rows each table holds
     <suite>/<group>/<name>.json the query (see query_json), the finder and mapping, the file of the result, and the checks
     <suite>/<group>/<name>.csv  the expected result, with the type of each column (see typed_csv)
 
@@ -25,6 +26,9 @@ import numpy as np
 
 from datafinder_examples_tests import query_json, typed_csv
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
+
+
+SCHEMA = "schema.sql"
 
 
 @dataclass
@@ -198,7 +202,7 @@ def write_all() -> None:
     for suite in SUITES:
         folder = root / suite.name
         for old in folder.rglob("*") if folder.exists() else []:
-            if old.is_file():
+            if old.is_file() and old.name != SCHEMA:  # the schema is written by hand
                 old.unlink()
     for path, text in export_all().items():
         target = root / path

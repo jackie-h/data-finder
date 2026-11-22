@@ -13,6 +13,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.milestoned_union_specs import MILESTONED_UNION_ORDER_FINDER_SPECS
 
@@ -22,15 +23,9 @@ _MODS = ["order_finder", "order_finder_base", "product_finder", "product_finder_
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    for table, columns, csv in (
-            ("OrderTable", "id INT, prodFk INT", "milestoned_union_orders.csv"),
-            ("ProductTableWithBusinessSnapshotMilestoning", "id INT, name VARCHAR, type VARCHAR, snapshotDate DATE",
-             "milestoned_union_products.csv"),
-            ("ProductClassificationTableWithBusinessSnapshotMilestoning",
-             "type VARCHAR, type_description VARCHAR, snapshotDate DATE", "milestoned_union_classifications.csv")):
+    for table in ("OrderTable", "ProductTableWithBusinessSnapshotMilestoning", "ProductClassificationTableWithBusinessSnapshotMilestoning"):
         conn.execute(f"DROP TABLE IF EXISTS {table}")
-        conn.execute(f"CREATE TABLE {table} ({columns})")
-        conn.execute(f"INSERT INTO {table} SELECT * FROM read_csv_auto('{str(example_path(csv))}')")
+    load_duckdb(conn, "milestoned_union")
     conn.close()
 
 

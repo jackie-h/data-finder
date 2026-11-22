@@ -17,6 +17,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.orgchart_inheritance_specs import (
     EMPLOYEE_INHERITANCE_FINDER_SPECS,
@@ -29,20 +30,7 @@ _MODS = ["employee_finder", "employee_finder_base", "project_finder", "project_f
 def _seed_db():
     conn = duckdb.connect("test.db")
     conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
-    conn.execute("CREATE SCHEMA hr")
-    conn.execute("""
-        CREATE TABLE hr.employees (
-            emp_id INT, first_name VARCHAR, last_name VARCHAR,
-            email VARCHAR, department VARCHAR, manager_id INT
-        )
-    """)
-    conn.execute(f"INSERT INTO hr.employees SELECT * FROM read_csv_auto('{str(example_path('employees_inheritance.csv'))}')")
-    conn.execute("""
-        CREATE TABLE hr.projects (
-            project_id INT, name VARCHAR, code VARCHAR, assignee_id INT
-        )
-    """)
-    conn.execute(f"INSERT INTO hr.projects SELECT * FROM read_csv_auto('{str(example_path('projects.csv'))}')")
+    load_duckdb(conn, "orgchart_inheritance")
     conn.close()
 
 

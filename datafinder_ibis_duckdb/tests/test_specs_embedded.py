@@ -18,6 +18,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.embedded_specs import EMBEDDED_TRADE_FINDER_SPECS
 
@@ -53,18 +54,7 @@ def _seed_db():
     conn = duckdb.connect("test.db")
     conn.execute("DROP SCHEMA IF EXISTS trading CASCADE")
     conn.execute("DROP SCHEMA IF EXISTS ref_data CASCADE")
-    conn.execute("CREATE SCHEMA trading")
-    conn.execute("CREATE SCHEMA ref_data")
-    conn.execute("CREATE TABLE ref_data.branch_master (ID INT, CITY VARCHAR)")
-    conn.execute(f"INSERT INTO ref_data.branch_master SELECT * FROM read_csv_auto('{str(example_path('finance_branches_embedded.csv'))}')")
-    conn.execute("CREATE TABLE ref_data.account_master (ID INT, ACCT_NAME VARCHAR, BRANCH_ID INT)")
-    conn.execute(f"INSERT INTO ref_data.account_master SELECT * FROM read_csv_auto('{str(example_path('finance_accounts_embedded.csv'))}')")
-    conn.execute(
-        "CREATE TABLE trading.trades "
-        "(sym VARCHAR, price DOUBLE, is_settled BOOLEAN, account_id INT, in_z TIMESTAMP, out_z TIMESTAMP, "
-        "acct_name VARCHAR, branch_city VARCHAR)"
-    )
-    conn.execute(f"INSERT INTO trading.trades SELECT * FROM read_csv_auto('{str(example_path('finance_trades_embedded.csv'))}')")
+    load_duckdb(conn, "embedded")
     conn.close()
 
 

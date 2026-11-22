@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.places_specs import (
     PLACES_LOCATION_FINDER_SPECS, PLACES_MAPPING, PLACES_PERSON_FINDER_SPECS,
@@ -37,12 +38,7 @@ def _build_repo():
 def _seed_db():
     conn = duckdb.connect("test.db")
     conn.execute("DROP SCHEMA IF EXISTS geo CASCADE")
-    conn.execute("CREATE SCHEMA geo")
-    conn.execute("CREATE TABLE geo.people (id INT, name VARCHAR)")
-    conn.execute("CREATE TABLE geo.regions (id INT, name VARCHAR)")
-    conn.execute("CREATE TABLE geo.locations (id INT, place VARCHAR, visits INT, person_id INT, region_id INT)")
-    for table in ("people", "regions", "locations"):
-        conn.execute(f"INSERT INTO geo.{table} SELECT * FROM read_csv_auto('{str(example_path(f'places_{table}.csv'))}')")
+    load_duckdb(conn, "places")
     conn.close()
 
 

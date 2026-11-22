@@ -14,6 +14,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.companies_missing_category_specs import (
     COMPANIES_MISSING_CATEGORY_SPECS,
@@ -36,8 +37,7 @@ def company_missing_finder():
 
     conn = duckdb.connect("test.db")
     conn.execute("DROP TABLE IF EXISTS companies")
-    conn.execute("CREATE TABLE companies (id INT, name VARCHAR, category VARCHAR)")
-    conn.execute(f"INSERT INTO companies SELECT * FROM read_csv_auto('{str(example_path('companies_missing_category.csv'))}')")
+    load_duckdb(conn, "companies_missing_category")
     conn.close()
 
     from company_finder import CompanyFinder as CF  # pyright: ignore[reportMissingImports]

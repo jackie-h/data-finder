@@ -13,6 +13,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.sql_query_sets_specs import (
     SQL_QUERY_SETS_APPLICATION_FINDER_SPECS, SQL_QUERY_SETS_CUSTOMER_FINDER_SPECS, SQL_QUERY_SETS_EMBEDDED_MAPPING, SQL_QUERY_SETS_MAPPING,
@@ -24,16 +25,7 @@ _SPECS = [SQL_QUERY_SETS_CUSTOMER_FINDER_SPECS, SQL_QUERY_SETS_APPLICATION_FINDE
 def _seed_db():
     conn = duckdb.connect("test.db")
     conn.execute("DROP SCHEMA IF EXISTS org CASCADE")
-    conn.execute("CREATE SCHEMA org")
-    for table in ("retail_customers", "corporate_customers"):
-        conn.execute(f"CREATE TABLE org.{table} (id INT, name VARCHAR)")
-        conn.execute(f"INSERT INTO org.{table} SELECT * FROM read_csv_auto('{str(example_path(f'sql_query_sets_{table}.csv'))}')")
-    conn.execute("CREATE TABLE org.orders (id INT, customer_id INT, amount INT)")
-    conn.execute(f"INSERT INTO org.orders SELECT * FROM read_csv_auto('{str(example_path('sql_query_sets_orders.csv'))}')")
-    conn.execute("CREATE TABLE org.applications_a (id INT, first_name VARCHAR, nick_name VARCHAR, home VARCHAR, firm_name VARCHAR)")
-    conn.execute("CREATE TABLE org.applications_b (id INT, given_name VARCHAR, known_as VARCHAR, address VARCHAR)")
-    for table in ("applications_a", "applications_b"):
-        conn.execute(f"INSERT INTO org.{table} SELECT * FROM read_csv_auto('{str(example_path(f'sql_query_sets_embedded_{table}.csv'))}')")
+    load_duckdb(conn, "sql_query_sets")
     conn.close()
 
 

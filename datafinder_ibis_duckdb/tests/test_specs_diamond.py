@@ -18,6 +18,7 @@ from datafinder_generator.generator import generate
 from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.diamond_specs import DIAMOND_FINDER_SPECS
 
@@ -38,14 +39,7 @@ def record_finder():
 
     conn = duckdb.connect("test.db")
     conn.execute("DROP SCHEMA IF EXISTS records CASCADE")
-    conn.execute("CREATE SCHEMA records")
-    conn.execute("""
-        CREATE TABLE records.items (
-            item_id INT, created_at VARCHAR, updated_at VARCHAR,
-            version INT, record_name VARCHAR
-        )
-    """)
-    conn.execute(f"INSERT INTO records.items SELECT * FROM read_csv_auto('{str(example_path('diamond_items.csv'))}')")
+    load_duckdb(conn, "diamond")
     conn.close()
 
     from record_finder import RecordFinder  # pyright: ignore[reportMissingImports]

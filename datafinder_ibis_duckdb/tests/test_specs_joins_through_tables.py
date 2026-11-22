@@ -15,6 +15,7 @@ from datafinder_ibis.ibis_engine import IbisConnect
 from mapping_markdown.markdown_mapping import load
 from model.relational import Database, Schema, Table
 from datafinder_examples import example_path
+from datafinder_examples_tests.suite_data import load_duckdb
 
 from datafinder_examples_tests.joins_through_tables_specs import JOINS_THROUGH_TABLES_EMPLOYEE_FINDER_SPECS
 
@@ -36,12 +37,7 @@ def _build_repo():
 def _seed_db():
     conn = duckdb.connect("test.db")
     conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
-    conn.execute("CREATE SCHEMA hr")
-    conn.execute("CREATE TABLE hr.employees (id INT, name VARCHAR, street VARCHAR, home_country INT, citizen_ref INT)")
-    conn.execute("CREATE TABLE hr.country_refs (ref INT, code VARCHAR, valid_from DATE, valid_to DATE)")
-    conn.execute("CREATE TABLE hr.countries (code VARCHAR, name VARCHAR)")
-    for table in ("employees", "country_refs", "countries"):
-        conn.execute(f"INSERT INTO hr.{table} SELECT * FROM read_csv_auto('{str(example_path(f'joins_through_tables_{table}.csv'))}')")
+    load_duckdb(conn, "joins_through_tables")
     conn.close()
 
 
