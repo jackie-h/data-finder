@@ -24,7 +24,6 @@ _SPECS = [SQL_QUERY_SETS_CUSTOMER_FINDER_SPECS, SQL_QUERY_SETS_APPLICATION_FINDE
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS org CASCADE")
     load_duckdb(conn, "sql_query_sets")
     conn.close()
 

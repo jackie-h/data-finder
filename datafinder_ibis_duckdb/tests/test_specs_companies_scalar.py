@@ -37,7 +37,6 @@ def company_scalar_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP TABLE IF EXISTS companies")
     load_duckdb(conn, "companies_scalar")
     conn.close()
 

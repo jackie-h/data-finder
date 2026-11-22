@@ -29,7 +29,6 @@ _MODS = ["org", "org.views"]
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS org CASCADE")
     load_duckdb(conn, "sql_queries")
     conn.close()
 

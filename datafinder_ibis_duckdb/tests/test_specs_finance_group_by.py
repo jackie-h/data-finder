@@ -51,8 +51,6 @@ def _build_repo():
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS trading CASCADE")
-    conn.execute("DROP SCHEMA IF EXISTS ref_data CASCADE")
     load_duckdb(conn, "finance_group_by")
     conn.close()
 

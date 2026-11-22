@@ -38,7 +38,6 @@ def record_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS records CASCADE")
     load_duckdb(conn, "diamond")
     conn.close()
 

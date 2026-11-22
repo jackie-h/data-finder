@@ -36,7 +36,6 @@ def _build_repo():
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
     load_duckdb(conn, "joins_through_tables")
     conn.close()
 

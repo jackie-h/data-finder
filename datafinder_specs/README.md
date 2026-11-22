@@ -5,7 +5,7 @@ files only, with no Python.
 
 - `specs/models/`, `specs/mappings/`: the example models and mappings (Markdown); a mapping names its model by a relative path.
 - `specs/data/`: the rows the specs run against (CSV).
-- `specs/<suite>/`: a suite is the specs that run against one set of tables. `schema.sql` creates its schemas and tables
+- `specs/<suite>/`: a suite is the specs that run against one set of tables. `schema.sql` drops what an earlier run made and creates its schemas and tables
   (types INT, VARCHAR, DOUBLE, DATE, TIMESTAMP, BOOLEAN, and VECTOR(n), which an engine makes its own array of floats),
   and `suite.json` names, for each table as the mapping reads it, the CSV in `specs/data` that holds its rows.
 - `specs/<suite>/<group>/`: the finder specs, each a JSON file with the query (a tree of calls of the finder API, and

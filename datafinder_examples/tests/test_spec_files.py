@@ -110,4 +110,4 @@ def test_the_tables_of_a_suite_are_read_from_its_schema():
     assert tables["main.companies"].csv == "companies.csv"
     finance = {t.name: t.csv for t in suite_data.tables("finance_group_by")}
     assert finance["ref_data.price"] is None and finance["trading.trades"] == "finance_trades_group_by.csv"
-    assert suite_data.statements("finance_group_by")[0] == "CREATE SCHEMA IF NOT EXISTS trading"
+    assert suite_data.statements("finance_group_by")[0] == "DROP SCHEMA IF EXISTS trading CASCADE"

@@ -36,7 +36,6 @@ def position_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP TABLE IF EXISTS positions")
     load_duckdb(conn, "positions")
     conn.close()
 

@@ -39,7 +39,6 @@ def employee_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
     load_duckdb(conn, "orgchart")
     conn.close()
 

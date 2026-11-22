@@ -36,7 +36,6 @@ def company_missing_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP TABLE IF EXISTS companies")
     load_duckdb(conn, "companies_missing_category")
     conn.close()
 

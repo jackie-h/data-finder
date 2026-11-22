@@ -29,7 +29,6 @@ _MODS = ["employee_finder", "employee_finder_base", "project_finder", "project_f
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    conn.execute("DROP SCHEMA IF EXISTS hr CASCADE")
     load_duckdb(conn, "orgchart_inheritance")
     conn.close()
 

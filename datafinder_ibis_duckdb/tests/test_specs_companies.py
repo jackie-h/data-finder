@@ -35,7 +35,6 @@ def company_finder():
     generate(mapping, tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP TABLE IF EXISTS companies")
     load_duckdb(conn, "companies")
     conn.close()
 

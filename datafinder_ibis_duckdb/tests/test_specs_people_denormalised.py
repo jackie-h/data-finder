@@ -33,7 +33,6 @@ def person_finder():
     generate(load(str(example_path(PERSON_DENORMALISED_FINDER_SPECS.mapping_file))), tmp)
 
     conn = duckdb.connect("test.db")
-    conn.execute("DROP TABLE IF EXISTS people")
     load_duckdb(conn, "people_denormalised")
     conn.close()
 

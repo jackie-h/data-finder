@@ -23,8 +23,6 @@ _MODS = ["order_finder", "order_finder_base", "product_finder", "product_finder_
 
 def _seed_db():
     conn = duckdb.connect("test.db")
-    for table in ("OrderTable", "ProductTableWithBusinessSnapshotMilestoning", "ProductClassificationTableWithBusinessSnapshotMilestoning"):
-        conn.execute(f"DROP TABLE IF EXISTS {table}")
     load_duckdb(conn, "milestoned_union")
     conn.close()
 
