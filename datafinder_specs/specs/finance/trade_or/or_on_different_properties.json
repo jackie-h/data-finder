@@ -1,0 +1,8 @@
+{
+  "name": "or_on_different_properties",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [f.symbol()], f.symbol().eq(\"NOSUCH\").or_((f.price() > 200.0)))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["NOSUCH"],"kwargs":{}},"name":"or_"},"args":[{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"right":200.0}],"kwargs":{}}],"kwargs":{}},
+  "result": "or_on_different_properties.csv"
+}

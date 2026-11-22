@@ -1,0 +1,7 @@
+{
+  "data": {
+    "OrderTable": "milestoned_union_orders.csv",
+    "ProductTableWithBusinessSnapshotMilestoning": "milestoned_union_products.csv",
+    "ProductClassificationTableWithBusinessSnapshotMilestoning": "milestoned_union_classifications.csv"
+  }
+}

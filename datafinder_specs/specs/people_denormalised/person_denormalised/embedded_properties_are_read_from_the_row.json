@@ -1,0 +1,11 @@
+{
+  "name": "embedded_properties_are_read_from_the_row",
+  "finder": "PersonFinder",
+  "mapping": "people_denormalised_mapping.md",
+  "query_text": "f.find_all([f.first_name(), f.address().name(), f.firm().legal_name(), f.firm().address().name()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"address"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"firm"},"args":[],"kwargs":{}},"name":"legal_name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"firm"},"args":[],"kwargs":{}},"name":"address"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "embedded_properties_are_read_from_the_row.csv",
+  "sql_not_contains": {
+    "duckdb": "JOIN"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "reverse_join_filter_nonexistent",
+  "finder": "ProjectFinder",
+  "mapping": "orgchart_inheritance_mapping.md",
+  "query_text": "f.find_all([f.name(), f.assignee(department=\"UNKNOWN\").first_name()]).order_by(f.name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"assignee"},"args":[],"kwargs":{"department":"UNKNOWN"}},"name":"first_name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "reverse_join_filter_nonexistent.csv",
+  "skip": {
+    "graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"
+  }
+}

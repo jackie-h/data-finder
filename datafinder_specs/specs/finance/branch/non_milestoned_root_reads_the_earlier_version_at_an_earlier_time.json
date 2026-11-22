@@ -1,0 +1,8 @@
+{
+  "name": "non_milestoned_root_reads_the_earlier_version_at_an_earlier_time",
+  "finder": "BranchFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all([f.city(), f.accounts(processing_time=\"2021-06-01 12:00:00\").name()]).order_by(f.city().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"accounts"},"args":[],"kwargs":{"processing_time":"2021-06-01 12:00:00"}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "non_milestoned_root_reads_the_earlier_version_at_an_earlier_time.csv"
+}

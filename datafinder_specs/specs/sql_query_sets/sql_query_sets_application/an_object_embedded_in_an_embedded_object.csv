@@ -1,0 +1,6 @@
+Id,Applicant Address Name
+Integer,String[0..1]
+1,1 High St
+1,3 Mid Ln
+2,2 Low Rd
+3,

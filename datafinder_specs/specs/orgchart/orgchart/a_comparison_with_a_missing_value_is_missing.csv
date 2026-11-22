@@ -1,0 +1,6 @@
+Name,Expression
+String,Boolean[0..1]
+Alice,
+Bob,true
+Carol,true
+Dave,false

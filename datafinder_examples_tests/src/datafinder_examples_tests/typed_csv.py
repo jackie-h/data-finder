@@ -6,16 +6,19 @@ The expected result of a spec as a CSV that a person can read and any language c
     1,Acme Corp,Technology,0.25
     4,Delta Ltd,,
 
-The first row is the name of each column. The second is its type, in the names of the model: Integer, Float, Decimal, String,
-Boolean, StrictDate, DateTime and Vector, with ``[0..1]`` after the name of a column that has a missing value. A missing value is an
-empty cell with no quotes, and the empty string is ``""``. A cell has no quotes unless it holds a comma, a quote or a line break, or
-is the empty string. A date is ``2024-01-31``, a date and time ``2024-01-31T08:55:30``, and a vector ``[1.0,0.2,0.0]``.
+The first row is the name of each column. The second is its type, in the names of the model (model/m3.py): Integer, Double, Float,
+Decimal, String, Boolean, Date, DateTime and Vector, and Interval, which the model has not got, for the difference of two datetimes.
+``[0..1]`` follows the name of a column that has a missing value. A missing value is an empty cell with no quotes, and the empty
+string is ``""``. A cell has no quotes unless it holds a comma, a quote or a line break, or is the empty string. A date is
+``2024-01-31``, a date and time ``2024-01-31T08:55:30``, a vector ``[1.0,0.2,0.0]`` and an interval an ISO 8601 duration, ``P731D``
+or ``P1DT2H3M4.5S``.
 """
 from __future__ import annotations
 
 import datetime
 import decimal
 import json
+import re
 from typing import Any
 
 import numpy as np
@@ -30,8 +33,8 @@ def column_type(values: list[Any]) -> str:
     kinds = {_kind(v) for v in present}
     if not kinds:
         raise ValueError("A column with no value has no type to work out: declare it in expected_types")
-    if kinds == {"Integer", "Float"}:
-        kinds = {"Float"}
+    if kinds == {"Integer", "Double"}:
+        kinds = {"Double"}
     if kinds == {"Integer", "Decimal"}:
         kinds = {"Decimal"}
     if len(kinds) != 1:
@@ -62,7 +65,7 @@ def _kind(value: Any) -> str:
     if isinstance(value, int):
         return "Integer"
     if isinstance(value, float):
-        return "Float"
+        return "Double"
     if isinstance(value, decimal.Decimal):
         return "Decimal"
     if isinstance(value, str):
@@ -70,10 +73,42 @@ def _kind(value: Any) -> str:
     if isinstance(value, datetime.datetime):
         return "DateTime"
     if isinstance(value, datetime.date):
-        return "StrictDate"
+        return "Date"
+    if isinstance(value, datetime.timedelta):
+        return "Interval"
     if isinstance(value, list):
         return "Vector"
     raise TypeError(f"A result cannot hold a {type(value).__name__}: {value!r}")
+
+
+def _duration(value: datetime.timedelta) -> str:
+    """An ISO 8601 duration of days, hours, minutes and seconds, as a difference of two datetimes is: ``P731D``, ``P1DT2H3M4.5S``."""
+    negative = value < datetime.timedelta(0)
+    value = abs(value)
+    hours, rest = divmod(value.seconds, 3600)
+    minutes, seconds = divmod(rest, 60)
+    time = ""
+    if hours:
+        time += f"{hours}H"
+    if minutes:
+        time += f"{minutes}M"
+    if seconds or value.microseconds:
+        time += f"{seconds}{('.%06d' % value.microseconds).rstrip('0') if value.microseconds else ''}S"
+    text = f"P{value.days}D" + (f"T{time}" if time else "")
+    return "-" + text if negative else text
+
+
+_DURATION = re.compile(r"^(-?)P(\d+)D(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.(\d+))?S)?)?$")
+
+
+def _parse_duration(text: str) -> datetime.timedelta:
+    match = _DURATION.match(text)
+    if match is None:
+        raise ValueError(f"An interval is an ISO 8601 duration of days, hours, minutes and seconds, not {text!r}")
+    sign, days, hours, minutes, seconds, fraction = match.groups()
+    value = datetime.timedelta(days=int(days), hours=int(hours or 0), minutes=int(minutes or 0), seconds=int(seconds or 0),
+                               microseconds=int((fraction or "0").ljust(6, "0")))
+    return -value if sign else value
 
 
 def _cell(value: Any, type_name: str) -> str:
@@ -84,14 +119,14 @@ def _cell(value: Any, type_name: str) -> str:
     base = type_name.removesuffix(_OPTIONAL)
     if base == "Boolean":
         text = "true" if value else "false"
-    elif base == "Float":
+    elif base in ("Double", "Float"):
         text = repr(float(value))
     elif base in ("Integer", "Decimal", "String"):
         text = str(value)
-    elif base == "StrictDate":
+    elif base in ("Date", "DateTime"):
         text = value.isoformat()
-    elif base == "DateTime":
-        text = value.isoformat()
+    elif base == "Interval":
+        text = _duration(value)
     elif base == "Vector":
         text = json.dumps([float(v) for v in value], separators=(",", ":"))
     else:
@@ -109,7 +144,7 @@ def _value(text: str, quoted: bool, type_name: str) -> Any:
         return text
     if base == "Integer":
         return int(text)
-    if base == "Float":
+    if base in ("Double", "Float"):
         return float(text)
     if base == "Decimal":
         return decimal.Decimal(text)
@@ -117,8 +152,10 @@ def _value(text: str, quoted: bool, type_name: str) -> Any:
         if text not in ("true", "false"):
             raise ValueError(f"A boolean is true or false, not {text!r}")
         return text == "true"
-    if base == "StrictDate":
+    if base == "Date":
         return datetime.date.fromisoformat(text)
+    if base == "Interval":
+        return _parse_duration(text)
     if base == "DateTime":
         return datetime.datetime.fromisoformat(text)
     if base == "Vector":

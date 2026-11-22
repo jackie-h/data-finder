@@ -1,0 +1,14 @@
+{
+  "name": "group_by_embedded_account_name_elides_join",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping_embedded.md",
+  "query_text": "f.find_all(None, \"2021-06-01 12:00:00\", [f.account().name(), f.count()]).group_by(f.account().name())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2021-06-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"count"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "group_by_embedded_account_name_elides_join.csv",
+  "sql_not_contains": {
+    "duckdb": "JOIN"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder has no count() yet"
+  }
+}

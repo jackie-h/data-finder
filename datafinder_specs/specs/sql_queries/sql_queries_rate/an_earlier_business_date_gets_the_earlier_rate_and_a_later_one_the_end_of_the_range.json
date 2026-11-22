@@ -1,0 +1,11 @@
+{
+  "name": "an_earlier_business_date_gets_the_earlier_rate_and_a_later_one_the_end_of_the_range",
+  "finder": "RateFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all(\"2020-07-01\", None, [f.code(), f.amount()]).order_by(f.code().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2020-07-01",null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "an_earlier_business_date_gets_the_earlier_rate_and_a_later_one_the_end_of_the_range.csv",
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "the_parent_of_a_parent",
+  "finder": "UnitFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all([f.name(), f.parent().parent().name()], f.name().eq(\"EMEA Sales\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"parent"},"args":[],"kwargs":{}},"name":"parent"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["EMEA Sales"],"kwargs":{}}],"kwargs":{}},
+  "result": "the_parent_of_a_parent.csv",
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

@@ -1,0 +1,3 @@
+hours,minutes,seconds,days
+Integer,Integer,Integer,Integer
+4,60,30,2

@@ -1,0 +1,14 @@
+{
+  "name": "filter_on_first_day_of_month",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], (f.trade_date().first_day_of_month() == date('2024-07-01')))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"==","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"first_day_of_month"},"args":[],"kwargs":{}},"right":{"kind":"date","value":"2024-07-01"}}],"kwargs":{}},
+  "result": "filter_on_first_day_of_month.csv",
+  "sql_contains": {
+    "duckdb": "CAST(DATE_TRUNC('month', t0.trade_date) AS DATE) = '2024-07-01'"
+  },
+  "skip": {
+    "graphql": "A filter on an expression cannot be pushed to the server"
+  }
+}

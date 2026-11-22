@@ -1,0 +1,8 @@
+{
+  "name": "position_jan16_current",
+  "finder": "ContractualPositionFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(\"2023-01-16\", \"2023-12-01 12:00:00\", [f.quantity(), f.npv()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2023-01-16","2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"npv"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "position_jan16_current.csv"
+}

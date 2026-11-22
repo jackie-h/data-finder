@@ -1,0 +1,14 @@
+{
+  "name": "a_number_divided_by_a_column",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [(72 / f.price())], f.symbol().eq(\"GOOG\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"binary","op":"/","left":72,"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},
+  "result": "a_number_divided_by_a_column.csv",
+  "sql_contains": {
+    "duckdb": "72 / t0.price"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder has no arithmetic between columns"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "a_processing_time_before_a_row_was_replaced_gets_the_earlier_version",
+  "finder": "QuoteFinder",
+  "mapping": "bitemporal_dates_mapping.md",
+  "query_text": "f.find_all(\"2021-06-01\", \"2020-06-01 00:00:00\", [f.code(), f.amount()]).order_by(f.code().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2021-06-01","2020-06-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_processing_time_before_a_row_was_replaced_gets_the_earlier_version.csv"
+}

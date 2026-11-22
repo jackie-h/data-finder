@@ -1,0 +1,11 @@
+{
+  "name": "range_jan15_jan16",
+  "finder": "ContractualPositionFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_for_date_range(\"2023-01-15\", \"2023-01-16\", \"2023-12-01 12:00:00\", [f.quantity()]).order_by(f.quantity().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_for_date_range"},"args":["2023-01-15","2023-01-16","2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "range_jan15_jan16.csv",
+  "skip": {
+    "graphql": "A sort across a date range cannot be pushed: each date is a separate query"
+  }
+}

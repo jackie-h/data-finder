@@ -1,0 +1,8 @@
+{
+  "name": "project_all_inherited_columns",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_inheritance_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.first_name(), f.last_name(), f.email(), f.department()], f.first_name().eq(\"Dave\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"last_name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"email"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"department"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Dave"],"kwargs":{}}],"kwargs":{}},
+  "result": "project_all_inherited_columns.csv"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "valid_from_diff_seconds",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2023-12-01 12:00:00\", [f.valid_from().diff_seconds(datetime('2020-01-01T00:01:00'))])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"valid_from"},"args":[],"kwargs":{}},"name":"diff_seconds"},"args":[{"kind":"datetime","value":"2020-01-01T00:01:00"}],"kwargs":{}}]}],"kwargs":{}},
+  "result": "valid_from_diff_seconds.csv"
+}

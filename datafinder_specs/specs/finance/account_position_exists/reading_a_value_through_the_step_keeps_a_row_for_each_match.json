@@ -1,0 +1,14 @@
+{
+  "name": "reading_a_value_through_the_step_keeps_a_row_for_each_match",
+  "finder": "AccountFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [f.name(), f.positions().quantity()], f.positions().exists()).order_by(f.positions().quantity().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"positions"},"args":[],"kwargs":{}},"name":"quantity"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"positions"},"args":[],"kwargs":{}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"positions"},"args":[],"kwargs":{}},"name":"quantity"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "reading_a_value_through_the_step_keeps_a_row_for_each_match.csv",
+  "sql_not_contains": {
+    "duckdb": "SELECT DISTINCT"
+  },
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

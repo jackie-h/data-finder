@@ -1,0 +1,6 @@
+First Name,Manager First Name
+String,String[0..1]
+Alice,
+Bob,Alice
+Carol,Alice
+Dave,Bob

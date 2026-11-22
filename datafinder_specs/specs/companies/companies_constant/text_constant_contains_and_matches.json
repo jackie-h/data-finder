@@ -1,0 +1,11 @@
+{
+  "name": "text_constant_contains_and_matches",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_()], constant(\"Hello\").contains(\"ell\").and_(constant(\"Hello\").matches(\"^H.*o$\")).and_(f.id_().eq(1)))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["Hello"],"kwargs":{}},"name":"contains"},"args":["ell"],"kwargs":{}},"name":"and_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["Hello"],"kwargs":{}},"name":"matches"},"args":["^H.*o$"],"kwargs":{}}],"kwargs":{}},"name":"and_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
+  "result": "text_constant_contains_and_matches.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

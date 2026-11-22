@@ -1,0 +1,11 @@
+{
+  "name": "chain_extend_an_expression_and_select",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "(v1 := f.find_all(None, \"2030-01-01 00:00:00\", [f.account().name().alias(\"account\"), f.symbol().alias(\"sym\"), f.price().alias(\"price\")]).extend(double=lambda r: (r.price * 2.0)).select(\"sym\", \"double\")).order_by(v1[\"double\"].descending()).limit(2)",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["account"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"alias"},"args":["sym"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"alias"},"args":["price"],"kwargs":{}}]}],"kwargs":{}},"name":"extend"},"args":[],"kwargs":{"double":{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"*","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"price"},"right":2.0}}}},"name":"select"},"args":["sym","double"],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"double"},"name":"descending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[2],"kwargs":{}},
+  "result": "chain_extend_an_expression_and_select.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot read a query as a relation yet"
+  }
+}

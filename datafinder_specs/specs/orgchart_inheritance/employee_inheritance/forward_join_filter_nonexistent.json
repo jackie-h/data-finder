@@ -1,0 +1,8 @@
+{
+  "name": "forward_join_filter_nonexistent",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_inheritance_mapping.md",
+  "query_text": "f.find_all([f.first_name(), f.projects(code=\"NONEXISTENT\").name()]).order_by(f.first_name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"projects"},"args":[],"kwargs":{"code":"NONEXISTENT"}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "forward_join_filter_nonexistent.csv"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "an_aggregate_of_the_whole_result_is_in_one_select",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "f.find_all([f.id_().alias(\"id\")]).filter(lambda r: (r.id > 1)).aggregate(total=lambda r: r.id.sum(), n=lambda r: r.id.count())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"alias"},"args":["id"],"kwargs":{}}]}],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":">","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"right":1}}],"kwargs":{}},"name":"aggregate"},"args":[],"kwargs":{"total":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"name":"sum"},"args":[],"kwargs":{}}},"n":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"name":"count"},"args":[],"kwargs":{}}}}},
+  "result": "an_aggregate_of_the_whole_result_is_in_one_select.csv",
+  "sql_not_contains": {
+    "duckdb": "(SELECT"
+  },
+  "skip": {
+    "graphql": "The GraphQL engine does not run steps over a result"
+  }
+}

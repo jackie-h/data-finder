@@ -1,0 +1,5 @@
+Name,Locations Place,Locations Visits
+String,String[0..1],Integer[0..1]
+Ann,New York,5
+Bob,,
+Cy,,

@@ -76,6 +76,7 @@ TRADE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="goog_expired",
+            expected_types=["String"],
             query=lambda f: f.find_all(None, _AT, [f.symbol()], f.symbol().eq("GOOG")),
             expected_columns=["Symbol"],
             expected_result=np.empty((0, 1), dtype=object),
@@ -428,6 +429,7 @@ TRADE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="interval_compared_with_a_timedelta_that_none_exceeds",
+            expected_types=["String"],
             skip_backends=_NO_INTERVAL,
             query=lambda f: f.find_all(None, _BOTH_AT, [f.symbol()], (f.valid_to() - f.valid_from()) < datetime.timedelta(days=731)),
             expected_columns=["Symbol"],
@@ -495,6 +497,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="ancestor_join_filter_kwargs_apply_at_the_query_time",
+            expected_types=["String", "String[0..1]"],
             skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, _AT, [f.symbol(), f.account(name="Acme Ltd").branch().city()], f.symbol().eq("AAPL")
@@ -516,6 +519,7 @@ TRADE_MULTI_HOP_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="a_filter_on_a_milestoned_navigation_that_no_live_version_holds_leaves_nothing_below_it",
+            expected_types=["String", "String[0..1]"],
             skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 None, _AT,
@@ -573,6 +577,7 @@ TRADE_EXISTS_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="not_exists_is_empty_once_the_account_is_live",
+            expected_types=["String"],
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().not_exists()),
             expected_columns=["Symbol"],
             expected_result=np.empty((0, 1), dtype=object),
@@ -623,6 +628,7 @@ TRADE_OR_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="or_where_neither_side_matches",
+            expected_types=["String"],
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()],
                 f.symbol().eq("NOSUCH").or_(f.symbol().eq("ALSONOSUCH")),
@@ -740,6 +746,7 @@ TRADE_IS_NONE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="is_none_is_empty_once_the_account_is_live",
+            expected_types=["String"],
             query=lambda f: f.find_all(None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.symbol()], f.account().name().is_none()),
             expected_columns=["Symbol"],
             expected_result=np.empty((0, 1), dtype=object),
@@ -1017,6 +1024,7 @@ DESK_EXISTS_FINDER_SPECS = FinderSpec(
         TestExpectation(
             # 'Acme Ltd' has expired by now, so no desk has an account of that name
             name="a_step_given_a_value_that_matches_no_current_row_is_no_row",
+            expected_types=["String"],
             query=lambda f: f.find_all(
                 [f.name()], f.accounts(name="Acme Ltd", processing_time=_MSFT_WITH_LIVE_ACCOUNT_AT).exists()),
             expected_columns=["Name"],
@@ -1110,6 +1118,7 @@ ACCOUNT_POSITION_EXISTS_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="a_step_with_a_business_date_with_no_position_is_no_row",
+            expected_types=["String"],
             query=lambda f: f.find_all(
                 None, _MSFT_WITH_LIVE_ACCOUNT_AT, [f.name()],
                 f.positions(business_date=datetime.date(2023, 2, 1)).exists(),
@@ -1302,6 +1311,7 @@ CONTRACTUAL_POSITION_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="range_before_data",
+            expected_types=["Double"],
             query=lambda f: f.find_for_date_range(
                 "2023-01-01", "2023-01-14", _AT, [f.quantity()]
             ),

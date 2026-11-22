@@ -1,0 +1,11 @@
+{
+  "data": {
+    "org.people": "sql_queries_people.csv",
+    "org.firms": "sql_queries_firms.csv",
+    "org.trades": "sql_queries_trades.csv",
+    "org.rates": "sql_queries_rates.csv",
+    "org.quotes": "sql_queries_quotes.csv",
+    "org.holders": "sql_queries_holders.csv",
+    "org.units": "sql_queries_units.csv"
+  }
+}

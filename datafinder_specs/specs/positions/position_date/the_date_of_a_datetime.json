@@ -1,0 +1,11 @@
+{
+  "name": "the_date_of_a_datetime",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([constant(datetime('2024-03-15T13:45:10')).date()], f.id_().eq(1))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[{"kind":"datetime","value":"2024-03-15T13:45:10"}],"kwargs":{}},"name":"date"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
+  "result": "the_date_of_a_datetime.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no date functions beyond the parts of a date"
+  }
+}

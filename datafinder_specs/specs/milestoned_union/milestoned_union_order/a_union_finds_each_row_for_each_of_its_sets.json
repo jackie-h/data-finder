@@ -1,0 +1,8 @@
+{
+  "name": "a_union_finds_each_row_for_each_of_its_sets",
+  "finder": "OrderFinder",
+  "mapping": "milestoned_union_mapping.md",
+  "query_text": "f.find_all([f.id_()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_union_finds_each_row_for_each_of_its_sets.csv"
+}

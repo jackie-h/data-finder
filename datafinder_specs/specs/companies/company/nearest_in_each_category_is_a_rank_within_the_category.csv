@@ -1,0 +1,5 @@
+category,name,distance
+String,String,Double
+Finance,Delta Ltd,0.3206
+Manufacturing,Acme Industries,0.0038
+Technology,Acme Corp,0.0194

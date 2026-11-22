@@ -105,6 +105,7 @@ JOINS_THROUGH_TABLES_EMPLOYEE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="a_date_before_any_row_of_the_table_on_the_way_finds_no_country",
+            expected_types=["String", "String[0..1]"],
             query=lambda f: f.find_all([f.name(), f.citizenship(business_date="1990-01-01").name()])
                              .order_by(f.name().ascending()),
             expected_columns=["Name", "Citizenship Name"],

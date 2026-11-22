@@ -1,0 +1,7 @@
+{
+  "data": {
+    "ref_data.branch_master": "finance_branches_embedded.csv",
+    "ref_data.account_master": "finance_accounts_embedded.csv",
+    "trading.trades": "finance_trades_embedded.csv"
+  }
+}

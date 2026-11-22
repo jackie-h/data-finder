@@ -1,0 +1,11 @@
+{
+  "name": "one_hop_mixed_selection_forces_real_join",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping_embedded.md",
+  "query_text": "f.find_all(None, \"2023-12-01 12:00:00\", [f.account().name(), f.account().id_(), f.symbol()], f.symbol().eq(\"AAPL\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["AAPL"],"kwargs":{}}],"kwargs":{}},
+  "result": "one_hop_mixed_selection_forces_real_join.csv",
+  "sql_contains": {
+    "duckdb": "JOIN"
+  }
+}

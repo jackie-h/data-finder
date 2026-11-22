@@ -1,0 +1,11 @@
+{
+  "name": "the_previous_friday_of_a_friday_is_a_week_before",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.trade_date().previous_day_of_week(DayOfWeek.FRIDAY)], f.id_().eq(1))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"previous_day_of_week"},"args":[{"kind":"enum","type":"DayOfWeek","name":"FRIDAY"}],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
+  "result": "the_previous_friday_of_a_friday_is_a_week_before.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no date functions beyond the parts of a date"
+  }
+}

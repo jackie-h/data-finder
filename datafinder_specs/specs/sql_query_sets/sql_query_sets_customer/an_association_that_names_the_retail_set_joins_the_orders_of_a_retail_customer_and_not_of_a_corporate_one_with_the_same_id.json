@@ -1,0 +1,14 @@
+{
+  "name": "an_association_that_names_the_retail_set_joins_the_orders_of_a_retail_customer_and_not_of_a_corporate_one_with_the_same_id",
+  "finder": "CustomerFinder",
+  "mapping": "sql_query_sets_mapping.md",
+  "query_text": "f.find_all([f.name(), f.orders().amount()]).order_by(f.name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"orders"},"args":[],"kwargs":{}},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "an_association_that_names_the_retail_set_joins_the_orders_of_a_retail_customer_and_not_of_a_corporate_one_with_the_same_id.csv",
+  "sql_contains": {
+    "duckdb": "_set"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

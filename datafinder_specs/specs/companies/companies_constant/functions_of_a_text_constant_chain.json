@@ -1,0 +1,11 @@
+{
+  "name": "functions_of_a_text_constant_chain",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([constant(\" Hello \").strip().upper().alias(\"two\"), constant(\"Hello\").upper().length().alias(\"then_length\"), constant(\"Hello\").reverse().left(2).alias(\"three\")], f.id_().eq(1))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[" Hello "],"kwargs":{}},"name":"strip"},"args":[],"kwargs":{}},"name":"upper"},"args":[],"kwargs":{}},"name":"alias"},"args":["two"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["Hello"],"kwargs":{}},"name":"upper"},"args":[],"kwargs":{}},"name":"length"},"args":[],"kwargs":{}},"name":"alias"},"args":["then_length"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["Hello"],"kwargs":{}},"name":"reverse"},"args":[],"kwargs":{}},"name":"left"},"args":[2],"kwargs":{}},"name":"alias"},"args":["three"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
+  "result": "functions_of_a_text_constant_chain.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

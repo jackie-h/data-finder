@@ -1,0 +1,8 @@
+{
+  "name": "range_before_data",
+  "finder": "ContractualPositionFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_for_date_range(\"2023-01-01\", \"2023-01-14\", \"2023-12-01 12:00:00\", [f.quantity()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_for_date_range"},"args":["2023-01-01","2023-01-14","2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "range_before_data.csv"
+}

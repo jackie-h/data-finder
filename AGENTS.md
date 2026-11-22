@@ -29,8 +29,9 @@
 
 ### Spec files
 
-- The specs in `datafinder_examples_tests` are also written as language neutral files in `datafinder_specs/specs/<suite>/`: a JSON file with the query and a CSV of the expected result, with the type of each column. The Python specs stay where a spec is written, and the expected result is still worked out there.
-- After changing a spec in a suite that is written as files (see `suites()` in `spec_files.py`), run `uv run datafinder_examples/tools/write_spec_files.py` to write them again; a test fails when the files differ from what the specs export. A result with no row, or a column with no value, needs `expected_types` on the expectation.
+- Every spec in `datafinder_examples_tests` is also written as language neutral files in `datafinder_specs/specs/<suite>/<group>/`: a JSON file with the query and a CSV of the expected result, with the type of each column in the names of the model (`Integer`, `Double`, `String[0..1]`, `Date`, ...). A suite is the specs that run against one set of tables (`suite.json` names each table and the CSV of its rows); the suites and their groups are listed in `SUITES` in `spec_files.py`. The Python specs stay where a spec is written, so the expected result is still worked out there.
+- After changing or adding a spec, run `uv run datafinder_examples/tools/write_spec_files.py` to write the files again; a test fails when they differ from what the specs export. A new spec module goes in `SUITES`. A result with no row, or a column with no value, needs `expected_types` on the expectation.
+- With `DATAFINDER_SPECS_FROM_FILES=1` every test runs the expectations read from the files, not the Python ones; CI runs the engines both ways. A query is recorded by running its lambda against a stand-in for the finder (`query_json.py`), so it must be built from calls of the finder API and not branch on a value of the query.
 
 ## Git Workflow
 

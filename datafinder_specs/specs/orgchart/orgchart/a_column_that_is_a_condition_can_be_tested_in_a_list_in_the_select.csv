@@ -1,0 +1,6 @@
+id,big,listed
+Integer,Boolean,Boolean
+1,false,false
+2,false,false
+3,true,true
+4,true,true

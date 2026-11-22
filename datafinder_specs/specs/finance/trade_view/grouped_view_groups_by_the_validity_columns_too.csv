@@ -1,0 +1,5 @@
+account_name,sum_price,in_z,out_z
+String[0..1],Double,DateTime,DateTime
+Acme Ltd,84.11,2020-01-01T00:00:00,9999-12-31T23:59:59
+Acme Ltd,200.0,2020-01-01T00:00:00,2022-01-01T00:00:00
+,300.0,2024-01-01T00:00:00,9999-12-31T23:59:59

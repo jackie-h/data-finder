@@ -1,0 +1,8 @@
+{
+  "name": "valid_to_lt",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2021-06-01 12:00:00\", [f.symbol()], (f.valid_to() < datetime('2022-06-01T00:00:00')))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2021-06-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"<","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"valid_to"},"args":[],"kwargs":{}},"right":{"kind":"datetime","value":"2022-06-01T00:00:00"}}],"kwargs":{}},
+  "result": "valid_to_lt.csv"
+}

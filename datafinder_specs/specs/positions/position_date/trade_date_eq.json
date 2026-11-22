@@ -1,0 +1,8 @@
+{
+  "name": "trade_date_eq",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], f.trade_date().eq(date('2024-03-15')))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"eq"},"args":[{"kind":"date","value":"2024-03-15"}],"kwargs":{}}],"kwargs":{}},
+  "result": "trade_date_eq.csv"
+}

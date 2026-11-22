@@ -28,17 +28,25 @@ def test_a_cell_with_a_comma_a_quote_or_a_line_break_is_quoted():
 
 def test_each_type_comes_back_as_the_value_it_was():
     row = [1, 0.1 + 0.2, decimal.Decimal("1.50"), True, datetime.date(2024, 2, 29), datetime.datetime(2016, 8, 10, 8, 55, 30, 250000), [1.0, 0.2]]
-    types = ["Integer", "Float", "Decimal", "Boolean", "StrictDate", "DateTime", "Vector"]
+    types = ["Integer", "Double", "Decimal", "Boolean", "Date", "DateTime", "Vector"]
     assert _round_trip([f"c{i}" for i in range(7)], types, [row]) == [row]
+
+
+def test_an_interval_is_an_iso_duration():
+    values = [datetime.timedelta(days=731), datetime.timedelta(days=1, hours=2, minutes=3, seconds=4, microseconds=500000),
+              datetime.timedelta(seconds=-90), datetime.timedelta(0)]
+    text = typed_csv.write(["d"], ["Interval"], [[v] for v in values])
+    assert text.splitlines()[2:] == ["P731D", "P1DT2H3M4.5S", "-P0DT1M30S", "P0D"]
+    assert [row[0] for row in _round_trip(["d"], ["Interval"], [[v] for v in values])] == values
 
 
 def test_the_type_of_a_column_is_worked_out_from_its_values():
     assert typed_csv.column_type([1, 2]) == "Integer"
     assert typed_csv.column_type([1, None]) == "Integer[0..1]"
-    assert typed_csv.column_type([1, 2.5]) == "Float"
+    assert typed_csv.column_type([1, 2.5]) == "Double"
     assert typed_csv.column_type([np.int64(3), np.nan]) == "Integer[0..1]"
     assert typed_csv.column_type([datetime.datetime(2024, 1, 1), datetime.datetime(2024, 1, 2)]) == "DateTime"
-    assert typed_csv.column_type([datetime.date(2024, 1, 1)]) == "StrictDate"
+    assert typed_csv.column_type([datetime.date(2024, 1, 1)]) == "Date"
     with pytest.raises(ValueError, match="more than one type"):
         typed_csv.column_type([1, "a"])
     with pytest.raises(ValueError, match="no value"):
@@ -55,6 +63,12 @@ def test_the_spec_files_are_what_the_python_specs_export():
     exported = spec_files.export_all()
     root = spec_files.specs_folder()
     on_disk = {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8")
-               for suite in spec_files.suites() for p in (root / suite).glob("*") if p.is_file()}
+               for suite in spec_files.SUITES for p in (root / suite.name).rglob("*") if p.is_file()}
     assert sorted(on_disk) == sorted(exported)
     assert [path for path in exported if on_disk[path] != exported[path]] == []
+
+
+def test_every_table_of_a_suite_has_a_data_file():
+    root = spec_files.specs_folder()
+    missing = [f"{suite.name}: {csv}" for suite in spec_files.SUITES for csv in suite.data.values() if not (root / "data" / csv).is_file()]
+    assert missing == []

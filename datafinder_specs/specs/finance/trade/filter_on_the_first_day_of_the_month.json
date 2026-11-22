@@ -1,0 +1,11 @@
+{
+  "name": "filter_on_the_first_day_of_the_month",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2023-12-01 12:00:00\", [f.symbol()], f.valid_from().first_day_of_month().eq(date('2020-01-01')))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"valid_from"},"args":[],"kwargs":{}},"name":"first_day_of_month"},"args":[],"kwargs":{}},"name":"eq"},"args":[{"kind":"date","value":"2020-01-01"}],"kwargs":{}}],"kwargs":{}},
+  "result": "filter_on_the_first_day_of_the_month.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot filter on a date function"
+  }
+}

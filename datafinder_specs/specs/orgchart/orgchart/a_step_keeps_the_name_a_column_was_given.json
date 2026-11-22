@@ -1,0 +1,11 @@
+{
+  "name": "a_step_keeps_the_name_a_column_was_given",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "(v1 := f.find_all([f.name().alias(\"employeeName\")]).distinct().extend(size=lambda r: r.employeeName.length()).filter(lambda r: (r.size > 4)).select(\"employeeName\", \"size\")).order_by(v1[\"employeeName\"].ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["employeeName"],"kwargs":{}}]}],"kwargs":{}},"name":"distinct"},"args":[],"kwargs":{}},"name":"extend"},"args":[],"kwargs":{"size":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"employeeName"},"name":"length"},"args":[],"kwargs":{}}}}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":">","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"size"},"right":4}}],"kwargs":{}},"name":"select"},"args":["employeeName","size"],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"employeeName"},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_step_keeps_the_name_a_column_was_given.csv",
+  "skip": {
+    "graphql": "The GraphQL engine does not run steps over a result"
+  }
+}

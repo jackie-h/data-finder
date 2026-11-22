@@ -1,0 +1,11 @@
+{
+  "name": "text_constant_joins_with_text",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([(constant(\"a\") + \"b\").alias(\"after\"), (\"z\" + constant(\"a\")).alias(\"before\"), (constant(\"a\") + f.name()).alias(\"column\")], f.id_().eq(1))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["a"],"kwargs":{}},"right":"b"},"name":"alias"},"args":["after"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"+","left":"z","right":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["a"],"kwargs":{}}},"name":"alias"},"args":["before"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["a"],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}},"name":"alias"},"args":["column"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
+  "result": "text_constant_joins_with_text.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

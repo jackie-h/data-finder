@@ -1,0 +1,7 @@
+Id,category
+Integer,String[0..1]
+2,
+4,
+5,
+3,Finance
+1,Technology

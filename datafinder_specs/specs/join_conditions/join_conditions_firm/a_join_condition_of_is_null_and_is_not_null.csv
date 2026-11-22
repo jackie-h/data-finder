@@ -1,0 +1,7 @@
+LegalName,Employees FirstName
+String,String[0..1]
+Alpha,Mary
+Alpha,Peter
+Beta,
+Gamma,Bob
+Gamma,John

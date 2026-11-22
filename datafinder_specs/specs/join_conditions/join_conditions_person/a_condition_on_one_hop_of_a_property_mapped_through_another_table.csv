@@ -1,0 +1,9 @@
+Id,Activefirms LegalName
+Integer,String[0..1]
+1,
+1,Alpha
+2,
+3,
+4,Beta
+5,
+6,

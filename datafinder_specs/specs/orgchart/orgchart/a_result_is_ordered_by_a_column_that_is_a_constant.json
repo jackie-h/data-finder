@@ -1,0 +1,11 @@
+{
+  "name": "a_result_is_ordered_by_a_column_that_is_a_constant",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "(v1 := f.find_all([f.name().alias(\"name\"), constant(\"Hello\").alias(\"greeting\")])).order_by(v1[\"greeting\"].ascending(), v1[\"name\"].descending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["name"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["Hello"],"kwargs":{}},"name":"alias"},"args":["greeting"],"kwargs":{}}]}],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"greeting"},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"name"},"name":"descending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_result_is_ordered_by_a_column_that_is_a_constant.csv",
+  "skip": {
+    "graphql": "The GraphQL engine does not order the columns of a result"
+  }
+}

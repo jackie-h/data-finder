@@ -144,6 +144,7 @@ COMPANIES_CONSTANT_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="text_constant_pattern_test_that_fails_keeps_none",
+            expected_types=["Integer"],
             query=lambda f: f.find_all([f.id_()], constant("Hello").ends_with("x")),
             expected_columns=["Id"], expected_result=np.empty((0, 1), dtype=object),
         ),

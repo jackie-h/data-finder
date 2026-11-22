@@ -1,0 +1,8 @@
+{
+  "name": "the_end_date_is_not_in_the_range",
+  "finder": "RateFinder",
+  "mapping": "business_range_mapping.md",
+  "query_text": "f.find_all(\"2021-01-01\", None, [f.code(), f.amount()], f.code().eq(\"AAA\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2021-01-01",null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"eq"},"args":["AAA"],"kwargs":{}}],"kwargs":{}},
+  "result": "the_end_date_is_not_in_the_range.csv"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "a_join_condition_of_is_null_and_is_not_null",
+  "finder": "FirmFinder",
+  "mapping": "join_conditions_mapping.md",
+  "query_text": "f.find_all([f.legal_name(), f.employees().first_name()]).order_by(f.legal_name().ascending(), f.employees().first_name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"legal_name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"employees"},"args":[],"kwargs":{}},"name":"first_name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"legal_name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"employees"},"args":[],"kwargs":{}},"name":"first_name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_join_condition_of_is_null_and_is_not_null.csv",
+  "sql_contains": {
+    "duckdb": "ON (t0.id = t1.firm_id AND t0.flag IS NULL AND t1.flag IS NOT NULL)"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder reads no join conditions"
+  }
+}
