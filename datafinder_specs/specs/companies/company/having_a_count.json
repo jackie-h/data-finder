@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.category(), count_all()]).group_by(f.category()).having((count_all() > 1)).order_by(f.category().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"global","name":"count_all"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"having"},"args":[{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"global","name":"count_all"},"args":[],"kwargs":{}},"right":1}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "having_a_count.csv",
-  "sql_contains": {
-    "duckdb": "HAVING COUNT(*) > 1"
+  "sql": {
+    "duckdb": "having_a_count.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder cannot filter the groups of an aggregation"

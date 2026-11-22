@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.id_().alias(\"id\")]).aggregate(total=lambda r: r.id.sum()).filter(lambda r: (r.total > 5))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"alias"},"args":["id"],"kwargs":{}}]}],"kwargs":{}},"name":"aggregate"},"args":[],"kwargs":{"total":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"name":"sum"},"args":[],"kwargs":{}}}}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":">","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"total"},"right":5}}],"kwargs":{}},
   "result": "a_filter_on_an_aggregate_is_over_the_select_that_made_it.csv",
-  "sql_contains": {
-    "duckdb": "(SELECT"
+  "sql": {
+    "duckdb": "a_filter_on_an_aggregate_is_over_the_select_that_made_it.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL engine does not run steps over a result"

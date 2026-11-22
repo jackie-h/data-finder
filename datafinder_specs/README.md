@@ -11,7 +11,9 @@ files only, with no Python.
 - `specs/<suite>/<group>/`: the finder specs, each a JSON file with the query (a tree of calls of the finder API, and
   the same query as Python in `query_text`), the finder and mapping it reads, and the checks, and a CSV of the expected
   result: a row of column names, a row of types (`Integer`, `Double`, `String[0..1]`, `Date`, ...), then the rows. A
-  missing value is an empty cell and the empty string is `""`.
+  missing value is an empty cell and the empty string is `""`. Where the SQL matters, the JSON names a `<name>.<backend>.sql`
+  file with the full SQL that backend must write, and `sql_not_contains` fragments it must not contain. `skip` gives, per
+  backend, why a spec does not apply, and `approximate` compares doubles to a relative 1e-9.
 
 The version is the same as data-finder's.
 

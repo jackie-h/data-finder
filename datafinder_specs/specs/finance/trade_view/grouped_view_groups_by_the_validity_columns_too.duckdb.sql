@@ -1,0 +1,1 @@
+CREATE OR REPLACE VIEW reporting.account_totals AS SELECT t1.ACCT_NAME AS "account_name",SUM(t0.price) AS "sum_price",t0.in_z AS "in_z",t0.out_z AS "out_z" FROM trading.trades AS t0 LEFT OUTER JOIN ref_data.account_master AS t1 ON (t1.ID = t0.account_id AND t1.in_z <= t0.in_z AND (t1.out_z > t0.in_z OR t1.out_z IS NULL)) GROUP BY t1.ACCT_NAME, t0.in_z, t0.out_z

@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.name()], f.accounts(name=\"Acme Ltd\", processing_time=\"2024-09-01 12:00:00\").exists())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"accounts"},"args":[],"kwargs":{"name":"Acme Ltd","processing_time":"2024-09-01 12:00:00"}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_step_given_a_value_that_matches_no_current_row_is_no_row.csv",
-  "sql_contains": {
-    "duckdb": "SELECT DISTINCT"
+  "sql": {
+    "duckdb": "a_step_given_a_value_that_matches_no_current_row_is_no_row.duckdb.sql"
   },
   "skip": {
     "graphql": "exists/not_exists are not yet generated for GraphQL finders"

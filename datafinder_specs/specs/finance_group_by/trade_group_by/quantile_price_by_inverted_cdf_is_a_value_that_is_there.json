@@ -5,8 +5,8 @@
   "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [f.account().name(), f.price().quantile(0.9, method=\"inverted_cdf\")]).group_by(f.account().name()).order_by(f.account().name().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"quantile"},"args":[0.9],"kwargs":{"method":"inverted_cdf"}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "quantile_price_by_inverted_cdf_is_a_value_that_is_there.csv",
-  "sql_contains": {
-    "duckdb": "PERCENTILE_DISC(0.9)"
+  "sql": {
+    "duckdb": "quantile_price_by_inverted_cdf_is_a_value_that_is_there.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no percentile"

@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.id_()], (f.trade_date() < first_day_of_this_month()).and_((f.trade_date() < first_day_of_this_quarter())).and_((f.trade_date() < first_day_of_this_year()))).order_by(f.id_().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"<","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"global","name":"first_day_of_this_month"},"args":[],"kwargs":{}}},"name":"and_"},"args":[{"kind":"binary","op":"<","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"global","name":"first_day_of_this_quarter"},"args":[],"kwargs":{}}}],"kwargs":{}},"name":"and_"},"args":[{"kind":"binary","op":"<","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"global","name":"first_day_of_this_year"},"args":[],"kwargs":{}}}],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "rows_before_the_first_day_of_this_month_quarter_and_year.csv",
-  "sql_contains": {
-    "duckdb": "DATE_TRUNC('quarter', CURRENT_DATE)"
+  "sql": {
+    "duckdb": "rows_before_the_first_day_of_this_month_quarter_and_year.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no date functions beyond the parts of a date"

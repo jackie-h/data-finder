@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.name(), (v1 := f.locations().filter(lambda each: each.place().is_in([\"Hoboken\", \"New York\"]))).place()]).order_by(f.name().ascending(), v1.place().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"locations"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"place"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":["Hoboken","New York"]}],"kwargs":{}}}],"kwargs":{}}},"name":"place"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"place"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_filter_on_a_navigation_keeps_every_person.csv",
-  "sql_contains": {
-    "duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York'))"
+  "sql": {
+    "duckdb": "a_filter_on_a_navigation_keeps_every_person.duckdb.sql"
   },
   "sql_not_contains": {
     "duckdb": "WHERE"

@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.name(), f.employees().id_().count()]).order_by(f.name().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"employees"},"args":[],"kwargs":{}},"name":"id_"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "count_of_reports_for_each_employee.csv",
-  "sql_contains": {
-    "duckdb": "GROUP BY t0.id, t0.name"
+  "sql": {
+    "duckdb": "count_of_reports_for_each_employee.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no count() yet"

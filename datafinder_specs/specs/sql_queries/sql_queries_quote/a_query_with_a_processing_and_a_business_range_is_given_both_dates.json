@@ -5,8 +5,8 @@
   "query_text": "f.find_all(\"2021-06-01\", \"2021-06-01 00:00:00\", [f.code(), f.amount()]).order_by(f.code().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2021-06-01","2021-06-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_query_with_a_processing_and_a_business_range_is_given_both_dates.csv",
-  "sql_contains": {
-    "duckdb": ") AS t0 WHERE t0.in_z <= '2021-06-01 00:00:00' AND t0.out_z > '2021-06-01 00:00:00' AND t0.from_z <= '2021-06-01' AND t0.thru_z > '2021-06-01'"
+  "sql": {
+    "duckdb": "a_query_with_a_processing_and_a_business_range_is_given_both_dates.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder does not read a mapping's SQL queries"

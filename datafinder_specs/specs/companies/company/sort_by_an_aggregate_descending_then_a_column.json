@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.category(), f.id_().count()]).group_by(f.category()).order_by(f.id_().count().descending(), f.category().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}},"name":"descending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "sort_by_an_aggregate_descending_then_a_column.csv",
-  "sql_contains": {
-    "duckdb": "ORDER BY COUNT(t0.id) DESC NULLS LAST, t0.category ASC NULLS FIRST"
+  "sql": {
+    "duckdb": "sort_by_an_aggregate_descending_then_a_column.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no count() yet"

@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.name().upper().length()]).order_by(f.name().ascending()).limit(2)",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"upper"},"args":[],"kwargs":{}},"name":"length"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[2],"kwargs":{}},
   "result": "text_functions_chain.csv",
-  "sql_contains": {
-    "duckdb": "LENGTH(UPPER(t0.name))"
+  "sql": {
+    "duckdb": "text_functions_chain.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder cannot chain functions"

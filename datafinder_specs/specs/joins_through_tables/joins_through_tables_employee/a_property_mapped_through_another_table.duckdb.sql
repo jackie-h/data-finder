@@ -1,0 +1,1 @@
+SELECT t0.name AS "Name",t1.name AS "Citizenship Name" FROM hr.employees AS t0 LEFT OUTER JOIN hr.country_refs AS t2 ON (t0.citizen_ref = t2.ref AND t2.valid_from <= '2024-01-01' AND t2.valid_to > '2024-01-01') LEFT OUTER JOIN hr.countries AS t1 ON (t1.code = t2.code) ORDER BY t0.name ASC NULLS FIRST

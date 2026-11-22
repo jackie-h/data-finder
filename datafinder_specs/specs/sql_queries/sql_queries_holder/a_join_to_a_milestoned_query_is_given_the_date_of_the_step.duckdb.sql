@@ -1,0 +1,1 @@
+SELECT t0.id AS "Id",t1.amount AS "Rate Amount" FROM org.holders AS t0 LEFT OUTER JOIN (SELECT t2.code AS "code",t2.amount AS "amount",t2.from_z AS "from_z",t2.thru_z AS "thru_z" FROM org.rates AS t2 WHERE t2.amount > 0) AS t1 ON (t1.code = t0.rate_code AND t1.from_z <= '2021-06-01' AND (t1.thru_z > '2021-06-01' OR t1.thru_z IS NULL)) ORDER BY t0.id ASC NULLS FIRST

@@ -1,7 +1,7 @@
-"""Writes the spec files of datafinder_specs/specs: the JSON and CSV that each spec of a suite exports.
+"""Writes the JSON of each spec of datafinder_specs/specs: its query, finder and mapping, from the Python spec.
 
-``uv run datafinder_examples/tools/write_spec_files.py`` writes them again from the Python specs. Run it after changing a spec of a suite
-that is written as files (see ``suites()`` in spec_files.py).
+``uv run datafinder_examples/tools/write_spec_files.py`` writes them again. Run it after adding or changing the query of a spec of a suite
+(see ``SUITES`` in spec_files.py); what else a spec expects is in its CSV and SQL files, which are not written from the Python.
 """
 import sys
 from pathlib import Path

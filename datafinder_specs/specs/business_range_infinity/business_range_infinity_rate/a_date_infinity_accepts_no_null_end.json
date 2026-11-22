@@ -5,7 +5,7 @@
   "query_text": "f.find_all(\"2021-06-01\", None, [f.code(), f.amount()]).order_by(f.code().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2021-06-01",null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_date_infinity_accepts_no_null_end.csv",
-  "sql_contains": {
-    "duckdb": "t0.from_z <= '2021-06-01' AND t0.thru_z > '2021-06-01' ORDER BY"
+  "sql": {
+    "duckdb": "a_date_infinity_accepts_no_null_end.duckdb.sql"
   }
 }

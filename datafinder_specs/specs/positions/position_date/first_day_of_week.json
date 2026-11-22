@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.trade_date().first_day_of_week()], f.id_().eq(1))",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"first_day_of_week"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
   "result": "first_day_of_week.csv",
-  "sql_contains": {
-    "duckdb": "CAST(DATE_TRUNC('week', t0.trade_date) AS DATE)"
+  "sql": {
+    "duckdb": "first_day_of_week.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder cannot truncate dates"

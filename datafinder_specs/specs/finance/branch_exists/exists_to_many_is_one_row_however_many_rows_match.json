@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.city()], f.accounts(processing_time=\"2024-09-01 12:00:00\").exists())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"accounts"},"args":[],"kwargs":{"processing_time":"2024-09-01 12:00:00"}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "exists_to_many_is_one_row_however_many_rows_match.csv",
-  "sql_contains": {
-    "duckdb": "SELECT DISTINCT t2.BRANCH_ID AS \"BRANCH_ID\" FROM ref_data.account_master AS t2"
+  "sql": {
+    "duckdb": "exists_to_many_is_one_row_however_many_rows_match.duckdb.sql"
   },
   "skip": {
     "graphql": "exists/not_exists are not yet generated for GraphQL finders"

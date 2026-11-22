@@ -8,7 +8,6 @@ reverse navigation (project → employee), join filters (kwargs), and multi-hop 
                    email VARCHAR, department VARCHAR, manager_id INT
     hr.projects  — project_id INT, name VARCHAR, code VARCHAR, assignee_id INT
 """
-import numpy as np
 
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
@@ -25,25 +24,16 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 [f.first_name()], f.department().starts_with("Eng")
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
-            expected_sql={"duckdb": "IS NOT NULL AND"},
         ),
         TestExpectation(
             name="optional_property_equality_is_not_guarded",
             query=lambda f: f.find_all([f.first_name()], f.department().eq("QA")),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Dave"]], dtype=object),
-            unexpected_sql={"duckdb": "IS NOT NULL AND"},
         ),
         TestExpectation(
             name="required_property_comparison_is_not_guarded",
             query=lambda f: f.find_all(
                 [f.first_name()], f.first_name().starts_with("C")
             ),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Carol"]], dtype=object),
-            unexpected_sql={"duckdb": "IS NOT NULL AND"},
         ),
         TestExpectation(
             name="required_property_behind_an_optional_navigation_is_guarded",
@@ -51,20 +41,12 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 [f.first_name()], f.manager().first_name().starts_with("B")
             ),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Dave"]], dtype=object),
-            expected_sql={"duckdb": "IS NOT NULL AND"},
         ),
         TestExpectation(
             name="all_employees_inherited_name",
             query=lambda f: f.find_all(
                 [f.first_name(), f.last_name()]
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Last Name"],
-            expected_result=np.array(
-                [["Alice", "Smith"], ["Bob", "Jones"], ["Carol", "White"], ["Dave", "Brown"]],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="filter_by_inherited_first_name",
@@ -72,8 +54,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name(), f.department()],
                 f.first_name().eq("Alice"),
             ),
-            expected_columns=["First Name", "Department"],
-            expected_result=np.array([["Alice", "Executive"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_inherited_email",
@@ -81,8 +61,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name()],
                 f.email().eq("bob@example.com"),
             ),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Bob"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_department_engineering",
@@ -90,8 +68,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name()],
                 f.department().eq("Engineering"),
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
         ),
         TestExpectation(
             name="manager_name_for_bob",
@@ -99,36 +75,18 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name(), f.manager().first_name()],
                 f.first_name().eq("Bob"),
             ),
-            expected_columns=["First Name", "Manager First Name"],
-            expected_result=np.array([["Bob", "Alice"]], dtype=object),
         ),
         TestExpectation(
             name="employees_with_all_projects",
             query=lambda f: f.find_all(
                 [f.first_name(), f.projects().name()],
             ).order_by(f.first_name().ascending(), f.projects().name().ascending()),
-            expected_columns=["First Name", "Projects Name"],
-            expected_result=np.array(
-                [
-                    ["Alice", "Epsilon Research"],
-                    ["Bob", "Alpha Initiative"],
-                    ["Bob", "Beta Platform"],
-                    ["Carol", "Gamma Tooling"],
-                    ["Dave", "Delta Ops"],
-                ],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="forward_join_filter_code_alpha",
             query=lambda f: f.find_all(
                 [f.first_name(), f.projects(code="ALPHA").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Projects Name"],
-            expected_result=np.array(
-                [["Alice", None], ["Bob", "Alpha Initiative"], ["Carol", None], ["Dave", None]],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="multihop_manager_projects_for_dave",
@@ -136,8 +94,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.manager().projects().name()],
                 f.first_name().eq("Dave"),
             ).order_by(f.manager().projects().name().ascending()),
-            expected_columns=["Manager Projects Name"],
-            expected_result=np.array([["Alpha Initiative"], ["Beta Platform"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_manager_project_code",
@@ -145,8 +101,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name()],
                 f.manager().projects().code().eq("ALPHA"),
             ),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Dave"]], dtype=object),
         ),
         TestExpectation(
             name="filter_by_manager_name_select_project",
@@ -154,8 +108,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.manager().projects().name()],
                 f.manager().first_name().eq("Alice"),
             ).order_by(f.manager().projects().name().ascending()),
-            expected_columns=["Manager Projects Name"],
-            expected_result=np.array([["Epsilon Research"], ["Epsilon Research"]], dtype=object),
         ),
         # --- Additional inheritance specs ---
         TestExpectation(
@@ -163,8 +115,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 [f.first_name()], f.last_name().eq("Jones"),
             ),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Bob"]], dtype=object),
         ),
         TestExpectation(
             name="project_all_inherited_columns",
@@ -172,22 +122,13 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.id_(), f.first_name(), f.last_name(), f.email(), f.department()],
                 f.first_name().eq("Dave"),
             ),
-            expected_columns=["Id", "First Name", "Last Name", "Email", "Department"],
-            expected_result=np.array(
-                [[4, "Dave", "Brown", "dave@example.com", "QA"]], dtype=object
-            ),
         ),
         TestExpectation(
             name="manager_name_for_all",
+            # Alice has no manager → None; Bob/Carol report to Alice; Dave reports to Bob
             query=lambda f: f.find_all(
                 [f.first_name(), f.manager().first_name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Manager First Name"],
-            # Alice has no manager → None; Bob/Carol report to Alice; Dave reports to Bob
-            expected_result=np.array(
-                [["Alice", None], ["Bob", "Alice"], ["Carol", "Alice"], ["Dave", "Bob"]],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="filter_by_manager_alice",
@@ -195,8 +136,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name()],
                 f.manager().first_name().eq("Alice"),
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
         ),
         TestExpectation(
             name="manager_email_for_bob",
@@ -204,8 +143,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name(), f.manager().email()],
                 f.first_name().eq("Bob"),
             ),
-            expected_columns=["First Name", "Manager Email"],
-            expected_result=np.array([["Bob", "alice@example.com"]], dtype=object),
         ),
         TestExpectation(
             name="employee_projects_for_bob",
@@ -213,8 +150,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.projects().code()],
                 f.first_name().eq("Bob"),
             ).order_by(f.projects().code().ascending()),
-            expected_columns=["Projects Code"],
-            expected_result=np.array([["ALPHA"], ["BETA"]], dtype=object),
         ),
         TestExpectation(
             name="filter_employee_by_project_name",
@@ -222,8 +157,6 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
                 [f.first_name()],
                 f.projects().name().eq("Delta Ops"),
             ),
-            expected_columns=["First Name"],
-            expected_result=np.array([["Dave"]], dtype=object),
         ),
         # --- Additional join filter specs ---
         TestExpectation(
@@ -231,57 +164,35 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 [f.first_name(), f.projects(name="Gamma Tooling").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Projects Name"],
-            expected_result=np.array(
-                [["Alice", None], ["Bob", None], ["Carol", "Gamma Tooling"], ["Dave", None]],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="forward_join_filter_multi_kwarg",
             query=lambda f: f.find_all(
                 [f.first_name(), f.projects(name="Alpha Initiative", code="ALPHA").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Projects Name"],
-            expected_result=np.array(
-                [["Alice", None], ["Bob", "Alpha Initiative"], ["Carol", None], ["Dave", None]],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="forward_join_filter_nonexistent",
-            expected_types=["String", "String[0..1]"],
             query=lambda f: f.find_all(
                 [f.first_name(), f.projects(code="NONEXISTENT").name()],
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name", "Projects Name"],
-            expected_result=np.array(
-                [["Alice", None], ["Bob", None], ["Carol", None], ["Dave", None]],
-                dtype=object,
-            ),
         ),
         # --- RelatedFinder.exists() / not_exists() ---
         TestExpectation(
             name="manager_exists_filter",
-            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
+            # Alice has no manager; Bob/Carol/Dave all have managers
             query=lambda f: f.find_all(
                 [f.first_name()],
                 f.manager().exists(),
             ).order_by(f.first_name().ascending()),
-            expected_columns=["First Name"],
-            # Alice has no manager; Bob/Carol/Dave all have managers
-            expected_result=np.array([["Bob"], ["Carol"], ["Dave"]], dtype=object),
         ),
         TestExpectation(
             name="manager_not_exists_filter",
-            skip_backends={"graphql": "exists/not_exists are not yet generated for GraphQL finders"},
+            # Only Alice has no manager (manager_id IS NULL)
             query=lambda f: f.find_all(
                 [f.first_name()],
                 f.manager().not_exists(),
             ),
-            expected_columns=["First Name"],
-            # Only Alice has no manager (manager_id IS NULL)
-            expected_result=np.array([["Alice"]], dtype=object),
         ),
     ],
 )
@@ -295,17 +206,6 @@ PROJECT_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all(
                 [f.name(), f.assignee().first_name()]
             ).order_by(f.name().ascending()),
-            expected_columns=["Name", "Assignee First Name"],
-            expected_result=np.array(
-                [
-                    ["Alpha Initiative", "Bob"],
-                    ["Beta Platform", "Bob"],
-                    ["Delta Ops", "Dave"],
-                    ["Epsilon Research", "Alice"],
-                    ["Gamma Tooling", "Carol"],
-                ],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="filter_projects_by_assignee_engineering",
@@ -313,48 +213,18 @@ PROJECT_FINDER_SPECS = FinderSpec(
                 [f.name(), f.code()],
                 f.assignee().department().eq("Engineering"),
             ).order_by(f.code().ascending()),
-            expected_columns=["Name", "Code"],
-            expected_result=np.array(
-                [["Alpha Initiative", "ALPHA"], ["Beta Platform", "BETA"], ["Gamma Tooling", "GAMMA"]],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="filter_assignee_by_join_kwarg_dept",
-            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 [f.name(), f.assignee(department="Engineering").first_name()],
             ).order_by(f.name().ascending()),
-            expected_columns=["Name", "Assignee First Name"],
-            expected_result=np.array(
-                [
-                    ["Alpha Initiative", "Bob"],
-                    ["Beta Platform", "Bob"],
-                    ["Delta Ops", None],
-                    ["Epsilon Research", None],
-                    ["Gamma Tooling", "Carol"],
-                ],
-                dtype=object,
-            ),
         ),
         TestExpectation(
             name="reverse_join_filter_nonexistent",
-            expected_types=["String", "String[0..1]"],
-            skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 [f.name(), f.assignee(department="UNKNOWN").first_name()],
             ).order_by(f.name().ascending()),
-            expected_columns=["Name", "Assignee First Name"],
-            expected_result=np.array(
-                [
-                    ["Alpha Initiative", None],
-                    ["Beta Platform", None],
-                    ["Delta Ops", None],
-                    ["Epsilon Research", None],
-                    ["Gamma Tooling", None],
-                ],
-                dtype=object,
-            ),
         ),
     ],
 )

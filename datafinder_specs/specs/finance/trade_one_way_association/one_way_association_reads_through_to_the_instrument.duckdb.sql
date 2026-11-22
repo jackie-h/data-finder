@@ -1,0 +1,1 @@
+SELECT t0.sym AS "Symbol",t1.PRICE AS "Instrument Price" FROM trading.trades AS t0 LEFT OUTER JOIN ref_data.price AS t1 ON (t1.SYM = t0.sym AND t1.in_z <= '2021-06-01 12:00:00' AND (t1.out_z > '2021-06-01 12:00:00' OR t1.out_z IS NULL)) WHERE t0.in_z <= '2021-06-01 12:00:00' AND (t0.out_z > '2021-06-01 12:00:00' OR t0.out_z IS NULL) ORDER BY t0.sym ASC NULLS FIRST

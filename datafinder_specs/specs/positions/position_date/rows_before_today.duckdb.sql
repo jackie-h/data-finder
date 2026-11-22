@@ -1,0 +1,1 @@
+SELECT t0.id AS "Id" FROM main.positions AS t0 WHERE t0.trade_date < CURRENT_DATE ORDER BY t0.id ASC NULLS FIRST

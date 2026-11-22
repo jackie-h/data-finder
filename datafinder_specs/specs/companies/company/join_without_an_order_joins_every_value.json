@@ -5,7 +5,7 @@
   "query_text": "f.find_all([f.category(), f.name().join(\",\")], f.category().eq(\"Manufacturing\")).group_by(f.category())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"join"},"args":[","],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"eq"},"args":["Manufacturing"],"kwargs":{}}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "join_without_an_order_joins_every_value.csv",
-  "sql_contains": {
-    "duckdb": "STRING_AGG(t0.name, ',')"
+  "sql": {
+    "duckdb": "join_without_an_order_joins_every_value.duckdb.sql"
   }
 }

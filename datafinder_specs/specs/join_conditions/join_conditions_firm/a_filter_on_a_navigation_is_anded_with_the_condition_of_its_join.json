@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.legal_name(), f.employees().filter(lambda each: each.first_name().eq(\"Mary\")).first_name()]).order_by(f.legal_name().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"legal_name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"employees"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"first_name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Mary"],"kwargs":{}}}],"kwargs":{}},"name":"first_name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"legal_name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_filter_on_a_navigation_is_anded_with_the_condition_of_its_join.csv",
-  "sql_contains": {
-    "duckdb": "ON (t0.id = t1.firm_id AND t0.flag IS NULL AND t1.flag IS NOT NULL AND t1.first_name = 'Mary')"
+  "sql": {
+    "duckdb": "a_filter_on_a_navigation_is_anded_with_the_condition_of_its_join.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder reads no join conditions"

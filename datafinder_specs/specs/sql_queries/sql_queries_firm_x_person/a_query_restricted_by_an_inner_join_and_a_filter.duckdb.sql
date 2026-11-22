@@ -1,0 +1,1 @@
+SELECT t0.person_id AS "Id",t0.first_name AS "FirstName" FROM (SELECT t1.person_id AS "person_id",t1.first_name AS "first_name" FROM org.people AS t1 INNER JOIN org.firms AS t2 ON (t2.id = t1.firm_id) WHERE t2.name = 'Firm X') AS t0 ORDER BY t0.person_id ASC NULLS FIRST

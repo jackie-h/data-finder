@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.name(), f.category().eq(\"Technology\")]).order_by(f.id_().ascending()).limit(3)",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"eq"},"args":["Technology"],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[3],"kwargs":{}},
   "result": "a_comparison_as_a_column.csv",
-  "sql_contains": {
-    "duckdb": "t0.category = 'Technology' AS \"Expression\""
+  "sql": {
+    "duckdb": "a_comparison_as_a_column.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder cannot compute a condition as a column"

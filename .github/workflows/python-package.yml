@@ -42,11 +42,6 @@ jobs:
       # For example, using `pytest`
       run: uv run pytest
 
-    - name: Run the specs from the spec files of data-finder-specs
-      run: uv run pytest datafinder_ibis_duckdb datafinder_graphql datafinder_spark
-      env:
-        DATAFINDER_SPECS_FROM_FILES: "1"
-
     - name: Run pyright
       run: uv run pyright
       if: matrix.python-version == '3.11'

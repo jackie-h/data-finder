@@ -5,8 +5,8 @@
   "query_text": "f.find_all([(((f.name() + \" (\") + f.category()) + \")\")]).order_by(f.name().ascending()).limit(2)",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"binary","op":"+","left":{"kind":"binary","op":"+","left":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"right":" ("},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}},"right":")"}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[2],"kwargs":{}},
   "result": "concat_columns_and_text.csv",
-  "sql_contains": {
-    "duckdb": "t0.name || ' (' || t0.category || ')'"
+  "sql": {
+    "duckdb": "concat_columns_and_text.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder cannot join text"

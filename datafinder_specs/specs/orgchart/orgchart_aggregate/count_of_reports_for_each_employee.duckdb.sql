@@ -1,0 +1,1 @@
+SELECT t0.name AS "Name",COUNT(t1.id) AS "Employees Id Count" FROM hr.employees AS t0 LEFT OUTER JOIN hr.employees AS t1 ON (t0.id = t1.manager_id) GROUP BY t0.id, t0.name ORDER BY t0.name ASC NULLS FIRST

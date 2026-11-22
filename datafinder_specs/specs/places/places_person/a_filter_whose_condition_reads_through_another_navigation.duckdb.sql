@@ -1,0 +1,1 @@
+SELECT t0.name AS "Name",t1.place AS "Locations Place" FROM geo.people AS t0 LEFT OUTER JOIN (SELECT t2.person_id AS "person_id",t2.place AS "place" FROM geo.locations AS t2 LEFT OUTER JOIN geo.regions AS t3 ON (t3.id = t2.region_id) WHERE t3.name = 'East') AS t1 ON (t0.id = t1.person_id) ORDER BY t0.name ASC NULLS FIRST, t1.place ASC NULLS FIRST

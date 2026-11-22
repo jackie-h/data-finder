@@ -5,7 +5,7 @@
   "query_text": "f.find_all([f.name(), constant(\"Hello\").alias(\"Greeting\")]).order_by(f.name().ascending()).limit(2)",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["Hello"],"kwargs":{}},"name":"alias"},"args":["Greeting"],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[2],"kwargs":{}},
   "result": "constant_string_column.csv",
-  "sql_contains": {
-    "duckdb": "'Hello' AS \"Greeting\""
+  "sql": {
+    "duckdb": "constant_string_column.duckdb.sql"
   }
 }

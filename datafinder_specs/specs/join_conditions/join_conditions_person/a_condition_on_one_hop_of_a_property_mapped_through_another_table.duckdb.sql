@@ -1,0 +1,1 @@
+SELECT t0.id AS "Id",t1.legal_name AS "Activefirms LegalName" FROM org.persons AS t0 LEFT OUTER JOIN org.memberships AS t2 ON (t0.id = t2.person_id) LEFT OUTER JOIN org.firms AS t1 ON (t2.firm_id = t1.id AND t2.active = 1) ORDER BY t0.id ASC NULLS FIRST, t1.legal_name ASC NULLS FIRST

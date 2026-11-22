@@ -1,0 +1,1 @@
+SELECT t0.NAME AS "Name" FROM ref_data.desk AS t0 LEFT OUTER JOIN (SELECT DISTINCT t2.DESK_ID AS "DESK_ID" FROM ref_data.account_master AS t2 WHERE t2.ACCT_NAME = 'Beta Inc' AND t2.in_z <= '2024-09-01 12:00:00' AND (t2.out_z > '2024-09-01 12:00:00' OR t2.out_z IS NULL)) AS t1 ON (t0.ID = t1.DESK_ID) WHERE t1.DESK_ID IS NOT NULL

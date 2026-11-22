@@ -5,8 +5,8 @@
   "query_text": "(v1 := f.find_all([f.name().alias(\"employeeName\"), f.id_().alias(\"id\")]).extend(newest=lambda r: r.id.max().over()).filter(lambda r: (r.id == r.newest))).order_by(v1[\"employeeName\"].ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["employeeName"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"alias"},"args":["id"],"kwargs":{}}]}],"kwargs":{}},"name":"extend"},"args":[],"kwargs":{"newest":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"name":"max"},"args":[],"kwargs":{}},"name":"over"},"args":[],"kwargs":{}}}}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"==","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"right":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"newest"}}}],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"employeeName"},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_filter_on_a_window_column_is_still_over_the_select_that_made_it.csv",
-  "sql_contains": {
-    "duckdb": "(SELECT"
+  "sql": {
+    "duckdb": "a_filter_on_a_window_column_is_still_over_the_select_that_made_it.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL engine does not run steps over a result"

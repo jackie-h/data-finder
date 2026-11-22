@@ -1,0 +1,1 @@
+SELECT t0.name AS "Name" FROM hr.employees AS t0 LEFT OUTER JOIN hr.employees AS t2 ON (t2.id = t0.manager_id) LEFT OUTER JOIN (SELECT DISTINCT t3.manager_id AS "manager_id" FROM hr.employees AS t3) AS t1 ON (t2.id = t1.manager_id) WHERE t1.manager_id IS NOT NULL ORDER BY t0.id ASC NULLS FIRST

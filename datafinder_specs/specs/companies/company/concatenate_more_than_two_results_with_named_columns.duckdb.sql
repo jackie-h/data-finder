@@ -1,0 +1,1 @@
+SELECT t0.theKey AS "theKey" FROM (SELECT t1.id AS "theKey" FROM main.companies AS t1 WHERE t1.id = 1 UNION ALL SELECT t2.id AS "theKey" FROM main.companies AS t2 WHERE t2.id = 2 UNION ALL SELECT t3.id AS "theKey" FROM main.companies AS t3 WHERE t3.id = 3) AS t0 ORDER BY t0.theKey DESC NULLS LAST

@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.name()], when(f.category().eq(\"Technology\")).then(True).otherwise(False)).order_by(f.id_().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"when"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"eq"},"args":["Technology"],"kwargs":{}}],"kwargs":{}},"name":"then"},"args":[true],"kwargs":{}},"name":"otherwise"},"args":[false],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "if_as_a_filter_keeps_the_rows_where_it_is_true.csv",
-  "sql_contains": {
-    "duckdb": "WHERE CASE WHEN t0.category = 'Technology' THEN TRUE ELSE FALSE END"
+  "sql": {
+    "duckdb": "if_as_a_filter_keeps_the_rows_where_it_is_true.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder cannot compute a conditional"

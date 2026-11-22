@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.manager().name(), f.id_().count()]).order_by(f.manager().name().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"manager"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"manager"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "aggregate_over_a_to_one_association_groups_by_the_plain_columns.csv",
-  "sql_contains": {
-    "duckdb": "GROUP BY t1.name"
+  "sql": {
+    "duckdb": "aggregate_over_a_to_one_association_groups_by_the_plain_columns.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder has no count() yet"

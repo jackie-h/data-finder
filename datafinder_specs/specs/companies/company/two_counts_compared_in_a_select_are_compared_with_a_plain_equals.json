@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.category(), (f.name().count_distinct() == f.name().count()).alias(\"all distinct\")]).group_by(f.category()).order_by(f.category().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"==","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"count_distinct"},"args":[],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}}},"name":"alias"},"args":["all distinct"],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "two_counts_compared_in_a_select_are_compared_with_a_plain_equals.csv",
-  "sql_contains": {
-    "duckdb": "COUNT(DISTINCT t0.name) = COUNT(t0.name) AS"
+  "sql": {
+    "duckdb": "two_counts_compared_in_a_select_are_compared_with_a_plain_equals.duckdb.sql"
   },
   "sql_not_contains": {
     "duckdb": "IS NULL"

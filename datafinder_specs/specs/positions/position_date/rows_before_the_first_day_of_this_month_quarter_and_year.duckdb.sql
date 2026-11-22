@@ -1,0 +1,1 @@
+SELECT t0.id AS "Id" FROM main.positions AS t0 WHERE t0.trade_date < CAST(DATE_TRUNC('month', CURRENT_DATE) AS DATE) AND t0.trade_date < CAST(DATE_TRUNC('quarter', CURRENT_DATE) AS DATE) AND t0.trade_date < CAST(DATE_TRUNC('year', CURRENT_DATE) AS DATE) ORDER BY t0.id ASC NULLS FIRST

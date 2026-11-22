@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.id_(), f.embedding().cosine_distance([1.0, 0.2, 0.0]).round(4)]).order_by(f.id_().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"embedding"},"args":[],"kwargs":{}},"name":"cosine_distance"},"args":[{"kind":"list","items":[1.0,0.2,0.0]}],"kwargs":{}},"name":"round"},"args":[4],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "cosine_distance_of_each_company.csv",
-  "sql_contains": {
-    "duckdb": "COSINE_DISTANCE(t0.embedding, CAST(ARRAY[1.0, 0.2, 0.0] AS VECTOR(3)))"
+  "sql": {
+    "duckdb": "cosine_distance_of_each_company.duckdb.sql"
   },
   "skip": {
     "graphql": "A distance to a vector is a number of the query, as a function of a number is; the rows are the same on every engine"

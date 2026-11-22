@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.id_(), f.reports().name()]).order_by(f.id_().ascending(), f.reports().name().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"reports"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"reports"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "the_join_followed_from_the_other_end_swaps_the_sides.csv",
-  "sql_contains": {
-    "duckdb": "ON (t0.id = t1.manager_id AND t1.active = 1 AND t0.active = 1)"
+  "sql": {
+    "duckdb": "the_join_followed_from_the_other_end_swaps_the_sides.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder reads no join conditions"

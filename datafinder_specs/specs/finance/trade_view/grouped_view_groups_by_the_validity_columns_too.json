@@ -5,8 +5,8 @@
   "query_text": "f.find_all(None, None, [f.account().name(), f.price().sum()]).group_by(f.account().name()).to_view(\"account_totals\", \"reporting\").result().order_by(\"sum_price\")",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"sum"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"to_view"},"args":["account_totals","reporting"],"kwargs":{}},"name":"result"},"args":[],"kwargs":{}},"name":"order_by"},"args":["sum_price"],"kwargs":{}},
   "result": "grouped_view_groups_by_the_validity_columns_too.csv",
-  "sql_contains": {
-    "duckdb": "GROUP BY t1.ACCT_NAME, t0.in_z, t0.out_z"
+  "sql": {
+    "duckdb": "grouped_view_groups_by_the_validity_columns_too.duckdb.sql"
   },
   "skip": {
     "graphql": "Views are not supported by the GraphQL backend"

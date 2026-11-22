@@ -1,0 +1,1 @@
+SELECT t0.id AS "id" FROM (SELECT t1.id AS "id" FROM main.companies AS t1 WHERE t1.id < 3 UNION SELECT t2.id AS "id" FROM main.companies AS t2 WHERE t2.id >= 3) AS t0 ORDER BY t0.id ASC NULLS FIRST LIMIT 3 OFFSET 1

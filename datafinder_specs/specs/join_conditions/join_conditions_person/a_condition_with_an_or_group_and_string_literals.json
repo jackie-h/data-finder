@@ -5,8 +5,8 @@
   "query_text": "f.find_all([f.id_(), f.firm_if_peter_or_john().legal_name()]).order_by(f.id_().ascending())",
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"firm_if_peter_or_john"},"args":[],"kwargs":{}},"name":"legal_name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
   "result": "a_condition_with_an_or_group_and_string_literals.csv",
-  "sql_contains": {
-    "duckdb": "(t0.first_name = 'Peter' OR t0.first_name = 'John')"
+  "sql": {
+    "duckdb": "a_condition_with_an_or_group_and_string_literals.duckdb.sql"
   },
   "skip": {
     "graphql": "The GraphQL finder reads no join conditions"

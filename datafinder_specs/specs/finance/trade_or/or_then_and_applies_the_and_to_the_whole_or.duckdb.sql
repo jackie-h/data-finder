@@ -1,0 +1,1 @@
+SELECT t0.sym AS "Symbol" FROM trading.trades AS t0 WHERE (t0.sym = 'AAPL' OR t0.sym = 'MSFT') AND t0.price > 200.0 AND t0.in_z <= '2024-09-01 12:00:00' AND (t0.out_z > '2024-09-01 12:00:00' OR t0.out_z IS NULL)

@@ -1,0 +1,1 @@
+SELECT t0.id AS "Id" FROM main.companies AS t0 WHERE t0.category = t0.name OR (t0.category IS NULL AND t0.name IS NULL) ORDER BY t0.id ASC NULLS FIRST
