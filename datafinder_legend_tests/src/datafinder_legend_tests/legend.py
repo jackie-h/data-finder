@@ -18,8 +18,12 @@ RESTRICT_AFTER_GROUP_BY = (
 ROWS = f"{BACKEND}/rows"
 
 TYPED_DATE_LITERAL = (
-    "a date constant in the select list is written `DATE '2016-08-10'` so it comes back as a date; Legend writes the "
-    "bare string literal, which comes back as text"
+    "Legend writes a date or datetime constant as a typed literal, DATE'2015-10-16' or TIMESTAMP'2014-12-04 15:22:24', where the finder writes "
+    "a plain string in a filter or a milestoning condition, which the database reads as the type of the column it is compared with"
+)
+FLOAT_LITERAL_CAST = (
+    "Legend writes a decimal constant as cast(1.0 as float), so that the arithmetic around it is in floating point; the finder writes the "
+    "constant, 1.0, which is a decimal in DuckDB"
 )
 
 DISTINCT_QUERY_JOIN_INSIDE = (
@@ -131,6 +135,12 @@ PERCENTILE_AS_DOUBLE = (
 PERCENTILE_SINGLE_PRECISION = (
     "the column is a REAL in DuckDB, so Legend's SQL interpolates a percentile in single precision (44.599998474) where H2, which the results of "
     "Legend's tests are from, does in double, as the finder does by casting the column (44.6): the rows agree to single precision"
+)
+
+EXTRACT_DOW_FROM_SUNDAY_AS_ONE = (
+    "Legend's SQL numbers the days of the week with extract(dow ...) as H2 does, from Sunday as 1, and moves back to a Monday by that number; "
+    "DuckDB numbers them from Sunday as 0, so Legend's SQL run on DuckDB reaches the Tuesday (2014-12-02), where Legend's test expects the "
+    "Monday (2014-12-01), which the finder returns"
 )
 
 DAY_OF_WEEK_NUMBER = (

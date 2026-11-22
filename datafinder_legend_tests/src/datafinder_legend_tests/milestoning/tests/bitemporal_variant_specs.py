@@ -9,6 +9,8 @@ columns they are ignored and nothing filters it; against a table with a business
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import ported
+from datafinder_legend_tests.legend import TYPED_DATE_LITERAL
+from datafinder_legend_tests.legend import BACKEND
 
 NONE_MAPPING = "milestoning/tests/bitemporal_none_mapping.md"
 SINGLE_MAPPING = "milestoning/tests/bitemporal_single_mapping.md"
@@ -32,7 +34,8 @@ BITEMPORAL_ON_SINGLE_TEMPORAL_SPECS = FinderSpec(
     mapping_file=SINGLE_MAPPING,
     expectations=[
         ported("testBiTemporalQueryMappedToSingleTemporalStore", "milestoning/tests/testBiTemporalDateMilestoning.pure::testBiTemporalQueryMappedToSingleTemporalStore",
-               'select "root".name as "productName", "productclassificationtable_0".type as "classificationType" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and ("productclassificationtable_0".from_z <= \'2017-06-10\' and "productclassificationtable_0".thru_z > \'2017-06-10\')) where "root".from_z <= \'2017-06-10\' and "root".thru_z > \'2017-06-10\'',
-               lambda f: f.find_all("2017-06-10", "2017-06-11", [f.name(), f.bi_temporal_classification().type_()])),
+               'select "root".name as "productName", "productclassificationtable_0".type as "classificationType" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".from_z <= DATE\'2017-06-10\' and "productclassificationtable_0".thru_z > DATE\'2017-06-10\') where "root".from_z <= DATE\'2017-06-10\' and "root".thru_z > DATE\'2017-06-10\'',
+               lambda f: f.find_all("2017-06-10", "2017-06-11", [f.name(), f.bi_temporal_classification().type_()]),
+               known_gaps={BACKEND: TYPED_DATE_LITERAL}),
     ],
 )

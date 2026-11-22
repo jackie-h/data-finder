@@ -96,4 +96,6 @@ _GAP_CASES = [pytest.param(mapping, spec, e, id=f"{spec.finder_name}-{e.name}") 
 def test_known_sql_gap_is_only_what_it_says(mapping, spec, expectation):
     with generated_finders(legend_path(mapping)):
         actual = expectation.query(_finder(mapping, spec.finder_name)).to_sql()
-    assert gap_is_only(expectation.known_gaps[BACKEND], actual, expectation.equivalent_sql[BACKEND])
+    assert gap_is_only(expectation.known_gaps[BACKEND], actual, expectation.equivalent_sql[BACKEND]), (
+        f"[{expectation.name}] differs from Legend by more than: {expectation.known_gaps[BACKEND]}\n"
+        f"Actual: {actual}\nExpected: {expectation.equivalent_sql[BACKEND]}")

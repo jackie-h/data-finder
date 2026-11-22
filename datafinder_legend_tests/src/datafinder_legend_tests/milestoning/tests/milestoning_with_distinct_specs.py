@@ -16,7 +16,7 @@ MILESTONING_WITH_DISTINCT_SPECS = FinderSpec(
     mapping_file="tests/simple_mapping.md",
     expectations=[
         unsupported("testDistinctUsageAtRootOfMilestonedQuery", f"{_SRC}::testDistinctUsageAtRootOfMilestonedQuery",
-                    'select "root".id as "id", "root".name as "name", "root".type as "type" from (select distinct "producttable_1".id as id, "producttable_1".name as name, "producttable_1".type as type, \'2015-08-16\' as "k_businessDate" from ProductTable as "producttable_1" where "producttable_1".from_z <= \'2015-08-16\' and "producttable_1".thru_z > \'2015-08-16\') as "root"',
+                    'select "root".id as "id", "root".name as "name", "root".type as "type" from (select distinct "producttable_1".id as id, "producttable_1".name as name, "producttable_1".type as type, \'2015-08-16\' as "k_businessDate" from ProductTable as "producttable_1" where "producttable_1".from_z <= DATE\'2015-08-16\' and "producttable_1".thru_z > DATE\'2015-08-16\') as "root"',
                     'a ~distinct class mapping that is milestoned (milestoningdistinctmapping)'),
     ],
 )

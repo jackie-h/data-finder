@@ -7,6 +7,8 @@ from datafinder import when
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import ported, unsupported, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import FLOAT_LITERAL_CAST
+from datafinder_legend_tests.legend import BACKEND
 
 _SRC = "tests/mapping/embedded/testInlineEmbeddedMapping.pure"
 
@@ -25,11 +27,13 @@ INLINE_EMBEDDED_MAPPING_SPECS = FinderSpec(
                'select "root".PRODUCT_NAME as "name", "root".BOND_TYPE as "type" from PRODUCT_DENORM as "root" where "root".BOND_TYPE like \'5%\' and "root".BOND_DETAILS like \'Bond%\'',
                lambda f: f.find_all([f.name(), f.bond_details().type_()], f.bond_details().type_().starts_with("5").and_(f.bond_details().description().starts_with("Bond")))),
         ported("testGroupBy", f"{_SRC}::testGroupBy",
-               'select "root".BOND_TYPE as "Bond Type", sum(case when "root".MARKET_NAME = \'LSE\' then 5.0 else 1.0 end) as "Profit" from PRODUCT_DENORM as "root" group by "Bond Type"',
-               lambda f: f.find_all([f.bond_details().type_(), when(f.market().eq("LSE")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().type_())),
+               'select "root".BOND_TYPE as "Bond Type", sum(case when "root".MARKET_NAME = \'LSE\' then cast(5.0 as float) else cast(1.0 as float) end) as "Profit" from PRODUCT_DENORM as "root" group by "Bond Type"',
+               lambda f: f.find_all([f.bond_details().type_(), when(f.market().eq("LSE")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().type_()),
+               known_gaps={BACKEND: FLOAT_LITERAL_CAST}),
         ported("testGroupByComplexAgg", f"{_SRC}::testGroupByComplexAgg",
-               'select "root".BOND_TYPE as "Bond Type", sum(case when "root".BOND_TYPE like \'5%\' then 5.0 else 1.0 end) as "sum" from PRODUCT_DENORM as "root" group by "Bond Type"',
-               lambda f: f.find_all([f.bond_details().type_(), when(f.bond_details().type_().starts_with("5")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().type_())),
+               'select "root".BOND_TYPE as "Bond Type", sum(case when "root".BOND_TYPE like \'5%\' then cast(5.0 as float) else cast(1.0 as float) end) as "sum" from PRODUCT_DENORM as "root" group by "Bond Type"',
+               lambda f: f.find_all([f.bond_details().type_(), when(f.bond_details().type_().starts_with("5")).then(5.0).otherwise(1.0).sum()]).group_by(f.bond_details().type_()),
+               known_gaps={BACKEND: FLOAT_LITERAL_CAST}),
         not_supported("testQualifierProperty", f"{_SRC}::testQualifierProperty",
                     'select "root".PRODUCT_NAME as "name", case when "root".BOND_TYPE like \'5%\' then 5 else 0 end as "duration" from PRODUCT_DENORM as "root" where case when "root".BOND_TYPE like \'5%\' then 5 else 0 end = \'5\'',
                     QUALIFIED_PROPERTIES),

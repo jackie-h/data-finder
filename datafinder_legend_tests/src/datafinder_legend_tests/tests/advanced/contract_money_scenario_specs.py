@@ -16,10 +16,10 @@ CONTRACT_MONEY_SCENARIO_SPECS = FinderSpec(
     mapping_file="tests/simple_mapping.md",
     expectations=[
         unsupported("test1", f"{_SRC}::test1",
-                    'select "root".id as "id", "root".price as "amount", "fx_0".rate as "rate", case when "currency_0".value = \'USD\' then "root".price else ("root".price * "fx_0".rate) end as "value" from Contract as "root" left outer join Currency as "currency_0" on ("root".id = "currency_0".contractId) left outer join FX as "fx_0" on ("root".currency = "fx_0".currency and ("fx_0".date = \'2003-10-10\' and "fx_0".tenor = 1))',
+                    'select "root".id as "id", "root".price as "amount", "fx_0".rate as "rate", case when "currency_0".value = \'USD\' then "root".price else "root".price * "fx_0".rate end as "value" from Contract as "root" left outer join Currency as "currency_0" on ("root".id = "currency_0".contractId) left outer join FX as "fx_0" on ("root".currency = "fx_0".currency and "fx_0".date = DATE\'2003-10-10\' and "fx_0".tenor = 1)',
                     'a scenario with money and contract classes'),
         unsupported("test2", f"{_SRC}::test2",
-                    'select "root".id as "id", "root".price as "amount", "fx_0".rate as "rate", case when "currency_0".value = \'USD\' then "root".price else ("root".price * "fx_0".rate) end as "value" from Contract as "root" left outer join Currency as "currency_0" on ("root".id = "currency_0".contractId) left outer join FX as "fx_0" on ("root".currency = "fx_0".currency and ("fx_0".date = \'2003-10-10\' and "fx_0".tenor = 1))',
+                    'select "root".id as "id", "root".price as "amount", "fx_0".rate as "rate", case when "currency_0".value = \'USD\' then "root".price else "root".price * "fx_0".rate end as "value" from Contract as "root" left outer join Currency as "currency_0" on ("root".id = "currency_0".contractId) left outer join FX as "fx_0" on ("root".currency = "fx_0".currency and "fx_0".date = DATE\'2003-10-10\' and "fx_0".tenor = 1)',
                     'a scenario with money and contract classes'),
     ],
 )

@@ -8,6 +8,7 @@ from datafinder import constant, count_all, when
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import PERCENTILE_AS_DOUBLE, PERCENTILE_SINGLE_PRECISION, ROWS, ported, unsupported, DISTINCT_COUNT_QUALIFIED, FLOAT_DIVISION, BACKEND, FLOAT_AVERAGE, AGGREGATE_COLUMN_QUALIFIED, QUALIFIED_PROPERTIES, not_supported
+from datafinder_legend_tests.legend import FLOAT_LITERAL_CAST
 
 _SRC = "tds/tests/testGroupBy.pure"
 
@@ -94,9 +95,9 @@ GROUP_BY_TRADE_SPECS = FinderSpec(
                'select "producttable_0".NAME as "prodName", sum("root".quantity * "root".quantity) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all([f.product().name(), (f.quantity() * f.quantity()).sum()]).group_by(f.product().name()).order_by(f.product().name().descending())),
         ported("GroupByWithIfInMap", f"{_SRC}::GroupByWithIfInMap",
-               'select "producttable_0".NAME as "prodName", sum(case when "root".quantity > 2.0 then "root".quantity else ((1.0 * "root".quantity) / 2) end) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
+               'select "producttable_0".NAME as "prodName", sum(case when "root".quantity > cast(2.0 as float) then "root".quantity else (1.0 * "root".quantity) / 2 end) as "sum" from tradeTable as "root" left outer join productSchema.productTable as "producttable_0" on ("root".prodId = "producttable_0".ID) group by "prodName" order by "prodName" desc',
                lambda f: f.find_all([f.product().name(), when(f.quantity() > 2.0).then(f.quantity()).otherwise(f.quantity() / 2).sum()]).group_by(f.product().name()).order_by(f.product().name().descending()),
-               known_gaps={BACKEND: FLOAT_DIVISION}),
+               known_gaps={BACKEND: FLOAT_DIVISION + '. ' + FLOAT_LITERAL_CAST}),
     ],
 )
 

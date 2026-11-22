@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATE_DIFF_AS_SUBTRACTION, PERCENTILE_AS_DOUBLE, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL, TIMESTAMP_LITERAL_FRACTION,
+    CONCAT_FUNCTION, DATE_DIFF_AS_SUBTRACTION, PERCENTILE_AS_DOUBLE, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL, FLOAT_LITERAL_CAST, TIMESTAMP_LITERAL_FRACTION,
 )
 
 
@@ -109,6 +109,15 @@ def _drop_decimal_literal_cast(tree: exp.Expr) -> exp.Expr:
     """``cast(1.0 as Decimal(32,16))`` is the literal ``1.0``."""
     for cast in list(tree.find_all(exp.Cast)):
         if isinstance(cast.this, exp.Literal) and cast.to.this == exp.DataType.Type.DECIMAL:
+            cast.replace(cast.this.copy())
+    return tree
+
+
+def _drop_float_cast_of_literal(tree: exp.Expr) -> exp.Expr:
+    """``cast(1.0 as float)`` is the literal ``1.0``."""
+    for cast in list(tree.find_all(exp.Cast)):
+        if isinstance(cast.this, exp.Literal) and not cast.this.is_string and cast.to.this in (
+                exp.DataType.Type.FLOAT, exp.DataType.Type.DOUBLE):
             cast.replace(cast.this.copy())
     return tree
 
@@ -278,16 +287,30 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     FLOAT_AVERAGE: [_drop_float_cast_in_average],
     FLOAT_DIVISION: [_drop_float_cast_in_division],
     DECIMAL_LITERAL_CAST: [_drop_decimal_literal_cast],
+    FLOAT_LITERAL_CAST: [_drop_float_cast_of_literal],
 }
 
 
+def _covered_parts(reason: str) -> list[str] | None:
+    """The covered gaps a reason is made of: one gap, or several joined by ``. ``. ``None`` if any of the text is not a covered gap."""
+    if reason in _COVERED:
+        return [reason]
+    parts = [label for label in _COVERED if label in reason]
+    remainder = reason
+    for label in parts:
+        remainder = remainder.replace(label, "")
+    return parts if parts and not remainder.strip(" .") else None
+
+
 def checkable(reason: str) -> bool:
-    return reason in _COVERED
+    return _covered_parts(reason) is not None
 
 
 def gap_is_only(reason: str, actual_sql: str, expected_sql: str) -> bool:
-    """Whether the two statements match once the difference named by ``reason`` is set aside."""
-    steps = _COVERED[reason]
+    """Whether the two statements match once the differences named by ``reason`` are set aside."""
+    parts = _covered_parts(reason)
+    assert parts is not None, reason
+    steps = [step for label in parts for step in _COVERED[label]]
 
     def prepared(sql: str) -> exp.Expr:
         return reduce(lambda tree, step: step(tree), steps, normalize(sql))
