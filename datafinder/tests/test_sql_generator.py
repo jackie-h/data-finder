@@ -1690,69 +1690,6 @@ class TestMilestoningOnJoinedTable:
         assert "in_z" in on_clause
 
 
-class TestMilestonedStepsJoinedForTheFilterAndForTheColumns:
-    """A to-one milestoned step reached through another milestoned step is joined once for the WHERE and once for what the query reads.
-
-    A unit test because no shared example has such a chain whose target table holds more than one row for a key, which is what makes
-    the rows of the two joins multiply. The multiplication itself is specced by the union tests ported from Legend
-    (testUnionQueryWithPropagationOnNonTemporalRootWithTemporalProperty), which assert 16 rows where one shared join gives 8.
-    """
-
-    _DATE = datetime.date(2015, 8, 26)
-
-    @staticmethod
-    def _query(columns, condition, classification_many: bool = False) -> str:
-        from model.milestoning import MilestonedTable, SingleBusinessDateColumn
-        order_owner, product_owner, classification_owner = _OwnerTable("orders", []), _OwnerTable("product", []), _OwnerTable("classification", [])
-        prod_fk = Column("prod_id", "INT", order_owner)
-        orders = Table("orders", [Column("id", "INT", order_owner), prod_fk])
-        product_id, product_type = Column("id", "INT", product_owner), Column("type", "VARCHAR", product_owner)
-        product = MilestonedTable("product", [product_id, product_type, Column("name", "VARCHAR", product_owner)],
-                                  SingleBusinessDateColumn(Column("snapshot", "DATE", product_owner)))
-        classification_type = Column("type", "VARCHAR", classification_owner)
-        classification = MilestonedTable("classification", [classification_type, Column("description", "VARCHAR", classification_owner)],
-                                         SingleBusinessDateColumn(Column("snapshot", "DATE", classification_owner)))
-        product_node = JoinTreeNodeOperation(JoinOperation.on_keys("product", product, prod_fk, product_id, JoinKind.LEFT))
-        classification_node = JoinTreeNodeOperation(
-            JoinOperation.on_keys("classification", classification, product_type, classification_type, JoinKind.LEFT),
-            parent=product_node, many=classification_many)
-        attributes = {
-            "product name": StringAttribute("Name", "name", "VARCHAR", product_owner, product_node),
-            "product id": IntegerAttribute("Id", "id", "INT", product_owner, product_node),
-            "type": StringAttribute("Type", "type", "VARCHAR", classification_owner, classification_node),
-            "description": StringAttribute("Description", "description", "VARCHAR", classification_owner, classification_node),
-        }
-        return to_sql(TestMilestonedStepsJoinedForTheFilterAndForTheColumns._DATE, None, [attributes[c] for c in columns], orders,
-                      condition(attributes))
-
-    def test_a_column_and_a_filter_on_the_step_are_two_joins_of_it_and_one_of_the_step_it_is_reached_through(self):
-        assert self._query(["type"], lambda a: a["description"] == "STOCK DESC-V2") == (
-            'SELECT t3.type AS "Type" FROM orders AS t0 '
-            "LEFT OUTER JOIN product AS t1 ON (t0.prod_id = t1.id AND t1.snapshot = '2015-08-26') "
-            "LEFT OUTER JOIN classification AS t2 ON (t1.type = t2.type AND t2.snapshot = '2015-08-26') "
-            "LEFT OUTER JOIN classification AS t3 ON (t1.type = t3.type AND t3.snapshot = '2015-08-26') "
-            "WHERE t2.description = 'STOCK DESC-V2'")
-
-    def test_the_first_milestoned_step_is_one_join_for_the_filter_and_the_column(self):
-        assert self._query(["product id"], lambda a: a["product name"] == "ProductName1") == (
-            'SELECT t1.id AS "Id" FROM orders AS t0 '
-            "LEFT OUTER JOIN product AS t1 ON (t0.prod_id = t1.id AND t1.snapshot = '2015-08-26') "
-            "WHERE t1.name = 'ProductName1'")
-
-    def test_a_to_many_step_is_one_join_as_its_filter_and_its_values_are_of_the_same_row(self):
-        sql = self._query(["type"], lambda a: a["description"] == "x", classification_many=True)
-        assert sql.count("JOIN classification") == 1
-
-    def test_a_step_that_is_only_filtered_or_only_read_is_one_join(self):
-        assert self._query(["product id"], lambda a: a["description"] == "x").count("JOIN classification") == 1
-        assert self._query(["type"], lambda a: NoOperation()).count("JOIN classification") == 1
-
-    def test_every_column_read_outside_the_filter_shares_the_one_join_for_the_columns(self):
-        sql = self._query(["type", "description"], lambda a: a["description"] == "x")
-        assert sql.count("JOIN classification") == 2
-        assert sql.startswith('SELECT t3.type AS "Type",t3.description AS "Description" FROM')
-
-
 class TestJoinOrdering:
     """Joins must appear in a deterministic, insertion-order sequence."""
 

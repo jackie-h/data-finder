@@ -1,0 +1,5 @@
+id,name,type,snapshotDate
+1,ProductName,STOCK,2015-08-15
+2,ProductName1,STOCK,2015-08-26
+2,ProductName2,STOCK,2015-10-16
+3,ProductName3,OPTION,2015-08-26
