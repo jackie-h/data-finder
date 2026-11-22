@@ -167,9 +167,9 @@ PROCESSING_SNAPSHOT_DATETIME = (
     "finder keeps the whole datetime and writes `'2015-08-26 02:00:00'`"
 )
 SECOND_JOIN_FOR_PROJECTED_MILESTONED_PROPERTY = (
-    "when a milestoned navigation is used in both the filter and the projection, Legend joins its table a second time "
-    "through a derived table to read the projected column; the finder joins it once and reads both from it, which "
-    "returns the same rows"
+    "when a milestoned step reached through another is used in both the filter and the projection, Legend joins its table a second time "
+    "through a derived table that holds its milestoning to read the projected column; the finder joins its table a second time too, with "
+    "the milestoning in the ON clause, which returns the same rows"
 )
 ISOLATED_MILESTONED_JOIN = (
     "Legend reads a milestoned table that is joined from another milestoned table through a derived table holding its "
@@ -184,11 +184,6 @@ MAP_NAVIGATION = (
     "Legend reads the class a navigation reaches (map) as a join with the milestoning of the class in the WHERE, and names its aliases after the "
     "dates; the finder reads the navigation as a left outer join that has the milestoning in its ON, and the rows of the class that are there "
     "are those that have one"
-)
-
-UNION_SECOND_JOIN_DUPLICATES = (
-    "Legend joins a milestoned property of a union twice, once for the filter and once for the column, and each row of the union meets each row of the other, "
-    "so a row repeats once for each row of the join of the filter; the finder joins the property once, and reads both from it"
 )
 
 RENAME_IN_THE_SELECT = (
