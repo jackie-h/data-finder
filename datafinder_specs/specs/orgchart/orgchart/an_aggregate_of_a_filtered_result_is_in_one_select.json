@@ -1,0 +1,17 @@
+{
+  "name": "an_aggregate_of_a_filtered_result_is_in_one_select",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "(v1 := f.find_all([f.name().alias(\"employeeName\"), f.id_().alias(\"id\")]).filter(lambda r: (r.employeeName != \"Dave\")).extend(small=lambda r: (r.id < 3)).group_by(lambda r: r.small).aggregate(total=lambda r: r.id.sum())).order_by(v1[\"small\"].ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["employeeName"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"alias"},"args":["id"],"kwargs":{}}]}],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"!=","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"employeeName"},"right":"Dave"}}],"kwargs":{}},"name":"extend"},"args":[],"kwargs":{"small":{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"<","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"right":3}}}},"name":"group_by"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"small"}}],"kwargs":{}},"name":"aggregate"},"args":[],"kwargs":{"total":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"id"},"name":"sum"},"args":[],"kwargs":{}}}}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"small"},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "an_aggregate_of_a_filtered_result_is_in_one_select.csv",
+  "sql_contains": {
+    "duckdb": "GROUP BY t0.id < 3"
+  },
+  "sql_not_contains": {
+    "duckdb": "(SELECT"
+  },
+  "skip": {
+    "graphql": "The GraphQL engine does not run steps over a result"
+  }
+}

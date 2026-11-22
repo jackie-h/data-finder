@@ -1,0 +1,4 @@
+Symbol,Price,Rank
+String,Double,Integer
+AAPL,84.11,1
+GOOG,200.0,2

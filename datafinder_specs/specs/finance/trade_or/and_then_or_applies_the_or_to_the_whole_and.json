@@ -1,0 +1,11 @@
+{
+  "name": "and_then_or_applies_the_or_to_the_whole_and",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [f.symbol()], f.symbol().eq(\"AAPL\").and_((f.price() > 1000.0)).or_(f.symbol().eq(\"MSFT\")))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["AAPL"],"kwargs":{}},"name":"and_"},"args":[{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"right":1000.0}],"kwargs":{}},"name":"or_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["MSFT"],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
+  "result": "and_then_or_applies_the_or_to_the_whole_and.csv",
+  "sql_contains": {
+    "duckdb": "(t0.sym = 'AAPL' AND t0.price > 1000.0) OR t0.sym = 'MSFT'"
+  }
+}

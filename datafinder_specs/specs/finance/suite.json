@@ -1,0 +1,10 @@
+{
+  "data": {
+    "ref_data.account_master": "finance_accounts.csv",
+    "ref_data.branch": "finance_branches.csv",
+    "ref_data.desk": "finance_desks.csv",
+    "ref_data.price": "finance_prices.csv",
+    "trading.trades": "finance_trades.csv",
+    "trading.contractualposition": "finance_positions.csv"
+  }
+}

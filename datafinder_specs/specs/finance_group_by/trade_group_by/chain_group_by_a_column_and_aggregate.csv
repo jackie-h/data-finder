@@ -1,0 +1,5 @@
+account,total,trades
+String,Double,Integer
+Alpha Fund,300.0,2
+Beta Fund,700.0,2
+Gamma Fund,500.0,1

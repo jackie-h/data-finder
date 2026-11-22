@@ -1,0 +1,11 @@
+{
+  "name": "integer_constant_function_is_an_integer_in_arithmetic",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([(constant(-3).abs() + f.id_()).alias(\"sum\"), ((constant(2) ** 3) * 2).alias(\"scaled\")], f.id_().eq(1))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[-3],"kwargs":{}},"name":"abs"},"args":[],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}},"name":"alias"},"args":["sum"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"*","left":{"kind":"binary","op":"**","left":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[2],"kwargs":{}},"right":3},"right":2},"name":"alias"},"args":["scaled"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
+  "result": "integer_constant_function_is_an_integer_in_arithmetic.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

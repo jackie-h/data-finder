@@ -1,0 +1,11 @@
+{
+  "name": "exists_and_not_exists_on_one_step_cover_every_row_once",
+  "finder": "BranchFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all([f.city()], (v1 := f.accounts(processing_time=\"2024-09-01 12:00:00\")).exists().or_(v1.not_exists())).order_by(f.city().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"accounts"},"args":[],"kwargs":{"processing_time":"2024-09-01 12:00:00"}}},"name":"exists"},"args":[],"kwargs":{}},"name":"or_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"not_exists"},"args":[],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "exists_and_not_exists_on_one_step_cover_every_row_once.csv",
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

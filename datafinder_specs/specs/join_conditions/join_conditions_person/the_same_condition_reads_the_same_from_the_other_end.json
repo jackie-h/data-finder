@@ -1,0 +1,14 @@
+{
+  "name": "the_same_condition_reads_the_same_from_the_other_end",
+  "finder": "PersonFinder",
+  "mapping": "join_conditions_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.firm().legal_name()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"firm"},"args":[],"kwargs":{}},"name":"legal_name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "the_same_condition_reads_the_same_from_the_other_end.csv",
+  "sql_contains": {
+    "duckdb": "ON (t0.firm_id = t1.id AND t1.flag IS NULL AND t0.flag IS NOT NULL)"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder reads no join conditions"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "a_result_is_ordered_by_a_column_of_the_result_it_was_made_from",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "(v1 := f.find_all([f.name().alias(\"employeeName\")])).distinct().order_by(v1[\"employeeName\"].descending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["employeeName"],"kwargs":{}}]}],"kwargs":{}}},"name":"distinct"},"args":[],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"employeeName"},"name":"descending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_result_is_ordered_by_a_column_of_the_result_it_was_made_from.csv",
+  "skip": {
+    "graphql": "The GraphQL engine does not order the columns of a result"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "a_query_restricted_by_an_inner_join_and_a_filter",
+  "finder": "FirmXPersonFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.first_name()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_query_restricted_by_an_inner_join_and_a_filter.csv",
+  "sql_contains": {
+    "duckdb": "INNER JOIN org.firms AS"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

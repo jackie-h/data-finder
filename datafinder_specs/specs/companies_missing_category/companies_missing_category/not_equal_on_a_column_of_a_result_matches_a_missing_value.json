@@ -1,0 +1,8 @@
+{
+  "name": "not_equal_on_a_column_of_a_result_matches_a_missing_value",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.category().alias(\"category\")]).filter(lambda r: (r.category != \"Finance\")).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"alias"},"args":["category"],"kwargs":{}}]}],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"!=","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"category"},"right":"Finance"}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "not_equal_on_a_column_of_a_result_matches_a_missing_value.csv"
+}

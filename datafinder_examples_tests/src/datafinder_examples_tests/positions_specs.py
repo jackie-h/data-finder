@@ -191,6 +191,7 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="no_row_is_today",
+            expected_types=["Integer"],
             skip_backends=_NO_DATE_FUNCTIONS,
             query=lambda f: f.find_all([f.id_()], f.trade_date().eq(today())),
             expected_columns=["Id"],
@@ -216,6 +217,7 @@ POSITION_DATE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="rows_after_the_previous_monday",
+            expected_types=["Integer"],
             skip_backends=_NO_DATE_FUNCTIONS,
             query=lambda f: f.find_all([f.id_()], f.trade_date() > previous_day_of_week(DayOfWeek.MONDAY)),
             expected_columns=["Id"],

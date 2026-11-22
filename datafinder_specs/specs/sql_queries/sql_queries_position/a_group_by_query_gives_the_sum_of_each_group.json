@@ -1,0 +1,14 @@
+{
+  "name": "a_group_by_query_gives_the_sum_of_each_group",
+  "finder": "PositionFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all([f.gsn(), f.quantity()]).order_by(f.gsn().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"gsn"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"gsn"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_group_by_query_gives_the_sum_of_each_group.csv",
+  "sql_contains": {
+    "duckdb": "SUM(t1.qty) AS \"quantity\" FROM org.trades AS t1 GROUP BY t1.gsn"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

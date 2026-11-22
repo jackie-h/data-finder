@@ -1,0 +1,11 @@
+{
+  "name": "median_price_of_all_the_trades",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [f.price().percentile(0.5).alias(\"median\"), f.price().percentile(0.9, continuous=False).alias(\"p90\")])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"percentile"},"args":[0.5],"kwargs":{}},"name":"alias"},"args":["median"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"percentile"},"args":[0.9],"kwargs":{"continuous":false}},"name":"alias"},"args":["p90"],"kwargs":{}}]}],"kwargs":{}},
+  "result": "median_price_of_all_the_trades.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no percentile"
+  }
+}

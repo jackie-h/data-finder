@@ -1,0 +1,17 @@
+{
+  "name": "filters_with_equal_conditions_are_one_join_when_each_is_written_out",
+  "finder": "PersonFinder",
+  "mapping": "places_mapping.md",
+  "query_text": "f.find_all([f.name(), f.locations().filter(lambda each: each.place().is_in([\"Hoboken\", \"New York\"])).place(), f.locations().filter(lambda each: each.place().is_in([\"Hoboken\", \"New York\"])).visits()]).order_by(f.name().ascending(), f.locations().filter(lambda each: each.place().is_in([\"Hoboken\", \"New York\"])).place().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"locations"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"place"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":["Hoboken","New York"]}],"kwargs":{}}}],"kwargs":{}},"name":"place"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"locations"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"place"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":["Hoboken","New York"]}],"kwargs":{}}}],"kwargs":{}},"name":"visits"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"locations"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"place"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":["Hoboken","New York"]}],"kwargs":{}}}],"kwargs":{}},"name":"place"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "filters_with_equal_conditions_are_one_join_when_each_is_written_out.csv",
+  "sql_contains": {
+    "duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York'))"
+  },
+  "sql_not_contains": {
+    "duckdb": "t2"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder reads no filters of a navigation"
+  }
+}

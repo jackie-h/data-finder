@@ -1,0 +1,8 @@
+{
+  "name": "a_date_before_every_row_finds_nothing",
+  "finder": "RateFinder",
+  "mapping": "business_range_mapping.md",
+  "query_text": "f.find_all(\"2019-01-01\", None, [f.code()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2019-01-01",null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "a_date_before_every_row_finds_nothing.csv"
+}

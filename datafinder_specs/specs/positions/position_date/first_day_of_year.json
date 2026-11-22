@@ -1,0 +1,11 @@
+{
+  "name": "first_day_of_year",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.trade_date().first_day_of_year()], f.id_().eq(3))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"first_day_of_year"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[3],"kwargs":{}}],"kwargs":{}},
+  "result": "first_day_of_year.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot truncate dates"
+  }
+}

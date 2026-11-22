@@ -1,0 +1,11 @@
+{
+  "name": "optional_property_equality_is_not_guarded",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_inheritance_mapping.md",
+  "query_text": "f.find_all([f.first_name()], f.department().eq(\"QA\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"department"},"args":[],"kwargs":{}},"name":"eq"},"args":["QA"],"kwargs":{}}],"kwargs":{}},
+  "result": "optional_property_equality_is_not_guarded.csv",
+  "sql_not_contains": {
+    "duckdb": "IS NOT NULL AND"
+  }
+}

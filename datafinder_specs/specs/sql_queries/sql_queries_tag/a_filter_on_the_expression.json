@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_the_expression",
+  "finder": "TagFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all([f.id_()], f.text().eq(\"Mr Ann\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"text"},"args":[],"kwargs":{}},"name":"eq"},"args":["Mr Ann"],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_on_the_expression.csv",
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

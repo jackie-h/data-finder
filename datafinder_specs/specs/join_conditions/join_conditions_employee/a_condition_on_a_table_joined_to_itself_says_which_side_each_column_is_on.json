@@ -1,0 +1,14 @@
+{
+  "name": "a_condition_on_a_table_joined_to_itself_says_which_side_each_column_is_on",
+  "finder": "EmployeeFinder",
+  "mapping": "join_conditions_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.manager().name()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"manager"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_condition_on_a_table_joined_to_itself_says_which_side_each_column_is_on.csv",
+  "sql_contains": {
+    "duckdb": "ON (t0.manager_id = t1.id AND t0.active = 1 AND t1.active = 1)"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder reads no join conditions"
+  }
+}

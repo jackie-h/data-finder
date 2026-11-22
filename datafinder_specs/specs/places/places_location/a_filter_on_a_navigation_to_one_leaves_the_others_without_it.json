@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_a_navigation_to_one_leaves_the_others_without_it",
+  "finder": "LocationFinder",
+  "mapping": "places_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.person().filter(lambda each: each.name().eq(\"Ann\")).name()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"person"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Ann"],"kwargs":{}}}],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_on_a_navigation_to_one_leaves_the_others_without_it.csv",
+  "skip": {
+    "graphql": "The GraphQL finder reads no filters of a navigation"
+  }
+}

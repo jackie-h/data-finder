@@ -1,0 +1,5 @@
+account,sym,price
+String,String,Double
+Alpha Fund,GOOG,200.0
+Beta Fund,TSLA,400.0
+Gamma Fund,GS,500.0

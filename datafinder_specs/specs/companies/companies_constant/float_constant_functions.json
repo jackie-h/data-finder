@@ -1,0 +1,12 @@
+{
+  "name": "float_constant_functions",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([constant(1.2).ceil().alias(\"ceil\"), constant(1.8).floor().alias(\"floor\"), constant(2.25).sqrt().alias(\"sqrt\"), constant(-1.5).abs().alias(\"abs\")], f.id_().eq(1))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[1.2],"kwargs":{}},"name":"ceil"},"args":[],"kwargs":{}},"name":"alias"},"args":["ceil"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[1.8],"kwargs":{}},"name":"floor"},"args":[],"kwargs":{}},"name":"alias"},"args":["floor"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[2.25],"kwargs":{}},"name":"sqrt"},"args":[],"kwargs":{}},"name":"alias"},"args":["sqrt"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[-1.5],"kwargs":{}},"name":"abs"},"args":[],"kwargs":{}},"name":"alias"},"args":["abs"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
+  "result": "float_constant_functions.csv",
+  "approximate": true,
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

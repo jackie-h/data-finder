@@ -1,0 +1,8 @@
+{
+  "name": "the_rows_taken_at_a_time",
+  "finder": "QuoteFinder",
+  "mapping": "processing_snapshot_mapping.md",
+  "query_text": "f.find_all(None, datetime('2024-01-01T09:00:00'), [f.symbol(), f.price()]).order_by(f.symbol().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,{"kind":"datetime","value":"2024-01-01T09:00:00"},{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "the_rows_taken_at_a_time.csv"
+}

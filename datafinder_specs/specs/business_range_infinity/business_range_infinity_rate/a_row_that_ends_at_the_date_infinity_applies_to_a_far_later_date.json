@@ -1,0 +1,8 @@
+{
+  "name": "a_row_that_ends_at_the_date_infinity_applies_to_a_far_later_date",
+  "finder": "RateFinder",
+  "mapping": "business_range_infinity_mapping.md",
+  "query_text": "f.find_all(\"2999-01-01\", None, [f.code(), f.amount()]).order_by(f.code().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2999-01-01",null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_row_that_ends_at_the_date_infinity_applies_to_a_far_later_date.csv"
+}

@@ -5,8 +5,12 @@ files only, with no Python.
 
 - `specs/models/`, `specs/mappings/`: the example models and mappings (Markdown); a mapping names its model by a relative path.
 - `specs/data/`: the rows the specs run against (CSV).
-- `specs/`: the finder specs, each a JSON file with the query, a CSV of the expected result and, where the SQL
-  matters, the expected SQL.
+- `specs/<suite>/`: a suite is the specs that run against one set of tables. `suite.json` names each table, as the
+  mapping reads it, and the CSV in `specs/data` that holds its rows.
+- `specs/<suite>/<group>/`: the finder specs, each a JSON file with the query (a tree of calls of the finder API, and
+  the same query as Python in `query_text`), the finder and mapping it reads, and the checks, and a CSV of the expected
+  result: a row of column names, a row of types (`Integer`, `Double`, `String[0..1]`, `Date`, ...), then the rows. A
+  missing value is an empty cell and the empty string is `""`.
 
 The version is the same as data-finder's.
 

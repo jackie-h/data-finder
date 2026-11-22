@@ -1,0 +1,11 @@
+{
+  "name": "chain_window_over_all_rows",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [f.account().name().alias(\"account\"), f.symbol().alias(\"sym\"), f.price().alias(\"price\")]).extend(top=lambda r: r.price.max().over()).filter(lambda r: (r.price == r.top)).select(\"account\", \"sym\", \"price\")",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["account"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"alias"},"args":["sym"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"alias"},"args":["price"],"kwargs":{}}]}],"kwargs":{}},"name":"extend"},"args":[],"kwargs":{"top":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"price"},"name":"max"},"args":[],"kwargs":{}},"name":"over"},"args":[],"kwargs":{}}}}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"==","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"price"},"right":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"top"}}}],"kwargs":{}},"name":"select"},"args":["account","sym","price"],"kwargs":{}},
+  "result": "chain_window_over_all_rows.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot read a query as a relation yet"
+  }
+}

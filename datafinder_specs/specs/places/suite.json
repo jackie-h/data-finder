@@ -1,0 +1,7 @@
+{
+  "data": {
+    "geo.people": "places_people.csv",
+    "geo.regions": "places_regions.csv",
+    "geo.locations": "places_locations.csv"
+  }
+}

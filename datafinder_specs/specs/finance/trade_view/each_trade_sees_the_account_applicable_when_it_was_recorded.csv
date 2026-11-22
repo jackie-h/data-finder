@@ -1,0 +1,5 @@
+symbol,account_name,in_z,out_z
+String,String[0..1],DateTime,DateTime
+AAPL,Acme Ltd,2020-01-01T00:00:00,9999-12-31T23:59:59
+GOOG,Acme Ltd,2020-01-01T00:00:00,2022-01-01T00:00:00
+MSFT,,2024-01-01T00:00:00,9999-12-31T23:59:59

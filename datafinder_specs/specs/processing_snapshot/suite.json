@@ -1,0 +1,6 @@
+{
+  "data": {
+    "mkt.quotes": "processing_snapshot_quotes.csv",
+    "mkt.positions": "processing_snapshot_positions.csv"
+  }
+}

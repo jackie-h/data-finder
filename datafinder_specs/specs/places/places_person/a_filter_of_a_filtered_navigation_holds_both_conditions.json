@@ -1,0 +1,14 @@
+{
+  "name": "a_filter_of_a_filtered_navigation_holds_both_conditions",
+  "finder": "PersonFinder",
+  "mapping": "places_mapping.md",
+  "query_text": "f.find_all([f.name(), (v1 := f.locations().filter(lambda each: each.place().is_in([\"Hoboken\", \"New York\"])).filter(lambda each: (each.visits() > 3))).place(), v1.visits()]).order_by(f.name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"locations"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"place"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":["Hoboken","New York"]}],"kwargs":{}}}],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"visits"},"args":[],"kwargs":{}},"right":3}}],"kwargs":{}}},"name":"place"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"visits"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_of_a_filtered_navigation_holds_both_conditions.csv",
+  "sql_contains": {
+    "duckdb": "ON (t0.id = t1.person_id AND t1.place IN ('Hoboken', 'New York') AND t1.visits > 3)"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder reads no filters of a navigation"
+  }
+}

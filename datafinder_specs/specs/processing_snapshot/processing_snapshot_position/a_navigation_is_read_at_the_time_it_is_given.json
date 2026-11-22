@@ -1,0 +1,8 @@
+{
+  "name": "a_navigation_is_read_at_the_time_it_is_given",
+  "finder": "PositionFinder",
+  "mapping": "processing_snapshot_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.quotes(processing_time=datetime('2024-01-01T09:00:00')).price()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quotes"},"args":[],"kwargs":{"processing_time":{"kind":"datetime","value":"2024-01-01T09:00:00"}}},"name":"price"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_navigation_is_read_at_the_time_it_is_given.csv"
+}

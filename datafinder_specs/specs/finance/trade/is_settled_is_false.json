@@ -1,0 +1,8 @@
+{
+  "name": "is_settled_is_false",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2021-06-01 12:00:00\", [f.symbol()], f.is_settled().is_false())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2021-06-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"is_settled"},"args":[],"kwargs":{}},"name":"is_false"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "is_settled_is_false.csv"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "a_row_with_a_null_business_end_applies_to_any_later_date",
+  "finder": "QuoteFinder",
+  "mapping": "bitemporal_infinity_mapping.md",
+  "query_text": "f.find_all(\"2023-01-01\", \"2021-06-01 00:00:00\", [f.code(), f.amount()]).order_by(f.code().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2023-01-01","2021-06-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_row_with_a_null_business_end_applies_to_any_later_date.csv"
+}

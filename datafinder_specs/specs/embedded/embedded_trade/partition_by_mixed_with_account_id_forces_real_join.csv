@@ -1,0 +1,4 @@
+Symbol,Account Id,Rank
+String,Integer,Integer
+AAPL,1,1
+GOOG,1,2

@@ -1,0 +1,11 @@
+{
+  "name": "a_function_of_a_datetime_constant_is_ordered_like_a_date",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_()], (constant(datetime('2016-08-10T08:55:30')).add_days(1) > datetime('2016-08-10T08:55:30')).and_(f.id_().eq(1)))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[{"kind":"datetime","value":"2016-08-10T08:55:30"}],"kwargs":{}},"name":"add_days"},"args":[1],"kwargs":{}},"right":{"kind":"datetime","value":"2016-08-10T08:55:30"}},"name":"and_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
+  "result": "a_function_of_a_datetime_constant_is_ordered_like_a_date.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

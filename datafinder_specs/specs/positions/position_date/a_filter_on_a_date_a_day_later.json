@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_a_date_a_day_later",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], f.trade_date().eq(constant(date('2024-03-14')).add_days(1)))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"eq"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[{"kind":"date","value":"2024-03-14"}],"kwargs":{}},"name":"add_days"},"args":[1],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_on_a_date_a_day_later.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no date functions beyond the parts of a date"
+  }
+}

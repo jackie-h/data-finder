@@ -1,0 +1,8 @@
+{
+  "name": "a_milestoned_step_reached_through_another_is_two_joins_when_it_is_filtered_and_read",
+  "finder": "OrderFinder",
+  "mapping": "milestoned_union_mapping.md",
+  "query_text": "f.find_all([(v1 := f.product(business_date=\"2015-08-26\")).classification().type_()], v1.classification().description().eq(\"STOCK DESC-V2\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"product"},"args":[],"kwargs":{"business_date":"2015-08-26"}}},"name":"classification"},"args":[],"kwargs":{}},"name":"type_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"classification"},"args":[],"kwargs":{}},"name":"description"},"args":[],"kwargs":{}},"name":"eq"},"args":["STOCK DESC-V2"],"kwargs":{}}],"kwargs":{}},
+  "result": "a_milestoned_step_reached_through_another_is_two_joins_when_it_is_filtered_and_read.csv"
+}

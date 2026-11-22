@@ -1,0 +1,14 @@
+{
+  "name": "a_step_given_a_value_filters_inside_the_sub_select",
+  "finder": "AccountFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [f.name()], f.positions(quantity=200.0).exists())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"positions"},"args":[],"kwargs":{"quantity":200.0}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_step_given_a_value_filters_inside_the_sub_select.csv",
+  "sql_contains": {
+    "duckdb": "WHERE t2.QUANTITY = 200.0 AND"
+  },
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

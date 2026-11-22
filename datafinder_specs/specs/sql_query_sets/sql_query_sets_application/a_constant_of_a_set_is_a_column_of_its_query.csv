@@ -1,0 +1,6 @@
+Id,Firm LegalName
+Integer,String
+1,Acme
+1,vogue
+2,Globex
+3,vogue

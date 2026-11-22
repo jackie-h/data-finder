@@ -1,0 +1,8 @@
+{
+  "name": "the_country_of_the_home_and_of_citizenship_are_read_through_the_same_tables_separately",
+  "finder": "EmployeeFinder",
+  "mapping": "joins_through_tables_mapping.md",
+  "query_text": "f.find_all([f.name(), f.home().country(business_date=\"2024-01-01\").name(), f.citizenship(business_date=\"2024-01-01\").name()]).order_by(f.name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"home"},"args":[],"kwargs":{}},"name":"country"},"args":[],"kwargs":{"business_date":"2024-01-01"}},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"citizenship"},"args":[],"kwargs":{"business_date":"2024-01-01"}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "the_country_of_the_home_and_of_citizenship_are_read_through_the_same_tables_separately.csv"
+}

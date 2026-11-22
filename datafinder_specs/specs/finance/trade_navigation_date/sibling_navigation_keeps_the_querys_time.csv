@@ -1,0 +1,4 @@
+Symbol,Account Name,Instrument Price
+String,String,Double
+AAPL,Acme Corp,150.0
+GOOG,Acme Corp,2800.0

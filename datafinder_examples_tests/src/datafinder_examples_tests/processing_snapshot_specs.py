@@ -35,12 +35,14 @@ PROCESSING_SNAPSHOT_QUOTE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="a_time_between_snapshots_finds_nothing",
+            expected_types=["String"],
             query=lambda f: f.find_all(None, datetime.datetime(2024, 1, 1, 10, 0, 0), [f.symbol()]),
             expected_columns=["Symbol"],
             expected_result=np.empty((0, 1), dtype=object),
         ),
         TestExpectation(
             name="the_time_is_compared_whole_so_a_date_alone_is_midnight",
+            expected_types=["String"],
             query=lambda f: f.find_all(None, "2024-01-01", [f.symbol()]),
             expected_columns=["Symbol"],
             expected_result=np.empty((0, 1), dtype=object),

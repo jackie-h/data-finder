@@ -1,0 +1,11 @@
+{
+  "name": "an_ancestor_nothing_projects_is_pinned_too",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, None, [f.symbol(), f.account().branch().city()]).to_view(\"trade_branch\", \"reporting\").result().order_by(\"symbol\")",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"branch"},"args":[],"kwargs":{}},"name":"city"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"to_view"},"args":["trade_branch","reporting"],"kwargs":{}},"name":"result"},"args":[],"kwargs":{}},"name":"order_by"},"args":["symbol"],"kwargs":{}},
+  "result": "an_ancestor_nothing_projects_is_pinned_too.csv",
+  "skip": {
+    "graphql": "Views are not supported by the GraphQL backend"
+  }
+}

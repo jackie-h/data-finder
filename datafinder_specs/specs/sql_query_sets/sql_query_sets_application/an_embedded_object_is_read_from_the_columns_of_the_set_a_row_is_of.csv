@@ -1,0 +1,6 @@
+Id,Source,Applicant FirstName,Applicant NickName
+Integer,String,String,String[0..1]
+1,agency1,Ann,Annie
+1,agency2,Cy,Cee
+2,agency1,Bob,
+3,agency2,Di,Dee

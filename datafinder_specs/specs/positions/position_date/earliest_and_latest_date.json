@@ -1,0 +1,14 @@
+{
+  "name": "earliest_and_latest_date",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.trade_date().min(), f.trade_date().max()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"min"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"max"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "earliest_and_latest_date.csv",
+  "sql_contains": {
+    "duckdb": "MIN(t0.trade_date)"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder cannot take the earliest or latest date yet"
+  }
+}
