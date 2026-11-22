@@ -35,12 +35,6 @@ DISTINCT_QUERY_FILTER_ON_JOIN = (
     "to the rows that match it; Legend writes it as an exists over a second copy of the sub select, which keeps the same rows"
 )
 
-QUERY_EXPRESSION_IN_DERIVED_TABLE = (
-    "a property that is an expression (a CASE) on a table that is joined to is a column of a query here, so the expression is "
-    "computed in a derived table before the join; Legend computes it in the outer select, after the left outer join, so for a row "
-    "with no match Legend's CASE gives its else value ('Unknown') where the query's column is NULL"
-)
-
 FILTER_REPEATED_IN_CLASS_FILTER = (
     "Legend writes a filter on the class both outside and inside the derived table that holds the class mapping's ~filter; the "
     "finder writes it once, outside, which keeps the same rows"

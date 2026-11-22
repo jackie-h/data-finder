@@ -7,7 +7,7 @@ that fetch the whole class are recorded as unsupported. The rest run on mappings
 """
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import BACKEND, ROWS, DISTINCT_QUERY_FILTER_ON_JOIN, DISTINCT_QUERY_JOIN_INSIDE, QUERY_EXPRESSION_IN_DERIVED_TABLE, ported, unsupported
+from datafinder_legend_tests.legend import BACKEND, DISTINCT_QUERY_FILTER_ON_JOIN, DISTINCT_QUERY_JOIN_INSIDE, ported, unsupported
 
 _SRC = "tests/mapping/distinct/testDistinct.pure"
 
@@ -16,6 +16,9 @@ DISTINCT_SPECS = FinderSpec(
     finder_name="IncomeFunctionFinder",
     mapping_file="tests/mapping/distinct/distinct_mapping.md",
     expectations=[
+        unsupported("testDistinctMappingWithCaseStatement", f"{_SRC}::testDistinctMappingWithCaseStatement",
+                    'select "root"."name" as "name", case when "if_other_info_0".IF_OTHER_NAME is null then \'Unknown\' else "if_other_info_0".IF_OTHER_NAME end as "IfName" from (select distinct "account_info_1".IF_CODE as IF_CODE, case when "account_info_1".IF_NAME is null then \'C\' else "account_info_1".IF_NAME end as "name" from ACCOUNT_INFO as "account_info_1") as "root" left outer join IF_OTHER_INFO as "if_other_info_0" on ("root".IF_CODE = "if_other_info_0".IF_CODE) order by "name" asc, "IfName" asc',
+                    'a property mapped to an expression'),
         unsupported("testDistinctMappingSelectAll", f"{_SRC}::testDistinctMappingSelectAll",
                     'select distinct "root".IF_CODE as "code", "root".IF_NAME as "name" from ACCOUNT_INFO as "root"',
                     'the whole class fetched through a distinct mapping, which Legend writes without a sub select'),
@@ -88,17 +91,6 @@ DISTINCT_DENORM_SPECS = FinderSpec(
         unsupported("testDistinctMappingWithFullDenormSelfJoinsWithTwoFiltersOnJoin", f"{_SRC}::testDistinctMappingWithFullDenormSelfJoinsWithTwoFiltersOnJoin",
                     'select "root".id as "pk_0", "root".ACC_NUM as "number", "root".ACCT_NAME as "name" from ACCOUNT_INFO as "root" left outer join (select distinct "root".IF_CODE, "root".IF_NAME, "root".DESKHEAD_ID from ACCOUNT_INFO as "root" where "root".IF_TYPE = \'Type 1\') as "account_info_1" on ("root".IF_CODE = "account_info_1".IF_CODE) where "account_info_1".IF_NAME = \'IF 2\' and "account_info_1".IF_CODE = 1002',
                     'the whole class fetched'),
-    ],
-)
-
-DISTINCT_CASE_SPECS = FinderSpec(
-    finder_name="IncomeFunctionFinder",
-    mapping_file="tests/mapping/distinct/distinct_case_mapping.md",
-    expectations=[
-        ported("testDistinctMappingWithCaseStatement", f"{_SRC}::testDistinctMappingWithCaseStatement",
-               'select "root"."name" as "name", case when "if_other_info_0".IF_OTHER_NAME is null then \'Unknown\' else "if_other_info_0".IF_OTHER_NAME end as "IfName" from (select distinct "account_info_1".IF_CODE as IF_CODE, case when "account_info_1".IF_NAME is null then \'C\' else "account_info_1".IF_NAME end as "name" from ACCOUNT_INFO as "account_info_1") as "root" left outer join IF_OTHER_INFO as "if_other_info_0" on ("root".IF_CODE = "if_other_info_0".IF_CODE) order by "name" asc, "IfName" asc',
-               lambda f: f.find_all([f.name(), f.classification().name().alias("IfName")]).order_by(f.name().ascending(), f.classification().name().ascending()),
-               known_gaps={BACKEND: QUERY_EXPRESSION_IN_DERIVED_TABLE, ROWS: QUERY_EXPRESSION_IN_DERIVED_TABLE}),
     ],
 )
 

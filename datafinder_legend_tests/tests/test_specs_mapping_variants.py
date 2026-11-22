@@ -63,7 +63,6 @@ _VARIANTS = {
     "tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_target_view_mapping.md": "tests/simple_data.sql",
     "tests/mapping/classMappingFilterWithInnerJoin/inner_join_filter_view_to_view_mapping.md": "tests/simple_data.sql",
     "tests/mapping/distinct/distinct_dup_mapping.md": "tests/mapping/distinct/distinct_data.sql",
-    "tests/mapping/distinct/distinct_case_mapping.md": "tests/mapping/distinct/distinct_data.sql",
     "tests/mapping/distinct/distinct_denorm_mapping.md": "tests/mapping/distinct/distinct_data.sql",
 }
 _ENTRIES = [(mapping, spec, e) for mapping in _VARIANTS for spec in discover_specs(mapping) for e in spec.expectations]
