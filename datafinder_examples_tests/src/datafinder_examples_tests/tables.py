@@ -1,6 +1,7 @@
 """The tables of the example data that each set of specs reads, and the CSV that holds the rows of each: what an engine loads before it runs the specs.
 
-The column types are the ones every database spells the same (INT, VARCHAR, DOUBLE, DATE, TIMESTAMP, BOOLEAN); the rows are in the CSV in the order of the columns.
+The column types are the ones every database spells the same (INT, VARCHAR, DOUBLE, DATE, TIMESTAMP, BOOLEAN), and ``VECTOR(n)``, a vector of n numbers written
+in the CSV as ``[0.5,0.25]``, which an engine loads as its own array of floats; the rows are in the CSV in the order of the columns.
 """
 from dataclasses import dataclass
 
@@ -12,7 +13,7 @@ class TableData:
     csv: str | None = None  # the file in datafinder_examples with its rows (with a header); none for a table with no rows
 
 
-COMPANIES = [TableData("main.companies", "id INT, name VARCHAR, category VARCHAR", "companies.csv")]
+COMPANIES = [TableData("main.companies", "id INT, name VARCHAR, category VARCHAR, embedding VECTOR(3)", "companies.csv")]
 
 POSITIONS = [TableData("main.positions", "id INT, trade_date DATE, npv DOUBLE", "positions_date.csv")]
 

@@ -12,6 +12,7 @@ import sqlglot.errors
 
 from datafinder import DateTimeAttribute, DateAttribute
 from datafinder.attribute import Attribute
+from datafinder.pgvector_dialect import PgVector
 from model.milestoning import AsOf, MilestoningColumns, ProcessingTemporalColumns, SingleBusinessDateColumn, \
     SingleProcessingDatetimeColumn, \
     BusinessDateAndProcessingTemporalColumns, BiTemporalColumns, BusinessDateRangeColumns, MilestonedTable
@@ -22,7 +23,7 @@ from model.relational import LIKE_ESCAPE, Table, Relation, NamedRelation, TableA
     ComparisonOperation, ConstantOperation, ComparisonOperator, StringConstantOperation, DateConstantOperation, \
     DateTimeConstantOperation, IntegerConstantOperation, FloatConstantOperation, BooleanConstantOperation, DecimalConstantOperation, Column, NoOperation, JoinOperation, JoinTreeNodeOperation, \
     UnaryOperation, ColumnWithJoin, AggregateOperation, AggregateOperator, SortOperation, SortDirection, CountAllOperation, \
-    ScalarFunction, ScalarFunctionOperation, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
+    ScalarFunction, ScalarFunctionOperation, VectorValue, DatePart, DateExtractOperation, DateTruncOperation, DateArithmeticOperation, DateDiffOperation, \
     RecentDayOfWeekOperation, CurrentDateOperation, CurrentTimestampOperation, \
     IsNullOperation, IsNotNullOperation, InOperation, NotInOperation, NotOperation, \
     WindowFunctionOperation, WindowFunction, WindowSpecification, Alias, ExistsOperation, NotExistsOperation, RelationExistsOperation, \
@@ -775,10 +776,11 @@ _PLAIN_IDENTIFIER = re.compile(r'[A-Za-z_][A-Za-z0-9_]*$')
 SOURCE_DIALECT = "postgres"
 
 
-_DIALECTS: dict[str, Any] = {}
+_DIALECTS: dict[str, Any] = {"postgres": PgVector}
 # The module of the engine that registers the dialect of a database, which is imported the first time SQL is written for that dialect, so that
 # a view or a changelog written for Databricks is written as the Databricks engine writes it. An engine that is not installed is not needed.
-_DIALECT_MODULES: dict[str, str] = {"databricks": "datafinder_databricks.databricks_engine", "spark": "datafinder_spark.spark_engine"}
+_DIALECT_MODULES: dict[str, str] = {"databricks": "datafinder_databricks.databricks_engine", "spark": "datafinder_spark.spark_engine",
+                                    "duckdb": "datafinder_duckdb.duckdb_dialect"}
 
 
 def register_dialect(name: str, dialect: Any) -> None:
@@ -793,7 +795,7 @@ def sql_for_dialect(sql: str, dialect: str) -> str:
             importlib.import_module(_DIALECT_MODULES[dialect])  # registers the dialect
         except ImportError:
             pass  # the engine is not installed: sqlglot's own dialect
-    return sqlglot.transpile(sql, read=SOURCE_DIALECT, write=_DIALECTS.get(dialect, dialect))[0]
+    return sqlglot.transpile(sql, read=PgVector, write=_DIALECTS.get(dialect, dialect))[0]
 
 
 _DAY_NAMES = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
@@ -831,6 +833,11 @@ def _interval_string(n: int, unit: DatePart) -> str:
     elif unit in (DatePart.QUARTER, DatePart.ISODOW, DatePart.DOY):
         raise ValueError(f"A length of time is not counted in {unit.value}")
     return "INTERVAL '" + str(n) + "' " + unit.value
+
+
+def _vector_literal(vector: VectorValue) -> str:
+    """A vector as pgvector has it: a list of numbers cast to ``VECTOR(n)``."""
+    return 'CAST(ARRAY[' + ', '.join(repr(number) for number in vector.values) + f'] AS VECTOR({len(vector)}))'
 
 
 def _column_reference(alias_name: str, column_name: str) -> str:
@@ -878,6 +885,9 @@ _SCALAR_SQL_NAMES = {
     ScalarFunction.ATAN2:     'ATAN2',
     ScalarFunction.EXP:       'EXP',
     ScalarFunction.LOG:       'LN',
+    ScalarFunction.COSINE_DISTANCE: 'COSINE_DISTANCE',  # pgvector's function of that name
+    ScalarFunction.L2_DISTANCE:     'L2_DISTANCE',
+    ScalarFunction.INNER_PRODUCT:   'INNER_PRODUCT',
 }
 
 _WINDOW_SQL_NAMES = {
@@ -1054,7 +1064,7 @@ def sql_operation_to_string(operation: RelationalOperationElement) -> str:
         if operation.second_arg is not None:
             parts.append(str(operation.second_arg))
         for arg in operation.extra_args:
-            parts.append(sql_string_literal(arg) if isinstance(arg, str) else str(arg))
+            parts.append(sql_string_literal(arg) if isinstance(arg, str) else _vector_literal(arg) if isinstance(arg, VectorValue) else str(arg))
         sql = fn + '(' + ', '.join(parts) + ')'
         return f'CAST({sql} AS {operation.cast})' if operation.cast else sql
     elif isinstance(operation, DateExtractOperation):

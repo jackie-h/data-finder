@@ -55,7 +55,8 @@ Each property has:
 | Key | `Y` marks the business key |
 | Description | Optional documentation |
 
-Supported primitive types: `String`, `Integer`, `Double`, `Float`, `Decimal`, `Date`, `DateTime`, `Boolean`.
+Supported primitive types: `String`, `Integer`, `Double`, `Float`, `Decimal`, `Date`, `DateTime`, `Boolean`, `Vector` (an embedding: see
+[Vector search](#vector-search)).
 
 Classes belong to a **Sub-Domain** (package), which controls the Python package structure of the generated finders.
 
@@ -674,6 +675,39 @@ top.order_by(top["account"].ascending())
   `step.order_by(step["price"].descending())`.
 
 A value compared with every row of a relation, as a scalar subquery would give, is a window over the rows: `.over()`.
+
+### Vector search
+
+A column of embeddings is a `Vector` property, mapped to a column of type `VECTOR(n)`, where `n` is the number of numbers in each vector:
+
+```
+| embedding | VECTOR(3) |     | Y        | embedding |
+```
+
+It is compared with a vector (a list, tuple or numpy array of the same length) by a distance, which is a number of the query like any other: it can
+be selected, rounded, compared and ordered by.
+
+```python
+query = [1.0, 0.2, 0.0]    # embedded by the caller: this library compares vectors, it does not make them
+
+CompanyFinder.embedding().cosine_distance(query)   # 0 for the same direction: 1 - a @ b / (norm(a) * norm(b))
+CompanyFinder.embedding().l2_distance(query)       # numpy.linalg.norm(a - b)
+CompanyFinder.embedding().inner_product(query)     # a @ b, a similarity: larger is nearer
+
+# the 5 nearest technology companies, with how near
+distance = CompanyFinder.embedding().cosine_distance(query)
+CompanyFinder.find_all([CompanyFinder.name(), distance], CompanyFinder.category().eq("Technology")).nearest(distance, 5)
+
+# the companies within a distance
+CompanyFinder.find_all([CompanyFinder.name()], distance < 0.3)
+```
+
+`nearest(distance, k)` is the `k` rows with the smallest `cosine_distance` or `l2_distance`, or the largest `inner_product`, the nearest first. A row with
+no vector comes after all that have one. It is an exact search: an engine may answer it from an approximate index, but that is for the database to set up.
+Which text, image or other value a vector was made from is not known to the finder, and the vectors of a query must come from the same embedding model as the column's.
+
+DuckDB (a `FLOAT[n]` column) and Spark (an `ARRAY<FLOAT>` column) run these queries, and Databricks as Spark does. For Postgres the SQL is pgvector's
+(`VECTOR(n)`).
 
 ### Temporal queries
 

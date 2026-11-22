@@ -12,7 +12,7 @@ from model.naming import to_snake_case
 from model.relational import (
     Alias, JoinKind, JoinOperation, NoOperation, OrderedQuerySpecification, QueryExpression, QuerySpecification, Relation, RelationExistsOperation,
     RelationalOperationElement, SortOperation, Table, TableAlias, UnionOperation, LogicalOperation, LogicalOperator, ConstantOperation,
-    ArithmeticOperation, ScalarFunctionOperation, ColumnWithJoin, Column, ComparisonOperation)
+    ArithmeticOperation, ScalarFunction, ScalarFunctionOperation, ColumnWithJoin, Column, ComparisonOperation, VECTOR_METRICS)
 from model.view import View, ViewDefinitionError, contains_aggregate, contains_aggregate_or_window
 
 
@@ -472,6 +472,20 @@ class FinderResult(DataFrame):
     def limit(self, n: int) -> 'FinderResult':
         """The first ``n`` rows. Taking again takes from the rows taken."""
         return self._then(taken(self._query, n))
+
+    def nearest(self, distance, k: int) -> 'FinderResult':
+        """The ``k`` rows nearest to a vector: those with the smallest ``cosine_distance`` or ``l2_distance`` of a vector column, or the
+        largest ``inner_product`` (a similarity, so the nearest are the most similar). A row with no vector is never among them. It is an exact
+        search of the rows the query reads, and an engine may answer it from an approximate index::
+
+            company.find_all([f.name(), distance], f.category().eq("Technology")).nearest(distance, 10)
+        """
+        if getattr(distance, "function", None) not in VECTOR_METRICS:
+            raise ValueError("nearest is of a cosine_distance, l2_distance or inner_product of a vector column")
+        if k < 1:
+            raise ValueError("nearest needs at least one row: k >= 1")
+        largest = distance.function == ScalarFunction.INNER_PRODUCT
+        return self.order_by(distance.descending(nulls="last") if largest else distance.ascending(nulls="last")).limit(k)
 
     def offset(self, n: int) -> 'FinderResult':
         """Skip the first ``n`` rows. Sort the rows first: without an order, which rows come first is not defined. Rows that were

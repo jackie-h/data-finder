@@ -6,6 +6,8 @@ import shutil
 import sys
 import tempfile
 
+from pyspark.sql.functions import col, from_json
+
 from datafinder import QueryRunnerBase
 from datafinder_examples import example_path
 from datafinder_examples_tests.tables import TableData
@@ -14,9 +16,12 @@ from datafinder_spark.spark_engine import SparkConnect
 from mapping_markdown.markdown_mapping import load
 
 
+_VECTOR = re.compile(r"\b(\w+)\s+VECTOR\(\d+\)", re.IGNORECASE)
+
+
 def _spark_columns(columns: str) -> str:
-    """The columns as Spark's DDL spells them: a VARCHAR is a STRING there."""
-    return re.sub(r"\bVARCHAR(\(\d+\))?", "STRING", columns, flags=re.IGNORECASE)
+    """The columns as Spark's DDL spells them: a VARCHAR is a STRING there, and a VECTOR is read as the text of its CSV, to be made an array."""
+    return re.sub(r"\bVARCHAR(\(\d+\))?", "STRING", _VECTOR.sub(r"\1 STRING", columns), flags=re.IGNORECASE)
 
 
 def load_tables(spark, tables: list[TableData]) -> None:
@@ -31,6 +36,8 @@ def load_tables(spark, tables: list[TableData]) -> None:
             spark.sql(f"CREATE TABLE {table.name} ({columns}) USING parquet")
         else:
             rows = spark.read.csv(str(example_path(table.csv)), header=True, schema=columns)
+            for vector in _VECTOR.findall(table.columns):  # the text ``[0.5,0.25]`` is an array of floats
+                rows = rows.withColumn(vector, from_json(col(vector), "array<float>"))
             rows.write.mode("overwrite").saveAsTable(table.name)
 
 

@@ -35,7 +35,7 @@ def company_finder():
 
     conn = duckdb.connect("test.db")
     conn.execute("DROP TABLE IF EXISTS companies")
-    conn.execute("CREATE TABLE companies (id INT, name VARCHAR, category VARCHAR)")
+    conn.execute("CREATE TABLE companies (id INT, name VARCHAR, category VARCHAR, embedding FLOAT[3])")
     conn.execute(f"INSERT INTO companies SELECT * FROM read_csv_auto('{str(example_path('companies.csv'))}')")
     conn.close()
 

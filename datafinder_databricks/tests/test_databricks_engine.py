@@ -228,3 +228,21 @@ class TestSharedWithSpark:
         from datafinder import DateAttribute
         sql = self._sql(DateAttribute("Start", "START_AT", "DATE", _OWNER_ACCOUNTS).add_days(5))
         assert "CAST(t1.START_AT AS TIMESTAMP) + INTERVAL" in sql
+
+
+class TestVectorDistances:
+    """Databricks has no live runner here: the SQL of a distance is checked as text. It is the one written for Spark, whose rows are specced against a
+    local Spark in datafinder_spark (``cosine_distance_of_each_company`` and the other vector specs)."""
+
+    def _sql(self, *columns):
+        from model.relational import Table as _Table
+        return _to_databricks_sql(None, None, list(columns), _Table("companies", []), NoOperation())
+
+    def _embedding(self):
+        from datafinder.typed_attributes import VectorAttribute
+        return VectorAttribute("Embedding", "embedding", "VECTOR(2)", _OWNER_ACCOUNTS)
+
+    def test_a_distance_is_computed_over_the_arrays(self):
+        sql = self._sql(self._embedding().l2_distance([1, 2]), self._embedding().inner_product([1, 2]), self._embedding().cosine_distance([1, 2]))
+        assert "SQRT(AGGREGATE(ZIP_WITH(t1.embedding, CAST(ARRAY(1.0, 2.0) AS ARRAY<FLOAT>)" in sql
+        assert "COSINE_DISTANCE" not in sql and "EUCLIDEAN_DISTANCE" not in sql and "VECTOR" not in sql

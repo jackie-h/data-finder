@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import decimal
+import math
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Callable, Generic, Iterable, Sequence, TypeVar, overload
 
@@ -1569,6 +1570,9 @@ class ScalarFunction(Enum):
     EXP = 28
     LOG = 29
     DAY_NAME = 30
+    COSINE_DISTANCE = 31
+    L2_DISTANCE = 32
+    INNER_PRODUCT = 33
 
 
 class WindowFunction(Enum):
@@ -1759,6 +1763,64 @@ class DecimalFunctionOperation(_Result, NumericFunctions['DecimalFunctionOperati
 IntegerConstantOperation._number_type = IntegerFunctionOperation
 FloatConstantOperation._number_type = DoubleFunctionOperation
 DecimalConstantOperation._number_type = DecimalFunctionOperation
+
+
+class VectorValue:
+    """The vector that a vector column is compared with: finite numbers, in order. It is made from any list, tuple or numpy array of numbers."""
+
+    def __init__(self, values):
+        numbers = [float(value) for value in values]
+        if not numbers:
+            raise ValueError("A vector has at least one number")
+        if not all(math.isfinite(number) for number in numbers):
+            raise ValueError("The numbers of a vector are finite: not nan or infinity")
+        self.values = tuple(numbers)
+
+    def __len__(self) -> int:
+        return len(self.values)
+
+    def __eq__(self, other) -> bool:
+        return isinstance(other, VectorValue) and self.values == other.values
+
+    def __hash__(self) -> int:
+        return hash(self.values)
+
+    def __repr__(self) -> str:
+        return f"VectorValue({list(self.values)})"
+
+
+VECTOR_METRICS = {ScalarFunction.COSINE_DISTANCE, ScalarFunction.L2_DISTANCE, ScalarFunction.INNER_PRODUCT}
+
+
+class VectorFunctions:
+    """Functions of a vector, a column of embeddings. Each compares the column with a vector of the same length and gives a number, which is then
+    an ordinary number of the query: it can be selected, compared, ordered by or grouped on. The user of this class provides ``_function_input()``,
+    ``_function_label()`` and ``dimension()``, the length of the vectors of the column (None if it is not known)."""
+
+    if TYPE_CHECKING:  # provided by the class this is mixed into; declared here only, so it does not hide the real one
+        def _function_input(self) -> Any: ...
+        def _function_label(self) -> str: ...
+        def dimension(self) -> int | None: ...
+
+    def _compare(self, function: ScalarFunction, label: str, vector) -> 'DoubleFunctionOperation':
+        value = vector if isinstance(vector, VectorValue) else VectorValue(vector)
+        dimension = self.dimension()
+        if dimension is not None and len(value) != dimension:
+            raise ValueError(f"{self._function_label()} has {dimension} numbers in a vector, and the one given has {len(value)}")
+        return double_function(self._function_input(), function, f'{label} {self._function_label()}', extra_args=[value])
+
+    def cosine_distance(self, vector) -> 'DoubleFunctionOperation':
+        """The cosine distance to ``vector``: 0 for the same direction, 1 for a right angle, 2 for opposite directions (1 minus the cosine similarity).
+        The nearest rows have the smallest distance."""
+        return self._compare(ScalarFunction.COSINE_DISTANCE, 'Cosine Distance', vector)
+
+    def l2_distance(self, vector) -> 'DoubleFunctionOperation':
+        """The Euclidean distance to ``vector``: ``numpy.linalg.norm(a - b)``. The nearest rows have the smallest distance."""
+        return self._compare(ScalarFunction.L2_DISTANCE, 'L2 Distance', vector)
+
+    def inner_product(self, vector) -> 'DoubleFunctionOperation':
+        """The inner (dot) product with ``vector``: ``numpy.dot(a, b)``. It is a similarity, so the nearest rows have the largest value."""
+        return self._compare(ScalarFunction.INNER_PRODUCT, 'Inner Product', vector)
 IntegerFunctionOperation._number_type = IntegerFunctionOperation
 IntegerFunctionOperation._number_kind = int
 IntegerFunctionOperation._value_aggregate = IntegerAggregateOperation
