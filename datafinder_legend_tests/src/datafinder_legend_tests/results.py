@@ -14,6 +14,7 @@ from datafinder_examples_tests.spec import TestExpectation
 from datafinder_examples_tests.sql_compare import parse
 
 from datafinder_legend_tests.asserted import check as check_claims, claims_of
+from datafinder_legend_tests.gaps import checkable, gap_is_only
 from datafinder_legend_tests.legend import BACKEND, ROWS
 
 
@@ -108,21 +109,49 @@ def our_rows(finder: Any, expectation: TestExpectation) -> list[tuple]:
     return canonical_rows(df.itertuples(index=False, name=None))
 
 
-def assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:
-    """Our query returns the rows that Legend's test asserts for it. Where the test asserts none that can be read (see
-    tools/extract_rows.py), they are the rows of Legend's SQL on the same data (columns by position); when Legend's SQL sorts, the
-    rows must also come in the same order of the sorted columns."""
+def check_ported(database: Any, finder: Any, expectation: TestExpectation) -> None:
+    """One test of a ported Legend test: our rows are what Legend's test asserts, then our SQL is Legend's.
+
+    The rows are checked first. They are the rows that Legend's test asserts, or where it asserts none that can be read (see
+    tools/extract_rows.py) the rows of Legend's SQL on the same data. Then the SQL is compared with Legend's, ignoring what only names or groups
+    (see sql_compare). A difference that a ``known_gaps`` entry names is expected: ``ROWS`` for the rows and ``BACKEND`` for the SQL, which
+    must differ by no more than the gap says where the gap can be checked (gaps.py). The test is then an expected failure, and a gap whose
+    check passes is an error, so it is removed as soon as it is closed.
+    """
     if BACKEND in expectation.skip_backends:
         pytest.skip(expectation.skip_backends[BACKEND])
-    check = _assert_asserted_rows if claims_of(expectation.source) else _assert_same_rows
-    gap = expectation.known_gaps.get(ROWS)
-    if gap is not None:
-        try:
-            check(database, finder, expectation)
-        except (AssertionError, duckdb.Error):  # or Legend's SQL is one DuckDB will not run
-            pytest.xfail(gap)
-        pytest.fail(f"[{expectation.name}] now returns Legend's rows: remove its {ROWS} known_gaps entry ({gap})")
-    check(database, finder, expectation)
+    expected_failures: list[str] = []
+
+    rows_gap = expectation.known_gaps.get(ROWS)
+    rows_check = _assert_asserted_rows if claims_of(expectation.source) else _assert_same_rows
+    try:
+        rows_check(database, finder, expectation)
+    except (AssertionError, duckdb.Error):  # or Legend's SQL is one DuckDB will not run
+        if rows_gap is None:
+            raise
+        expected_failures.append(rows_gap)
+    else:
+        if rows_gap is not None:
+            pytest.fail(f"[{expectation.name}] now returns Legend's rows: remove its {ROWS} known_gaps entry ({rows_gap})")
+
+    sql_gap = expectation.known_gaps.get(BACKEND)
+    try:
+        expectation._check(finder, BACKEND)
+    except Exception:
+        if sql_gap is None:
+            raise
+        if checkable(sql_gap):
+            actual = expectation.query(finder).to_sql()
+            expected = expectation.equivalent_sql[BACKEND]
+            assert gap_is_only(sql_gap, actual, expected), (
+                f"[{expectation.name}] differs from Legend by more than: {sql_gap}\nActual: {actual}\nExpected: {expected}")
+        expected_failures.append(sql_gap)
+    else:
+        if sql_gap is not None:
+            pytest.fail(f"[{expectation.name}] now passes: remove its known_gaps entry ({sql_gap})")
+
+    if expected_failures:
+        pytest.xfail("; ".join(expected_failures))
 
 
 def _assert_asserted_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:

@@ -10,9 +10,8 @@ import pytest
 from datafinder_legend_tests import legend_path
 from datafinder_legend_tests.data import seeded_database
 from datafinder_legend_tests.finders import generated_finders
-from datafinder_legend_tests.gaps import checkable, gap_is_only
-from datafinder_legend_tests.legend import BACKEND, discover_specs
-from datafinder_legend_tests.results import assert_same_rows
+from datafinder_legend_tests.legend import discover_specs
+from datafinder_legend_tests.results import check_ported
 
 # mapping -> the data it runs on
 _VARIANTS = {
@@ -77,24 +76,5 @@ def _finder(mapping: str, finder_name: str):
 
 @pytest.mark.parametrize("mapping,spec,expectation", _CASES)
 def test_mapping_variant(mapping, spec, expectation):
-    with generated_finders(legend_path(mapping)):
-        expectation.run(_finder(mapping, spec.finder_name), backend=BACKEND)
-
-
-@pytest.mark.parametrize("mapping,spec,expectation", _CASES)
-def test_mapping_variant_rows(mapping, spec, expectation):
     with generated_finders(legend_path(mapping)), seeded_database(legend_path(_VARIANTS[mapping])) as database:
-        assert_same_rows(database, _finder(mapping, spec.finder_name), expectation)
-
-
-_GAP_CASES = [pytest.param(mapping, spec, e, id=f"{spec.finder_name}-{e.name}") for mapping, spec, e in _ENTRIES
-              if checkable(e.known_gaps.get(BACKEND, ""))]
-
-
-@pytest.mark.parametrize("mapping,spec,expectation", _GAP_CASES)
-def test_known_sql_gap_is_only_what_it_says(mapping, spec, expectation):
-    with generated_finders(legend_path(mapping)):
-        actual = expectation.query(_finder(mapping, spec.finder_name)).to_sql()
-    assert gap_is_only(expectation.known_gaps[BACKEND], actual, expectation.equivalent_sql[BACKEND]), (
-        f"[{expectation.name}] differs from Legend by more than: {expectation.known_gaps[BACKEND]}\n"
-        f"Actual: {actual}\nExpected: {expectation.equivalent_sql[BACKEND]}")
+        check_ported(database, _finder(mapping, spec.finder_name), expectation)
