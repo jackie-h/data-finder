@@ -74,6 +74,16 @@ def _filter_below_a_navigation(f):
             .order_by(f.name().ascending(), locations.place().ascending())
 
 
+def _filter_reading_through_another_navigation(f):
+    in_the_east = f.locations().filter(lambda each: each.region().name().eq("East"))
+    return f.find_all([f.name(), in_the_east.place()]).order_by(f.name().ascending(), in_the_east.place().ascending())
+
+
+def _filter_reading_through_another_navigation_or_a_column(f):
+    busy_or_in_the_west = f.locations().filter(lambda each: each.region().name().eq("West").or_(each.visits() > 3))
+    return f.find_all([f.name(), busy_or_in_the_west.place()]).order_by(f.name().ascending())
+
+
 PLACES_PERSON_FINDER_SPECS = FinderSpec(
     finder_name="PersonFinder",
     mapping_file=PLACES_MAPPING,
@@ -171,6 +181,27 @@ PLACES_PERSON_FINDER_SPECS = FinderSpec(
                 ["Ann", "Boston", "East"], ["Ann", "Hoboken", "East"], ["Ann", "New York", "East"],
                 ["Bob", "Boston", "East"], ["Cy", "New York", None],
             ], dtype=object),
+        ),
+        TestExpectation(
+            name="a_filter_whose_condition_reads_through_another_navigation",
+            skip_backends=_NO_FILTERS,
+            query=_filter_reading_through_another_navigation,
+            expected_columns=["Name", "Locations Place"],
+            # the region of a location is joined for the condition, which holds in the join of the locations: Cy's only
+            # location is in the West, so he is there with none
+            expected_result=np.array([
+                ["Ann", "Boston"], ["Ann", "Hoboken"], ["Ann", "New York"], ["Bob", "Boston"], ["Cy", None],
+            ], dtype=object),
+            expected_sql={"duckdb": "LEFT OUTER JOIN (SELECT t2.person_id AS \"person_id\",t2.place AS \"place\" FROM geo.locations AS t2 "
+                                    "LEFT OUTER JOIN geo.regions AS t3 ON (t3.id = t2.region_id) WHERE t3.name = 'East') AS t1 ON (t0.id = t1.person_id)"},
+        ),
+        TestExpectation(
+            name="a_filter_of_a_column_or_a_column_of_another_navigation",
+            skip_backends=_NO_FILTERS,
+            query=_filter_reading_through_another_navigation_or_a_column,
+            expected_columns=["Name", "Locations Place"],
+            # in the West (Cy's New York) or visited more than 3 times (Ann's New York, Bob's Boston)
+            expected_result=np.array([["Ann", "New York"], ["Bob", "Boston"], ["Cy", "New York"]], dtype=object),
         ),
     ],
 )
