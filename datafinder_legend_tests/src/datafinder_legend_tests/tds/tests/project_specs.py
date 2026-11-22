@@ -51,7 +51,7 @@ TDS_PROJECT_SPECS = FinderSpec(
         ported("testDateLiteral", f"{_SRC}::testDateLiteral",
                'select "root".FIRSTNAME as "firstName", \'2016-08-10\' as "dateLiteral" from personTable as "root"',
                lambda f: f.find_all([f.first_name(), constant(datetime.date(2016, 8, 10))]),
-               known_gaps={BACKEND: HOUR_OF_DATETIME_LITERAL, ROWS: HOUR_OF_DATETIME_LITERAL}),
+               known_gaps={BACKEND: TYPED_DATE_LITERAL, ROWS: TYPED_DATE_LITERAL}),
         ported("testProjectOnMultiple", f"{_SRC}::testProjectOnMultiple",
                'select "root".FIRSTNAME as "first_name", "root".LASTNAME as "last_name", char_length("root".FIRSTNAME) + char_length("root".LASTNAME) as "combined_length" from personTable as "root"',
                lambda f: f.find_all([f.first_name(), f.last_name(), f.first_name().length() + f.last_name().length()])),
