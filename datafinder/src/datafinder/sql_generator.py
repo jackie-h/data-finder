@@ -1621,8 +1621,8 @@ class SQLQueryGenerator:
             return _column_reference(ta.name, op.name)
         elif isinstance(op, (ArithmeticOperation, ConcatOperation, ScalarFunctionOperation, DateTruncOperation,
                              DateExtractOperation, DateArithmeticOperation, DateDiffOperation,
-                             AggregateOperation, CountAllOperation)):
-            # an expression compared in a filter: it needs its columns' joins, then it is written as in a select list
+                             AggregateOperation, CountAllOperation, CaseOperation)):
+            # an expression compared in a filter, or a conditional that is the filter: it needs its columns' joins, then it is written as in a select list
             required_joins: dict = {}
             self.__collect_required_joins(op, required_joins)
             for parent in required_joins.values():

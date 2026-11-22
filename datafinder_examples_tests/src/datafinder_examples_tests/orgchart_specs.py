@@ -270,6 +270,24 @@ ORGCHART_FINDER_SPECS = FinderSpec(
                 dtype=object),
         ),
         TestExpectation(
+            name="if_as_a_filter_on_a_related_column_keeps_the_rows_with_no_related_row_out",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                [f.name()], when(f.manager().name().eq("Alice")).then(True).otherwise(False)
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Bob"], ["Carol"]], dtype=object),
+        ),
+        TestExpectation(
+            name="if_as_a_filter_on_a_related_column_with_a_missing_row_taking_otherwise",
+            skip_backends={"graphql": "The GraphQL finder cannot compute a conditional"},
+            query=lambda f: f.find_all(
+                [f.name()], when(f.manager().name().eq("Alice")).then(False).otherwise(True)
+            ).order_by(f.id_().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array([["Alice"], ["Dave"]], dtype=object),
+        ),
+        TestExpectation(
             name="manager_name_for_dave",
             query=lambda f: f.find_all([f.name(), f.manager().name()], f.name().eq("Dave")),
             expected_columns=["Name", "Manager Name"],
