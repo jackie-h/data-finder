@@ -1,0 +1,8 @@
+{
+  "name": "constant_column_with_a_filter_and_no_matches",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name(), constant(\"x\").alias(\"X\")], f.name().eq(\"Nobody\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":["x"],"kwargs":{}},"name":"alias"},"args":["X"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Nobody"],"kwargs":{}}],"kwargs":{}},
+  "result": "constant_column_with_a_filter_and_no_matches.csv"
+}

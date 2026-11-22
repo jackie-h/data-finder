@@ -1,0 +1,11 @@
+{
+  "name": "a_distance_is_compared_like_a_number",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name()], (f.embedding().cosine_distance([1.0, 0.2, 0.0]) < 0.3)).order_by(f.name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"<","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"embedding"},"args":[],"kwargs":{}},"name":"cosine_distance"},"args":[{"kind":"list","items":[1.0,0.2,0.0]}],"kwargs":{}},"right":0.3}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_distance_is_compared_like_a_number.csv",
+  "skip": {
+    "graphql": "A distance to a vector is a number of the query, as a function of a number is; the rows are the same on every engine"
+  }
+}

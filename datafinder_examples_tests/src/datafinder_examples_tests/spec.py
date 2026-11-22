@@ -51,6 +51,8 @@ class TestExpectation:
     skip_backends: dict[str, str] = field(default_factory=dict)
     # Compare floats to a relative 1e-9, not exactly: for an aggregate whose last digits depend on the order of the rows.
     approximate: bool = False
+    # The type of each column, in the names of the model, when the values the spec expects do not say it (a column with no value).
+    expected_types: list[str] | None = None
 
     def run(self, finder: Any, backend: str | None = None) -> None:
         if backend and backend in self.skip_backends:

@@ -1,0 +1,11 @@
+{
+  "name": "alias_names_an_aggregate",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.id_().count().alias(\"Companies\")])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"count"},"args":[],"kwargs":{}},"name":"alias"},"args":["Companies"],"kwargs":{}}]}],"kwargs":{}},
+  "result": "alias_names_an_aggregate.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no count() yet"
+  }
+}

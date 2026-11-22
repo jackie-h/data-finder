@@ -1,0 +1,14 @@
+{
+  "name": "concatenate_a_result_with_its_own_order_and_limit",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "(v1 := f.find_all([f.id_()]).order_by(f.id_().descending()).limit(2).concatenate(f.find_all([f.id_()], f.id_().eq(1)), all=True)).order_by(v1[\"id\"].ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"descending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[2],"kwargs":{}},"name":"concatenate"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}}],"kwargs":{"all":true}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"id"},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "concatenate_a_result_with_its_own_order_and_limit.csv",
+  "sql_contains": {
+    "duckdb": "(SELECT"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder has no union"
+  }
+}

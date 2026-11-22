@@ -560,6 +560,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all([f.name(), constant("x").alias("X")], f.name().eq("Nobody")),
             expected_columns=["Name", "X"],
             expected_result=np.empty((0, 2), dtype=object),
+            expected_types=["String", "String"],
         ),
         # --- Distinct: each row once ---
         TestExpectation(
@@ -625,6 +626,7 @@ COMPANY_FINDER_SPECS = FinderSpec(
             query=lambda f: f.find_all([f.name()]).order_by(f.name().ascending()).offset(10),
             expected_columns=["Name"],
             expected_result=np.empty((0, 1), dtype=object),
+            expected_types=["String"],
         ),
         TestExpectation(
             name="offset_zero_changes_nothing",

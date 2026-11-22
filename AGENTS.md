@@ -27,6 +27,11 @@
 - Reuse and extend the existing models, mappings, data and specs as much as possible; do not make a new model for one feature. When a feature needs a column, a row or a mapping, add it to the existing one, update the existing specs that its data changes, and then write the new spec. Adding data is fine: a spec that compares against the whole table (`<`, `>`, counts) is updated for the new rows, not worked around. A new model or dataset is for behaviour that no existing one can hold. A `constant(value)` gives a one-row spec with no data of its own, and suits a function of a value, but it is not a reason to avoid extending the data.
 - Use a unit test only for what no finder query can show: an error that is raised, the type an expression has, or the SQL written for an engine that has no live runner (Databricks). Say in its docstring where the behaviour itself is specced.
 
+### Spec files
+
+- The specs in `datafinder_examples_tests` are also written as language neutral files in `datafinder_specs/specs/<suite>/`: a JSON file with the query and a CSV of the expected result, with the type of each column. The Python specs stay where a spec is written, and the expected result is still worked out there.
+- After changing a spec in a suite that is written as files (see `suites()` in `spec_files.py`), run `uv run datafinder_examples/tools/write_spec_files.py` to write them again; a test fails when the files differ from what the specs export. A result with no row, or a column with no value, needs `expected_types` on the expectation.
+
 ## Git Workflow
 
 - Create a branch for each feature or bug fix before changing files.

@@ -16,6 +16,7 @@ from mapping_markdown.markdown_mapping import load
 from datafinder_examples import example_path
 
 from datafinder_examples_tests.companies_constant_specs import COMPANIES_CONSTANT_SPECS
+from datafinder_examples_tests import spec_files
 from datafinder_examples_tests.companies_specs import COMPANY_FINDER_SPECS
 
 _MODS = ["company_finder"]
@@ -60,4 +61,14 @@ def test_company(expectation, company_finder):
     "expectation", COMPANIES_CONSTANT_SPECS.expectations, ids=lambda e: e.name
 )
 def test_company_constant_functions(expectation, company_finder):
+    expectation.run(company_finder, backend="duckdb")
+
+
+_FILE_MAPPING, _FILE_EXPECTATIONS = spec_files.load("companies")
+
+
+@pytest.mark.parametrize("expectation", _FILE_EXPECTATIONS, ids=lambda e: e.name)
+def test_company_from_the_spec_files(expectation, company_finder):
+    """The same specs, read from the JSON and CSV files of data-finder-specs and not from the Python."""
+    assert _FILE_MAPPING == COMPANY_FINDER_SPECS.mapping_file
     expectation.run(company_finder, backend="duckdb")

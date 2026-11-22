@@ -1,0 +1,14 @@
+{
+  "name": "if_chooses_between_two_values",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name(), when(f.category().eq(\"Technology\")).then(\"tech\").otherwise(\"other\")]).order_by(f.id_().ascending()).limit(3)",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"when"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"category"},"args":[],"kwargs":{}},"name":"eq"},"args":["Technology"],"kwargs":{}}],"kwargs":{}},"name":"then"},"args":["tech"],"kwargs":{}},"name":"otherwise"},"args":["other"],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[3],"kwargs":{}},
+  "result": "if_chooses_between_two_values.csv",
+  "sql_contains": {
+    "duckdb": "CASE WHEN t0.category = 'Technology' THEN 'tech' ELSE 'other' END"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder cannot compute a conditional"
+  }
+}

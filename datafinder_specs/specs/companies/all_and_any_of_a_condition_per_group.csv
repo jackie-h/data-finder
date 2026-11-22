@@ -1,0 +1,5 @@
+Category,All,Any
+String,Boolean,Boolean
+Finance,true,true
+Manufacturing,true,false
+Technology,true,false

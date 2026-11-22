@@ -1,0 +1,11 @@
+{
+  "name": "slice_the_result_of_a_function",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([f.name().lower()[:4]]).order_by(f.name().ascending()).limit(1)",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"index","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"lower"},"args":[],"kwargs":{}},"key":{"kind":"slice","start":null,"stop":4,"step":null}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},"name":"limit"},"args":[1],"kwargs":{}},
+  "result": "slice_the_result_of_a_function.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot chain functions"
+  }
+}

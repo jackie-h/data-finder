@@ -1,0 +1,14 @@
+{
+  "name": "sum_of_arithmetic",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([(f.id_() * 2).sum()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"*","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"right":2},"name":"sum"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "sum_of_arithmetic.csv",
+  "sql_contains": {
+    "duckdb": "SUM(t0.id * 2)"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder cannot aggregate an expression"
+  }
+}

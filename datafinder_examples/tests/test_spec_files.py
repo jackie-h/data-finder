@@ -1,0 +1,60 @@
+"""The spec files of data-finder-specs: the typed CSV of a result, and that the files are what the Python specs export."""
+import datetime
+import decimal
+
+import numpy as np
+import pytest
+
+from datafinder_examples_tests import spec_files, typed_csv
+
+
+def _round_trip(columns, types, rows):
+    columns2, types2, values = typed_csv.read(typed_csv.write(columns, types, rows))
+    assert (columns2, types2) == (columns, types)
+    return values.tolist()
+
+
+def test_a_missing_value_and_the_empty_string_are_different():
+    rows = [["a", "b"], [None, ""], ["", None]]
+    assert _round_trip(["x", "y"], ["String[0..1]", "String[0..1]"], rows) == rows
+
+
+def test_a_cell_with_a_comma_a_quote_or_a_line_break_is_quoted():
+    rows = [['a, "b"'], ["two\nlines"], ["plain"]]
+    text = typed_csv.write(["Name"], ["String"], rows)
+    assert '"a, ""b"""' in text and "plain\n" in text
+    assert _round_trip(["Name"], ["String"], rows) == rows
+
+
+def test_each_type_comes_back_as_the_value_it_was():
+    row = [1, 0.1 + 0.2, decimal.Decimal("1.50"), True, datetime.date(2024, 2, 29), datetime.datetime(2016, 8, 10, 8, 55, 30, 250000), [1.0, 0.2]]
+    types = ["Integer", "Float", "Decimal", "Boolean", "StrictDate", "DateTime", "Vector"]
+    assert _round_trip([f"c{i}" for i in range(7)], types, [row]) == [row]
+
+
+def test_the_type_of_a_column_is_worked_out_from_its_values():
+    assert typed_csv.column_type([1, 2]) == "Integer"
+    assert typed_csv.column_type([1, None]) == "Integer[0..1]"
+    assert typed_csv.column_type([1, 2.5]) == "Float"
+    assert typed_csv.column_type([np.int64(3), np.nan]) == "Integer[0..1]"
+    assert typed_csv.column_type([datetime.datetime(2024, 1, 1), datetime.datetime(2024, 1, 2)]) == "DateTime"
+    assert typed_csv.column_type([datetime.date(2024, 1, 1)]) == "StrictDate"
+    with pytest.raises(ValueError, match="more than one type"):
+        typed_csv.column_type([1, "a"])
+    with pytest.raises(ValueError, match="no value"):
+        typed_csv.column_type([None])
+
+
+def test_a_row_with_the_wrong_number_of_cells_is_refused():
+    with pytest.raises(ValueError, match="has 1 cells"):
+        typed_csv.read("a,b\nInteger,Integer\n1\n")
+
+
+def test_the_spec_files_are_what_the_python_specs_export():
+    """Run ``uv run datafinder_examples/tools/write_spec_files.py`` to write them again after a spec changes."""
+    exported = spec_files.export_all()
+    root = spec_files.specs_folder()
+    on_disk = {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8")
+               for suite in spec_files.suites() for p in (root / suite).glob("*") if p.is_file()}
+    assert sorted(on_disk) == sorted(exported)
+    assert [path for path in exported if on_disk[path] != exported[path]] == []
