@@ -3,7 +3,7 @@ import datetime
 from typing import Union
 from datafinder.typed_attributes import (
     BooleanAttribute, DateAttribute, DateTimeAttribute, DecimalAttribute, DoubleAttribute, FloatAttribute, IntegerAttribute,
-    IntervalAttribute, NumericAttribute, StringAttribute)
+    IntervalAttribute, NumericAttribute, StringAttribute, VectorAttribute)
 from datafinder import FinderResult, convert_inputs_and_select, convert_inputs_and_select_for_date_range, convert_inputs_and_select_for_processing_range
 from datafinder.attribute import Attribute
 from datafinder.finder import RelatedFinder, derived_table, derived_union, display_prefix, keys_join, via_joins

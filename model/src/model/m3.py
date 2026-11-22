@@ -59,6 +59,7 @@ Decimal = PrimitiveType("Decimal")
 DateTime = PrimitiveType("DateTime")
 Date = PrimitiveType("Date")
 Boolean = PrimitiveType("Boolean")
+Vector = PrimitiveType("Vector")
 
 
 class Property(AnnotatedElement):

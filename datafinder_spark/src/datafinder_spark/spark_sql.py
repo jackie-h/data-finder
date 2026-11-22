@@ -78,6 +78,27 @@ class SparkFixes(Generator):
                                                    expression=exp.func("UNIX_SECONDS", difference.expression.copy()))))
         return super().extract_sql(expression)
 
+    @staticmethod
+    def _dot(a: str, b: str) -> str:
+        """The inner product of two arrays, as a sum of the products (Spark 3.5 has no vector functions)."""
+        return f"AGGREGATE(ZIP_WITH({a}, {b}, (x, y) -> CAST(x AS DOUBLE) * y), CAST(0 AS DOUBLE), (acc, v) -> acc + v)"
+
+    def dotproduct_sql(self, expression: exp.DotProduct) -> str:
+        return self._dot(self.sql(expression.this), self.sql(expression.expression))
+
+    def euclideandistance_sql(self, expression: exp.EuclideanDistance) -> str:
+        a, b = self.sql(expression.this), self.sql(expression.expression)
+        return f"SQRT(AGGREGATE(ZIP_WITH({a}, {b}, (x, y) -> POWER(CAST(x AS DOUBLE) - y, 2)), CAST(0 AS DOUBLE), (acc, v) -> acc + v))"
+
+    def cosinedistance_sql(self, expression: exp.CosineDistance) -> str:
+        a, b = self.sql(expression.this), self.sql(expression.expression)
+        return f"(1 - {self._dot(a, b)} / (SQRT({self._dot(a, a)}) * SQRT({self._dot(b, b)})))"
+
+    def datatype_sql(self, expression: exp.DataType) -> str:
+        if expression.is_type(exp.DType.VECTOR):  # a ``VECTOR(n)`` is an array of floats
+            return "ARRAY<FLOAT>"
+        return super().datatype_sql(expression)
+
     def _with_a_timestamp(self, expression: Any) -> Any:
         """date +/- interval is a timestamp in Postgres and a date in Spark: the date is made a timestamp first."""
         if isinstance(expression.expression, exp.Interval) and not _is_cast_to(expression.this, exp.DataType.Type.TIMESTAMP):

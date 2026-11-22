@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar
 from datafinder import Attribute
 import decimal
 
-from model.relational import DateFunctions, DateTimeFunctions, N, NumericFunctions, StringFunctions
+from model.relational import DateFunctions, DateTimeFunctions, N, NumericFunctions, StringFunctions, VectorFunctions
 from model.relational import DecimalFunctionOperation, DoubleFunctionOperation, IntegerFunctionOperation, StringFunctionOperation
 
 from model.relational import Relation, Equatable, Orderable, RelationalOperationElement, _sample, _percentile_operation, _quantile_operation, escape_like, Arithmetic, ConcatOperation, ComparisonOperation, concat, StringConstantOperation, Operation, ComparisonOperator, \
@@ -323,6 +323,26 @@ class IntervalAttribute(_MinMax[IntervalAggregateOperation], Attribute, Orderabl
         super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
 
 
+class VectorAttribute(VectorFunctions, Attribute):
+    """A vector attribute: a column of embeddings, with a fixed number of numbers (``VECTOR(1536)``). It has no equality or order of its own; it is
+    compared with a vector by its distance, which is a number of the query::
+
+        company.embedding().cosine_distance(query)   # numpy: 1 - a @ b / (norm(a) * norm(b))
+        company.embedding().l2_distance(query)       # numpy: norm(a - b)
+        company.embedding().inner_product(query)     # numpy: a @ b
+    """
+
+    def __init__(self, display_name: str, column_name: str, column_db_type: str, owner: 'Relation', parent=None,
+                 embedded: 'Attribute | None' = None, nullable: bool = True, optional: bool = False):
+        super().__init__(display_name, column_name, column_db_type, owner, parent, embedded, nullable, optional)
+        size = column_db_type[column_db_type.find("(") + 1:column_db_type.find(")")] if "(" in column_db_type else ""
+        self._dimension = int(size) if size.isdigit() else None
+
+    def dimension(self) -> int | None:
+        """The number of numbers in each vector of the column, or None if the column's type does not say."""
+        return self._dimension
+
+
 def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
     """The attribute for a column of the database type ``db_type``, of the class that compares, does arithmetic and
     aggregates as that type does: an ``INT`` is an IntegerAttribute, a ``VARCHAR`` a StringAttribute. Its display name
@@ -342,6 +362,8 @@ def typed_attribute(name: str, db_type: str, owner: Relation) -> Attribute:
         factory = BooleanAttribute
     elif kind == "INTERVAL":
         factory = IntervalAttribute
+    elif kind == "VECTOR":
+        factory = VectorAttribute
     else:
         factory = StringAttribute
     return factory(name, name, db_type, owner)

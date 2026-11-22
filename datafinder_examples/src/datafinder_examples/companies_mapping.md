@@ -13,3 +13,4 @@
 | id       | INT     | PK  | N        | id       |
 | name     | VARCHAR |     | Y        | name     |
 | category | VARCHAR |     | Y        | category |
+| embedding | VECTOR(3) |     | Y        | embedding |

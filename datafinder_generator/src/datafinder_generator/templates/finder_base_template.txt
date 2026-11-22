@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Union
 from datafinder.typed_attributes import (
     BooleanAttribute, DateAttribute, DateTimeAttribute, DecimalAttribute, DoubleAttribute, FloatAttribute, IntegerAttribute,
-    IntervalAttribute, NumericAttribute, StringAttribute)
+    IntervalAttribute, NumericAttribute, StringAttribute, VectorAttribute)
 from datafinder import FinderResult
 from datafinder.attribute import Attribute
 from model.relational import NoOperation, CountAllOperation, Operation

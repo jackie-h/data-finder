@@ -3,15 +3,56 @@ Test specifications for the companies domain (companies_mapping.md).
 
 Backends must seed their database with COMPANIES before running these specs.
 
-    companies — id INT, name VARCHAR, category VARCHAR
+    companies — id INT, name VARCHAR, category VARCHAR, embedding VECTOR(3)
 """
+import csv
+import json
+
 import numpy as np
 import pandas as pd
 
 from datafinder import constant, count_all, when
+from datafinder_examples import example_path
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
 
 COMPANIES_MAPPING = "companies_mapping.md"
+
+# The companies and their embeddings as the data file has them, to compute the distances that the vector specs expect with numpy.
+with open(example_path("companies.csv"), newline="") as _file:
+    _COMPANIES = [(int(row["id"]), row["name"], row["category"], np.array(json.loads(row["embedding"])) if row["embedding"] else None)
+                  for row in csv.DictReader(_file)]
+
+_QUERY = [1.0, 0.2, 0.0]
+_VECTOR_ERROR = "A distance to a vector is a number of the query, as a function of a number is; the rows are the same on every engine"
+
+
+def _cosine_distance(a, b):
+    return 1 - a @ b / (np.linalg.norm(a) * np.linalg.norm(b))
+
+
+def _l2_distance(a, b):
+    return np.linalg.norm(a - b)
+
+
+def _inner_product(a, b):
+    return a @ b
+
+
+def _present(distance: float | None) -> float:
+    assert distance is not None
+    return distance
+
+
+def _distances(metric):
+    """(id, name, category, distance to the query) of each company, the distance missing for a company with no embedding."""
+    return [(id_, name, category, None if vector is None else float(metric(vector, np.array(_QUERY)))) for id_, name, category, vector in _COMPANIES]
+
+
+def _nearest_names(metric, k, largest=False, category=None):
+    """The names of the k companies nearest the query, the closest first, and the one with no embedding last."""
+    rows = [row for row in _distances(metric) if category is None or row[2] == category]
+    present = sorted((row for row in rows if row[3] is not None), key=lambda row: _present(row[3]), reverse=largest)
+    return [row[1] for row in present + [row for row in rows if row[3] is None]][:k]
 
 def _ascending(result, *columns):
     """The result ordered by the named columns, as a concatenated result names them."""
@@ -1181,6 +1222,81 @@ COMPANY_FINDER_SPECS = FinderSpec(
                 ],
                 dtype=object,
             ),
+        ),
+        # --- vector search: the distance of an embedding to a vector, and the nearest rows ---
+        TestExpectation(
+            name="cosine_distance_of_each_company",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.id_(), f.embedding().cosine_distance(_QUERY).round(4)]).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Round Cosine Distance Embedding"],
+            expected_result=np.array([[id_, None if d is None else round(d, 4)] for id_, _, _, d in _distances(_cosine_distance)], dtype=object),
+            expected_sql={"duckdb": "COSINE_DISTANCE(t0.embedding, CAST(ARRAY[1.0, 0.2, 0.0] AS VECTOR(3)))"},
+        ),
+        TestExpectation(
+            name="l2_distance_of_each_company",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.id_(), f.embedding().l2_distance(_QUERY).round(4)]).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Round L2 Distance Embedding"],
+            expected_result=np.array([[id_, None if d is None else round(d, 4)] for id_, _, _, d in _distances(_l2_distance)], dtype=object),
+            expected_sql={"duckdb": "L2_DISTANCE(t0.embedding, CAST(ARRAY[1.0, 0.2, 0.0] AS VECTOR(3)))"},
+        ),
+        TestExpectation(
+            name="inner_product_of_each_company",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.id_(), f.embedding().inner_product(_QUERY).round(4)]).order_by(f.id_().ascending()),
+            expected_columns=["Id", "Round Inner Product Embedding"],
+            expected_result=np.array([[id_, None if d is None else round(d, 4)] for id_, _, _, d in _distances(_inner_product)], dtype=object),
+            expected_sql={"duckdb": "INNER_PRODUCT(t0.embedding, CAST(ARRAY[1.0, 0.2, 0.0] AS VECTOR(3)))"},
+        ),
+        TestExpectation(
+            name="nearest_by_cosine_distance_is_the_closest_first",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.name()]).nearest(f.embedding().cosine_distance(_QUERY), 2),
+            expected_columns=["Name"],
+            expected_result=np.array([[name] for name in _nearest_names(_cosine_distance, 2)], dtype=object),
+        ),
+        TestExpectation(
+            name="nearest_by_l2_distance_is_the_closest_first",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.name()]).nearest(f.embedding().l2_distance(_QUERY), 3),
+            expected_columns=["Name"],
+            expected_result=np.array([[name] for name in _nearest_names(_l2_distance, 3)], dtype=object),
+        ),
+        TestExpectation(
+            name="nearest_by_inner_product_is_the_largest_first",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.name()]).nearest(f.embedding().inner_product(_QUERY), 2),
+            expected_columns=["Name"],
+            expected_result=np.array([[name] for name in _nearest_names(_inner_product, 2, largest=True)], dtype=object),
+        ),
+        TestExpectation(
+            name="nearest_of_the_rows_a_filter_leaves",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.name()], f.category().eq("Technology")).nearest(f.embedding().cosine_distance(_QUERY), 1),
+            expected_columns=["Name"],
+            expected_result=np.array([[name] for name in _nearest_names(_cosine_distance, 1, category="Technology")], dtype=object),
+        ),
+        TestExpectation(
+            name="nearest_puts_a_company_with_no_embedding_last",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.name()]).nearest(f.embedding().cosine_distance(_QUERY), 5),
+            expected_columns=["Name"],
+            expected_result=np.array([[name] for name in _nearest_names(_cosine_distance, 5)], dtype=object),
+        ),
+        TestExpectation(
+            name="nearest_with_its_distance_selected",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.name(), f.embedding().cosine_distance(_QUERY).round(4)]).nearest(f.embedding().cosine_distance(_QUERY), 2),
+            expected_columns=["Name", "Round Cosine Distance Embedding"],
+            expected_result=np.array([[row[1], round(_present(row[3]), 4)] for row in sorted((r for r in _distances(_cosine_distance) if r[3] is not None),
+                                                                                  key=lambda r: _present(r[3]))[:2]], dtype=object),
+        ),
+        TestExpectation(
+            name="a_distance_is_compared_like_a_number",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: f.find_all([f.name()], f.embedding().cosine_distance(_QUERY) < 0.3).order_by(f.name().ascending()),
+            expected_columns=["Name"],
+            expected_result=np.array(sorted([[row[1]] for row in _distances(_cosine_distance) if row[3] is not None and row[3] < 0.3]), dtype=object),
         ),
         # --- Additional limit variants ---
         TestExpectation(
