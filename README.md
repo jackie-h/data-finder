@@ -719,13 +719,8 @@ asked for with `find_for_date_range`. The two names are reserved, so they cannot
 call. A navigation with a date does not change the finder: `account()` still returns the account with the query's
 dates. A view has no dates, so it refuses a navigation given one.
 
-A navigation is one step however many times it is used: the object that `order.product(business_date=d)` returns, filtered on and
-read from, is joined once, and a second call is a second step with joins of its own. There is one exception, that follows Legend. A
-to-one milestoned step that is reached through another milestoned step, and that the query both filters on and reads, is joined once
-for the filter and once for what is read: the condition is for one row of its table and the value is read from another, so where the
-table holds more than one row for a key, a row is found for each pair. The step it is reached through is still joined once, and so is
-a to-many step, whose filter and values are of the same row. `milestoned_union_specs` has this on a union, where every row is there
-twice.
+A projection reads its columns independently of the filter: a milestoned step that the filter and the columns both use, and that is
+reached through another milestoned step, is joined once for the filter and again for the columns.
 
 ### Navigating associations
 
