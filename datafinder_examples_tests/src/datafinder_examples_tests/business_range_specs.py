@@ -5,6 +5,8 @@ A row applies from ``from_z`` up to, but not including, ``thru_z``. A NULL ``thr
 
     mkt.rates — code VARCHAR, amount DOUBLE, from_z DATE, thru_z DATE
 """
+import datetime
+
 import numpy as np
 
 from datafinder_examples_tests.spec import FinderSpec, TestExpectation
@@ -51,6 +53,22 @@ BUSINESS_RANGE_RATE_FINDER_SPECS = FinderSpec(
                              .order_by(f.code().ascending(), f.amount().ascending()),
             expected_columns=["Code", "Amount"],
             expected_result=np.array([["AAA", 1.5], ["AAA", 1.7], ["BBB", 2.0]], dtype=object),
+        ),
+        # the milestoning columns are properties the mapping gives (the model does not declare them), and they read the column
+        TestExpectation(
+            name="the_range_of_a_version_is_read_from_its_columns",
+            query=lambda f: f.find_for_date_range("2019-01-01", "2030-01-01", None, [f.code(), f.amount(), f.business_from(), f.business_thru()])
+                             .order_by(f.code().ascending(), f.amount().ascending()),
+            expected_columns=["Code", "Amount", "Business From", "Business Thru"],
+            expected_result=np.array([["AAA", 1.5, datetime.date(2020, 1, 1), datetime.date(2021, 1, 1)],
+                                      ["AAA", 1.7, datetime.date(2021, 1, 1), None],
+                                      ["BBB", 2.0, datetime.date(2020, 6, 1), datetime.date(2022, 6, 1)]], dtype=object),
+        ),
+        TestExpectation(
+            name="the_range_can_be_filtered_on",
+            query=lambda f: f.find_for_date_range("2019-01-01", "2030-01-01", None, [f.code(), f.amount()], f.business_thru() > datetime.date(2021, 6, 1)),
+            expected_columns=["Code", "Amount"],
+            expected_result=np.array([["BBB", 2.0]], dtype=object),
         ),
     ],
 )

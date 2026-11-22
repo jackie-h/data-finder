@@ -8,6 +8,7 @@ from markdown_it.tree import SyntaxTreeNode
 
 from model.m3 import Class, Property, PrimitiveType, Association
 from model.mapping import Mapping
+from mapping_markdown.markdown_mapping import reserved_milestoning_property
 from model.graphql_mapping import (
     GraphQLEndpoint,
     GraphQLFilterConvention,
@@ -140,7 +141,7 @@ def _loads_from_nodes(nodes: list, packages: list) -> Mapping:
                         prop_name = row.get("Property ID", "").strip()
                         if not field_name or not prop_name:
                             continue
-                        prop = all_props.get(prop_name)
+                        prop = all_props.get(prop_name) or reserved_milestoning_property(prop_name)
                         if prop is None:
                             _log.warning("Property '%s' not found in class '%s'", prop_name, class_name)
                             continue
