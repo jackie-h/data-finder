@@ -117,9 +117,20 @@ def assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -
         try:
             _assert_same_rows(database, finder, expectation)
         except (AssertionError, duckdb.Error):  # Legend's SQL can be one DuckDB will not run
+            _assert_asserted_rows(finder, expectation)  # the rows its test asserts can still be compared, and a difference there is a failure
             pytest.xfail(gap)
         pytest.fail(f"[{expectation.name}] now returns Legend's rows: remove its {ROWS} known_gaps entry ({gap})")
     _assert_same_rows(database, finder, expectation)
+
+
+def _assert_asserted_rows(finder: Any, expectation: TestExpectation) -> None:
+    """Our rows are the rows Legend's test asserts, where the spec records them (in any order, as Legend's assertSameElements has it)."""
+    asserted = getattr(expectation, "asserted_rows", None)
+    if asserted is None:
+        return
+    actual, expected = our_rows(finder, expectation), canonical_rows(asserted)
+    assert as_set_of_rows(actual) == as_set_of_rows(expected), (
+        f"[{expectation.name}] rows differ from the rows Legend's test asserts.\nLegend rows ({len(expected)}): {expected}\nOur rows ({len(actual)}): {actual}")
 
 
 def _assert_same_rows(database: Any, finder: Any, expectation: TestExpectation) -> None:

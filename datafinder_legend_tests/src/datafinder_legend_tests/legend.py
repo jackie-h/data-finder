@@ -1,6 +1,8 @@
 """Helpers for porting Legend tests into specs."""
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from datafinder_examples_tests.spec import TestExpectation
 
 BACKEND = "duckdb"
@@ -65,7 +67,7 @@ GROUP_BY_QUERY_SUBSELECT = (
 
 GROUP_BY_JOIN_COLUMN = (
     "Legend groups TRADE by its columns and reads the description of the PRODUCT it joins in the same select, which a database that "
-    "checks the group by refuses (DuckDB does); the finder joins the product to the query that groups, so it returns the rows Legend means"
+    "checks the group by refuses (DuckDB does); the finder joins the product to the query that groups, which is valid SQL; its rows are the ones Legend's test asserts"
 )
 
 AGGREGATE_COLUMN_QUALIFIED = (
@@ -260,8 +262,20 @@ def _unsupported_query(finder):
     raise NotImplementedError
 
 
-def ported(name: str, source: str, legend_sql: str, query, **kwargs) -> TestExpectation:
-    """A SQL-only expectation: ``query`` must produce SQL equivalent to what Legend asserts."""
+@dataclass
+class PortedExpectation(TestExpectation):
+    """A ported test that also records the rows Legend's own test asserts, for a query whose SQL DuckDB will not run, so that
+    there are no rows of Legend's SQL to compare the finder's with. They are compared when the rows of the SQL cannot be."""
+
+    asserted_rows: list[tuple] | None = None
+
+
+def ported(name: str, source: str, legend_sql: str, query, asserted_rows: list[tuple] | None = None, **kwargs) -> TestExpectation:
+    """A SQL-only expectation: ``query`` must produce SQL equivalent to what Legend asserts. ``asserted_rows`` are the rows Legend's test
+    asserts, to compare the finder's with where Legend's SQL cannot be run."""
+    if asserted_rows is not None:
+        return PortedExpectation(name=name, query=query, source=source, equivalent_sql={BACKEND: legend_sql},
+                                 asserted_rows=asserted_rows, **kwargs)
     return TestExpectation(name=name, query=query, source=source,
                            equivalent_sql={BACKEND: legend_sql}, **kwargs)
 
