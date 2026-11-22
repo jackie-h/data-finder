@@ -812,6 +812,19 @@ The condition is in the `ON` of the join of the navigation, not in the `WHERE`. 
 a row, with NULL for what the navigation reads; a condition in the query, `find_all(columns, PersonFinder.locations().place().is_in([...]))`,
 is a `WHERE` and drops that person.
 
+A condition that reads through another navigation, as `locations().filter(lambda each: each.region().name().eq("East"))`, cannot be in the
+`ON`: the region is joined from the location, so after it. The navigation is then read from a query of its own, in which the region is joined and the
+condition is the `WHERE`, and the query joins that:
+
+```sql
+SELECT t0.name, t1.place FROM geo.people AS t0
+LEFT OUTER JOIN (SELECT t2.person_id AS "person_id", t2.place AS "place" FROM geo.locations AS t2
+                 LEFT OUTER JOIN geo.regions AS t3 ON (t3.id = t2.region_id) WHERE t3.name = 'East') AS t1 ON (t0.id = t1.person_id)
+```
+
+A person with no location that holds is still a row, as with a condition in the `ON`. The condition may read the navigation and the navigations below it;
+one that reads a column of the query's root is not supported.
+
 Read the columns from a filtered navigation to read them from one join. A filter whose condition is the same as one already made
 on that navigation is that filtered navigation, so the filter can be written out for each column and still be one join:
 

@@ -406,6 +406,106 @@ def _apply_sub_selects(query: QuerySpecification, business_date: datetime.date |
         query.sub_selects[id(node)] = build_query_specification(
             bd, pdt, [Alias(right, right.name)], node.join.table, condition, business_date_to=bd_to, distinct=True,
             processing_datetime_to=pdt_to)
+    for node in _filters_reading_through_steps(query):
+        query.sub_selects[id(node)] = _filter_sub_select(query, node, business_date, business_date_to, processing_datetime,
+                                                         processing_datetime_to)
+
+
+def _filters_reading_through_steps(query: QuerySpecification) -> list[JoinTreeNodeOperation]:
+    """The steps whose filter reads through a step below them (the region of a location the filter is on). The condition cannot
+    be in the ON of the step's join, as the step below is joined from it and so after it: the step is read from a query of its own, in
+    which that step is joined and the condition is the WHERE."""
+    nodes = []
+    for node in _joined_nodes(query):
+        if node.join.filter is None:
+            continue
+        read: dict = {}
+        collect_required_joins(node.join.filter, read)
+        for below in read.values():
+            step = below.parent
+            while step is not None and step is not node:
+                step = step.parent
+            if step is node:
+                nodes.append(node)
+                break
+    return nodes
+
+
+def _filter_sub_select(query: QuerySpecification, node: JoinTreeNodeOperation, business_date: datetime.date | None,
+                       business_date_to: datetime.date | None, processing_datetime: datetime.datetime | datetime.date | None,
+                       processing_datetime_to: datetime.datetime | datetime.date | None) -> OrderedQuerySpecification:
+    """``SELECT <the columns the query reads of the step> FROM <its table> <the steps its filter reads through> WHERE <its filter>``.
+
+    The columns are the ones the join to it is made on, the ones the query reads through it, and the ones the steps below it are
+    joined on. In the query the step reads its filter from, the step is the root and the steps below it have no parent above it."""
+    table = node.join.table
+    steps: dict = {}
+
+    def own(column: Column) -> Column:
+        """The column of the table itself, as the query that reads the table names it."""
+        return Column(column.name, column.type, table, primary_key=column.primary_key, nullable=column.nullable)
+
+    def step_of(old: JoinTreeNodeOperation) -> JoinTreeNodeOperation:
+        if id(old) not in steps:
+            above = None if old.parent is node else step_of(old.parent)
+            steps[id(old)] = JoinTreeNodeOperation(old.join, above, old.many, old.optional, old.business_date,
+                                                   old.processing_datetime)
+        return steps[id(old)]
+
+    def reroot(op):
+        if isinstance(op, (Attribute, ColumnWithJoin)):
+            column, parent = (op.column(), op.parent()) if isinstance(op, Attribute) else (op.column, op.parent)
+            if parent is node:
+                return own(column)
+            if parent is None or not _is_below(parent, node):
+                raise NotImplementedError(
+                    f"A filter of a step that reads through another step reads only that step and the steps below it, not {column.name}")
+            return ColumnWithJoin(column, step_of(parent))
+        if isinstance(op, (Column, Relation, str)) or not isinstance(op, RelationalOperationElement):
+            return op
+        copied = copy.copy(op)
+        for name, value in vars(op).items():
+            if isinstance(value, RelationalOperationElement):
+                setattr(copied, name, reroot(value))
+            elif isinstance(value, (list, tuple)):
+                setattr(copied, name, type(value)(reroot(each) for each in value))
+        return copied
+
+    read: dict = {}
+    refs: dict = {}
+    expressions = list(query.expressions())
+    if query.having is not None:
+        expressions.append(query.having)
+    for other in _joined_nodes(query):
+        if other is not node and other.join.filter is not None:
+            expressions.append(other.join.filter)
+    for expression in expressions:
+        collect_required_joins(expression, read, refs)
+    columns: dict = {}
+    for column in node.join.columns():
+        if node.join.is_target(column):
+            columns.setdefault(column.name, column)
+    for ref in refs.get(id(node), []):
+        column = ref.column() if isinstance(ref, Attribute) else ref.column
+        columns.setdefault(column.name, column)
+    for below in read.values():
+        if below.parent is node:
+            for column in below.join.columns():
+                if not below.join.is_target(column):
+                    columns.setdefault(column.name, column)
+    selected = [Alias(own(column), column.name) for column in columns.values()]
+    condition = reroot(node.join.filter)
+    if node.join.filter_kwargs:
+        condition = LogicalOperation(condition, LogicalOperator.AND,
+                                     _build_join_kwargs_filter(None, node.join.filter_kwargs, node.join.filter_column_map))
+    bd, bd_to, pdt, pdt_to = _dates_for_node(node, business_date, business_date_to, processing_datetime, processing_datetime_to)
+    return build_query_specification(bd, pdt, selected, table, condition, business_date_to=bd_to, processing_datetime_to=pdt_to)
+
+
+def _is_below(step: JoinTreeNodeOperation | None, node: JoinTreeNodeOperation) -> bool:
+    while step is not None and step is not node:
+        step = step.parent
+    return step is node
 
 
 def _dates_for_node(node: JoinTreeNodeOperation, business_date: datetime.date | None,
