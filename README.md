@@ -719,6 +719,9 @@ asked for with `find_for_date_range`. The two names are reserved, so they cannot
 call. A navigation with a date does not change the finder: `account()` still returns the account with the query's
 dates. A view has no dates, so it refuses a navigation given one.
 
+A projection reads its columns independently of the filter: a milestoned step that the filter and the columns both use, and that is
+reached through another milestoned step, is joined once for the filter and again for the columns.
+
 ### Navigating associations
 
 Forward navigation — from Trade to its Account:
