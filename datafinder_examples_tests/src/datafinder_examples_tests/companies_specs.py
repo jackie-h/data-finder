@@ -48,6 +48,22 @@ def _distances(metric):
     return [(id_, name, category, None if vector is None else float(metric(vector, np.array(_QUERY)))) for id_, name, category, vector in _COMPANIES]
 
 
+def _nearest_in_each_category(f):
+    """The nearest company of each category: a row number within the category by distance, and a filter on it (a window cannot be tested in WHERE)."""
+    distance = f.embedding().cosine_distance(_QUERY)
+    ranked = f.find_all([f.category().alias("category"), f.name().alias("name"), distance.round(4).alias("distance"),
+                         f.id_().rank(method="first", partition_by=[f.category()], order_by=[distance.ascending(nulls="last")]).alias("rank")])
+    nearest = ranked.filter(lambda r: r.rank <= 1).select("category", "name", "distance")
+    return nearest.order_by(nearest["category"].ascending())
+
+
+def _nearest_per_category():
+    """[category, name, distance] of the nearest company of each category, by category, from the distances computed with numpy."""
+    rows = [row for row in _distances(_cosine_distance) if row[3] is not None]
+    return [[category, *min(((name, round(_present(distance), 4)) for _, name, c, distance in rows if c == category), key=lambda pair: pair[1])]
+            for category in sorted({row[2] for row in rows})]
+
+
 def _nearest_names(metric, k, largest=False, category=None):
     """The names of the k companies nearest the query, the closest first, and the one with no embedding last."""
     rows = [row for row in _distances(metric) if category is None or row[2] == category]
@@ -1290,6 +1306,13 @@ COMPANY_FINDER_SPECS = FinderSpec(
             expected_columns=["Name", "Round Cosine Distance Embedding"],
             expected_result=np.array([[row[1], round(_present(row[3]), 4)] for row in sorted((r for r in _distances(_cosine_distance) if r[3] is not None),
                                                                                   key=lambda r: _present(r[3]))[:2]], dtype=object),
+        ),
+        TestExpectation(
+            name="nearest_in_each_category_is_a_rank_within_the_category",
+            skip_backends={"graphql": _VECTOR_ERROR},
+            query=lambda f: _nearest_in_each_category(f),
+            expected_columns=["category", "name", "distance"],
+            expected_result=np.array(_nearest_per_category(), dtype=object),
         ),
         TestExpectation(
             name="a_distance_is_compared_like_a_number",
