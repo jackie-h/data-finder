@@ -16,7 +16,7 @@ from model.relational import Table
 from datafinder_generator.generator import generate
 
 _MAPPING_FILE = os.path.normpath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance_mapping.md")
+    os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "finance_mapping.md")
 )
 
 _CATALOG_MAPPING_FILE = os.path.normpath(

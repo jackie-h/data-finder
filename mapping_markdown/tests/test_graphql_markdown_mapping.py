@@ -11,8 +11,8 @@ from model.graphql_mapping import (
     GraphQLBiTemporalMilestone,
 )
 
-FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "examples", "finance_graphql_mapping.md"))
-TEST_DIR = os.path.dirname(FIXTURE)
+FIXTURE = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "datafinder_specs", "specs", "mappings", "finance_graphql_mapping.md"))
+TEST_DIR = os.path.join(os.path.dirname(FIXTURE), "..", "models")  # a model is named from here by a bare name or by ../models/
 
 
 class TestGraphQLMarkdownLoad:

@@ -405,7 +405,7 @@ def test_a_property_of_a_set_that_is_not_a_column_is_refused_and_not_dropped_fro
 # --- objects embedded in the row of a set ---------------------------------------------------------------------------------------------------
 def _embedded_text(tmp_path, change=None):
     from datafinder_examples import example_path
-    text = open(example_path("sql_query_sets_embedded_mapping.md")).read().replace("## Model: sql_query_sets_embedded_model.md",
+    text = open(example_path("sql_query_sets_embedded_mapping.md")).read().replace("## Model: ../models/sql_query_sets_embedded_model.md",
                                                                                    f"## Model: {example_path('sql_query_sets_embedded_model.md')}")
     path = tmp_path / "embedded.md"
     path.write_text(change(text) if change else text)
