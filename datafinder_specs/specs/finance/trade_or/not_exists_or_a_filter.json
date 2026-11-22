@@ -1,0 +1,11 @@
+{
+  "name": "not_exists_or_a_filter",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-03-01 12:00:00\", [f.symbol()], f.account().not_exists().or_(f.symbol().eq(\"NOSUCH\")))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-03-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"not_exists"},"args":[],"kwargs":{}},"name":"or_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["NOSUCH"],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
+  "result": "not_exists_or_a_filter.csv",
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

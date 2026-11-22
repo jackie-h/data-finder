@@ -1,0 +1,11 @@
+{
+  "name": "a_step_given_a_value_that_matches_several_rows_counts_a_row_once",
+  "finder": "AccountFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [count_all()], f.positions(quantity=100.0).exists())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"global","name":"count_all"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"positions"},"args":[],"kwargs":{"quantity":100.0}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_step_given_a_value_that_matches_several_rows_counts_a_row_once.csv",
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

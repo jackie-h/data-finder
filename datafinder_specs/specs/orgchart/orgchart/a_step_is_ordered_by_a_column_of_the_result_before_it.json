@@ -1,0 +1,11 @@
+{
+  "name": "a_step_is_ordered_by_a_column_of_the_result_before_it",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "(v1 := f.find_all([f.name().alias(\"employeeName\")]).limit(3).filter(lambda r: (r.employeeName != \"Bob\"))).order_by(v1[\"employeeName\"].descending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["employeeName"],"kwargs":{}}]}],"kwargs":{}},"name":"limit"},"args":[3],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"!=","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"employeeName"},"right":"Bob"}}],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"employeeName"},"name":"descending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_step_is_ordered_by_a_column_of_the_result_before_it.csv",
+  "skip": {
+    "graphql": "The GraphQL engine does not run steps over a result"
+  }
+}

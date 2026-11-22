@@ -1,0 +1,8 @@
+{
+  "name": "npv_max",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.npv().max()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"npv"},"args":[],"kwargs":{}},"name":"max"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "npv_max.csv"
+}

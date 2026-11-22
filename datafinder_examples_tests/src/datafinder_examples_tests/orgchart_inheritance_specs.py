@@ -250,6 +250,7 @@ EMPLOYEE_INHERITANCE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="forward_join_filter_nonexistent",
+            expected_types=["String", "String[0..1]"],
             query=lambda f: f.find_all(
                 [f.first_name(), f.projects(code="NONEXISTENT").name()],
             ).order_by(f.first_name().ascending()),
@@ -338,6 +339,7 @@ PROJECT_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="reverse_join_filter_nonexistent",
+            expected_types=["String", "String[0..1]"],
             skip_backends={"graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"},
             query=lambda f: f.find_all(
                 [f.name(), f.assignee(department="UNKNOWN").first_name()],

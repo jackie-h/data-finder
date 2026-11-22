@@ -1,0 +1,14 @@
+{
+  "name": "rows_before_today",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], (f.trade_date() < today())).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"<","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"global","name":"today"},"args":[],"kwargs":{}}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "rows_before_today.csv",
+  "sql_contains": {
+    "duckdb": "t0.trade_date < CURRENT_DATE"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder has no date functions beyond the parts of a date"
+  }
+}

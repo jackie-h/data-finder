@@ -1,0 +1,11 @@
+{
+  "name": "without_a_date_every_version_of_the_table_on_the_way_is_read",
+  "finder": "EmployeeFinder",
+  "mapping": "joins_through_tables_mapping.md",
+  "query_text": "f.find_all([f.name(), f.citizenship().name()], f.name().eq(\"Linus\")).order_by(f.citizenship().name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"citizenship"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Linus"],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"citizenship"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "without_a_date_every_version_of_the_table_on_the_way_is_read.csv",
+  "sql_not_contains": {
+    "duckdb": "valid_from"
+  }
+}

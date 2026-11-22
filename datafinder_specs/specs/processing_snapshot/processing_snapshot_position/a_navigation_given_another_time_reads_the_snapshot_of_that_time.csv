@@ -1,0 +1,4 @@
+Id,Quotes Price
+Integer,Double[0..1]
+1,152.0
+2,

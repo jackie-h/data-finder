@@ -1,0 +1,8 @@
+{
+  "name": "the_first_milestoned_step_is_one_join_for_the_filter_and_the_columns",
+  "finder": "OrderFinder",
+  "mapping": "milestoned_union_mapping.md",
+  "query_text": "f.find_all([(v1 := f.product(business_date=\"2015-08-26\")).id_()], v1.name().eq(\"ProductName1\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"product"},"args":[],"kwargs":{"business_date":"2015-08-26"}}},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["ProductName1"],"kwargs":{}}],"kwargs":{}},
+  "result": "the_first_milestoned_step_is_one_join_for_the_filter_and_the_columns.csv"
+}

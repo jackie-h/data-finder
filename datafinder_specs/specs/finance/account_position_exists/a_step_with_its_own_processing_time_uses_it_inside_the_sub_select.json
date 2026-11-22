@@ -1,0 +1,11 @@
+{
+  "name": "a_step_with_its_own_processing_time_uses_it_inside_the_sub_select",
+  "finder": "AccountFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-09-01 12:00:00\", [f.name()], f.positions(processing_time=\"2023-01-12 12:00:00\").exists())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-09-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"positions"},"args":[],"kwargs":{"processing_time":"2023-01-12 12:00:00"}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_step_with_its_own_processing_time_uses_it_inside_the_sub_select.csv",
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

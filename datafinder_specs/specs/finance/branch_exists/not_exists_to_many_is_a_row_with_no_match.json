@@ -1,0 +1,11 @@
+{
+  "name": "not_exists_to_many_is_a_row_with_no_match",
+  "finder": "BranchFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all([f.city()], f.accounts(processing_time=\"2024-09-01 12:00:00\").not_exists())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"accounts"},"args":[],"kwargs":{"processing_time":"2024-09-01 12:00:00"}},"name":"not_exists"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "not_exists_to_many_is_a_row_with_no_match.csv",
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "filter_by_manager_project_code",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_inheritance_mapping.md",
+  "query_text": "f.find_all([f.first_name()], f.manager().projects().code().eq(\"ALPHA\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"manager"},"args":[],"kwargs":{}},"name":"projects"},"args":[],"kwargs":{}},"name":"code"},"args":[],"kwargs":{}},"name":"eq"},"args":["ALPHA"],"kwargs":{}}],"kwargs":{}},
+  "result": "filter_by_manager_project_code.csv"
+}

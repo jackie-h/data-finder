@@ -1,0 +1,8 @@
+{
+  "name": "a_later_time_gets_the_rows_taken_then",
+  "finder": "QuoteFinder",
+  "mapping": "processing_snapshot_mapping.md",
+  "query_text": "f.find_all(None, datetime('2024-01-02T09:00:00'), [f.symbol(), f.price()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,{"kind":"datetime","value":"2024-01-02T09:00:00"},{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "a_later_time_gets_the_rows_taken_then.csv"
+}

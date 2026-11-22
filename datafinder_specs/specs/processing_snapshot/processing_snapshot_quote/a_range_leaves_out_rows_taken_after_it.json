@@ -1,0 +1,8 @@
+{
+  "name": "a_range_leaves_out_rows_taken_after_it",
+  "finder": "QuoteFinder",
+  "mapping": "processing_snapshot_mapping.md",
+  "query_text": "f.find_for_processing_range(datetime('2024-01-01T00:00:00'), datetime('2024-01-01T23:59:59'), None, [f.symbol()]).order_by(f.symbol().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_for_processing_range"},"args":[{"kind":"datetime","value":"2024-01-01T00:00:00"},{"kind":"datetime","value":"2024-01-01T23:59:59"},null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_range_leaves_out_rows_taken_after_it.csv"
+}

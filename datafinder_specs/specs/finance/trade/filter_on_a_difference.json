@@ -1,0 +1,11 @@
+{
+  "name": "filter_on_a_difference",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2023-12-01 12:00:00\", [f.symbol()], (f.valid_from().diff_days(datetime('2020-02-01T00:00:00')) >= 31))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"binary","op":">=","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"valid_from"},"args":[],"kwargs":{}},"name":"diff_days"},"args":[{"kind":"datetime","value":"2020-02-01T00:00:00"}],"kwargs":{}},"right":31}],"kwargs":{}},
+  "result": "filter_on_a_difference.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot filter on a date function"
+  }
+}

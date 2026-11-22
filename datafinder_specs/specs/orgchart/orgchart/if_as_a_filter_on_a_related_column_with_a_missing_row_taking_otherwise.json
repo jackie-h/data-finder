@@ -1,0 +1,11 @@
+{
+  "name": "if_as_a_filter_on_a_related_column_with_a_missing_row_taking_otherwise",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "f.find_all([f.name()], when(f.manager().name().eq(\"Alice\")).then(False).otherwise(True)).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"when"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"manager"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Alice"],"kwargs":{}}],"kwargs":{}},"name":"then"},"args":[false],"kwargs":{}},"name":"otherwise"},"args":[true],"kwargs":{}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "if_as_a_filter_on_a_related_column_with_a_missing_row_taking_otherwise.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot compute a conditional"
+  }
+}

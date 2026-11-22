@@ -1,0 +1,11 @@
+{
+  "name": "is_none_through_a_milestoned_ancestor",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2024-03-01 12:00:00\", [f.symbol()], f.account().branch().city().is_none())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2024-03-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"branch"},"args":[],"kwargs":{}},"name":"city"},"args":[],"kwargs":{}},"name":"is_none"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "is_none_through_a_milestoned_ancestor.csv",
+  "skip": {
+    "graphql": "A condition on a nested field never matches a missing nested object on a server, so is_none cannot mean 'no live account'"
+  }
+}

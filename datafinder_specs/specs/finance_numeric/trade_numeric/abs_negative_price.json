@@ -1,0 +1,8 @@
+{
+  "name": "abs_negative_price",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [f.symbol(), f.price().abs()], f.symbol().eq(\"AAPL\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"abs"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["AAPL"],"kwargs":{}}],"kwargs":{}},
+  "result": "abs_negative_price.csv"
+}

@@ -1,0 +1,11 @@
+{
+  "name": "navigation_without_a_time_of_its_own_uses_the_querys",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2021-06-01 12:00:00\", [f.symbol(), f.account().name()]).order_by(f.symbol().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2021-06-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "navigation_without_a_time_of_its_own_uses_the_querys.csv",
+  "sql_not_contains": {
+    "duckdb": "2023-12-01"
+  }
+}

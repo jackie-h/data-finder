@@ -1,0 +1,8 @@
+{
+  "name": "a_milestoned_step_is_found_for_each_pair_of_sets_and_is_missing_where_the_date_has_no_row",
+  "finder": "OrderFinder",
+  "mapping": "milestoned_union_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.product(business_date=\"2015-08-26\").name()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"product"},"args":[],"kwargs":{"business_date":"2015-08-26"}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_milestoned_step_is_found_for_each_pair_of_sets_and_is_missing_where_the_date_has_no_row.csv"
+}

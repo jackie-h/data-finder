@@ -1,0 +1,8 @@
+{
+  "name": "fill_null_leaves_a_value_that_is_there",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "f.find_all([f.name().fill_null(\"nobody\")], f.name().eq(\"Bob\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"fill_null"},"args":["nobody"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Bob"],"kwargs":{}}],"kwargs":{}},
+  "result": "fill_null_leaves_a_value_that_is_there.csv"
+}

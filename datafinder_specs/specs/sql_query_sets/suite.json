@@ -1,0 +1,9 @@
+{
+  "data": {
+    "org.retail_customers": "sql_query_sets_retail_customers.csv",
+    "org.corporate_customers": "sql_query_sets_corporate_customers.csv",
+    "org.orders": "sql_query_sets_orders.csv",
+    "org.applications_a": "sql_query_sets_embedded_applications_a.csv",
+    "org.applications_b": "sql_query_sets_embedded_applications_b.csv"
+  }
+}

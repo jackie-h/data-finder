@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_the_name_of_the_day",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], f.trade_date().day_of_week_name().eq(\"Saturday\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"day_of_week_name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Saturday"],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_on_the_name_of_the_day.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no date functions beyond the parts of a date"
+  }
+}

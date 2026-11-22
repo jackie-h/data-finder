@@ -1,0 +1,11 @@
+{
+  "name": "a_constant_of_a_set_is_a_column_of_its_query",
+  "finder": "ApplicationFinder",
+  "mapping": "sql_query_sets_embedded_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.firm().legal_name()]).order_by(f.id_().ascending(), f.firm().legal_name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"firm"},"args":[],"kwargs":{}},"name":"legal_name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"firm"},"args":[],"kwargs":{}},"name":"legal_name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_constant_of_a_set_is_a_column_of_its_query.csv",
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "concat_with_a_missing_part_is_missing",
+  "finder": "EmployeeFinder",
+  "mapping": "orgchart_mapping.md",
+  "query_text": "f.find_all([((f.name() + \" reports to \") + f.manager().name())]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"binary","op":"+","left":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"right":" reports to "},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"manager"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "concat_with_a_missing_part_is_missing.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot join text"
+  }
+}

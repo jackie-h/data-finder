@@ -1,0 +1,7 @@
+{
+  "data": {
+    "hr.employees": "joins_through_tables_employees.csv",
+    "hr.country_refs": "joins_through_tables_country_refs.csv",
+    "hr.countries": "joins_through_tables_countries.csv"
+  }
+}

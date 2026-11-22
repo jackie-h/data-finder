@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_a_milestoned_navigation_that_no_live_version_holds_leaves_nothing_below_it",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2023-12-01 12:00:00\", [f.symbol(), f.account().filter(lambda each: each.name().eq(\"Acme Ltd\")).branch().city()], f.symbol().eq(\"AAPL\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Acme Ltd"],"kwargs":{}}}],"kwargs":{}},"name":"branch"},"args":[],"kwargs":{}},"name":"city"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["AAPL"],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_on_a_milestoned_navigation_that_no_live_version_holds_leaves_nothing_below_it.csv",
+  "skip": {
+    "graphql": "A to-one relationship cannot be filtered on a server: only a list takes a where argument"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "expired_row_excluded_at_2024",
+  "finder": "PriceFinder",
+  "mapping": "null_end_milestoning_mapping.md",
+  "query_text": "f.find_all(None, datetime('2024-06-01T12:00:00'), [f.symbol()], f.symbol().eq(\"GOOG\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,{"kind":"datetime","value":"2024-06-01T12:00:00"},{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},
+  "result": "expired_row_excluded_at_2024.csv"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "trade_date_le",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], (f.trade_date() <= date('2024-07-20'))).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"binary","op":"<=","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"right":{"kind":"date","value":"2024-07-20"}}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "trade_date_le.csv"
+}

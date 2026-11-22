@@ -1,0 +1,8 @@
+{
+  "name": "npv_eq",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], f.npv().eq(500.0))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"npv"},"args":[],"kwargs":{}},"name":"eq"},"args":[500.0],"kwargs":{}}],"kwargs":{}},
+  "result": "npv_eq.csv"
+}

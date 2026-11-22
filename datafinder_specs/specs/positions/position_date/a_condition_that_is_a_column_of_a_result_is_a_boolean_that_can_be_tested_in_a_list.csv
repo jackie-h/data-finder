@@ -1,0 +1,5 @@
+id,big,listed,only_true
+Integer,Boolean,Boolean,Boolean
+1,false,true,false
+2,true,true,true
+3,true,true,true

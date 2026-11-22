@@ -1,0 +1,11 @@
+{
+  "name": "chain_filter_the_groups",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "(v1 := f.find_all(None, \"2030-01-01 00:00:00\", [f.account().name().alias(\"account\"), f.symbol().alias(\"sym\"), f.price().alias(\"price\")]).group_by(lambda r: r.account).aggregate(total=lambda r: r.price.sum()).filter(lambda r: (r.total > 400.0))).order_by(v1[\"total\"].descending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["account"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"alias"},"args":["sym"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"alias"},"args":["price"],"kwargs":{}}]}],"kwargs":{}},"name":"group_by"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"account"}}],"kwargs":{}},"name":"aggregate"},"args":[],"kwargs":{"total":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"price"},"name":"sum"},"args":[],"kwargs":{}}}}},"name":"filter"},"args":[{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":">","left":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"total"},"right":400.0}}],"kwargs":{}}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"index","on":{"kind":"ref","id":1},"key":"total"},"name":"descending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "chain_filter_the_groups.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot read a query as a relation yet"
+  }
+}

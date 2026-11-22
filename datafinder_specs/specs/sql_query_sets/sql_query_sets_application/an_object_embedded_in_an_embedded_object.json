@@ -1,0 +1,11 @@
+{
+  "name": "an_object_embedded_in_an_embedded_object",
+  "finder": "ApplicationFinder",
+  "mapping": "sql_query_sets_embedded_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.applicant().address().name()]).order_by(f.id_().ascending(), f.applicant().address().name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"applicant"},"args":[],"kwargs":{}},"name":"address"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"applicant"},"args":[],"kwargs":{}},"name":"address"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "an_object_embedded_in_an_embedded_object.csv",
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

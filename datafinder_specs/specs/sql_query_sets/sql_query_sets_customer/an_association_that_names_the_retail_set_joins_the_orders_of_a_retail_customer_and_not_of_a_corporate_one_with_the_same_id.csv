@@ -1,0 +1,6 @@
+Name,Orders Amount
+String,Integer[0..1]
+Acme,
+Ann,50
+Bob,70
+Globex,

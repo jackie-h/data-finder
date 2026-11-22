@@ -1,0 +1,14 @@
+{
+  "name": "parentheses_where_the_operators_need_them",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [((f.price() + 1) * 2)], f.symbol().eq(\"GOOG\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"binary","op":"*","left":{"kind":"binary","op":"+","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"right":1},"right":2}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},
+  "result": "parentheses_where_the_operators_need_them.csv",
+  "sql_contains": {
+    "duckdb": "(t0.price + 1) * 2"
+  },
+  "skip": {
+    "graphql": "The GraphQL finder has no arithmetic between columns"
+  }
+}

@@ -60,6 +60,7 @@ TRADE_NUMERIC_FINDER_SPECS = FinderSpec(
                 math.sin(9.0), math.cos(9.0), math.tan(9.0), math.asin(0.0), math.acos(0.0),
                 math.atan(9.0), math.atan2(9.0, 2), math.exp(9.0), math.log(9.0),
             ]], dtype=object),
+            approximate=True,  # the last digits of a sine or an exponential depend on the maths library
         ),
         TestExpectation(
             name="mod_price_by_10",

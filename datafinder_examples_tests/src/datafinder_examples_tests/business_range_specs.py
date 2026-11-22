@@ -37,6 +37,7 @@ BUSINESS_RANGE_RATE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="a_date_before_every_row_finds_nothing",
+            expected_types=["String"],
             query=lambda f: f.find_all("2019-01-01", None, [f.code()]),
             expected_columns=["Code"],
             expected_result=np.empty((0, 1), dtype=object),

@@ -1,0 +1,8 @@
+{
+  "name": "filter_by_created_at",
+  "finder": "RecordFinder",
+  "mapping": "diamond_mapping.md",
+  "query_text": "f.find_all([f.record_name()], f.created_at().eq(\"2024-03-01\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"record_name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"created_at"},"args":[],"kwargs":{}},"name":"eq"},"args":["2024-03-01"],"kwargs":{}}],"kwargs":{}},
+  "result": "filter_by_created_at.csv"
+}

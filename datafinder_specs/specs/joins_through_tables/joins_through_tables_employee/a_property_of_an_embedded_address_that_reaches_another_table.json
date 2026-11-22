@@ -1,0 +1,11 @@
+{
+  "name": "a_property_of_an_embedded_address_that_reaches_another_table",
+  "finder": "EmployeeFinder",
+  "mapping": "joins_through_tables_mapping.md",
+  "query_text": "f.find_all([f.name(), f.home().street(), f.home().country(business_date=\"2024-01-01\").name()]).order_by(f.name().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"home"},"args":[],"kwargs":{}},"name":"street"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"home"},"args":[],"kwargs":{}},"name":"country"},"args":[],"kwargs":{"business_date":"2024-01-01"}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_property_of_an_embedded_address_that_reaches_another_table.csv",
+  "sql_contains": {
+    "duckdb": "LEFT OUTER JOIN hr.country_refs AS t2 ON (t0.home_country = t2.ref AND t2.valid_from <= '2024-01-01' AND t2.valid_to > '2024-01-01') LEFT OUTER JOIN hr.countries AS t1 ON (t1.code = t2.code)"
+  }
+}

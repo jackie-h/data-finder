@@ -1,0 +1,11 @@
+{
+  "name": "interval_between_two_datetimes",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2021-06-01 12:00:00\", [f.symbol(), (f.valid_to() - f.valid_from()).alias(\"length\")], f.symbol().eq(\"GOOG\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2021-06-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"binary","op":"-","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"valid_to"},"args":[],"kwargs":{}},"right":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"valid_from"},"args":[],"kwargs":{}}},"name":"alias"},"args":["length"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},
+  "result": "interval_between_two_datetimes.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot read the difference of two datetimes"
+  }
+}

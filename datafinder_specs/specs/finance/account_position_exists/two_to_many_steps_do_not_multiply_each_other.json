@@ -1,0 +1,11 @@
+{
+  "name": "two_to_many_steps_do_not_multiply_each_other",
+  "finder": "AccountFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2023-02-01 12:00:00\", [f.name()], f.trades().exists().and_(f.positions().exists()))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2023-02-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trades"},"args":[],"kwargs":{}},"name":"exists"},"args":[],"kwargs":{}},"name":"and_"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"positions"},"args":[],"kwargs":{}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
+  "result": "two_to_many_steps_do_not_multiply_each_other.csv",
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "a_date_after_every_range_ended_finds_only_the_open_one",
+  "finder": "RateFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all(\"2023-01-01\", None, [f.code(), f.amount()])",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":["2023-01-01",null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"code"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"amount"},"args":[],"kwargs":{}}]}],"kwargs":{}},
+  "result": "a_date_after_every_range_ended_finds_only_the_open_one.csv",
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

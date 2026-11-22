@@ -1,0 +1,8 @@
+{
+  "name": "filter_on_a_nested_embedded_property",
+  "finder": "PersonFinder",
+  "mapping": "people_denormalised_mapping.md",
+  "query_text": "f.find_all([f.first_name()], f.firm().address().name().ends_with(\"west\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"first_name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"firm"},"args":[],"kwargs":{}},"name":"address"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"ends_with"},"args":["west"],"kwargs":{}}],"kwargs":{}},
+  "result": "filter_on_a_nested_embedded_property.csv"
+}

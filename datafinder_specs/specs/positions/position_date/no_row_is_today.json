@@ -1,0 +1,11 @@
+{
+  "name": "no_row_is_today",
+  "finder": "PositionFinder",
+  "mapping": "positions_mapping.md",
+  "query_text": "f.find_all([f.id_()], f.trade_date().eq(today()))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"trade_date"},"args":[],"kwargs":{}},"name":"eq"},"args":[{"kind":"call","fn":{"kind":"global","name":"today"},"args":[],"kwargs":{}}],"kwargs":{}}],"kwargs":{}},
+  "result": "no_row_is_today.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no date functions beyond the parts of a date"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "null_end_rows_active_at_2024",
+  "finder": "PriceFinder",
+  "mapping": "null_end_milestoning_mapping.md",
+  "query_text": "f.find_all(None, datetime('2024-06-01T12:00:00'), [f.symbol()]).order_by(f.symbol().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,{"kind":"datetime","value":"2024-06-01T12:00:00"},{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "null_end_rows_active_at_2024.csv"
+}

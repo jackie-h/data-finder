@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_a_column_the_query_computes",
+  "finder": "PositionFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all([f.gsn()], (f.quantity() > 5))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"gsn"},"args":[],"kwargs":{}}]},{"kind":"binary","op":">","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"quantity"},"args":[],"kwargs":{}},"right":5}],"kwargs":{}},
+  "result": "a_filter_on_a_column_the_query_computes.csv",
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

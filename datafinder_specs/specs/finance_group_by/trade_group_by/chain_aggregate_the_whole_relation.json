@@ -1,0 +1,11 @@
+{
+  "name": "chain_aggregate_the_whole_relation",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2030-01-01 00:00:00\", [f.account().name().alias(\"account\"), f.symbol().alias(\"sym\"), f.price().alias(\"price\")]).aggregate(total=lambda r: r.price.sum(), highest=lambda r: r.price.max(), average_of_five=lambda r: (r.price.sum() / 5.0))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2030-01-01 00:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}},"name":"alias"},"args":["account"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"alias"},"args":["sym"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}},"name":"alias"},"args":["price"],"kwargs":{}}]}],"kwargs":{}},"name":"aggregate"},"args":[],"kwargs":{"total":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"price"},"name":"sum"},"args":[],"kwargs":{}}},"highest":{"kind":"lambda","params":["r"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"price"},"name":"max"},"args":[],"kwargs":{}}},"average_of_five":{"kind":"lambda","params":["r"],"body":{"kind":"binary","op":"/","left":{"kind":"call","fn":{"kind":"attr","on":{"kind":"attr","on":{"kind":"param","name":"r"},"name":"price"},"name":"sum"},"args":[],"kwargs":{}},"right":5.0}}}},
+  "result": "chain_aggregate_the_whole_relation.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot read a query as a relation yet"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "the_step_is_milestoned_inside_the_sub_select_with_the_time_it_is_given",
+  "finder": "BranchFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all([f.city()], f.accounts(processing_time=\"2021-06-01 12:00:00\").exists())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"city"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"accounts"},"args":[],"kwargs":{"processing_time":"2021-06-01 12:00:00"}},"name":"exists"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "the_step_is_milestoned_inside_the_sub_select_with_the_time_it_is_given.csv",
+  "sql_contains": {
+    "duckdb": "FROM ref_data.account_master AS t2 WHERE t2.in_z <="
+  },
+  "sql_not_contains": {
+    "duckdb": "t1.in_z"
+  },
+  "skip": {
+    "graphql": "exists/not_exists are not yet generated for GraphQL finders"
+  }
+}

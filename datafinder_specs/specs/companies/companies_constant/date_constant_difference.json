@@ -1,0 +1,11 @@
+{
+  "name": "date_constant_difference",
+  "finder": "CompanyFinder",
+  "mapping": "companies_mapping.md",
+  "query_text": "f.find_all([constant(date('2024-01-31')).diff_days(date('2024-02-10')).alias(\"days\"), constant(date('2024-01-31')).diff_months(date('2024-04-30')).alias(\"months\"), constant(date('2024-01-31')).diff_years(date('2026-01-31')).alias(\"years\")], f.id_().eq(1))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[{"kind":"date","value":"2024-01-31"}],"kwargs":{}},"name":"diff_days"},"args":[{"kind":"date","value":"2024-02-10"}],"kwargs":{}},"name":"alias"},"args":["days"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[{"kind":"date","value":"2024-01-31"}],"kwargs":{}},"name":"diff_months"},"args":[{"kind":"date","value":"2024-04-30"}],"kwargs":{}},"name":"alias"},"args":["months"],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"global","name":"constant"},"args":[{"kind":"date","value":"2024-01-31"}],"kwargs":{}},"name":"diff_years"},"args":[{"kind":"date","value":"2026-01-31"}],"kwargs":{}},"name":"alias"},"args":["years"],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"eq"},"args":[1],"kwargs":{}}],"kwargs":{}},
+  "result": "date_constant_difference.csv",
+  "skip": {
+    "graphql": "The GraphQL finder has no scalar functions"
+  }
+}

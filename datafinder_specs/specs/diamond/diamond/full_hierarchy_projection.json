@@ -1,0 +1,8 @@
+{
+  "name": "full_hierarchy_projection",
+  "finder": "RecordFinder",
+  "mapping": "diamond_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.created_at(), f.updated_at(), f.version(), f.record_name()], f.record_name().eq(\"Alpha\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"created_at"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"updated_at"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"version"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"record_name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"record_name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Alpha"],"kwargs":{}}],"kwargs":{}},
+  "result": "full_hierarchy_projection.csv"
+}

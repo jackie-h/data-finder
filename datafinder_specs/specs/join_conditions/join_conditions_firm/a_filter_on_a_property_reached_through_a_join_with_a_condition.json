@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_a_property_reached_through_a_join_with_a_condition",
+  "finder": "FirmFinder",
+  "mapping": "join_conditions_mapping.md",
+  "query_text": "f.find_all([f.legal_name()], f.employees().first_name().eq(\"Bob\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"legal_name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"employees"},"args":[],"kwargs":{}},"name":"first_name"},"args":[],"kwargs":{}},"name":"eq"},"args":["Bob"],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_on_a_property_reached_through_a_join_with_a_condition.csv",
+  "skip": {
+    "graphql": "The GraphQL finder reads no join conditions"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "name": "aapl_active_at_future_date",
+  "finder": "PriceFinder",
+  "mapping": "null_end_milestoning_mapping.md",
+  "query_text": "f.find_all(None, datetime('2099-01-01T00:00:00'), [f.symbol()], f.symbol().eq(\"AAPL\"))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,{"kind":"datetime","value":"2099-01-01T00:00:00"},{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["AAPL"],"kwargs":{}}],"kwargs":{}},
+  "result": "aapl_active_at_future_date.csv"
+}

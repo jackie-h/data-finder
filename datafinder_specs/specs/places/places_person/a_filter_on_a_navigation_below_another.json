@@ -1,0 +1,11 @@
+{
+  "name": "a_filter_on_a_navigation_below_another",
+  "finder": "PersonFinder",
+  "mapping": "places_mapping.md",
+  "query_text": "f.find_all([f.name(), (v1 := f.locations()).place(), v1.region().filter(lambda each: each.name().eq(\"East\")).name()]).order_by(f.name().ascending(), v1.place().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"let","id":1,"value":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"locations"},"args":[],"kwargs":{}}},"name":"place"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"region"},"args":[],"kwargs":{}},"name":"filter"},"args":[{"kind":"lambda","params":["each"],"body":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"param","name":"each"},"name":"name"},"args":[],"kwargs":{}},"name":"eq"},"args":["East"],"kwargs":{}}}],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"name"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"ref","id":1},"name":"place"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_filter_on_a_navigation_below_another.csv",
+  "skip": {
+    "graphql": "The GraphQL finder reads no filters of a navigation"
+  }
+}

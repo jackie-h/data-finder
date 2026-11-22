@@ -1,0 +1,11 @@
+{
+  "name": "filter_on_a_month_in_a_list",
+  "finder": "TradeFinder",
+  "mapping": "finance_mapping.md",
+  "query_text": "f.find_all(None, \"2023-12-01 12:00:00\", [f.symbol()], f.valid_from().month().is_in([1, 2]))",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,"2023-12-01 12:00:00",{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"valid_from"},"args":[],"kwargs":{}},"name":"month"},"args":[],"kwargs":{}},"name":"is_in"},"args":[{"kind":"list","items":[1,2]}],"kwargs":{}}],"kwargs":{}},
+  "result": "filter_on_a_month_in_a_list.csv",
+  "skip": {
+    "graphql": "The GraphQL finder cannot filter on a date function"
+  }
+}

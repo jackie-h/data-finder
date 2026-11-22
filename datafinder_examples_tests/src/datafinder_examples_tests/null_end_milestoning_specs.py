@@ -28,6 +28,7 @@ NULL_END_PRICE_FINDER_SPECS = FinderSpec(
         ),
         TestExpectation(
             name="expired_row_excluded_at_2024",
+            expected_types=["String"],
             query=lambda f: f.find_all(None, _AT_2024, [f.symbol()], f.symbol().eq("GOOG")),
             expected_columns=["Symbol"],
             expected_result=np.empty((0, 1), dtype=object),

@@ -1,0 +1,14 @@
+{
+  "name": "a_query_that_reads_another_query",
+  "finder": "ShoutFinder",
+  "mapping": "sql_queries_mapping.md",
+  "query_text": "f.find_all([f.id_(), f.text()]).order_by(f.id_().ascending())",
+  "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"text"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"order_by"},"args":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"id_"},"args":[],"kwargs":{}},"name":"ascending"},"args":[],"kwargs":{}}],"kwargs":{}},
+  "result": "a_query_that_reads_another_query.csv",
+  "sql_contains": {
+    "duckdb": "FROM (SELECT DISTINCT "
+  },
+  "skip": {
+    "graphql": "The GraphQL finder does not read a mapping's SQL queries"
+  }
+}

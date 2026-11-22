@@ -1,0 +1,7 @@
+Name,Locations Place,Locations Region Name
+String,String,String[0..1]
+Ann,Boston,East
+Ann,Hoboken,East
+Ann,New York,East
+Bob,Boston,East
+Cy,New York,
