@@ -15,7 +15,7 @@ from datafinder_examples_tests.sql_compare import (
 )
 
 from datafinder_legend_tests.legend import (
-    CONCAT_FUNCTION, DATE_DIFF_AS_SUBTRACTION, PERCENTILE_AS_DOUBLE, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL,
+    CONCAT_FUNCTION, DATE_DIFF_AS_SUBTRACTION, PERCENTILE_AS_DOUBLE, DATETIME_MILESTONING_DATE, PROCESSING_SNAPSHOT_DATETIME, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, FLOAT_AVERAGE, FLOAT_DIVISION, DECIMAL_LITERAL_CAST, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL, TIMESTAMP_LITERAL_FRACTION,
 )
 
 
@@ -50,6 +50,17 @@ def _untype_date_literals(tree: exp.Expr) -> exp.Expr:
         if isinstance(cast.this, exp.Literal) and cast.this.is_string and cast.to.this in (
                 exp.DataType.Type.DATE, exp.DataType.Type.TIMESTAMP, exp.DataType.Type.DATETIME):
             cast.replace(cast.this.copy())
+    return tree
+
+
+def _drop_zero_fraction_of_timestamp_literals(tree: exp.Expr) -> exp.Expr:
+    """``TIMESTAMP '2016-08-10 08:55:00.0'`` is ``TIMESTAMP '2016-08-10 08:55:00'``: a zero fraction of a second is not written."""
+    for cast in list(tree.find_all(exp.Cast)):
+        if isinstance(cast.this, exp.Literal) and cast.this.is_string and cast.to.this in (
+                exp.DataType.Type.TIMESTAMP, exp.DataType.Type.DATETIME):
+            text = cast.this.name
+            if text.endswith(".0") or (("." in text) and set(text.split(".")[1]) == {"0"}):
+                cast.this.replace(exp.Literal.string(text.split(".")[0]))
     return tree
 
 
@@ -260,6 +271,7 @@ _COVERED: dict[str, list[Callable[[exp.Expr], exp.Expr]]] = {
     LEFT_JOIN_ORDER: [_order_left_joins],
     EXISTS_SUB_SELECT_ORDER: [_order_sub_select_conditions, _order_left_joins],
     TYPED_DATE_LITERAL: [_untype_date_literals],
+    TIMESTAMP_LITERAL_FRACTION: [_drop_zero_fraction_of_timestamp_literals],
     DATETIME_MILESTONING_DATE: [_truncate_datetime_date],
     PROCESSING_SNAPSHOT_DATETIME: [_keep_truncated_datetime],
     CONCAT_FUNCTION: [_concat_function_to_pipes],

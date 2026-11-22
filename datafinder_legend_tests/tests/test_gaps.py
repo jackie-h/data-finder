@@ -2,7 +2,7 @@
 from datafinder_legend_tests.gaps import gap_is_only
 from datafinder_legend_tests.legend import (
     CONCAT_FUNCTION, DATETIME_MILESTONING_DATE, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER,
-    PROCESSING_SNAPSHOT_DATETIME, TDS_FILTER_OPTIONAL_PROPERTY,
+    PROCESSING_SNAPSHOT_DATETIME, TDS_FILTER_OPTIONAL_PROPERTY, TIMESTAMP_LITERAL_FRACTION,
 )
 
 def test_a_null_guard_is_covered_only_by_the_optional_property_gap():
@@ -71,3 +71,11 @@ def test_a_decimal_literal_cast_is_covered_only_by_its_gap():
     expected = "SELECT CAST(1.0 AS DECIMAL(32, 16)) FROM p AS t0 WHERE CAST(1.0 AS DECIMAL(32, 16)) = CAST(2.0 AS DECIMAL(32, 16))"
     assert gap_is_only(DECIMAL_LITERAL_CAST, actual, expected)
     assert not gap_is_only(DECIMAL_LITERAL_CAST, "SELECT 1.5 FROM p AS t0 WHERE 1.0 = 2.0", expected)
+
+
+def test_a_zero_fraction_of_a_timestamp_literal_is_covered_only_by_its_gap():
+    legend = "select extract(hour from TIMESTAMP'2016-08-10 08:55:00.0') as h from t"
+    assert gap_is_only(TIMESTAMP_LITERAL_FRACTION, "SELECT EXTRACT(HOUR FROM TIMESTAMP '2016-08-10 08:55:00') AS h FROM t", legend)
+    assert not gap_is_only(TIMESTAMP_LITERAL_FRACTION, "SELECT EXTRACT(HOUR FROM TIMESTAMP '2016-08-10 08:56:00') AS h FROM t", legend)
+    assert not gap_is_only(TIMESTAMP_LITERAL_FRACTION, "SELECT EXTRACT(HOUR FROM TIMESTAMP '2016-08-10 08:55:00') AS h FROM t",
+                           "select extract(hour from TIMESTAMP'2016-08-10 08:55:00.5') as h from t")

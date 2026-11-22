@@ -87,9 +87,9 @@ DATE_PART_TRUNCATE = (
     "Legend writes the date of a datetime as cast(truncate(x) as date); the finder writes cast(date_trunc('day', x) as date), which is the same date"
 )
 
-HOUR_OF_DATETIME_LITERAL = (
-    "the finder writes the hour of a datetime constant as EXTRACT(HOUR FROM TIMESTAMP '...'); Legend writes hour('...') on a bare "
-    "string, which DuckDB cannot run, so there are no rows of Legend's to compare"
+TIMESTAMP_LITERAL_FRACTION = (
+    "Legend writes a datetime constant with its fraction of a second, TIMESTAMP'2016-08-10 08:55:00.0'; the finder writes it without a zero "
+    "fraction, TIMESTAMP '2016-08-10 08:55:00', which is the same instant"
 )
 
 CLASS_FILTER_AS_QUERY = (

@@ -9,7 +9,7 @@ import datetime
 from datafinder import constant, now
 from datafinder_examples_tests.spec import FinderSpec
 
-from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DATE_ARITHMETIC_SHAPE, LIMIT_OF_LIMIT, ROWS, HOUR_OF_DATETIME_LITERAL, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL
+from datafinder_legend_tests.legend import ported, unsupported, BACKEND, DATE_ARITHMETIC_SHAPE, LIMIT_OF_LIMIT, ROWS, TIMESTAMP_LITERAL_FRACTION, TDS_FILTER_OPTIONAL_PROPERTY, TYPED_DATE_LITERAL
 
 _SRC = "tds/tests/testTDSProject.pure"
 
@@ -49,9 +49,8 @@ TDS_PROJECT_SPECS = FinderSpec(
                'select "root".FIRSTNAME as "first_name", \'Hello\' as "const", char_length("root".FIRSTNAME) as "name_length" from personTable as "root"',
                lambda f: f.find_all([f.first_name(), constant("Hello"), f.first_name().length()])),
         ported("testDateLiteral", f"{_SRC}::testDateLiteral",
-               'select "root".FIRSTNAME as "firstName", \'2016-08-10\' as "dateLiteral" from personTable as "root"',
-               lambda f: f.find_all([f.first_name(), constant(datetime.date(2016, 8, 10))]),
-               known_gaps={BACKEND: TYPED_DATE_LITERAL, ROWS: TYPED_DATE_LITERAL}),
+               'select "root".FIRSTNAME as "firstName", DATE\'2016-08-10\' as "dateLiteral" from personTable as "root"',
+               lambda f: f.find_all([f.first_name(), constant(datetime.date(2016, 8, 10))])),
         ported("testProjectOnMultiple", f"{_SRC}::testProjectOnMultiple",
                'select "root".FIRSTNAME as "first_name", "root".LASTNAME as "last_name", char_length("root".FIRSTNAME) + char_length("root".LASTNAME) as "combined_length" from personTable as "root"',
                lambda f: f.find_all([f.first_name(), f.last_name(), f.first_name().length() + f.last_name().length()])),
@@ -83,9 +82,9 @@ TDS_PROJECT_SPECS = FinderSpec(
                'select "root".FIRSTNAME as "first_name", char_length("root".FIRSTNAME) as "name_length", char_length("root".FIRSTNAME) * 2 as "double_name_length" from personTable as "root"',
                lambda f: f.find_all([f.first_name(), f.first_name().length(), f.first_name().length() * 2])),
         ported("testHourFunction", f"{_SRC}::testHourFunction",
-               'select "root".FIRSTNAME as "firstName", hour(\'2016-08-10 08:55:00.0\') as "hour" from personTable as "root"',
+               'select "root".FIRSTNAME as "firstName", extract(hour from TIMESTAMP\'2016-08-10 08:55:00.0\') as "hour" from personTable as "root"',
                lambda f: f.find_all([f.first_name().alias("firstName"), constant(datetime.datetime(2016, 8, 10, 8, 55)).hour().alias("hour")]),
-               known_gaps={BACKEND: HOUR_OF_DATETIME_LITERAL, ROWS: HOUR_OF_DATETIME_LITERAL}),
+               known_gaps={BACKEND: TIMESTAMP_LITERAL_FRACTION}),
         ported("testProjectEnumFromOpenVariable", f"{_SRC}::testProjectEnumFromOpenVariable",
                     'select "root".FIRSTNAME as "firstName", dateadd(day, 1, now()) > now() as "tomorrowGreaterThanToday" from personTable as "root"',
                     lambda f: f.find_all([f.first_name().alias("firstName"), (now().add_days(1) > now()).alias("tomorrowGreaterThanToday")]),
