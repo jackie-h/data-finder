@@ -14,6 +14,10 @@ FILTERED_STEP_BELOW_A_FILTERED_STEP = (
     "Legend reads a filtered step below another filtered step from a derived table of its filtered rows; the finder puts the "
     "condition in the ON of its join, which returns the same rows"
 )
+EXISTS_THROUGH_A_FILTERED_STEP = (
+    "Legend repeats the filter of the step and reads whether the step below it has a row through a derived table of distinct rows; the "
+    "finder joins the filtered step and the one below it and tests the key, which returns the same rows"
+)
 RESTRICT_AFTER_GROUP_BY = (
     "Legend restricts the columns of a group by in a derived table around it; here the group by selects only the "
     "columns that are kept, which returns the same rows"

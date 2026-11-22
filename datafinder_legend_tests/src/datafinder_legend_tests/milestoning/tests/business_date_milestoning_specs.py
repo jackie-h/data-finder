@@ -11,7 +11,7 @@ from datafinder import now
 from datafinder_examples_tests.spec import FinderSpec
 
 from datafinder_legend_tests.legend import QUALIFIED_PROPERTIES, USER_DEFINED_FUNCTIONS, not_supported, AGGREGATE_IN_DERIVED_TABLE, DATE_ARITHMETIC_SHAPE, ISOLATED_JOIN_DATE_ADDED, BACKEND, CORRELATED_EXISTS, EXISTS_COLUMN_SUB_SELECT, EXISTS_SUB_SELECT_ORDER, ISOLATED_MILESTONED_JOIN, LEFT_JOIN_ORDER, ported, unsupported
-from datafinder_legend_tests.legend import TYPED_DATE_LITERAL
+from datafinder_legend_tests.legend import TYPED_DATE_LITERAL, EXISTS_THROUGH_A_FILTERED_STEP
 from datafinder_legend_tests.legend import ROWS, STRING_AGG_ORDER
 
 _SRC = "milestoning/tests/testBusinessDateMilestoning.pure"
@@ -64,9 +64,6 @@ BUSINESS_DATE_MILESTONING_SPECS = FinderSpec(
         unsupported("testMultiLevelIsolatedToSubSelectHasCorrectExtraColumns", f"{_SRC}::testMultiLevelIsolatedToSubSelectHasCorrectExtraColumns",
                     'select "root".id as "id", case when "productexchangetable_0".city = \'London\' then \'true\' else \'false\' end as "isBrexitClassificationTypeExchange" from ProductTable as "root" left outer join ProductClassificationTable as "productclassificationtable_0" on ("root".type = "productclassificationtable_0".type and "productclassificationtable_0".thru_z = TIMESTAMP\'9999-12-31 00:00:00.0000\') left outer join (select "productexchangetable_1".city as city, "productexchangetable_1".name as name from ProductExchangeTable as "productexchangetable_1" where "productexchangetable_1".thru_z = TIMESTAMP\'9999-12-31 00:00:00.0000\') as "productexchangetable_0" on ("productclassificationtable_0".exchange = "productexchangetable_0".name) where "root".thru_z = TIMESTAMP\'9999-12-31 00:00:00.0000\'',
                     '%latest, and a property that is an expression of the enumeration of a joined classification'),
-        unsupported("testMilestoningFilterPropagationThroughNestedFilter", f"{_SRC}::testMilestoningFilterPropagationThroughNestedFilter",
-                    'select "root".name as "name" from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) left outer join (select distinct "orderdescriptiontable_0".id from ProductTable as "root" left outer join OrderTable as "ordertable_1" on ("ordertable_1".prodFk = "root".id) left outer join OrderDescriptionTable as "orderdescriptiontable_0" on ("ordertable_1".id = "orderdescriptiontable_0".id and "orderdescriptiontable_0".id = 1) where "ordertable_1".id = 1 and "root".from_z <= DATE\'2015-08-15\' and "root".thru_z > DATE\'2015-08-15\') as "producttable_1" on ("ordertable_0".id = "producttable_1".id and "producttable_1".id = 1) where "ordertable_0".id = 1 and "root".from_z <= DATE\'2015-08-15\' and "root".thru_z > DATE\'2015-08-15\' and not "producttable_1".id is null and "root".from_z <= DATE\'2015-08-15\' and "root".thru_z > DATE\'2015-08-15\'',
-                    'a filter inside a navigation (a nested filter on a to-many step)'),
         not_supported("testCalculationOnBusinessDateInGetAll", f"{_SRC}::testCalculationOnBusinessDateInGetAll",
                     'select "unionalias_0"."businessDate" as "businessDate", "unionalias_0"."name" as "name" from (select "root".name as "name", cast(truncate(DATE\'2015-10-16\') as date) as "businessDate" from ProductTable as "root" where "root".from_z <= DATE\'2015-10-16\' and "root".thru_z > DATE\'2015-10-16\' union all select "root".name as "name", cast(truncate(dateadd(day, -1, DATE\'2015-10-16\')) as date) as "businessDate" from ProductTable as "root" where "root".from_z <= dateadd(day, -1, DATE\'2015-10-16\') and "root".thru_z > dateadd(day, -1, DATE\'2015-10-16\')) as "unionalias_0" order by "businessDate" asc, "name" asc',
                     USER_DEFINED_FUNCTIONS),
@@ -194,6 +191,10 @@ BUSINESS_DATE_EXISTS_SPECS = FinderSpec(
                'select "root".name as "name", not "producttable_1".prodFk is null as "check" from ProductTable as "root" left outer join (select distinct "ordertable_0".prodFk from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) where "ordertable_0".id = 1) as "producttable_1" on ("producttable_1".prodFk = "root".id) where "root".from_z <= \'2015-08-15\' and "root".thru_z > \'2015-08-15\'',
                lambda f: f.find_all("2015-08-15", None, [f.name(), f.orders(id=1).exists()]),
                known_gaps={BACKEND: EXISTS_COLUMN_SUB_SELECT}),
+        ported("testMilestoningFilterPropagationThroughNestedFilter", f"{_SRC}::testMilestoningFilterPropagationThroughNestedFilter",
+               'select "root".name as "name" from ProductTable as "root" left outer join OrderTable as "ordertable_0" on ("ordertable_0".prodFk = "root".id) left outer join (select distinct "orderdescriptiontable_0".id from ProductTable as "root" left outer join OrderTable as "ordertable_1" on ("ordertable_1".prodFk = "root".id) left outer join OrderDescriptionTable as "orderdescriptiontable_0" on ("ordertable_1".id = "orderdescriptiontable_0".id and "orderdescriptiontable_0".id = 1) where "ordertable_1".id = 1 and "root".from_z <= DATE\'2015-08-15\' and "root".thru_z > DATE\'2015-08-15\') as "producttable_1" on ("ordertable_0".id = "producttable_1".id and "producttable_1".id = 1) where "ordertable_0".id = 1 and "root".from_z <= DATE\'2015-08-15\' and "root".thru_z > DATE\'2015-08-15\' and not "producttable_1".id is null and "root".from_z <= DATE\'2015-08-15\' and "root".thru_z > DATE\'2015-08-15\'',
+               lambda f: f.find_all("2015-08-15", None, [f.name()], f.orders().filter(lambda o: o.id_().eq(1)).description().exists()),
+               known_gaps={BACKEND: EXISTS_THROUGH_A_FILTERED_STEP}),
     ],
 )
 
