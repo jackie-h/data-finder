@@ -12,6 +12,7 @@
     "duckdb": "GREATEST"
   },
   "skip": {
-    "graphql": "Views are not supported by the GraphQL backend"
+    "graphql": "Views are not supported by the GraphQL backend",
+    "spark": "The Spark engine does not create views"
   }
 }

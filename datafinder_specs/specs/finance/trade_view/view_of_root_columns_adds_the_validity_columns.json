@@ -6,6 +6,7 @@
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"price"},"args":[],"kwargs":{}}]}],"kwargs":{}},"name":"to_view"},"args":["trade_prices","reporting"],"kwargs":{}},"name":"result"},"args":[],"kwargs":{}},"name":"order_by"},"args":["symbol"],"kwargs":{}},
   "result": "view_of_root_columns_adds_the_validity_columns.csv",
   "skip": {
-    "graphql": "Views are not supported by the GraphQL backend"
+    "graphql": "Views are not supported by the GraphQL backend",
+    "spark": "The Spark engine does not create views"
   }
 }

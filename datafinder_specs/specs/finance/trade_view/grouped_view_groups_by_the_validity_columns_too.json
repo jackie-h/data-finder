@@ -9,6 +9,7 @@
     "duckdb": "grouped_view_groups_by_the_validity_columns_too.duckdb.sql"
   },
   "skip": {
-    "graphql": "Views are not supported by the GraphQL backend"
+    "graphql": "Views are not supported by the GraphQL backend",
+    "spark": "The Spark engine does not create views"
   }
 }

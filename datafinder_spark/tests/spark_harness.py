@@ -1,6 +1,7 @@
 """Loads the example data into Spark and gives the finder of a mapping that reads it, so that the shared specs run against Spark as they run against DuckDB."""
 import contextlib
 import importlib
+import pathlib
 import re
 import shutil
 import sys
@@ -64,3 +65,37 @@ def finder_of(spark, mapping_file: str, tables: list[TableData], module: str, cl
             sys.modules.pop(name, None)
         shutil.rmtree(tmp, ignore_errors=True)
 
+
+
+def _module_of(directory, class_name: str) -> str:
+    """The dotted name of the generated module that defines the class."""
+    found = [path for path in directory.rglob("*.py") if re.search(rf"^class {class_name}\b", path.read_text(), re.MULTILINE)]
+    if len(found) != 1:
+        raise LookupError(f"{class_name} is defined by {len(found)} generated modules, not one")
+    return ".".join(found[0].relative_to(directory).with_suffix("").parts)
+
+
+@contextlib.contextmanager
+def finders_of(spark, mapping_file: str, tables: list[TableData], class_names: list[str]):
+    """The finders ``class_names`` that the mapping generates, by name, over Spark with the tables loaded: where each is generated is found in what is."""
+    SparkConnect.configure(spark)
+    QueryRunnerBase.clear()
+    QueryRunnerBase.register(SparkConnect)
+    tmp = tempfile.mkdtemp()
+    directory = pathlib.Path(tmp)
+    generate(load(str(example_path(mapping_file))), tmp)
+    modules = {name: _module_of(directory, name) for name in class_names}
+    tops = {module.split(".")[0] for module in modules.values()}
+    cleared = lambda: [name for name in sys.modules if any(name == top or name.startswith((top + "_", top + ".")) for top in tops)]  # noqa: E731
+    for name in cleared():
+        sys.modules.pop(name, None)
+    sys.path.insert(0, tmp)
+    try:
+        load_tables(spark, tables)
+        yield {name: getattr(importlib.import_module(module), name)() for name, module in modules.items()}
+    finally:
+        if tmp in sys.path:
+            sys.path.remove(tmp)
+        for name in cleared():
+            sys.modules.pop(name, None)
+        shutil.rmtree(tmp, ignore_errors=True)

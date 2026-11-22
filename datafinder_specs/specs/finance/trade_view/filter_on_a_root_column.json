@@ -6,6 +6,7 @@
   "query": {"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"find_all"},"args":[null,null,{"kind":"list","items":[{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"account"},"args":[],"kwargs":{}},"name":"name"},"args":[],"kwargs":{}}]},{"kind":"call","fn":{"kind":"attr","on":{"kind":"call","fn":{"kind":"attr","on":{"kind":"finder"},"name":"symbol"},"args":[],"kwargs":{}},"name":"eq"},"args":["GOOG"],"kwargs":{}}],"kwargs":{}},"name":"to_view"},"args":["goog_account","reporting"],"kwargs":{}},"name":"result"},"args":[],"kwargs":{}},
   "result": "filter_on_a_root_column.csv",
   "skip": {
-    "graphql": "Views are not supported by the GraphQL backend"
+    "graphql": "Views are not supported by the GraphQL backend",
+    "spark": "The Spark engine does not create views"
   }
 }
