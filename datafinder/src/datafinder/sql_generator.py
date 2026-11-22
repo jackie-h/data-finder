@@ -1352,11 +1352,11 @@ class SQLQueryGenerator:
         ta = self.__table_alias_for_table(column.owner_relation, key=self.__join_target_key(parent) if parent is not None else None)
         return _column_reference(ta.name, column.name)
 
-    def __join_target_key(self, parent: JoinTreeNodeOperation):
+    def __join_target_key(self, parent: JoinTreeNodeOperation | None):
         """Cache key for the join target alias. Always keyed by node identity so the
         alias in SELECT matches the alias registered in __add_join. A node that is joined twice is keyed by its own
         identity where the WHERE reads it, and by another where anything else does."""
-        if id(parent) in self.__split_ids and not self.__reading_where:
+        if parent is not None and id(parent) in self.__split_ids and not self.__reading_where:
             return self.__projection_keys.setdefault(id(parent), _ProjectionJoin(parent))
         return parent
 
